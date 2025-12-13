@@ -161,9 +161,13 @@ export default function SearchPage() {
             {/* Booking Modal */}
             {selectedTeacher && (
                 <CreateBookingModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    teacherName={selectedTeacher.teacherProfile.displayName || 'المعلم'}
+                    isOpen={isModalOpen && selectedTeacher !== null}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedTeacher(null);
+                    }}
+                    teacherId={selectedTeacher.teacherProfile.id}
+                    teacherName={selectedTeacher.teacherProfile.displayName || 'معلم سدرة'}
                     teacherSubjects={[
                         {
                             id: selectedTeacher.subject.id,

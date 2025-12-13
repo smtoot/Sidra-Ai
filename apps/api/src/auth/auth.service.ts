@@ -56,6 +56,25 @@ export class AuthService {
     return this.signToken(user.id, user.email, user.role);
   }
 
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        parentProfile: {
+          include: {
+            students: true,
+          },
+        },
+        teacherProfile: true,
+      },
+    });
+
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const { passwordHash, ...result } = user;
+    return result;
+  }
+
   private async signToken(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
     return {

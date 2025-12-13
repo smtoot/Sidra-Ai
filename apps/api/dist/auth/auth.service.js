@@ -89,6 +89,23 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid credentials');
         return this.signToken(user.id, user.email, user.role);
     }
+    async getProfile(userId) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                parentProfile: {
+                    include: {
+                        students: true,
+                    },
+                },
+                teacherProfile: true,
+            },
+        });
+        if (!user)
+            throw new common_1.UnauthorizedException('User not found');
+        const { passwordHash, ...result } = user;
+        return result;
+    }
     async signToken(userId, email, role) {
         const payload = { sub: userId, email, role };
         return {

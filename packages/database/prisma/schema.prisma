@@ -171,6 +171,7 @@ model Subject {
   
   curricula       CurriculumSubject[]
   teacherSubjects TeacherSubject[]
+  bookings        Booking[]
 
   @@map("subjects")
 }
@@ -296,7 +297,9 @@ model Booking {
   parentProfile   ParentProfile  @relation(fields: [parentId], references: [id])
   studentId       String
   student         Student        @relation(fields: [studentId], references: [id])
+
   subjectId       String
+  subject         Subject        @relation(fields: [subjectId], references: [id])
   
   // Session Details
   startTime       DateTime      // UTC

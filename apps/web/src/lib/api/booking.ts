@@ -35,6 +35,11 @@ export interface Booking {
     teacherProfile?: any;
     parentProfile?: any;
     student?: any;
+    subject?: {
+        id: string;
+        nameAr: string;
+        nameEn: string;
+    };
 }
 
 export const bookingApi = {
@@ -60,6 +65,11 @@ export const bookingApi = {
 
     getParentBookings: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/parent/my-bookings');
+        return response.data;
+    },
+
+    payBooking: async (id: string) => {
+        const response = await api.patch(`/bookings/${id}/pay`);
         return response.data;
     }
 };

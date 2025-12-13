@@ -1,14 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import 'react-day-picker/dist/style.css';
+import { bookingApi } from '@/lib/api/booking';
+import { authApi, Student } from '@/lib/api/auth';
+import { useRouter } from 'next/navigation';
 
 interface CreateBookingModalProps {
     isOpen: boolean;
     onClose: () => void;
+    teacherId: string;
     teacherName: string;
     teacherSubjects: { id: string; name: string; price: number }[];
 }
@@ -16,27 +20,54 @@ interface CreateBookingModalProps {
 export function CreateBookingModal({
     isOpen,
     onClose,
+    teacherId,
     teacherName,
     teacherSubjects
 }: CreateBookingModalProps) {
+    const router = useRouter();
     const [selectedDate, setSelectedDate] = useState<Date>();
     const [selectedTime, setSelectedTime] = useState<string>('');
     const [selectedSubject, setSelectedSubject] = useState<string>('');
     const [selectedStudent, setSelectedStudent] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Mock students data (will be replaced with real data)
-    const mockStudents = [
-        { id: '1', name: 'أحمد محمد' },
-        { id: '2', name: 'فاطمة علي' }
+    // Data state
+    const [students, setStudents] = useState<Student[]>([]);
+    const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+
+    // Mock time slots - In a real app, mock these or fetch availability
+    const timeSlots = [
+        '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+        '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM',
+        '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM'
     ];
 
-    // Mock time slots
-    const timeSlots = [
-        '9:00 ص', '10:00 ص', '11:00 ص', '12:00 م',
-        '1:00 م', '2:00 م', '3:00 م', '4:00 م',
-        '5:00 م', '6:00 م', '7:00 م', '8:00 م'
-    ];
+    // Format time slot for display (Arabic)
+    const formatTimeSlot = (time: string) => {
+        const [hourStr, period] = time.split(' ');
+        let suffix = period === 'AM' ? 'ص' : 'م';
+        return `${hourStr} ${suffix}`;
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchStudents();
+        }
+    }, [isOpen]);
+
+    const fetchStudents = async () => {
+        setIsLoadingStudents(true);
+        try {
+            const profile = await authApi.getProfile();
+            if (profile.parentProfile?.students) {
+                setStudents(profile.parentProfile.students);
+            }
+        } catch (error) {
+            console.error('Failed to fetch students:', error);
+        } finally {
+            setIsLoadingStudents(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -44,22 +75,45 @@ export function CreateBookingModal({
     const canSubmit = selectedDate && selectedTime && selectedSubject && selectedStudent;
 
     const handleSubmit = async () => {
-        if (!canSubmit) return;
+        if (!canSubmit || !selectedSubjectData) return;
 
         setIsLoading(true);
-        // API integration will be added after visual approval
-        console.log('Booking data:', {
-            date: selectedDate,
-            time: selectedTime,
-            subject: selectedSubject,
-            student: selectedStudent,
-            price: selectedSubjectData?.price
-        });
+        try {
+            // Construct start and end times
+            // Note: This is a simplified date construction. In prod use date-fns properly with timezones.
+            const [timeStr, period] = selectedTime.split(' ');
+            const [hours, minutes] = timeStr.split(':').map(Number);
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsLoading(false);
-        onClose();
+            const startDateTime = new Date(selectedDate!);
+            let hour24 = hours;
+            if (period === 'PM' && hours !== 12) hour24 += 12;
+            if (period === 'AM' && hours === 12) hour24 = 0;
+
+            startDateTime.setHours(hour24, minutes, 0, 0);
+
+            const endDateTime = new Date(startDateTime);
+            endDateTime.setHours(hour24 + 1); // 1 hour session
+
+            await bookingApi.createRequest({
+                teacherId,
+                studentId: selectedStudent,
+                subjectId: selectedSubject,
+                price: selectedSubjectData.price,
+                startTime: startDateTime.toISOString(),
+                endTime: endDateTime.toISOString()
+            });
+
+            // Success
+            onClose();
+            router.push('/parent/bookings'); // Redirect to bookings page to pay
+
+        } catch (error) {
+            console.error('Failed to create booking:', error);
+            // Ideally show a toast here
+            alert('فشل إنشاء الحجز. الرجاء المحاولة مرة أخرى.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -99,8 +153,8 @@ export function CreateBookingModal({
                                     <label
                                         key={subject.id}
                                         className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSubject === subject.id
-                                                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                                                : 'border-gray-200 hover:border-primary/50'
+                                            ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                            : 'border-gray-200 hover:border-primary/50'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -125,18 +179,27 @@ export function CreateBookingModal({
                             <label className="block text-sm font-bold text-text-main mb-3">
                                 اختر الطالب
                             </label>
-                            <select
-                                value={selectedStudent}
-                                onChange={(e) => setSelectedStudent(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                            >
-                                <option value="">اختر الطالب...</option>
-                                {mockStudents.map((student) => (
-                                    <option key={student.id} value={student.id}>
-                                        {student.name}
-                                    </option>
-                                ))}
-                            </select>
+                            {isLoadingStudents ? (
+                                <div className="text-sm text-gray-500">جاري تحميل الطلاب...</div>
+                            ) : (
+                                <select
+                                    value={selectedStudent}
+                                    onChange={(e) => setSelectedStudent(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                >
+                                    <option value="">اختر الطالب...</option>
+                                    {students.map((student) => (
+                                        <option key={student.id} value={student.id}>
+                                            {student.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            {students.length === 0 && !isLoadingStudents && (
+                                <p className="text-xs text-red-500 mt-1">
+                                    لا يوجد طلاب مسجلين في ملفك. يرجى إضافة طالب أولاً.
+                                </p>
+                            )}
                         </div>
 
                         {/* Date Selection */}
@@ -176,11 +239,11 @@ export function CreateBookingModal({
                                             key={time}
                                             onClick={() => setSelectedTime(time)}
                                             className={`py-3 rounded-lg border text-sm font-medium transition-all ${selectedTime === time
-                                                    ? 'border-secondary bg-secondary text-white shadow-md shadow-secondary/20'
-                                                    : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
+                                                ? 'border-secondary bg-secondary text-white shadow-md shadow-secondary/20'
+                                                : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
                                                 }`}
                                         >
-                                            {time}
+                                            {formatTimeSlot(time)}
                                         </button>
                                     ))}
                                 </div>

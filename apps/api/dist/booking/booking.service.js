@@ -53,7 +53,8 @@ let BookingService = class BookingService {
             include: {
                 teacherProfile: { include: { user: true } },
                 parentProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             }
         });
     }
@@ -109,7 +110,8 @@ let BookingService = class BookingService {
             },
             include: {
                 parentProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             },
             orderBy: { createdAt: 'asc' }
         });
@@ -124,7 +126,8 @@ let BookingService = class BookingService {
             where: { teacherId: teacherProfile.id },
             include: {
                 parentProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             },
             orderBy: { startTime: 'desc' }
         });
@@ -139,7 +142,8 @@ let BookingService = class BookingService {
             where: { parentId: parentProfile.id },
             include: {
                 teacherProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             },
             orderBy: { createdAt: 'desc' }
         });

@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { bookingApi, Booking, BookingStatus } from '@/lib/api/booking';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PaymentConfirmModal } from '@/components/booking/PaymentConfirmModal';
 
 export default function ParentBookingsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
 
     const loadBookings = async () => {
         setLoading(true);
@@ -69,8 +71,8 @@ export default function ParentBookingsPage() {
                     <div className="space-y-4">
                         {bookings.map((booking) => (
                             <div key={booking.id} className="bg-surface rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow">
-                                <div className="flex justify-between items-start gap-6">
-                                    <div className="flex-1 space-y-3">
+                                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                                    <div className="flex-1 space-y-3 w-full">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -101,12 +103,39 @@ export default function ParentBookingsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4">
-                                            <span className="font-bold text-lg text-primary">{booking.price} SDG</span>
-                                            {booking.cancelReason && (
-                                                <span className="text-xs text-error bg-error/10 px-2 py-1 rounded">
-                                                    سبب الإلغاء: {booking.cancelReason}
-                                                </span>
+                                        <div className="flex items-center justify-between mt-4">
+                                            <div className="flex items-center gap-4">
+                                                <span className="font-bold text-lg text-primary">{booking.price} SDG</span>
+                                                {booking.cancelReason && (
+                                                    <span className="text-xs text-error bg-error/10 px-2 py-1 rounded">
+                                                        سبب الإلغاء: {booking.cancelReason}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            {booking.status === 'WAITING_FOR_PAYMENT' && (
+                                                <button
+                                                    onClick={() => setSelectedBookingForPayment(booking)}
+                                                    className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-hover transition-colors flex items-center gap-2 shadow-sm"
+                                                >
+                                                    <CreditCard className="w-4 h-4" />
+                                                    ادفع الآن
+                                                </button>
+                                            )}
+
+                                            {(booking.status === 'SCHEDULED' || booking.status === 'COMPLETED') && (
+                                                <button
+                                                    className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                                                    onClick={() => {
+                                                        // Ideally fetch link securely or duplicate it from booking if available
+                                                        // For now assuming we might add a link field or use a helper
+                                                        alert('سيتم توجيهك إلى رابط الاجتماع (ZOOM/Meet)');
+                                                    }}
+                                                >
+                                                    <span className="material-symbols-outlined text-[20px]">video_camera_front</span>
+                                                    انضم للاجتماع
+                                                </button>
                                             )}
                                         </div>
                                     </div>
@@ -116,6 +145,18 @@ export default function ParentBookingsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Payment Modal */}
+            {selectedBookingForPayment && (
+                <PaymentConfirmModal
+                    isOpen={!!selectedBookingForPayment}
+                    onClose={() => setSelectedBookingForPayment(null)}
+                    booking={selectedBookingForPayment}
+                    onPaymentSuccess={() => {
+                        loadBookings(); // Refresh list to show updated status
+                    }}
+                />
+            )}
         </div>
     );
 }

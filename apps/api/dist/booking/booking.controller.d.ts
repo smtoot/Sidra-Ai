@@ -56,6 +56,12 @@ export declare class BookingController {
             parentId: string;
             gradeLevel: string | null;
         };
+        subject: {
+            id: string;
+            isActive: boolean;
+            nameAr: string;
+            nameEn: string;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -127,6 +133,12 @@ export declare class BookingController {
             parentId: string;
             gradeLevel: string | null;
         };
+        subject: {
+            id: string;
+            isActive: boolean;
+            nameAr: string;
+            nameEn: string;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -165,6 +177,12 @@ export declare class BookingController {
             name: string;
             parentId: string;
             gradeLevel: string | null;
+        };
+        subject: {
+            id: string;
+            isActive: boolean;
+            nameAr: string;
+            nameEn: string;
         };
     } & {
         id: string;
@@ -218,6 +236,12 @@ export declare class BookingController {
             name: string;
             parentId: string;
             gradeLevel: string | null;
+        };
+        subject: {
+            id: string;
+            isActive: boolean;
+            nameAr: string;
+            nameEn: string;
         };
     } & {
         id: string;

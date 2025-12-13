@@ -256,7 +256,7 @@ export default function TeacherProfilePage() {
                                 <span>احجز الآن</span>
                                 <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform rtl:rotate-180">arrow_forward</span>
                             </button>
-                            
+
                             <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-400">
                                 <div className="flex items-center gap-1">
                                     <span className="material-symbols-outlined text-[16px]">event_repeat</span>
@@ -277,6 +277,7 @@ export default function TeacherProfilePage() {
             <CreateBookingModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                teacherId="mock-teacher-id"
                 teacherName="الأستاذ عمر عبدالله"
                 teacherSubjects={mockTeacherSubjects}
             />

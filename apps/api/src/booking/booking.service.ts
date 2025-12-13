@@ -51,7 +51,8 @@ export class BookingService {
             include: {
                 teacherProfile: { include: { user: true } },
                 parentProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             }
         });
     }
@@ -116,7 +117,8 @@ export class BookingService {
             },
             include: {
                 parentProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             },
             orderBy: { createdAt: 'asc' }
         });
@@ -134,7 +136,8 @@ export class BookingService {
             where: { teacherId: teacherProfile.id },
             include: {
                 parentProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             },
             orderBy: { startTime: 'desc' }
         });
@@ -152,7 +155,8 @@ export class BookingService {
             where: { parentId: parentProfile.id },
             include: {
                 teacherProfile: { include: { user: true } },
-                student: true
+                student: true,
+                subject: true
             },
             orderBy: { createdAt: 'desc' }
         });
