@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User & Auth
+enum UserRole {
+  PARENT
+  TEACHER
+  ADMIN
+  SUPPORT
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  role          UserRole
+  phoneNumber   String?
+  isActive      Boolean   @default(true)
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  parentProfile   ParentProfile?
+  teacherProfile  TeacherProfile?
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model ParentProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  
+  // Children
+  students  Student[]
+
+  @@map("parent_profiles")
+}
+
+model TeacherProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  
+  bio         String?
+  meetingLink String?  // Encrypted at rest
+  
+  @@map("teacher_profiles")
+}
+
+model Student {
+  id              String         @id @default(uuid())
+  parentId        String
+  parent          ParentProfile  @relation(fields: [parentId], references: [id])
+  name            String
+  gradeLevel      String?
+  
+  @@map("students")
+}
+
+// Dynamic Data (No Enums for Content)
+model Curriculum {
+  id        String    @id @default(uuid())
+  nameAr    String
+  nameEn    String
+  isActive  Boolean   @default(true)
+  
+  subjects  CurriculumSubject[]
+
+  @@map("curricula")
+}
+
+model Subject {
+  id        String    @id @default(uuid())
+  nameAr    String
+  nameEn    String
+  isActive  Boolean   @default(true)
+  
+  curricula CurriculumSubject[]
+
+  @@map("subjects")
+}
+
+model CurriculumSubject {
+  curriculumId String
+  subjectId    String
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+
+  @@id([curriculumId, subjectId])
+  @@map("curriculum_subjects")
+}
+
+// System
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String   // e.g., "PAYMENT_REJECTED", "USER_BANNED"
+  payload   Json?
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  targetId  String?  // ID of the object being acted upon
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_logs")
+}
