@@ -4,9 +4,10 @@ import { Star, GraduationCap, Briefcase, MapPin } from 'lucide-react';
 
 interface TeacherCardProps {
     result: SearchResult;
+    onBook?: (teacher: SearchResult) => void;
 }
 
-export default function TeacherCard({ result }: TeacherCardProps) {
+export default function TeacherCard({ result, onBook }: TeacherCardProps) {
     const { teacherProfile, subject, curriculum, pricePerHour } = result;
 
     return (
@@ -58,13 +59,21 @@ export default function TeacherCard({ result }: TeacherCardProps) {
 
             {/* Actions & Price */}
             <div className="flex flex-col justify-between items-end min-w-[140px] border-r border-gray-100 pr-6 gap-4">
-                <div className="text-left">
+                <div className="text-left w-full">
                     <p className="text-xs text-text-subtle">سعر الحصة</p>
                     <p className="text-xl font-bold text-primary">{pricePerHour} <span className="text-sm font-normal">SDG</span></p>
                 </div>
-                <Button className="w-full">
-                    عرض الملف
-                </Button>
+                <div className="w-full space-y-2">
+                    <Button
+                        className="w-full bg-primary hover:bg-primary-hover text-white font-bold shadow-soft"
+                        onClick={() => onBook?.(result)}
+                    >
+                        احجز الآن
+                    </Button>
+                    <Button variant="outline" className="w-full border-primary/20 text-primary hover:bg-primary/5">
+                        عرض الملف
+                    </Button>
+                </div>
             </div>
         </div>
     );

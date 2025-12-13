@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, Filter } from 'lucide-react';
+import { CreateBookingModal } from '@/components/booking/CreateBookingModal';
 
 export default function SearchPage() {
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -17,6 +18,10 @@ export default function SearchPage() {
     const [subjectId, setSubjectId] = useState('');
     const [curriculumId, setCurriculumId] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
+
+    // Booking Modal State
+    const [selectedTeacher, setSelectedTeacher] = useState<SearchResult | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Data for dropdowns
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -54,6 +59,11 @@ export default function SearchPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleBook = (teacher: SearchResult) => {
+        setSelectedTeacher(teacher);
+        setIsModalOpen(true);
     };
 
     return (
@@ -137,12 +147,32 @@ export default function SearchPage() {
                         <div className="space-y-4">
                             <p className="text-sm text-text-subtle">تم العثور على {results.length} معلم</p>
                             {results.map(result => (
-                                <TeacherCard key={result.id} result={result} />
+                                <TeacherCard
+                                    key={result.id}
+                                    result={result}
+                                    onBook={handleBook}
+                                />
                             ))}
                         </div>
                     )}
                 </main>
             </div>
+
+            {/* Booking Modal */}
+            {selectedTeacher && (
+                <CreateBookingModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    teacherName={selectedTeacher.teacherProfile.displayName || 'المعلم'}
+                    teacherSubjects={[
+                        {
+                            id: selectedTeacher.subject.id,
+                            name: selectedTeacher.subject.nameAr,
+                            price: Number(selectedTeacher.pricePerHour)
+                        }
+                    ]}
+                />
+            )}
         </div>
     );
 }
