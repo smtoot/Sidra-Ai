@@ -8,24 +8,36 @@
 
   --color-accent: #D4A056;
   --color-accent-foreground: #FFFFFF;
+  --color-secondary: #D4A056;
+  /* Alias for accent (Sandy Gold) */
 
   --color-background: #F9F9F9;
+  --color-background-light: #f5f7f8;
   --color-surface: #FFFFFF;
+  --color-cream-light: #FFFBF6;
 
   --color-text: #333333;
+  --color-text-main: #333333;
   --color-text-subtle: #666666;
+  --color-text-light: #6b7280;
 
   --color-success: #27AE60;
   --color-error: #E74C3C;
   --color-warning: #F39C12;
 
   --color-input: #E2E8F0;
-  /* Light grey border */
   --color-ring: #003366;
   --color-destructive: #E74C3C;
   --color-destructive-foreground: #FFFFFF;
 
+  /* Custom Shadows */
+  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  --shadow-float: 0 10px 30px -5px rgba(0, 51, 102, 0.1);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.03);
+
   /* Fonts */
+  --font-display: var(--font-tajawal), Lexend, sans-serif;
+  --font-body: var(--font-tajawal), sans-serif;
   --font-tajawal: var(--font-tajawal);
   --font-poppins: var(--font-poppins);
 
@@ -33,9 +45,71 @@
   --font-sans: var(--font-poppins), var(--font-tajawal), sans-serif;
 }
 
-/* Custom Utilities if needed */
+/* Custom Utilities */
 @layer base {
   body {
     @apply font-sans bg-background text-text antialiased;
   }
+}
+
+@layer utilities {
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Custom Scrollbar (WebKit) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* React Day Picker Custom Styles */
+.rdp-custom {
+  --rdp-cell-size: 36px;
+  --rdp-accent-color: var(--color-primary);
+  --rdp-background-color: var(--color-primary);
+  direction: rtl;
+}
+
+.rdp-custom .rdp-months {
+  direction: rtl;
+}
+
+.rdp-custom .rdp-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.rdp-custom .rdp-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rdp-custom .rdp-day {
+  font-size: 0.875rem;
+}
+
+.rdp-custom .rdp-day_selected {
+  background-color: var(--color-primary) !important;
+  color: white !important;
+}
+
+.rdp-custom .rdp-day_today {
+  font-weight: bold;
+  color: var(--color-primary);
 }

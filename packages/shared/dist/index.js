@@ -14,9 +14,29 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./src/auth/register.dto"), exports);
+exports.UserRole = void 0;
+// Auth
 __exportStar(require("./src/auth/login.dto"), exports);
+__exportStar(require("./src/auth/register.dto"), exports);
+// Marketplace
 __exportStar(require("./src/marketplace/create-curriculum.dto"), exports);
 __exportStar(require("./src/marketplace/update-curriculum.dto"), exports);
 __exportStar(require("./src/marketplace/create-subject.dto"), exports);
 __exportStar(require("./src/marketplace/update-subject.dto"), exports);
+__exportStar(require("./src/marketplace/search.dto"), exports);
+// Wallet
+__exportStar(require("./src/wallet/wallet.dto"), exports);
+// Booking
+__exportStar(require("./src/booking/booking.dto"), exports);
+// Teacher
+__exportStar(require("./src/teacher/update-profile.dto"), exports);
+__exportStar(require("./src/teacher/teacher-subject.dto"), exports);
+__exportStar(require("./src/teacher/availability.dto"), exports);
+// Global enums
+var UserRole;
+(function (UserRole) {
+    UserRole["PARENT"] = "PARENT";
+    UserRole["TEACHER"] = "TEACHER";
+    UserRole["ADMIN"] = "ADMIN";
+    UserRole["SUPPORT"] = "SUPPORT";
+})(UserRole || (exports.UserRole = UserRole = {}));

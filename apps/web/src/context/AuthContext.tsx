@@ -45,8 +45,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await api.post('/auth/login', dto);
         localStorage.setItem('token', data.access_token);
         const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+
+        // Store user info for Navigation
+        localStorage.setItem('userRole', payload.role);
+        localStorage.setItem('userName', payload.email.split('@')[0]); // Extract name from email
+
         setUser({ id: payload.sub, email: payload.email, role: payload.role });
-        router.push('/dashboard');
+
+        // Role-based redirect
+        if (payload.role === 'PARENT') {
+            router.push('/search');
+        } else if (payload.role === 'TEACHER') {
+            router.push('/teacher/profile');
+        } else if (payload.role === 'ADMIN') {
+            router.push('/admin/financials');
+        } else {
+            router.push('/');
+        }
     };
 
     const register = async (dto: RegisterDto) => {

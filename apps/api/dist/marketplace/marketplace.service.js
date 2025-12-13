@@ -17,6 +17,27 @@ let MarketplaceService = class MarketplaceService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    async searchTeachers(dto) {
+        const whereClause = {};
+        if (dto.subjectId) {
+            whereClause.subjectId = dto.subjectId;
+        }
+        if (dto.curriculumId) {
+            whereClause.curriculumId = dto.curriculumId;
+        }
+        if (dto.maxPrice) {
+            whereClause.pricePerHour = { lte: dto.maxPrice };
+        }
+        const results = await this.prisma.teacherSubject.findMany({
+            where: whereClause,
+            include: {
+                teacherProfile: true,
+                subject: true,
+                curriculum: true,
+            },
+        });
+        return results;
+    }
     async createCurriculum(dto) {
         return this.prisma.curriculum.create({
             data: {

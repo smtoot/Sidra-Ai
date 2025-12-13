@@ -24,6 +24,9 @@ let MarketplaceController = class MarketplaceController {
     constructor(marketplaceService) {
         this.marketplaceService = marketplaceService;
     }
+    searchTeachers(query) {
+        return this.marketplaceService.searchTeachers(query);
+    }
     createCurriculum(dto) {
         return this.marketplaceService.createCurriculum(dto);
     }
@@ -58,6 +61,13 @@ let MarketplaceController = class MarketplaceController {
     }
 };
 exports.MarketplaceController = MarketplaceController;
+__decorate([
+    (0, common_1.Get)('teachers'),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [shared_1.SearchTeachersDto]),
+    __metadata("design:returntype", void 0)
+], MarketplaceController.prototype, "searchTeachers", null);
 __decorate([
     (0, common_1.Post)('curricula'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

@@ -1,7 +1,9 @@
+import "reflect-metadata";
 import type { Metadata } from "next";
 import { Tajawal, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -33,7 +35,9 @@ export default function RootLayout({
         className={`${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
       >
         <AuthProvider>
-          {children}
+          <DashboardLayout>
+            {children}
+          </DashboardLayout>
         </AuthProvider>
       </body>
     </html>
