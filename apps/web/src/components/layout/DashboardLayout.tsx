@@ -3,26 +3,25 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Navigation } from '@/components/layout/Navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const [userRole, setUserRole] = useState<'PARENT' | 'TEACHER' | 'ADMIN' | null>(null);
-    const [userName, setUserName] = useState<string>('');
+    const { user, isLoading } = useAuth();
 
-    useEffect(() => {
-        // Get user info from localStorage
-        const role = localStorage.getItem('userRole') as 'PARENT' | 'TEACHER' | 'ADMIN' | null;
-        const name = localStorage.getItem('userName') || '';
+    // Don't show navigation on specific public pages
+    // For '/', show only if NOT logged in
+    const hideNavPages = ['/login', '/register'];
+    const isPublicPage = hideNavPages.includes(pathname);
+    const isHome = pathname === '/';
 
-        setUserRole(role);
-        setUserName(name);
-    }, []);
+    if (isLoading) return <>{children}</>;
 
-    // Don't show navigation on public pages
-    const publicPages = ['/login', '/register', '/'];
-    const isPublicPage = publicPages.includes(pathname);
+    const userRole = user?.role as 'PARENT' | 'TEACHER' | 'ADMIN' | undefined;
+    const userName = user?.email.split('@')[0];
 
-    if (isPublicPage || !userRole) {
+    // Check if we should render navigation
+    if (isPublicPage || (isHome && !userRole) || !userRole) {
         return <>{children}</>;
     }
 

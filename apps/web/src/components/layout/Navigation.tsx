@@ -29,22 +29,25 @@ const menuItems: Record<string, NavItem[]> = {
     ],
     ADMIN: [
         { label: 'الإدارة المالية', href: '/admin/financials', icon: DollarSign },
+        { label: 'طلبات المعلمين', href: '/admin/teachers', icon: Users },
+        { label: 'المستخدمين', href: '/admin/users', icon: User },
+        { label: 'إدارة المحتوى', href: '/admin/content', icon: BookOpen },
     ],
 };
+
+import { useAuth } from '@/context/AuthContext';
+
+// ... imports
 
 export function Navigation({ userRole, userName }: NavigationProps) {
     const pathname = usePathname();
     const router = useRouter();
+    const { logout } = useAuth();
 
     const items = menuItems[userRole] || [];
 
     const handleLogout = () => {
-        // Clear localStorage
-        localStorage.removeItem('token');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userName');
-
-        // Redirect to login
+        logout();
         router.push('/login');
     };
 
@@ -69,8 +72,8 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                             key={item.href}
                             onClick={() => router.push(item.href)}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-right ${isActive
-                                    ? 'bg-primary text-white'
-                                    : 'text-text hover:bg-gray-100'
+                                ? 'bg-primary text-white'
+                                : 'text-text hover:bg-gray-100'
                                 }`}
                         >
                             <Icon className="w-5 h-5" />

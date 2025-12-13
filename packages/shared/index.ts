@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 // Auth
 export * from './src/auth/login.dto';
 export * from './src/auth/register.dto';

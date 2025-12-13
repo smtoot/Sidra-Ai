@@ -68,6 +68,14 @@ export class BookingController {
         return this.bookingService.payForBooking(req.user.userId, id);
     }
 
+    // Teacher marks session as completed
+    @Patch(':id/complete-session')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    completeSession(@Request() req: any, @Param('id') id: string) {
+        return this.bookingService.completeSession(req.user.userId, id);
+    }
+
     // Admin marks booking as completed
     @Patch(':id/complete')
     @UseGuards(RolesGuard)

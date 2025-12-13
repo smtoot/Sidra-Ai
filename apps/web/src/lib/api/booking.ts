@@ -35,6 +35,7 @@ export interface Booking {
     teacherProfile?: any;
     parentProfile?: any;
     student?: any;
+    meetingLink?: string;
     subject?: {
         id: string;
         nameAr: string;
@@ -58,8 +59,18 @@ export const bookingApi = {
         return response.data;
     },
 
+    completeSession: async (id: string) => {
+        const response = await api.patch(`/bookings/${id}/complete-session`);
+        return response.data;
+    },
+
     getTeacherRequests: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/teacher/requests');
+        return response.data;
+    },
+
+    getTeacherSessions: async (): Promise<Booking[]> => {
+        const response = await api.get('/bookings/teacher/my-sessions');
         return response.data;
     },
 

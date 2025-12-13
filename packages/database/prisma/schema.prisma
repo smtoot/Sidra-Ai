@@ -7,7 +7,220 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User & Auth
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String
+  role           UserRole
+  phoneNumber    String?
+  isActive       Boolean         @default(true)
+  isVerified     Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  auditLogs      AuditLog[]
+  parentProfile  ParentProfile?
+  teacherProfile TeacherProfile?
+  wallet         Wallet?
+
+  @@map("users")
+}
+
+model ParentProfile {
+  id       String    @id @default(uuid())
+  userId   String    @unique
+  bookings Booking[]
+  user     User      @relation(fields: [userId], references: [id])
+  students Student[]
+
+  @@map("parent_profiles")
+}
+
+model TeacherProfile {
+  id                     String             @id @default(uuid())
+  userId                 String             @unique
+  bio                    String?
+  averageRating          Float              @default(0)
+  cancellationPolicy     CancellationPolicy @default(FLEXIBLE)
+  education              String?
+  encryptedMeetingLink   String?
+  gender                 Gender?
+  hasCompletedOnboarding Boolean            @default(false)
+  kycRejectionReason     String?
+  kycStatus              KYCStatus          @default(PENDING)
+  onboardingStep         Int                @default(0)
+  totalReviews           Int                @default(0)
+  totalSessions          Int                @default(0)
+  yearsOfExperience      Int?
+  displayName            String?
+  availability           Availability[]
+  bankInfo               BankInfo?
+  bookings               Booking[]
+  documents              Document[]
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects               TeacherSubject[]
+
+  @@map("teacher_profiles")
+}
+
+model Student {
+  id         String        @id @default(uuid())
+  parentId   String
+  name       String
+  gradeLevel String?
+  bookings   Booking[]
+  parent     ParentProfile @relation(fields: [parentId], references: [id])
+
+  @@map("students")
+}
+
+model Curriculum {
+  id              String              @id @default(uuid())
+  nameAr          String
+  nameEn          String
+  isActive        Boolean             @default(true)
+  subjects        CurriculumSubject[]
+  teacherSubjects TeacherSubject[]
+
+  @@map("curricula")
+}
+
+model Subject {
+  id              String              @id @default(uuid())
+  nameAr          String
+  nameEn          String
+  isActive        Boolean             @default(true)
+  curricula       CurriculumSubject[]
+  teacherSubjects TeacherSubject[]
+
+  @@map("subjects")
+}
+
+model CurriculumSubject {
+  curriculumId String
+  subjectId    String
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+
+  @@id([curriculumId, subjectId])
+  @@map("curriculum_subjects")
+}
+
+model TeacherSubject {
+  id             String         @id @default(uuid())
+  teacherId      String
+  subjectId      String
+  curriculumId   String
+  pricePerHour   Decimal        @db.Decimal(10, 2)
+  gradeLevels    String[]
+  curriculum     Curriculum     @relation(fields: [curriculumId], references: [id])
+  subject        Subject        @relation(fields: [subjectId], references: [id])
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_subjects")
+}
+
+model Availability {
+  id             String         @id @default(uuid())
+  teacherId      String
+  dayOfWeek      DayOfWeek
+  startTime      String
+  endTime        String
+  isRecurring    Boolean        @default(true)
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("availability")
+}
+
+model Document {
+  id             String         @id @default(uuid())
+  teacherId      String
+  type           DocumentType
+  fileName       String
+  fileUrl        String
+  uploadedAt     DateTime       @default(now())
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model BankInfo {
+  id                String         @id @default(uuid())
+  teacherId         String         @unique
+  bankName          String
+  accountNumber     String
+  accountHolderName String
+  iban              String?
+  swiftCode         String?
+  teacherProfile    TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("bank_info")
+}
+
+model Wallet {
+  id             String        @id @default(uuid())
+  userId         String        @unique
+  balance        Decimal       @default(0) @db.Decimal(10, 2)
+  pendingBalance Decimal       @default(0) @db.Decimal(10, 2)
+  currency       String        @default("SDG")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  transactions   Transaction[]
+  user           User          @relation(fields: [userId], references: [id])
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id             String            @id @default(uuid())
+  walletId       String
+  amount         Decimal           @db.Decimal(10, 2)
+  type           TransactionType
+  status         TransactionStatus @default(PENDING)
+  referenceImage String?
+  adminNote      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  wallet         Wallet            @relation(fields: [walletId], references: [id])
+
+  @@map("transactions")
+}
+
+model Booking {
+  id             String         @id @default(uuid())
+  teacherId      String
+  parentId       String
+  studentId      String
+  subjectId      String
+  startTime      DateTime
+  endTime        DateTime
+  meetingLink    String?
+  price          Decimal        @db.Decimal(10, 2)
+  commissionRate Decimal        @default(0.18) @db.Decimal(5, 2)
+  status         BookingStatus  @default(PENDING_TEACHER_APPROVAL)
+  cancelReason   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  parentProfile  ParentProfile  @relation(fields: [parentId], references: [id])
+  student        Student        @relation(fields: [studentId], references: [id])
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  @@map("bookings")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  payload   Json?
+  actorId   String
+  targetId  String?
+  createdAt DateTime @default(now())
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
 enum UserRole {
   PARENT
   TEACHER
@@ -41,7 +254,6 @@ enum DocumentType {
   OTHER
 }
 
-// Days of week
 enum DayOfWeek {
   SUNDAY
   MONDAY
@@ -52,7 +264,6 @@ enum DayOfWeek {
   SATURDAY
 }
 
-// Phase 2 Enums
 enum TransactionType {
   DEPOSIT
   WITHDRAWAL
@@ -67,214 +278,6 @@ enum TransactionStatus {
   REJECTED
 }
 
-model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String
-  role          UserRole
-  phoneNumber   String?
-  isActive      Boolean   @default(true)
-  isVerified    Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  parentProfile   ParentProfile?
-  teacherProfile  TeacherProfile?
-  wallet          Wallet?
-  auditLogs       AuditLog[]
-
-  @@map("users")
-}
-
-model ParentProfile {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  
-  // Children
-  students  Student[]
-  bookings  Booking[]
-
-  @@map("parent_profiles")
-}
-
-model TeacherProfile {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  displayName       String?
-  bio               String?
-  yearsOfExperience Int?
-  education         String?
-  gender            Gender?
-  
-  // KYC
-  kycStatus          KYCStatus @default(PENDING)
-  kycRejectionReason String?
-  
-  // Onboarding
-  hasCompletedOnboarding Boolean @default(false)
-  onboardingStep         Int     @default(0)
-  
-  // Settings
-  cancellationPolicy CancellationPolicy @default(FLEXIBLE)
-  
-  // Secure Data
-  encryptedMeetingLink String?
-
-  // Stats (Denormalized)
-  averageRating Float @default(0)
-  totalReviews  Int   @default(0)
-  totalSessions Int   @default(0)
-  
-  // Relations
-  subjects    TeacherSubject[]
-  availability Availability[]
-  documents   Document[]
-  bankInfo    BankInfo?
-  bookings    Booking[]
-  
-  @@map("teacher_profiles")
-}
-
-model Student {
-  id              String         @id @default(uuid())
-  parentId        String
-  parent          ParentProfile  @relation(fields: [parentId], references: [id])
-  name            String
-  gradeLevel      String?
-  bookings        Booking[]
-  
-  @@map("students")
-}
-
-// Dynamic Data
-model Curriculum {
-  id        String    @id @default(uuid())
-  nameAr    String
-  nameEn    String
-  isActive  Boolean   @default(true)
-  
-  subjects        CurriculumSubject[]
-  teacherSubjects TeacherSubject[]
-
-  @@map("curricula")
-}
-
-model Subject {
-  id        String    @id @default(uuid())
-  nameAr    String
-  nameEn    String
-  isActive  Boolean   @default(true)
-  
-  curricula       CurriculumSubject[]
-  teacherSubjects TeacherSubject[]
-  bookings        Booking[]
-
-  @@map("subjects")
-}
-
-model CurriculumSubject {
-  curriculumId String
-  subjectId    String
-  curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
-  subject      Subject    @relation(fields: [subjectId], references: [id])
-
-  @@id([curriculumId, subjectId])
-  @@map("curriculum_subjects")
-}
-
-model TeacherSubject {
-  id              String         @id @default(uuid())
-  teacherId       String
-  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  subjectId       String
-  subject         Subject        @relation(fields: [subjectId], references: [id])
-  curriculumId    String
-  curriculum      Curriculum     @relation(fields: [curriculumId], references: [id])
-  
-  pricePerHour    Decimal        @db.Decimal(10, 2)
-  gradeLevels     String[]       
-  
-  @@map("teacher_subjects")
-}
-
-model Availability {
-  id              String         @id @default(uuid())
-  teacherId       String
-  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  dayOfWeek       DayOfWeek
-  startTime       String         
-  endTime         String         
-  isRecurring     Boolean        @default(true)
-  
-  @@map("availability")
-}
-
-model Document {
-  id              String         @id @default(uuid())
-  teacherId       String
-  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  type            DocumentType
-  fileName        String
-  fileUrl         String
-  uploadedAt      DateTime       @default(now())
-  
-  @@map("documents")
-}
-
-model BankInfo {
-  id                String         @id @default(uuid())
-  teacherId         String         @unique
-  teacherProfile    TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  bankName          String
-  accountNumber     String
-  accountHolderName String
-  iban              String?
-  swiftCode         String?
-  
-  @@map("bank_info")
-}
-
-// --- Phase 2: Wallets & Financials ---
-
-model Wallet {
-  id             String        @id @default(uuid())
-  userId         String        @unique
-  user           User          @relation(fields: [userId], references: [id])
-  balance        Decimal       @default(0) @db.Decimal(10, 2) // Available (Parent credits / Teacher payout ready)
-  pendingBalance Decimal       @default(0) @db.Decimal(10, 2) // Locked/Escrow
-  currency       String        @default("SDG")
-  transactions   Transaction[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  
-  @@map("wallets")
-}
-
-model Transaction {
-  id             String            @id @default(uuid())
-  walletId       String
-  wallet         Wallet            @relation(fields: [walletId], references: [id])
-  amount         Decimal           @db.Decimal(10, 2)
-  type           TransactionType
-  status         TransactionStatus @default(PENDING)
-  referenceImage String?           // URL to receipt image
-  adminNote      String?           // Rejection reason
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  
-  @@map("transactions")
-}
-
-// --- Phase 2B: Booking Core ---
-
 enum BookingStatus {
   PENDING_TEACHER_APPROVAL
   WAITING_FOR_PAYMENT
@@ -285,52 +288,4 @@ enum BookingStatus {
   CANCELLED_BY_PARENT
   CANCELLED_BY_ADMIN
   EXPIRED
-}
-
-model Booking {
-  id              String        @id @default(uuid())
-  
-  // Relations
-  teacherId       String
-  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id])
-  parentId        String
-  parentProfile   ParentProfile  @relation(fields: [parentId], references: [id])
-  studentId       String
-  student         Student        @relation(fields: [studentId], references: [id])
-
-  subjectId       String
-  subject         Subject        @relation(fields: [subjectId], references: [id])
-  
-  // Session Details
-  startTime       DateTime      // UTC
-  endTime         DateTime      // UTC
-  meetingLink     String?       // Copied from teacher profile or per-session
-  
-  // Pricing (Snapshot at booking time)
-  price           Decimal       @db.Decimal(10, 2)
-  commissionRate  Decimal       @default(0.18) @db.Decimal(5, 2) // 18%
-  
-  // Status & Metadata
-  status          BookingStatus @default(PENDING_TEACHER_APPROVAL)
-  cancelReason    String?
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  @@map("bookings")
-}
-
-// System
-model AuditLog {
-  id        String   @id @default(uuid())
-  action    String   
-  payload   Json?
-  actorId   String
-  actor     User     @relation(fields: [actorId], references: [id])
-  targetId  String?  
-  createdAt DateTime @default(now())
-
-  @@index([actorId])
-  @@index([action])
-  @@map("audit_logs")
 }

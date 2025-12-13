@@ -9,6 +9,7 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { TeacherModule } from './teacher/teacher.module';
 import { WalletModule } from './wallet/wallet.module';
 import { BookingModule } from './booking/booking.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { BookingModule } from './booking/booking.module';
     MarketplaceModule,
     WalletModule,
     BookingModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

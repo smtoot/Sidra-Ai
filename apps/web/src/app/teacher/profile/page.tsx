@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Metadata } from 'next';
 import TeacherProfileWizard from '@/components/teacher/TeacherProfileWizard';
 

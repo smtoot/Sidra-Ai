@@ -248,4 +248,27 @@ export class BookingService {
             data: { status: 'COMPLETED' }
         });
     }
+
+    async completeSession(teacherUserId: string, bookingId: string) {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                teacherProfile: true
+            }
+        });
+
+        if (!booking) throw new NotFoundException('Booking not found');
+
+        // Check ownership
+        const teacherProfile = await this.prisma.teacherProfile.findUnique({
+            where: { userId: teacherUserId }
+        });
+
+        if (!teacherProfile || booking.teacherId !== teacherProfile.id) {
+            throw new BadRequestException('Not authorized to complete this session');
+        }
+
+        // Reuse the logic
+        return this.markCompleted(bookingId);
+    }
 }

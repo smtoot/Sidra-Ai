@@ -15,6 +15,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserRole = void 0;
+require("reflect-metadata");
 // Auth
 __exportStar(require("./src/auth/login.dto"), exports);
 __exportStar(require("./src/auth/register.dto"), exports);

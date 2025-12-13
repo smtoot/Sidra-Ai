@@ -37,12 +37,21 @@ export const walletApi = {
         return response.data;
     },
 
-    deposit: async (dto: DepositRequest) => {
-        const response = await api.post('/wallet/deposit', dto);
+    deposit: async (data: DepositRequest) => {
+        const response = await api.post('/wallet/deposit', data);
         return response.data;
     },
 
     // Admin
+    getAdminStats: async () => {
+        const response = await api.get('/wallet/admin/stats');
+        return response.data as {
+            totalRevenue: number;
+            pendingPayouts: { amount: number; count: number };
+            totalPayouts: number;
+        };
+    },
+
     getPendingTransactions: async () => {
         const response = await api.get('/wallet/admin/pending');
         return response.data;

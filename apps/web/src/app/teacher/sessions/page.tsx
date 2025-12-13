@@ -2,29 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { bookingApi, Booking, BookingStatus } from '@/lib/api/booking';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, CreditCard, Video } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PaymentConfirmModal } from '@/components/booking/PaymentConfirmModal';
 
-export default function ParentBookingsPage() {
+export default function TeacherSessionsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
 
-    const loadBookings = async () => {
+    const loadSessions = async () => {
         setLoading(true);
         try {
-            const data = await bookingApi.getParentBookings();
+            const data = await bookingApi.getTeacherSessions();
             setBookings(data);
         } catch (error) {
-            console.error("Failed to load bookings", error);
+            console.error("Failed to load sessions", error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadBookings();
+        loadSessions();
     }, []);
 
     const getStatusBadge = (status: BookingStatus) => {
@@ -55,8 +53,8 @@ export default function ParentBookingsPage() {
         <div className="min-h-screen bg-background font-tajawal rtl p-8">
             <div className="max-w-6xl mx-auto space-y-8">
                 <header>
-                    <h1 className="text-3xl font-bold text-primary">حجوزاتي</h1>
-                    <p className="text-text-subtle">جميع الحصص المحجوزة</p>
+                    <h1 className="text-3xl font-bold text-primary">حصصي</h1>
+                    <p className="text-text-subtle">الجدول الدراسي وجميع الحصص</p>
                 </header>
 
                 {loading ? (
@@ -64,8 +62,8 @@ export default function ParentBookingsPage() {
                 ) : bookings.length === 0 ? (
                     <div className="bg-surface rounded-xl p-12 text-center border border-gray-100">
                         <Calendar className="w-16 h-16 mx-auto text-text-subtle mb-4" />
-                        <h3 className="text-xl font-bold text-primary mb-2">لا توجد حجوزات</h3>
-                        <p className="text-text-subtle">ابحث عن معلم واحجز حصة جديدة</p>
+                        <h3 className="text-xl font-bold text-primary mb-2">لا توجد حصص مجدولة</h3>
+                        <p className="text-text-subtle">عندما يتم حجز حصص جديدة ستظهر هنا</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -80,9 +78,11 @@ export default function ParentBookingsPage() {
                                                 </div>
                                                 <div>
                                                     <h3 className="font-bold text-primary">
-                                                        {booking.teacherProfile?.displayName || booking.teacherProfile?.user?.email}
+                                                        {booking.student?.name || 'طالب مجهول'}
                                                     </h3>
-                                                    <p className="text-sm text-text-subtle">الطالب: {booking.student?.name}</p>
+                                                    <p className="text-sm text-text-subtle">
+                                                        {booking.subject?.nameAr || booking.subjectId}
+                                                    </p>
                                                 </div>
                                             </div>
                                             {getStatusBadge(booking.status)}
@@ -104,38 +104,40 @@ export default function ParentBookingsPage() {
                                         </div>
 
                                         <div className="flex items-center justify-between mt-4">
-                                            <div className="flex items-center gap-4">
-                                                <span className="font-bold text-lg text-primary">{booking.price} SDG</span>
-                                                {booking.cancelReason && (
-                                                    <span className="text-xs text-error bg-error/10 px-2 py-1 rounded">
-                                                        سبب الإلغاء: {booking.cancelReason}
-                                                    </span>
-                                                )}
+                                            <div className="font-bold text-lg text-primary">
+                                                {booking.price} SDG
                                             </div>
 
                                             {/* Action Buttons */}
-                                            {booking.status === 'WAITING_FOR_PAYMENT' && (
-                                                <button
-                                                    onClick={() => setSelectedBookingForPayment(booking)}
-                                                    className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-hover transition-colors flex items-center gap-2 shadow-sm"
-                                                >
-                                                    <CreditCard className="w-4 h-4" />
-                                                    ادفع الآن
-                                                </button>
-                                            )}
-
                                             {booking.status === 'SCHEDULED' && (
-                                                <button
-                                                    className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
-                                                    onClick={() => {
-                                                        // Ideally fetch link securely or duplicate it from booking if available
-                                                        // For now assuming we might add a link field or use a helper
-                                                        alert('سيتم توجيهك إلى رابط الاجتماع (ZOOM/Meet)');
-                                                    }}
-                                                >
-                                                    <Video className="w-5 h-5" />
-                                                    انضم للاجتماع
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm text-sm"
+                                                        onClick={() => {
+                                                            window.open(booking.meetingLink || 'https://meet.google.com', '_blank');
+                                                        }}
+                                                    >
+                                                        <Video className="w-4 h-4" />
+                                                        بدء الاجتماع
+                                                    </button>
+                                                    <button
+                                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm text-sm"
+                                                        onClick={async () => {
+                                                            if (confirm('هل انتهت الحصة بالفعل؟ سيتم تحويل الأرباح إلى محفظتك.')) {
+                                                                try {
+                                                                    await bookingApi.completeSession(booking.id);
+                                                                    loadSessions(); // Refresh
+                                                                } catch (err) {
+                                                                    alert('حدث خطأ أثناء إنهاء الحصة');
+                                                                    console.error(err);
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
+                                                        <CheckCircle className="w-4 h-4" />
+                                                        إنهاء الحصة
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -145,18 +147,6 @@ export default function ParentBookingsPage() {
                     </div>
                 )}
             </div>
-
-            {/* Payment Modal */}
-            {selectedBookingForPayment && (
-                <PaymentConfirmModal
-                    isOpen={!!selectedBookingForPayment}
-                    onClose={() => setSelectedBookingForPayment(null)}
-                    booking={selectedBookingForPayment}
-                    onPaymentSuccess={() => {
-                        loadBookings(); // Refresh list to show updated status
-                    }}
-                />
-            )}
         </div>
     );
 }

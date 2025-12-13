@@ -23,6 +23,13 @@ export class WalletController {
 
     // --- Admin ---
 
+    @Get('admin/stats')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    getStats() {
+        return this.walletService.getAdminStats();
+    }
+
     @Get('admin/pending')
     @UseGuards(RolesGuard)
     @Roles(UserRole.ADMIN)

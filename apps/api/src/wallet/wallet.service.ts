@@ -43,6 +43,36 @@ export class WalletService {
 
     // --- Admin ---
 
+    async getAdminStats() {
+        const [totalDeposits, pendingWithdrawals, completedPayouts] = await Promise.all([
+            // Total Deposits
+            this.prisma.transaction.aggregate({
+                where: { type: TransactionType.DEPOSIT, status: TransactionStatus.APPROVED },
+                _sum: { amount: true }
+            }),
+            // Pending Withdrawals
+            this.prisma.transaction.aggregate({
+                where: { type: TransactionType.WITHDRAWAL, status: TransactionStatus.PENDING },
+                _sum: { amount: true },
+                _count: true
+            }),
+            // Completed Payouts
+            this.prisma.transaction.aggregate({
+                where: { type: TransactionType.WITHDRAWAL, status: TransactionStatus.APPROVED },
+                _sum: { amount: true }
+            })
+        ]);
+
+        return {
+            totalRevenue: totalDeposits._sum.amount || 0, // Proxy for now
+            pendingPayouts: {
+                amount: pendingWithdrawals._sum.amount || 0,
+                count: pendingWithdrawals._count
+            },
+            totalPayouts: completedPayouts._sum.amount || 0
+        };
+    }
+
     async getPendingTransactions() {
         return this.prisma.transaction.findMany({
             where: { status: TransactionStatus.PENDING },
@@ -86,9 +116,22 @@ export class WalletService {
                             balance: { increment: transaction.amount }
                         }
                     });
+                } else if (transaction.type === TransactionType.WITHDRAWAL) {
+                    // Reduce balance logic (usually done at request time differently, but here maybe confirm)
+                    // If withdrawal request locks funds -> then here we just mark done.
+                    // If withdrawal request didn't lock -> here we decrement.
+                    // Assuming for MVP withdrawal request logic decrements 'available' and increments 'pending_withdraw'.
+                    // Let's assume simplest: Withdrawal request JUST creates pending TX.
+                    // So approval DECREMENTS balance.
+                    await tx.wallet.update({
+                        where: { id: transaction.walletId },
+                        data: {
+                            balance: { decrement: transaction.amount }
+                        }
+                    });
                 }
-                // Handle Withdrawal logic in future
             }
+            // If Rejected Withdrawal, no balance change if it wasn't locked.
 
             return updatedTx;
         });

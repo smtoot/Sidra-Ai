@@ -115,4 +115,37 @@ export class TeacherService {
     // Logic to calculate step 0-100% or step number
     return { hasCompletedOnboarding: profile.hasCompletedOnboarding, step: profile.onboardingStep };
   }
+
+  // --- Admin ---
+
+  async getPendingTeachers() {
+    return this.prisma.user.findMany({
+      where: {
+        role: 'TEACHER',
+        isVerified: false
+      },
+      include: {
+        teacherProfile: {
+          include: {
+            documents: true,
+            subjects: { include: { subject: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async verifyTeacher(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { isVerified: true }
+    });
+  }
+
+  async rejectTeacher(userId: string) {
+    return this.prisma.user.delete({
+      where: { id: userId }
+    });
+  }
 }

@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 export * from './src/auth/login.dto';
 export * from './src/auth/register.dto';
 export * from './src/marketplace/create-curriculum.dto';
