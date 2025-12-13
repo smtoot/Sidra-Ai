@@ -16,3 +16,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./src/auth/register.dto"), exports);
 __exportStar(require("./src/auth/login.dto"), exports);
+__exportStar(require("./src/marketplace/create-curriculum.dto"), exports);
+__exportStar(require("./src/marketplace/update-curriculum.dto"), exports);
+__exportStar(require("./src/marketplace/create-subject.dto"), exports);
+__exportStar(require("./src/marketplace/update-subject.dto"), exports);

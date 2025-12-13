@@ -5,15 +5,24 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc",
-        "dev": "tsc -w"
+        "dev": "tsc -w",
+        "seed": "ts-node -r dotenv/config prisma/seed.ts",
+        "db:push": "prisma db push"
     },
     "dependencies": {
-        "@prisma/client": "latest"
+        "@prisma/client": "latest",
+        "@prisma/adapter-pg": "latest",
+        "pg": "latest"
     },
     "devDependencies": {
-        "@types/node": "^25.0.1",
-        "dotenv": "^17.2.3",
         "prisma": "latest",
-        "typescript": "latest"
+        "typescript": "latest",
+        "@types/node": "latest",
+        "dotenv": "latest",
+        "ts-node": "latest",
+        "@types/pg": "latest"
+    },
+    "prisma": {
+        "seed": "ts-node -r dotenv/config prisma/seed.ts"
     }
 }
