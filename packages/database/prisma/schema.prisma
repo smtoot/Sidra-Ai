@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // User & Auth
@@ -12,6 +13,43 @@ enum UserRole {
   TEACHER
   ADMIN
   SUPPORT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum KYCStatus {
+  PENDING
+  INFO_REQUIRED
+  INTERVIEW_SCHEDULED
+  APPROVED
+  REJECTED
+}
+
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+enum DocumentType {
+  ID_CARD
+  CERTIFICATE
+  DEGREE
+  OTHER
+}
+
+// Days of week
+enum DayOfWeek {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
 }
 
 model User {
@@ -47,10 +85,38 @@ model ParentProfile {
 model TeacherProfile {
   id          String   @id @default(uuid())
   userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  bio         String?
-  meetingLink String?  // Encrypted at rest
+  displayName       String?
+  bio               String?
+  yearsOfExperience Int?
+  education         String?
+  gender            Gender?
+  
+  // KYC
+  kycStatus          KYCStatus @default(PENDING)
+  kycRejectionReason String?
+  
+  // Onboarding
+  hasCompletedOnboarding Boolean @default(false)
+  onboardingStep         Int     @default(0)
+  
+  // Settings
+  cancellationPolicy CancellationPolicy @default(FLEXIBLE)
+  
+  // Secure Data
+  encryptedMeetingLink String?
+
+  // Stats (Denormalized)
+  averageRating Float @default(0)
+  totalReviews  Int   @default(0)
+  totalSessions Int   @default(0)
+  
+  // Relations
+  subjects    TeacherSubject[]
+  availability Availability[]
+  documents   Document[]
+  bankInfo    BankInfo?
   
   @@map("teacher_profiles")
 }
@@ -72,7 +138,8 @@ model Curriculum {
   nameEn    String
   isActive  Boolean   @default(true)
   
-  subjects  CurriculumSubject[]
+  subjects        CurriculumSubject[]
+  teacherSubjects TeacherSubject[]
 
   @@map("curricula")
 }
@@ -83,7 +150,8 @@ model Subject {
   nameEn    String
   isActive  Boolean   @default(true)
   
-  curricula CurriculumSubject[]
+  curricula       CurriculumSubject[]
+  teacherSubjects TeacherSubject[]
 
   @@map("subjects")
 }
@@ -96,6 +164,62 @@ model CurriculumSubject {
 
   @@id([curriculumId, subjectId])
   @@map("curriculum_subjects")
+}
+
+model TeacherSubject {
+  id              String         @id @default(uuid())
+  teacherId       String
+  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  subjectId       String
+  subject         Subject        @relation(fields: [subjectId], references: [id])
+  curriculumId    String
+  curriculum      Curriculum     @relation(fields: [curriculumId], references: [id])
+  
+  pricePerHour    Decimal        @db.Decimal(10, 2)
+  gradeLevels     String[]       // Array of strings for simplicity in Phase 1
+  
+  @@map("teacher_subjects")
+}
+
+model Availability {
+  id              String         @id @default(uuid())
+  teacherId       String
+  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  dayOfWeek       DayOfWeek
+  startTime       String         // "09:00"
+  endTime         String         // "17:00"
+  isRecurring     Boolean        @default(true)
+  
+  @@map("availability")
+}
+
+model Document {
+  id              String         @id @default(uuid())
+  teacherId       String
+  teacherProfile  TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  type            DocumentType
+  fileName        String
+  fileUrl         String
+  uploadedAt      DateTime       @default(now())
+  
+  @@map("documents")
+}
+
+model BankInfo {
+  id                String         @id @default(uuid())
+  teacherId         String         @unique
+  teacherProfile    TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  bankName          String
+  accountNumber     String
+  accountHolderName String
+  iban              String?
+  swiftCode         String?
+  
+  @@map("bank_info")
 }
 
 // System

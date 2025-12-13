@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Colors - Nile Heritage */
+  --color-primary: #003366;
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-hover: #004080;
+
+  --color-accent: #D4A056;
+  --color-accent-foreground: #FFFFFF;
+
+  --color-background: #F9F9F9;
+  --color-surface: #FFFFFF;
+
+  --color-text: #333333;
+  --color-text-subtle: #666666;
+
+  --color-success: #27AE60;
+  --color-error: #E74C3C;
+  --color-warning: #F39C12;
+
+  --color-input: #E2E8F0;
+  /* Light grey border */
+  --color-ring: #003366;
+  --color-destructive: #E74C3C;
+  --color-destructive-foreground: #FFFFFF;
+
+  /* Fonts */
+  --font-tajawal: var(--font-tajawal);
+  --font-poppins: var(--font-poppins);
+
+  /* Override defaults */
+  --font-sans: var(--font-poppins), var(--font-tajawal), sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Custom Utilities if needed */
+@layer base {
+  body {
+    @apply font-sans bg-background text-text antialiased;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

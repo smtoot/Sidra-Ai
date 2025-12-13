@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
+import { TeacherModule } from './teacher/teacher.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
     PrismaModule,
     AuthModule,
     MarketplaceModule,
+    TeacherModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -10,17 +10,16 @@
         "db:push": "prisma db push"
     },
     "dependencies": {
-        "@prisma/client": "latest",
-        "@prisma/adapter-pg": "latest",
+        "@prisma/client": "5.22.0",
         "pg": "latest"
     },
     "devDependencies": {
-        "prisma": "latest",
-        "typescript": "latest",
         "@types/node": "latest",
+        "@types/pg": "latest",
         "dotenv": "latest",
-        "ts-node": "latest",
-        "@types/pg": "latest"
+        "prisma": "5.22.0",
+        "ts-node": "^10.9.2",
+        "typescript": "latest"
     },
     "prisma": {
         "seed": "ts-node -r dotenv/config prisma/seed.ts"

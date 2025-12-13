@@ -1,10 +1,40 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubjectDto } from '@sidra/shared';
+import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubjectDto, SearchTeachersDto } from '@sidra/shared';
 
 @Injectable()
 export class MarketplaceService {
   constructor(private prisma: PrismaService) { }
+
+  // --- Search ---
+  async searchTeachers(dto: SearchTeachersDto) {
+    const whereClause: any = {};
+
+    if (dto.subjectId) {
+      whereClause.subjectId = dto.subjectId;
+    }
+    if (dto.curriculumId) {
+      whereClause.curriculumId = dto.curriculumId;
+    }
+    if (dto.maxPrice) {
+      whereClause.pricePerHour = { lte: dto.maxPrice };
+    }
+
+    // Find TeacherSubjects matching criteria
+    const results = await this.prisma.teacherSubject.findMany({
+      where: whereClause,
+      include: {
+        teacherProfile: true, // Includes basics like displayName, bio
+        subject: true,
+        curriculum: true,
+      },
+    });
+
+    // Group by Teacher? Or list offers?
+    // Marketplace usually lists "Offers" (Teacher X teaching Subject Y at Price Z)
+    // So current flat list is fine.
+    return results;
+  }
 
   // --- Curricula ---
   async createCurriculum(dto: CreateCurriculumDto) {

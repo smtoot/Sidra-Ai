@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { MarketplaceService } from './marketplace.service';
-import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubjectDto, UserRole } from '@sidra/shared';
+import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubjectDto, UserRole, SearchTeachersDto } from '@sidra/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -8,6 +8,12 @@ import { Roles } from '../auth/roles.decorator';
 @Controller('marketplace')
 export class MarketplaceController {
   constructor(private readonly marketplaceService: MarketplaceService) { }
+
+  // --- Search ---
+  @Get('teachers')
+  searchTeachers(@Query() query: SearchTeachersDto) {
+    return this.marketplaceService.searchTeachers(query);
+  }
 
   // --- Curricula ---
 
