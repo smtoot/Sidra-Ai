@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText } from 'lucide-react';
+import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface NavItem {
@@ -11,7 +11,7 @@ interface NavItem {
 }
 
 interface NavigationProps {
-    userRole: 'PARENT' | 'TEACHER' | 'ADMIN';
+    userRole: 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT';
     userName?: string;
 }
 
@@ -19,13 +19,23 @@ const menuItems: Record<string, NavItem[]> = {
     PARENT: [
         { label: 'البحث عن معلمين', href: '/search', icon: Search },
         { label: 'حجوزاتي', href: '/parent/bookings', icon: Calendar },
-        { label: 'المحفظة', href: '/wallet', icon: Wallet },
+        { label: 'أبنائي', href: '/parent/children', icon: Users },
+        { label: 'المحفظة', href: '/parent/wallet', icon: Wallet },
     ],
     TEACHER: [
         { label: 'الملف الشخصي', href: '/teacher/profile', icon: User },
+        { label: 'المواد والأسعار', href: '/teacher/subjects', icon: BookOpen },
+        { label: 'مواعيد التوافر', href: '/teacher/availability', icon: Clock },
         { label: 'الطلبات المعلقة', href: '/teacher/requests', icon: FileText },
         { label: 'جلساتي', href: '/teacher/sessions', icon: Calendar },
         { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign },
+        { label: 'الإعدادات', href: '/teacher/settings', icon: Settings },
+    ],
+    STUDENT: [
+        { label: 'لوحة التحكم', href: '/student/dashboard', icon: Home },
+        { label: 'البحث عن معلمين', href: '/search', icon: Search },
+        { label: 'حصصي', href: '/student/bookings', icon: Calendar },
+        { label: 'المحفظة', href: '/student/wallet', icon: Wallet },
     ],
     ADMIN: [
         { label: 'الإدارة المالية', href: '/admin/financials', icon: DollarSign },

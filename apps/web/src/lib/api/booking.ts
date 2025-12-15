@@ -15,6 +15,7 @@ export interface CreateBookingRequest {
     teacherId: string;
     studentId: string;
     subjectId: string;
+    childId?: string; // Optional: Only for Parent bookings
     startTime: string; // ISO 8601
     endTime: string; // ISO 8601
     price: number;
@@ -34,7 +35,12 @@ export interface Booking {
     createdAt: string;
     teacherProfile?: any;
     parentProfile?: any;
-    student?: any;
+    studentUser?: any; // Independent student user
+    child?: { // Child entity
+        id: string;
+        name: string;
+    };
+    student?: any; // Legacy compatibility
     meetingLink?: string;
     subject?: {
         id: string;
@@ -76,6 +82,11 @@ export const bookingApi = {
 
     getParentBookings: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/parent/my-bookings');
+        return response.data;
+    },
+
+    getStudentBookings: async (): Promise<Booking[]> => {
+        const response = await api.get('/bookings/student/my-bookings');
         return response.data;
     },
 

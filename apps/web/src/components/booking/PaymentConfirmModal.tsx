@@ -165,7 +165,7 @@ export function PaymentConfirmModal({
                             </button>
                         ) : (
                             <button
-                                onClick={() => router.push('/wallet')}
+                                onClick={() => router.push('/parent/wallet')}
                                 className="flex-1 px-4 py-2.5 rounded-xl bg-yellow-500 text-white font-bold hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
                             >
                                 <span className="material-symbols-outlined text-sm">add_card</span>

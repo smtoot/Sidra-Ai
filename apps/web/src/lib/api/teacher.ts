@@ -30,4 +30,24 @@ export const teacherApi = {
         const response = await api.delete(`/teacher/me/availability/${id}`);
         return response.data;
     },
+    setBulkAvailability: async (slots: CreateAvailabilityDto[]) => {
+        const response = await api.post('/teacher/me/availability/bulk', { slots });
+        return response.data;
+    },
+    getDashboardStats: async () => {
+        const response = await api.get('/teacher/dashboard');
+        return response.data;
+    },
+    getExceptions: async () => {
+        const response = await api.get('/teacher/me/exceptions');
+        return response.data;
+    },
+    addException: async (data: any) => {
+        const response = await api.post('/teacher/me/exceptions', data);
+        return response.data;
+    },
+    removeException: async (id: string) => {
+        const response = await api.delete(`/teacher/me/exceptions/${id}`);
+        return response.data;
+    }
 };

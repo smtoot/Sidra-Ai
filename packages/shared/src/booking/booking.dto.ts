@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsUUID, IsNumber, Min } from 'class-validator';
+import { IsString, IsDateString, IsUUID, IsNumber, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateBookingDto {
@@ -8,7 +8,8 @@ export class CreateBookingDto {
 
     @IsUUID()
     @IsString()
-    studentId!: string;
+    @IsOptional()
+    childId?: string; // Required if Parent booking
 
     @IsUUID()
     @IsString()

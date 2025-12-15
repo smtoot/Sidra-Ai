@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/teacher/profile');
         } else if (payload.role === 'ADMIN') {
             router.push('/admin/financials');
+        } else if (payload.role === 'STUDENT') {
+            router.push('/student/dashboard');
         } else {
             router.push('/');
         }
@@ -68,8 +70,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await api.post('/auth/register', dto);
         localStorage.setItem('token', data.access_token);
         const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+
+        // Store user info for Navigation
+        localStorage.setItem('userRole', payload.role);
+        localStorage.setItem('userName', payload.email.split('@')[0]);
+
         setUser({ id: payload.sub, email: payload.email, role: payload.role });
-        router.push('/dashboard');
+
+        // Role-based redirect (same as login)
+        if (payload.role === 'PARENT') {
+            router.push('/search');
+        } else if (payload.role === 'TEACHER') {
+            router.push('/teacher/profile');
+        } else if (payload.role === 'ADMIN') {
+            router.push('/admin/financials');
+        } else if (payload.role === 'STUDENT') {
+            router.push('/student/dashboard');
+        } else {
+            router.push('/');
+        }
     };
 
     const logout = () => {

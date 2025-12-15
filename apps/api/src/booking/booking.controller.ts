@@ -13,9 +13,9 @@ export class BookingController {
     // Parent creates a booking request
     @Post()
     @UseGuards(RolesGuard)
-    @Roles(UserRole.PARENT)
+    @Roles(UserRole.PARENT, (UserRole as any).STUDENT) // Allow both roles
     createRequest(@Request() req: any, @Body() dto: CreateBookingDto) {
-        return this.bookingService.createRequest(req.user.userId, dto);
+        return this.bookingService.createRequest(req.user, dto);
     }
 
     // Teacher approves a booking
@@ -58,12 +58,20 @@ export class BookingController {
         return this.bookingService.getParentBookings(req.user.userId);
     }
 
+    // Get student's bookings
+    @Get('student/my-bookings')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.STUDENT)
+    getStudentBookings(@Request() req: any) {
+        return this.bookingService.getStudentBookings(req.user.userId);
+    }
+
     // --- Phase 2C: Payment Integration ---
 
-    // Parent pays for approved booking
+    // Parent or Student pays for approved booking
     @Patch(':id/pay')
     @UseGuards(RolesGuard)
-    @Roles(UserRole.PARENT)
+    @Roles(UserRole.PARENT, UserRole.STUDENT)
     payForBooking(@Request() req: any, @Param('id') id: string) {
         return this.bookingService.payForBooking(req.user.userId, id);
     }

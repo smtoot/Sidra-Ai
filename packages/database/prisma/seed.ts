@@ -57,6 +57,57 @@ async function main() {
             console.log(`Created subject: ${s.nameEn}`);
         }
     }
+    // 4. Create Parent with Children
+    const parentEmail = 'parent@sidra.com';
+    const parent = await prisma.user.findUnique({ where: { email: parentEmail } });
+
+    if (!parent) {
+        const hashedPassword = await bcrypt.hash('password123', 10);
+        await prisma.user.create({
+            data: {
+                email: parentEmail,
+                passwordHash: hashedPassword,
+                role: UserRole.PARENT,
+                isVerified: true,
+                wallet: { create: { balance: 1000 } },
+                parentProfile: {
+                    create: {
+                        children: {
+                            create: [
+                                { name: 'Ali (Child)', gradeLevel: 'Alpha 1' },
+                                { name: 'Sara (Child)', gradeLevel: 'Beta 2' }
+                            ]
+                        }
+                    }
+                }
+            },
+        });
+        console.log('Parent user created with 2 children');
+    }
+
+    // 5. Create Independent Student
+    const studentEmail = 'student@sidra.com';
+    const student = await prisma.user.findUnique({ where: { email: studentEmail } });
+
+    if (!student) {
+        const hashedPassword = await bcrypt.hash('password123', 10);
+        await prisma.user.create({
+            data: {
+                email: studentEmail,
+                passwordHash: hashedPassword,
+                role: UserRole.STUDENT,
+                isVerified: true,
+                wallet: { create: { balance: 500 } },
+                studentProfile: {
+                    create: {
+                        gradeLevel: 'University Year 1',
+                        bio: 'Computer Science Student'
+                    }
+                }
+            },
+        });
+        console.log('Student user created');
+    }
 
     console.log('Seeding completed.');
 }

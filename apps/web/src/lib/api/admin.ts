@@ -61,5 +61,11 @@ export const adminApi = {
     deleteSubject: async (id: string) => {
         const response = await api.delete(`/marketplace/subjects/${id}`);
         return response.data;
+    },
+
+    // Dashboard
+    getDashboardStats: async () => {
+        const response = await api.get('/admin/dashboard');
+        return response.data;
     }
 };

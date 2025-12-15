@@ -20,17 +20,18 @@ model User {
   auditLogs      AuditLog[]
   parentProfile  ParentProfile?
   teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
   wallet         Wallet?
-
+  bookingsMade   Booking[]       @relation("BookedByUser")
+  studentBookings Booking[]      @relation("StudentUser")
   @@map("users")
 }
 
 model ParentProfile {
   id       String    @id @default(uuid())
   userId   String    @unique
-  bookings Booking[]
   user     User      @relation(fields: [userId], references: [id])
-  students Student[]
+  children Child[]
 
   @@map("parent_profiles")
 }
@@ -53,6 +54,7 @@ model TeacherProfile {
   yearsOfExperience      Int?
   displayName            String?
   availability           Availability[]
+  availabilityExceptions AvailabilityException[]
   bankInfo               BankInfo?
   bookings               Booking[]
   documents              Document[]
@@ -62,7 +64,17 @@ model TeacherProfile {
   @@map("teacher_profiles")
 }
 
-model Student {
+model StudentProfile {
+  id         String @id @default(uuid())
+  userId     String @unique
+  gradeLevel String?
+  bio        String?
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+model Child {
   id         String        @id @default(uuid())
   parentId   String
   name       String
@@ -70,7 +82,7 @@ model Student {
   bookings   Booking[]
   parent     ParentProfile @relation(fields: [parentId], references: [id])
 
-  @@map("students")
+  @@map("children")
 }
 
 model Curriculum {
@@ -91,6 +103,7 @@ model Subject {
   isActive        Boolean             @default(true)
   curricula       CurriculumSubject[]
   teacherSubjects TeacherSubject[]
+  bookings        Booking[]
 
   @@map("subjects")
 }
@@ -129,6 +142,23 @@ model Availability {
   teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@map("availability")
+}
+
+model AvailabilityException {
+  id             String         @id @default(uuid())
+  teacherId      String
+  startDate      DateTime
+  endDate        DateTime
+  type           ExceptionType  @default(ALL_DAY)
+  startTime      String?
+  endTime        String?
+  reason         String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+  @@map("availability_exceptions")
 }
 
 model Document {
@@ -187,9 +217,14 @@ model Transaction {
 
 model Booking {
   id             String         @id @default(uuid())
+  bookedByUserId String         // User who pays (Parent or Student)
+  beneficiaryType BeneficiaryType
+  
+  // Beneficiary Relations (Polymorphic-ish)
+  childId        String?        // Required if beneficiaryType == CHILD
+  studentUserId  String?        // Required if beneficiaryType == STUDENT
+
   teacherId      String
-  parentId       String
-  studentId      String
   subjectId      String
   startTime      DateTime
   endTime        DateTime
@@ -200,10 +235,17 @@ model Booking {
   cancelReason   String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  parentProfile  ParentProfile  @relation(fields: [parentId], references: [id])
-  student        Student        @relation(fields: [studentId], references: [id])
+  
+  bookedByUser   User           @relation("BookedByUser", fields: [bookedByUserId], references: [id])
+  child          Child?         @relation(fields: [childId], references: [id])
+  studentUser    User?          @relation("StudentUser", fields: [studentUserId], references: [id])
   teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id])
+  subject        Subject        @relation(fields: [subjectId], references: [id])
 
+  @@index([status])
+  @@index([bookedByUserId])
+  @@index([startTime])
+  @@index([beneficiaryType])
   @@map("bookings")
 }
 
@@ -223,6 +265,7 @@ model AuditLog {
 
 enum UserRole {
   PARENT
+  STUDENT
   TEACHER
   ADMIN
   SUPPORT
@@ -278,6 +321,11 @@ enum TransactionStatus {
   REJECTED
 }
 
+enum ExceptionType {
+  ALL_DAY
+  PARTIAL_DAY
+}
+
 enum BookingStatus {
   PENDING_TEACHER_APPROVAL
   WAITING_FOR_PAYMENT
@@ -288,4 +336,9 @@ enum BookingStatus {
   CANCELLED_BY_PARENT
   CANCELLED_BY_ADMIN
   EXPIRED
+}
+
+enum BeneficiaryType {
+  CHILD
+  STUDENT
 }

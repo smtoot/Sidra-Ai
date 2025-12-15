@@ -1,22 +1,21 @@
 import { api } from '../api';
 
-export interface Student {
+export interface Child {
     id: string;
     name: string;
-    grade?: string;
-    gender?: string;
-    dateOfBirth?: string;
+    gradeLevel: string; // Updated from grade to gradeLevel to match backend
+    // gender/dob removed if not in backend MVP, checking usage.
 }
 
 export interface UserProfile {
     id: string;
     email: string;
-    role: 'PARENT' | 'TEACHER' | 'ADMIN';
+    role: 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT';
     phoneNumber?: string;
     isVerified: boolean;
     parentProfile?: {
         id: string;
-        students: Student[];
+        children: Child[];
     };
     teacherProfile?: {
         id: string;

@@ -20,11 +20,13 @@ export * from './src/booking/booking.dto';
 export * from './src/teacher/update-profile.dto';
 export * from './src/teacher/teacher-subject.dto';
 export * from './src/teacher/availability.dto';
+export * from './src/teacher/exception.dto';
 
 // Global enums
 export enum UserRole {
     PARENT = 'PARENT',
     TEACHER = 'TEACHER',
     ADMIN = 'ADMIN',
-    SUPPORT = 'SUPPORT'
+    SUPPORT = 'SUPPORT',
+    STUDENT = 'STUDENT'
 }

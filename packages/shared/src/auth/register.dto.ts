@@ -5,6 +5,7 @@ export enum UserRole {
     TEACHER = 'TEACHER',
     ADMIN = 'ADMIN',
     SUPPORT = 'SUPPORT',
+    STUDENT = 'STUDENT',
 }
 
 export class RegisterDto {

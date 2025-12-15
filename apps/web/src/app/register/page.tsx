@@ -9,13 +9,13 @@ export default function RegisterPage() {
     const { register } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState<UserRole>(UserRole.PARENT);
+    const [role, setRole] = useState<string>('PARENT');
     const [error, setError] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await register({ email, password, role });
+            await register({ email, password, role: role as any });
         } catch (err: any) {
             setError(err.response?.data?.message || 'Registration failed');
         }
@@ -44,20 +44,31 @@ export default function RegisterPage() {
                                 <input
                                     type="radio"
                                     name="role"
-                                    value={UserRole.PARENT}
-                                    checked={role === UserRole.PARENT}
-                                    onChange={() => setRole(UserRole.PARENT)}
+                                    value="PARENT"
+                                    checked={role === 'PARENT'}
+                                    onChange={() => setRole('PARENT')}
                                     className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                                <span className="text-gray-900 dark:text-gray-100">ولي أمر / طالب</span>
+                                <span className="text-gray-900 dark:text-gray-100">ولي أمر</span>
                             </label>
                             <label className="flex items-center gap-2">
                                 <input
                                     type="radio"
                                     name="role"
-                                    value={UserRole.TEACHER}
-                                    checked={role === UserRole.TEACHER}
-                                    onChange={() => setRole(UserRole.TEACHER)}
+                                    value="STUDENT"
+                                    checked={role === 'STUDENT'}
+                                    onChange={() => setRole('STUDENT')}
+                                    className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-gray-900 dark:text-gray-100">طالب</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value="TEACHER"
+                                    checked={role === 'TEACHER'}
+                                    onChange={() => setRole('TEACHER')}
                                     className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <span className="text-gray-900 dark:text-gray-100">معلم</span>

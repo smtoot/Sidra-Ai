@@ -15,6 +15,7 @@ export default function TeacherProfileWizard() {
     const { user } = useAuth();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
     // Step 1 State
     const [displayName, setDisplayName] = useState('');
@@ -34,6 +35,7 @@ export default function TeacherProfileWizard() {
     const [price, setPrice] = useState(0);
 
     useEffect(() => {
+        setIsMounted(true);
         loadProfile();
         loadMarketplace();
     }, []);
@@ -227,6 +229,8 @@ export default function TeacherProfileWizard() {
                             <span className="text-sm text-text-subtle">أضف المواد التي تدرسها وسعرك لكل ساعة</span>
                         </div>
 
+
+
                         {/* Add Subject Form */}
                         <div className="bg-background p-4 rounded-lg border border-gray-200 space-y-4">
                             <h3 className="font-bold text-sm">إضافة مادة جديدة</h3>
@@ -239,7 +243,7 @@ export default function TeacherProfileWizard() {
                                         onChange={(e) => setSelectedCurriculum(e.target.value)}
                                     >
                                         <option value="">اختر المنهج</option>
-                                        {curricula.map(c => (
+                                        {isMounted && curricula.map(c => (
                                             <option key={c.id} value={c.id}>{c.nameAr}</option>
                                         ))}
                                     </select>
@@ -252,7 +256,7 @@ export default function TeacherProfileWizard() {
                                         onChange={(e) => setSelectedSubject(e.target.value)}
                                     >
                                         <option value="">اختر المادة</option>
-                                        {subjects.map(s => (
+                                        {isMounted && subjects.map(s => (
                                             <option key={s.id} value={s.id}>{s.nameAr}</option>
                                         ))}
                                     </select>
@@ -312,13 +316,33 @@ export default function TeacherProfileWizard() {
                 )}
 
                 {step === 3 && (
-                    <div className="text-center py-10">
-                        <h2 className="text-xl font-bold text-primary mb-4">تم الحفظ بنجاح!</h2>
-                        <p className="text-text-subtle mb-6">سيتم تفعيل الخطوات التالية (الجدول الزمني ورابط الاجتماع) قريباً.</p>
-                        <div className="flex justify-center">
+                    <div className="text-center py-10 space-y-6">
+                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                            <span className="text-4xl">⏳</span>
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-primary mb-2">تم إرسال ملفك للمراجعة!</h2>
+                            <p className="text-text-subtle">سيقوم فريقنا بمراجعة بياناتك والموافقة عليها</p>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto text-right">
+                            <p className="text-sm text-blue-800 mb-2">⏱️ <strong>الوقت المتوقع:</strong> 2-3 أيام عمل</p>
+                            <p className="text-sm text-blue-700">سنرسل لك إشعار عند الموافقة على ملفك</p>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4 max-w-md mx-auto text-right space-y-2">
+                            <h3 className="font-bold text-sm text-primary">ملخص ملفك:</h3>
+                            <p className="text-sm">📝 الاسم: {displayName || 'غير محدد'}</p>
+                            <p className="text-sm">📚 المواد: {mySubjects.length} مادة</p>
+                        </div>
+
+                        <div className="flex justify-center gap-4 pt-4">
                             <Button variant="outline" onClick={() => setStep(2)} className="gap-2">
                                 <ChevronRight className="w-4 h-4" />
-                                عودة للمواد
+                                تعديل المواد
+                            </Button>
+                            <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
+                                تعديل البيانات
                             </Button>
                         </div>
                     </div>

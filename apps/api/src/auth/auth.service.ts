@@ -37,6 +37,9 @@ export class AuthService {
         ...(dto.role === 'PARENT' && {
           parentProfile: { create: {} },
         }),
+        ...(dto.role === 'STUDENT' && {
+          studentProfile: { create: {} },
+        }),
       },
     });
 
@@ -62,7 +65,7 @@ export class AuthService {
       include: {
         parentProfile: {
           include: {
-            students: true,
+            children: true,
           },
         },
         teacherProfile: true,

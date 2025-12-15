@@ -10,6 +10,9 @@ import { TeacherModule } from './teacher/teacher.module';
 import { WalletModule } from './wallet/wallet.module';
 import { BookingModule } from './booking/booking.module';
 import { UserModule } from './user/user.module';
+import { AdminModule } from './admin/admin.module';
+import { ParentModule } from './parent/parent.module';
+import { StudentModule } from './student/student.module';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { UserModule } from './user/user.module';
     WalletModule,
     BookingModule,
     UserModule,
+    AdminModule,
+    ParentModule,
+    StudentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

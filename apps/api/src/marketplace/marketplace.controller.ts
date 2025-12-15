@@ -84,4 +84,19 @@ export class MarketplaceController {
   removeSubject(@Param('id') id: string) {
     return this.marketplaceService.softDeleteSubject(id);
   }
+
+  // --- Teacher Availability (Public) ---
+
+  @Get('teachers/:teacherId/availability')
+  getTeacherAvailability(@Param('teacherId') teacherId: string) {
+    return this.marketplaceService.getTeacherAvailability(teacherId);
+  }
+
+  @Get('teachers/:teacherId/available-slots')
+  getAvailableSlots(
+    @Param('teacherId') teacherId: string,
+    @Query('date') dateStr: string
+  ) {
+    return this.marketplaceService.getAvailableSlots(teacherId, dateStr);
+  }
 }

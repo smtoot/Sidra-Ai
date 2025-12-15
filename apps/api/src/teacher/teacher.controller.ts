@@ -23,6 +23,11 @@ export class TeacherController {
     return this.teacherService.getProfile(req.user.userId);
   }
 
+  @Get('dashboard')
+  getDashboardStats(@Request() req: any) {
+    return this.teacherService.getDashboardStats(req.user.userId);
+  }
+
   @Patch('me')
   updateProfile(@Request() req: any, @Body() dto: UpdateTeacherProfileDto) {
     return this.teacherService.updateProfile(req.user.userId, dto);
@@ -43,8 +48,28 @@ export class TeacherController {
     return this.teacherService.setAvailability(req.user.userId, dto);
   }
 
+  @Post('me/availability/bulk')
+  setBulkAvailability(@Request() req: any, @Body() dto: { slots: CreateAvailabilityDto[] }) {
+    return this.teacherService.replaceAvailability(req.user.userId, dto.slots);
+  }
+
   @Delete('me/availability/:id')
   removeAvailability(@Request() req: any, @Param('id') id: string) {
     return this.teacherService.removeAvailability(req.user.userId, id);
+  }
+
+  @Get('me/exceptions')
+  getExceptions(@Request() req: any) {
+    return this.teacherService.getExceptions(req.user.userId);
+  }
+
+  @Post('me/exceptions')
+  addException(@Request() req: any, @Body() dto: any) {
+    return this.teacherService.addException(req.user.userId, dto);
+  }
+
+  @Delete('me/exceptions/:id')
+  removeException(@Request() req: any, @Param('id') id: string) {
+    return this.teacherService.removeException(req.user.userId, id);
   }
 }

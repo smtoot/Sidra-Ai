@@ -17,7 +17,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
     if (isLoading) return <>{children}</>;
 
-    const userRole = user?.role as 'PARENT' | 'TEACHER' | 'ADMIN' | undefined;
+    const userRole = user?.role as 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT' | undefined;
     const userName = user?.email.split('@')[0];
 
     // Check if we should render navigation

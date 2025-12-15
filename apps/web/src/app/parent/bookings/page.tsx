@@ -82,7 +82,9 @@ export default function ParentBookingsPage() {
                                                     <h3 className="font-bold text-primary">
                                                         {booking.teacherProfile?.displayName || booking.teacherProfile?.user?.email}
                                                     </h3>
-                                                    <p className="text-sm text-text-subtle">الطالب: {booking.student?.name}</p>
+                                                    <p className="text-sm text-text-subtle">
+                                                        الطالب: {booking.child ? booking.child.name : (booking.student?.name || booking.studentUser?.email)}
+                                                    </p>
                                                 </div>
                                             </div>
                                             {getStatusBadge(booking.status)}
