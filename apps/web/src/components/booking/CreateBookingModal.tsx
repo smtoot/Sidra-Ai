@@ -1,21 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DayPicker } from 'react-day-picker';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { bookingApi } from '@/lib/api/booking';
+import { parentApi } from '@/lib/api/parent';
+import { teacherApi } from '@/lib/api/teacher';
+import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
 import { authApi, Child } from '@/lib/api/auth';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { BookingTypeSelector, BookingType, BookingTypeOption } from './BookingTypeSelector';
+
+// New slot format from UTC-first API
+interface SlotWithTimezone {
+    startTimeUtc: string;  // Canonical identifier
+    label: string;         // Display label (e.g., "9:30 AM")
+    userDate: string;      // Date in user's timezone
+}
 
 interface CreateBookingModalProps {
     isOpen: boolean;
     onClose: () => void;
     teacherId: string;
     teacherName: string;
-    teacherSubjects: { id: string; name: string; price: number }[];
+    teacherSubjects: Array<{
+        id: string;
+        name: string;
+        price: number;
+    }>;
+    userRole: 'PARENT' | 'STUDENT';
 }
 
 export function CreateBookingModal({
@@ -27,30 +43,30 @@ export function CreateBookingModal({
 }: CreateBookingModalProps) {
     const router = useRouter();
     const [selectedDate, setSelectedDate] = useState<Date>();
-    const [selectedTime, setSelectedTime] = useState<string>('');
+    const [selectedSlot, setSelectedSlot] = useState<SlotWithTimezone | null>(null);  // Now stores full slot object
     const [selectedSubject, setSelectedSubject] = useState<string>('');
     const [selectedChildId, setSelectedChildId] = useState<string>('');
+    const [bookingNotes, setBookingNotes] = useState<string>('');
     const [userRole, setUserRole] = useState<'PARENT' | 'STUDENT' | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Booking type state (demo/single/package)
+    const [selectedBookingType, setSelectedBookingType] = useState<BookingType | null>(null);
+    const [selectedBookingOption, setSelectedBookingOption] = useState<BookingTypeOption | null>(null);
 
     // Data state
     const [children, setChildren] = useState<Child[]>([]);
     const [isLoadingChildren, setIsLoadingChildren] = useState(false);
 
-    // Available time slots from API
-    const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+    // Available time slots from API (new format)
+    const [availableSlots, setAvailableSlots] = useState<SlotWithTimezone[]>([]);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-
-    // Format time slot for display (Arabic)
-    const formatTimeSlot = (time: string) => {
-        const [hourStr, period] = time.split(' ');
-        let suffix = period === 'AM' ? 'ص' : 'م';
-        return `${hourStr} ${suffix}`;
-    };
+    const [userTimezoneDisplay, setUserTimezoneDisplay] = useState<string>('');
 
     useEffect(() => {
         if (isOpen) {
             fetchChildren();
+            setUserTimezoneDisplay(getTimezoneDisplay(getUserTimezone()));
         }
     }, [isOpen]);
 
@@ -81,20 +97,29 @@ export function CreateBookingModal({
         if (!selectedDate || !teacherId) return;
 
         setIsLoadingSlots(true);
-        setSelectedTime(''); // Reset selected time when date changes
+        setSelectedSlot(null); // Reset selected slot when date changes
         try {
             const dateStr = format(selectedDate, 'yyyy-MM-dd');
+            const userTimezone = getUserTimezone();
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const response = await fetch(
-                `${apiUrl}/marketplace/teachers/${teacherId}/available-slots?date=${dateStr}`
+                `${apiUrl}/marketplace/teachers/${teacherId}/available-slots?date=${dateStr}&userTimezone=${encodeURIComponent(userTimezone)}`
             );
 
             if (!response.ok) {
                 throw new Error('Failed to fetch available slots');
             }
 
-            const slots = await response.json();
+            const data = await response.json();
+
+            // Handle new format with SlotWithTimezone objects
+            const slots: SlotWithTimezone[] = data.slots || [];
             setAvailableSlots(slots);
+
+            console.log(`Loaded ${slots.length} slots for ${dateStr}`);
+            if (data.teacherTimezone && data.userTimezone) {
+                console.log(`Teacher TZ: ${data.teacherTimezone}, User TZ: ${data.userTimezone}`);
+            }
         } catch (error) {
             console.error('Failed to fetch available slots:', error);
             setAvailableSlots([]);
@@ -107,39 +132,45 @@ export function CreateBookingModal({
 
     const selectedSubjectData = teacherSubjects.find(s => s.id === selectedSubject);
     const isParent = userRole === 'PARENT';
-    const canSubmit = selectedDate && selectedTime && selectedSubject && (!isParent || selectedChildId);
+    const canSubmit = selectedDate && selectedSlot && selectedSubject && selectedBookingOption && (!isParent || selectedChildId);
 
     const handleSubmit = async () => {
-        if (!canSubmit || !selectedSubjectData) {
+        if (!canSubmit || !selectedSubjectData || !selectedSlot) {
             toast.error('يرجى ملء جميع الحقول المطلوبة');
             return;
         }
 
         setIsLoading(true);
         try {
-            // Construct start and end times with better parsing
-            const [timeStr, period] = selectedTime.split(' ');
-            const [hours, minutes = 0] = timeStr.split(':').map(Number);
+            // Use startTimeUtc directly from the slot (canonical source!)
+            const startTime = new Date(selectedSlot.startTimeUtc);
+            // Demo sessions are 30 minutes, regular sessions are 60 minutes
+            const sessionDuration = selectedBookingOption?.type === 'DEMO' ? 30 : 60;
+            const endTime = new Date(startTime.getTime() + sessionDuration * 60 * 1000);
 
-            const startDateTime = new Date(selectedDate!);
-            let hour24 = hours;
-            if (period === 'PM' && hours !== 12) hour24 += 12;
-            if (period === 'AM' && hours === 12) hour24 = 0;
+            // Detect user's timezone for audit purposes
+            const userTimezone = getUserTimezone();
 
-            startDateTime.setHours(hour24, minutes, 0, 0);
+            // Determine price based on booking type
+            const price = selectedBookingOption?.type === 'DEMO'
+                ? 0
+                : selectedBookingOption?.type === 'PACKAGE'
+                    ? 0 // Package sessions are pre-paid
+                    : selectedSubjectData.price;
 
-            const endDateTime = new Date(startDateTime);
-            endDateTime.setHours(hour24 + 1, minutes, 0, 0); // 1 hour session
-
-            // Create booking request
+            // Create booking request using UTC times
             await bookingApi.createRequest({
                 teacherId,
                 childId: selectedChildId || undefined,
-                studentId: '', // Legacy compatibility
                 subjectId: selectedSubject,
-                price: selectedSubjectData.price,
-                startTime: startDateTime.toISOString(),
-                endTime: endDateTime.toISOString()
+                price,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                timezone: userTimezone,
+                bookingNotes: bookingNotes.trim() || undefined,
+                // NEW: Package and Demo support
+                packageId: selectedBookingOption?.packageId,
+                isDemo: selectedBookingOption?.type === 'DEMO'
             });
 
             // Success feedback
@@ -155,16 +186,25 @@ export function CreateBookingModal({
 
         } catch (error: any) {
             console.error('Failed to create booking:', error);
+            console.error('Error response:', error?.response?.data);
+            console.error('Error message:', error?.response?.data?.message);
 
-            // Better error handling
+            // Better error handling - show actual error
             const errorMessage = error?.response?.data?.message || error?.message || 'فشل إنشاء الحجز';
+            const errorDetails = Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage;
 
-            if (errorMessage.includes('غير متاح')) {
+            // Log full details for debugging
+            console.error('Full error details:', errorDetails);
+
+            if (errorDetails.includes('غير متاح') || errorDetails.includes('not available')) {
                 toast.error('هذا الموعد غير متاح. يرجى اختيار وقت آخر.');
-            } else if (errorMessage.includes('Unauthorized')) {
+            } else if (errorDetails.includes('Unauthorized')) {
                 toast.error('يرجى تسجيل الدخول أولاً');
+            } else if (errorDetails.includes('Child')) {
+                toast.error('يرجى اختيار الطالب');
             } else {
-                toast.error('حدث خطأ. الرجاء المحاولة مرة أخرى.');
+                // Show the actual error for debugging
+                toast.error(`حدث خطأ: ${errorDetails}`);
             }
         } finally {
             setIsLoading(false);
@@ -173,10 +213,24 @@ export function CreateBookingModal({
 
     const resetForm = () => {
         setSelectedDate(undefined);
-        setSelectedTime('');
+        setSelectedSlot(null);
         setSelectedSubject('');
         setSelectedChildId('');
+        setBookingNotes('');
         setAvailableSlots([]);
+        setSelectedBookingType(null);
+        setSelectedBookingOption(null);
+    };
+
+    // Handler for booking type selection
+    const handleBookingTypeSelect = (option: BookingTypeOption) => {
+        setSelectedBookingType(option.type);
+        setSelectedBookingOption(option);
+    };
+
+    // Format slot label for Arabic display (AM/PM -> ص/م)
+    const formatSlotLabel = (label: string) => {
+        return label.replace('AM', 'ص').replace('PM', 'م');
     };
 
     return (
@@ -236,6 +290,17 @@ export function CreateBookingModal({
                                 ))}
                             </div>
                         </div>
+
+                        {/* Booking Type Selection - Show after subject is selected */}
+                        {selectedSubject && selectedSubjectData && (
+                            <BookingTypeSelector
+                                teacherId={teacherId}
+                                subjectId={selectedSubject}
+                                basePrice={selectedSubjectData.price}
+                                onSelect={handleBookingTypeSelect}
+                                selectedType={selectedBookingType}
+                            />
+                        )}
 
                         {/* Child Selection - Only for Parents */}
                         {userRole === 'PARENT' && (
@@ -298,6 +363,15 @@ export function CreateBookingModal({
                                         ({format(selectedDate, 'EEEE، d MMMM', { locale: ar })})
                                     </span>
                                 </label>
+
+                                {/* Timezone Notice */}
+                                {userTimezoneDisplay && (
+                                    <div className="mb-3 flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+                                        <span className="material-symbols-outlined text-base">language</span>
+                                        <span>جميع الأوقات معروضة بتوقيتك المحلي ({userTimezoneDisplay})</span>
+                                    </div>
+                                )}
+
                                 {isLoadingSlots ? (
                                     <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
@@ -311,16 +385,16 @@ export function CreateBookingModal({
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                        {availableSlots.map((time) => (
+                                        {availableSlots.map((slot) => (
                                             <button
-                                                key={time}
-                                                onClick={() => setSelectedTime(time)}
-                                                className={`py-3 rounded-lg border text-sm font-medium transition-all ${selectedTime === time
+                                                key={slot.startTimeUtc}
+                                                onClick={() => setSelectedSlot(slot)}
+                                                className={`py-3 rounded-lg border text-sm font-medium transition-all ${selectedSlot?.startTimeUtc === slot.startTimeUtc
                                                     ? 'border-secondary bg-secondary text-white shadow-md shadow-secondary/20'
                                                     : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
                                                     }`}
                                             >
-                                                {formatTimeSlot(time)}
+                                                {formatSlotLabel(slot.label)}
                                             </button>
                                         ))}
                                     </div>
@@ -342,12 +416,30 @@ export function CreateBookingModal({
                                 </p>
                             </div>
                         )}
+
+                        {/* Booking Notes */}
+                        <div>
+                            <label className="block text-sm font-bold text-text-main mb-3">
+                                ملاحظات للمعلم
+                                <span className="text-xs font-normal text-gray-400 mr-2">(اختياري)</span>
+                            </label>
+                            <textarea
+                                value={bookingNotes}
+                                onChange={(e) => setBookingNotes(e.target.value)}
+                                placeholder="ما المواضيع التي تريد تغطيتها؟ هل لديك أسئلة محددة؟..."
+                                rows={3}
+                                maxLength={1000}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none text-right"
+                                dir="rtl"
+                            />
+                            <p className="text-xs text-gray-400 mt-1 text-left">{bookingNotes.length}/1000</p>
+                        </div>
                     </div>
 
                     {/* Footer */}
                     <div className="sticky bottom-0 bg-gray-50 border-t border-gray-100 px-6 py-4 rounded-b-2xl">
                         {/* Validation Feedback */}
-                        {!canSubmit && (selectedDate || selectedTime || selectedSubject) && (
+                        {!canSubmit && (selectedDate || selectedSlot || selectedSubject) && (
                             <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
                                 <div className="flex items-start gap-2">
                                     <span className="material-symbols-outlined text-yellow-600 text-lg">info</span>
@@ -355,7 +447,7 @@ export function CreateBookingModal({
                                         <p className="font-medium mb-1">يرجى استكمال المعلومات التالية:</p>
                                         <ul className="text-xs space-y-1 mr-4">
                                             {!selectedDate && <li>• اختر التاريخ</li>}
-                                            {!selectedTime && <li>• اختر الوقت</li>}
+                                            {!selectedSlot && <li>• اختر الوقت</li>}
                                             {!selectedSubject && <li>• اختر المادة</li>}
                                             {isParent && !selectedChildId && <li>• اختر الطالب</li>}
                                         </ul>

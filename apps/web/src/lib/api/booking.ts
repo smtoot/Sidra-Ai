@@ -5,7 +5,11 @@ export type BookingStatus =
     | 'WAITING_FOR_PAYMENT'
     | 'PAYMENT_REVIEW'
     | 'SCHEDULED'
+    | 'PENDING_CONFIRMATION'  // NEW: Teacher marked complete, awaiting student confirmation
     | 'COMPLETED'
+    | 'DISPUTED'              // NEW: Student raised an issue
+    | 'REFUNDED'              // NEW: Admin decided to refund student
+    | 'PARTIALLY_REFUNDED'    // NEW: Admin split the payment
     | 'REJECTED_BY_TEACHER'
     | 'CANCELLED_BY_PARENT'
     | 'CANCELLED_BY_ADMIN'
@@ -13,12 +17,16 @@ export type BookingStatus =
 
 export interface CreateBookingRequest {
     teacherId: string;
-    studentId: string;
     subjectId: string;
     childId?: string; // Optional: Only for Parent bookings
     startTime: string; // ISO 8601
     endTime: string; // ISO 8601
     price: number;
+    timezone?: string; // User's IANA timezone
+    bookingNotes?: string; // Notes from parent/student about what they want to study
+    // Package & Demo support
+    packageId?: string; // If booking using a purchased package
+    isDemo?: boolean; // If this is a demo session
 }
 
 export interface Booking {
@@ -33,10 +41,24 @@ export interface Booking {
     status: BookingStatus;
     cancelReason?: string;
     createdAt: string;
+    // Dispute window fields
+    disputeWindowOpensAt?: string | null;
+    disputeWindowClosesAt?: string | null;
+    disputeReminderSentAt?: string | null;
+    // Legacy fields (kept for backward compatibility)
+    teacherCompletedAt?: string | null;
+    autoReleaseAt?: string | null;
+    studentConfirmedAt?: string | null;
+    paymentReleasedAt?: string | null;
+    // Related entities
     teacherProfile?: any;
     parentProfile?: any;
+    bookedByUser?: { // The user who made the booking (parent or student)
+        id: string;
+        email: string;
+    };
     studentUser?: any; // Independent student user
-    child?: { // Child entity
+    child?: { // Child entity for parent bookings
         id: string;
         name: string;
     };
@@ -47,6 +69,10 @@ export interface Booking {
         nameAr: string;
         nameEn: string;
     };
+    // Teacher notes
+    bookingNotes?: string;     // Notes from parent/student about what they want to study
+    teacherPrepNotes?: string; // Teacher's private preparation notes
+    teacherSummary?: string;   // Teacher's class summary after session
 }
 
 export const bookingApi = {
@@ -80,6 +106,22 @@ export const bookingApi = {
         return response.data;
     },
 
+    // Get all teacher bookings (for requests page - shows all statuses)
+    getAllTeacherBookings: async (): Promise<Booking[]> => {
+        const response = await api.get('/bookings/teacher/all');
+        return response.data;
+    },
+
+    getBookingById: async (id: string): Promise<Booking> => {
+        const response = await api.get(`/bookings/${id}`);
+        return response.data;
+    },
+
+    updateTeacherNotes: async (id: string, notes: { teacherPrepNotes?: string; teacherSummary?: string }) => {
+        const response = await api.patch(`/bookings/${id}/teacher-notes`, notes);
+        return response.data;
+    },
+
     getParentBookings: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/parent/my-bookings');
         return response.data;
@@ -93,5 +135,48 @@ export const bookingApi = {
     payBooking: async (id: string) => {
         const response = await api.patch(`/bookings/${id}/pay`);
         return response.data;
+    },
+
+    // --- Escrow Payment Release System ---
+
+    // Parent/Student confirms session early (before auto-release)
+    confirmSessionEarly: async (id: string, rating?: number) => {
+        const response = await api.patch(`/bookings/${id}/confirm-early`, { rating });
+        return response.data;
+    },
+
+    // Parent/Student raises a dispute
+    raiseDispute: async (id: string, type: string, description: string, evidence?: string[]) => {
+        const response = await api.post(`/bookings/${id}/dispute`, {
+            type,
+            description,
+            evidence: evidence || []
+        });
+        return response.data;
+    },
+
+    // --- Cancellation Flow ---
+
+    // Get cancellation estimate (read-only preview)
+    getCancelEstimate: async (id: string): Promise<CancelEstimate> => {
+        const response = await api.get(`/bookings/${id}/cancel-estimate`);
+        return response.data;
+    },
+
+    // Cancel booking
+    cancelBooking: async (id: string, reason?: string) => {
+        const response = await api.patch(`/bookings/${id}/cancel`, { reason });
+        return response.data;
     }
 };
+
+export interface CancelEstimate {
+    canCancel: boolean;
+    reason?: string;
+    refundPercent: number;
+    refundAmount: number;
+    teacherCompAmount: number;
+    policy?: string;
+    hoursRemaining?: number;
+    message?: string;
+}

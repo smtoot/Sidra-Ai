@@ -5,6 +5,17 @@ import {
     CreateAvailabilityDto
 } from '@sidra/shared';
 
+export type DocumentType = 'ID_CARD' | 'CERTIFICATE' | 'DEGREE' | 'OTHER';
+
+export interface TeacherDocument {
+    id: string;
+    teacherId: string;
+    type: DocumentType;
+    fileName: string;
+    fileUrl: string; // This is the fileKey, not a URL
+    uploadedAt: string;
+}
+
 export const teacherApi = {
     getProfile: async () => {
         const response = await api.get('/teacher/me');
@@ -49,5 +60,59 @@ export const teacherApi = {
     removeException: async (id: string) => {
         const response = await api.delete(`/teacher/me/exceptions/${id}`);
         return response.data;
+    },
+
+    // --- Document Management ---
+    getDocuments: async (): Promise<TeacherDocument[]> => {
+        const response = await api.get('/teacher/me/documents');
+        return response.data;
+    },
+    addDocument: async (data: { type: DocumentType; fileKey: string; fileName: string }): Promise<TeacherDocument> => {
+        const response = await api.post('/teacher/me/documents', data);
+        return response.data;
+    },
+    removeDocument: async (id: string) => {
+        const response = await api.delete(`/teacher/me/documents/${id}`);
+        return response.data;
+    },
+
+    // --- Application Status ---
+    getApplicationStatus: async (): Promise<TeacherApplicationStatus> => {
+        const response = await api.get('/teacher/me/application-status');
+        return response.data;
+    },
+    submitForReview: async () => {
+        const response = await api.post('/teacher/me/submit');
+        return response.data;
+    },
+
+    // --- Demo Session Settings ---
+    getDemoSettings: async (): Promise<{ demoEnabled: boolean } | null> => {
+        const response = await api.get('/packages/demo/settings');
+        return response.data;
+    },
+    updateDemoSettings: async (demoEnabled: boolean): Promise<{ demoEnabled: boolean }> => {
+        const response = await api.post('/packages/demo/settings', { demoEnabled });
+        return response.data;
     }
 };
+
+// Application Status Types
+export type ApplicationStatusType =
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'CHANGES_REQUESTED'
+    | 'INTERVIEW_REQUIRED'
+    | 'INTERVIEW_SCHEDULED'
+    | 'APPROVED'
+    | 'REJECTED';
+
+export interface TeacherApplicationStatus {
+    applicationStatus: ApplicationStatusType;
+    submittedAt: string | null;
+    reviewedAt: string | null;
+    rejectionReason: string | null;
+    changeRequestReason: string | null;
+    interviewScheduledAt: string | null;
+    interviewLink: string | null;
+}
