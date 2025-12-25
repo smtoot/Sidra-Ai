@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, Patch, Delete, NotFoundException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -21,6 +21,18 @@ class UpdateDemoSettingsDto {
     demoEnabled: boolean;
 }
 
+class CreateTierDto {
+    sessionCount: number;
+    discountPercent: number;
+    displayOrder: number;
+}
+
+class UpdateTierDto {
+    isActive?: boolean;
+    displayOrder?: number;
+    discountPercent?: number;
+}
+
 // =====================================================
 // CONTROLLER
 // =====================================================
@@ -34,12 +46,61 @@ export class PackageController {
     ) { }
 
     // =====================================================
-    // PUBLIC: Get available tiers
+    // ADMIN: Manage Tiers & Stats
     // =====================================================
 
+    @Get('admin/stats')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async getAdminStats() {
+        return this.packageService.getAdminStats();
+    }
+
+    @Get('admin/demo-sessions')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async getAdminDemoSessions() {
+        return this.demoService.getAllDemoSessions();
+    }
+
+    @Post('tiers')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async createTier(@Body() dto: CreateTierDto) {
+        return this.packageService.createTier(dto);
+    }
+
     @Get('tiers')
-    async getTiers() {
+    async getTiers(@Query('all') all?: boolean) {
+        // Public endpoint returns active only. Admin might need all?
+        // For now public calls simple getActiveTiers.
+        // If admin needs all, we can add logic here or a separate endpoint.
+        // Let's modify getActiveTiers in service or add getAllTiers if needed.
+        // Given the requirement, admin usually sees everything.
+        // I'll stick to basic public getTiers for now as defined before.
         return this.packageService.getActiveTiers();
+    }
+
+    // Admin specific get all tiers
+    @Get('admin/tiers')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async getAllTiers() {
+        return this.packageService.getAllTiers();
+    }
+
+    @Patch('tiers/:id')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async updateTier(@Param('id') id: string, @Body() dto: UpdateTierDto) {
+        return this.packageService.updateTier(id, dto);
+    }
+
+    @Delete('tiers/:id') // Using Delete for soft-delete/deactivate
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    async deleteTier(@Param('id') id: string) {
+        return this.packageService.deleteTier(id);
     }
 
     // =====================================================
@@ -76,11 +137,47 @@ export class PackageController {
         return this.packageService.getStudentPackages(userId);
     }
 
+    // =====================================================
+    // TEACHER: Get packages for this teacher (must be before :id)
+    // =====================================================
+
+    @Get('teacher')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    async getTeacherPackages(@Req() req: any) {
+        const teacherProfile = await this.getTeacherProfile(req.user.userId);
+        return this.packageService.getTeacherPackages(teacherProfile.id);
+    }
+
     @Get(':id')
     @UseGuards(RolesGuard)
-    @Roles(UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN)
+    @Roles(UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN, UserRole.TEACHER)
     async getPackageById(@Param('id') id: string) {
         return this.packageService.getPackageById(id);
+    }
+
+    // =====================================================
+    // PARENT/STUDENT: Schedule a session from package
+    // =====================================================
+
+    @Post(':id/schedule-session')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.PARENT, UserRole.STUDENT)
+    async scheduleSession(
+        @Req() req: any,
+        @Param('id') id: string,
+        @Body() dto: { startTime: string; endTime: string; timezone: string }
+    ) {
+        const userId = req.user.userId;
+        const idempotencyKey = `SCHEDULE_${id}_${dto.startTime}_${Date.now()}`;
+        return this.packageService.schedulePackageSession(
+            id,
+            userId,
+            new Date(dto.startTime),
+            new Date(dto.endTime),
+            dto.timezone,
+            idempotencyKey
+        );
     }
 
     // =====================================================
@@ -136,14 +233,16 @@ export class PackageController {
         return this.demoService.getDemoSettings(teacherProfile.id);
     }
 
+
+
     // Helper to get teacher profile ID from user ID
     private async getTeacherProfile(userId: string) {
-        // This should be injected as a service, but for simplicity:
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
-        const profile = await prisma.teacherProfile.findUnique({ where: { userId } });
-        await prisma.$disconnect();
-        if (!profile) throw new Error('Teacher profile not found');
+        // Accessing prisma through packageService (which has it protected/publicly)
+        // If it's not accessible, we can add a method to PackageService
+        const profile = await (this.packageService as any).prisma.teacherProfile.findUnique({
+            where: { userId }
+        });
+        if (!profile) throw new NotFoundException('Teacher profile not found');
         return profile;
     }
 }

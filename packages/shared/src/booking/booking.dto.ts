@@ -42,7 +42,12 @@ export class CreateBookingDto {
     @IsUUID()
     @IsString()
     @IsOptional()
-    packageId?: string; // If booking using a purchased package
+    packageId?: string; // If booking using an existing purchased package
+
+    @IsUUID()
+    @IsString()
+    @IsOptional()
+    tierId?: string; // If booking will trigger a new package purchase (deferred payment)
 
     @IsBoolean()
     @IsOptional()

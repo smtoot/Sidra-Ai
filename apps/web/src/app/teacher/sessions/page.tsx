@@ -1,23 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { bookingApi, Booking, BookingStatus } from '@/lib/api/booking';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Video } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Pagination } from '@/components/ui/pagination';
+import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Video, Bell, Loader2, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard';
+import Link from 'next/link';
+import { BookingCard } from '@/components/teacher/BookingCard';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function TeacherSessionsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [completingId, setCompletingId] = useState<string | null>(null);
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [selectedBookingForComplete, setSelectedBookingForComplete] = useState<Booking | null>(null);
 
-    const loadSessions = async () => {
-        setLoading(true);
+    const loadSessions = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const data = await bookingApi.getTeacherSessions();
             setBookings(data);
         } catch (error) {
             console.error("Failed to load sessions", error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -25,128 +38,324 @@ export default function TeacherSessionsPage() {
         loadSessions();
     }, []);
 
-    const getStatusBadge = (status: BookingStatus) => {
-        const statusMap = {
-            PENDING_TEACHER_APPROVAL: { label: 'قيد الانتظار', color: 'bg-warning/10 text-warning', icon: AlertCircle },
-            WAITING_FOR_PAYMENT: { label: 'في انتظار الدفع', color: 'bg-blue-100 text-blue-600', icon: AlertCircle },
-            PAYMENT_REVIEW: { label: 'مراجعة الدفع', color: 'bg-blue-100 text-blue-600', icon: AlertCircle },
-            SCHEDULED: { label: 'مجدولة', color: 'bg-green-100 text-green-600', icon: CheckCircle },
-            COMPLETED: { label: 'مكتملة', color: 'bg-success/10 text-success', icon: CheckCircle },
-            REJECTED_BY_TEACHER: { label: 'مرفوضة', color: 'bg-error/10 text-error', icon: XCircle },
-            CANCELLED_BY_PARENT: { label: 'ملغاة', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-            CANCELLED_BY_ADMIN: { label: 'ملغاة من الإدارة', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-            EXPIRED: { label: 'منتهية', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-        };
+    // Compute sessions that need completion (past end time but still SCHEDULED)
+    const pendingCompletions = useMemo(() => {
+        const now = new Date();
+        return bookings.filter(booking => {
+            if (booking.status !== 'SCHEDULED') return false;
+            const endTime = new Date(booking.endTime);
+            return now > endTime; // Session has ended but not marked complete
+        });
+    }, [bookings]);
 
-        const config = statusMap[status] || statusMap.PENDING_TEACHER_APPROVAL;
-        const Icon = config.icon;
+    // Compute sessions awaiting payment release (PENDING_CONFIRMATION status)
+    const pendingPaymentRelease = useMemo(() => {
+        return bookings.filter(booking => booking.status === 'PENDING_CONFIRMATION');
+    }, [bookings]);
 
-        return (
-            <span className={cn("flex items-center gap-1 text-sm px-3 py-1 rounded-full font-medium", config.color)}>
-                <Icon className="w-4 h-4" />
-                {config.label}
-            </span>
-        );
+    const handleCompleteSession = async () => {
+        if (!selectedBookingForComplete) return;
+
+        setCompletingId(selectedBookingForComplete.id);
+        try {
+            await bookingApi.completeSession(selectedBookingForComplete.id);
+            toast.success('تم إنهاء الحصة! سيتم تحويل الدفع خلال 48 ساعة بعد تأكيد الطالب ✅');
+            setConfirmModalOpen(false);
+            setSelectedBookingForComplete(null);
+            await loadSessions(true); // Silent refresh
+        } catch (error) {
+            console.error('Failed to complete session', error);
+            toast.error('حدث خطأ أثناء إنهاء الحصة');
+        } finally {
+            setCompletingId(null);
+        }
+    };
+
+    // Helper function to determine Join/Start button state based on session time
+    const getSessionButtonState = (booking: Booking): {
+        canStart: boolean;
+        canComplete: boolean;
+        label: string;
+        sublabel?: string;
+    } => {
+        const sessionStart = new Date(booking.startTime);
+        const sessionEnd = new Date(booking.endTime);
+        const now = new Date();
+
+        // Allow starting 15 min before until session end
+        const fifteenMinutesBefore = new Date(sessionStart.getTime() - 15 * 60 * 1000);
+        const thirtyMinutesAfterEnd = new Date(sessionEnd.getTime() + 30 * 60 * 1000);
+
+        const canStart = now >= fifteenMinutesBefore && now <= thirtyMinutesAfterEnd;
+        const sessionInProgress = now >= sessionStart && now <= sessionEnd;
+        const sessionEnded = now > sessionEnd;
+
+        if (now < fifteenMinutesBefore) {
+            const diff = sessionStart.getTime() - now.getTime();
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) {
+                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة' };
+            } else if (hours > 0) {
+                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة' };
+            } else {
+                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة' };
+            }
+        } else if (sessionInProgress) {
+            return { canStart: true, canComplete: true, label: '🔴 بدء الاجتماع', sublabel: 'الحصة جارية' };
+        } else if (sessionEnded) {
+            return { canStart: false, canComplete: true, label: 'انتهت الحصة', sublabel: 'يرجى إنهاء الحصة لتحويل الأرباح' };
+        } else {
+            return { canStart: true, canComplete: false, label: 'بدء الاجتماع' };
+        }
     };
 
     return (
-        <div className="min-h-screen bg-background font-tajawal rtl p-8">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <header>
-                    <h1 className="text-3xl font-bold text-primary">حصصي</h1>
-                    <p className="text-text-subtle">الجدول الدراسي وجميع الحصص</p>
-                </header>
+        <TeacherApprovalGuard>
+            <div className="min-h-screen bg-gray-50 font-sans p-4 md:p-8" dir="rtl">
+                <div className="max-w-6xl mx-auto space-y-6">
+                    {/* Header */}
+                    <header>
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">حصصي</h1>
+                        <p className="text-sm md:text-base text-gray-600">الجدول الدراسي وجميع الحصص</p>
+                    </header>
 
-                {loading ? (
-                    <div className="text-center py-12 text-text-subtle">جاري التحميل...</div>
-                ) : bookings.length === 0 ? (
-                    <div className="bg-surface rounded-xl p-12 text-center border border-gray-100">
-                        <Calendar className="w-16 h-16 mx-auto text-text-subtle mb-4" />
-                        <h3 className="text-xl font-bold text-primary mb-2">لا توجد حصص مجدولة</h3>
-                        <p className="text-text-subtle">عندما يتم حجز حصص جديدة ستظهر هنا</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {bookings.map((booking) => (
-                            <div key={booking.id} className="bg-surface rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow">
-                                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-                                    <div className="flex-1 space-y-3 w-full">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                    <User className="w-5 h-5 text-primary" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-primary">
-                                                        {booking.student?.name || 'طالب مجهول'}
-                                                    </h3>
-                                                    <p className="text-sm text-text-subtle">
-                                                        {booking.subject?.nameAr || booking.subjectId}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            {getStatusBadge(booking.status)}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div className="flex items-center gap-2 text-text-subtle">
-                                                <Calendar className="w-4 h-4" />
-                                                <span>{new Date(booking.startTime).toLocaleDateString('ar-EG')}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-text-subtle">
-                                                <Clock className="w-4 h-4" />
-                                                <span>
-                                                    {new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                                                    {' - '}
-                                                    {new Date(booking.endTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                    {/* Pending Completion Banner */}
+                    {pendingCompletions.length > 0 && (
+                        <Card className="border-warning-200 bg-warning-50">
+                            <CardContent className="p-5">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-warning-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <Bell className="w-5 h-5 text-warning-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-warning-800 mb-1">
+                                            لديك {pendingCompletions.length} حصة تحتاج إلى إنهاء
+                                        </h3>
+                                        <p className="text-sm text-warning-700 mb-3">
+                                            يرجى تأكيد إنهاء الحصص السابقة لتحويل أرباحك إلى المحفظة
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {pendingCompletions.slice(0, 3).map(booking => (
+                                                <Button
+                                                    key={booking.id}
+                                                    onClick={() => {
+                                                        setSelectedBookingForComplete(booking);
+                                                        setConfirmModalOpen(true);
+                                                    }}
+                                                    size="sm"
+                                                    className="bg-warning-600 hover:bg-warning-700 text-white gap-1"
+                                                >
+                                                    <CheckCircle className="w-4 h-4" />
+                                                    إنهاء حصة {new Date(booking.startTime).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                                                </Button>
+                                            ))}
+                                            {pendingCompletions.length > 3 && (
+                                                <span className="text-sm text-warning-600 self-center px-2">
+                                                    +{pendingCompletions.length - 3} حصص أخرى
                                                 </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between mt-4">
-                                            <div className="font-bold text-lg text-primary">
-                                                {booking.price} SDG
-                                            </div>
-
-                                            {/* Action Buttons */}
-                                            {booking.status === 'SCHEDULED' && (
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm text-sm"
-                                                        onClick={() => {
-                                                            window.open(booking.meetingLink || 'https://meet.google.com', '_blank');
-                                                        }}
-                                                    >
-                                                        <Video className="w-4 h-4" />
-                                                        بدء الاجتماع
-                                                    </button>
-                                                    <button
-                                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm text-sm"
-                                                        onClick={async () => {
-                                                            if (confirm('هل انتهت الحصة بالفعل؟ سيتم تحويل الأرباح إلى محفظتك.')) {
-                                                                try {
-                                                                    await bookingApi.completeSession(booking.id);
-                                                                    loadSessions(); // Refresh
-                                                                } catch (err) {
-                                                                    alert('حدث خطأ أثناء إنهاء الحصة');
-                                                                    console.error(err);
-                                                                }
-                                                            }
-                                                        }}
-                                                    >
-                                                        <CheckCircle className="w-4 h-4" />
-                                                        إنهاء الحصة
-                                                    </button>
-                                                </div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Pending Payment Release Banner */}
+                    {pendingPaymentRelease.length > 0 && (
+                        <Card className="border-success-200 bg-success-50">
+                            <CardContent className="p-5">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-success-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-success-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-success-800 mb-1">
+                                            💰 {pendingPaymentRelease.length} حصة في انتظار تحويل الدفع
+                                        </h3>
+                                        <p className="text-sm text-success-700 mb-2">
+                                            اكتملت الحصص بنجاح! سيتم تحويل الأرباح إلى محفظتك تلقائياً خلال 48 ساعة
+                                        </p>
+                                        <div className="flex flex-wrap gap-2 text-xs text-success-700">
+                                            {pendingPaymentRelease.slice(0, 5).map(booking => (
+                                                <span key={booking.id} className="bg-success-100 px-2 py-1 rounded-lg font-medium">
+                                                    {new Date(booking.startTime).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })} - {booking.subject?.nameAr || 'مادة'}
+                                                </span>
+                                            ))}
+                                            {pendingPaymentRelease.length > 5 && (
+                                                <span className="self-center">+{pendingPaymentRelease.length - 5} أخرى</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Sessions List */}
+                    {loading ? (
+                        <Card>
+                            <CardContent className="p-12 text-center text-gray-500">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary-600" />
+                                <p>جاري التحميل...</p>
+                            </CardContent>
+                        </Card>
+                    ) : bookings.length === 0 ? (
+                        <Card className="border-dashed border-2">
+                            <CardContent className="p-12 text-center">
+                                <Calendar className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                                <h3 className="text-xl font-bold text-gray-700 mb-2">لا توجد حصص مجدولة</h3>
+                                <p className="text-gray-500 mb-4">عندما يتم حجز حصص جديدة ستظهر هنا</p>
+                                <Link href="/teacher/availability">
+                                    <Button variant="outline">إدارة جدول المواعيد</Button>
+                                </Link>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <>
+                            <div className="space-y-4">
+                                {(() => {
+                                    // Pagination logic
+                                    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+                                    const endIndex = startIndex + ITEMS_PER_PAGE;
+                                    const paginatedBookings = bookings.slice(startIndex, endIndex);
+                                    const totalPages = Math.ceil(bookings.length / ITEMS_PER_PAGE);
+
+                                    return (
+                                        <>
+                                            {paginatedBookings.map((booking) => (
+                                                <BookingCard
+                                                    key={booking.id}
+                                                    id={booking.id}
+                                                    readableId={booking.readableId}
+                                                    studentName={booking.child?.name || booking.studentUser?.email || 'طالب مجهول'}
+                                                    subjectName={booking.subject?.nameAr || booking.subjectId}
+                                                    startTime={booking.startTime}
+                                                    endTime={booking.endTime}
+                                                    price={booking.price}
+                                                    status={booking.status}
+                                                    packageSessionCount={booking.packageBooking?.package?.sessionCount}
+                                                    isDemo={booking.isDemo}
+                                                    actionSlot={
+                                                        booking.status === 'SCHEDULED' ? (() => {
+                                                            const buttonState = getSessionButtonState(booking);
+                                                            return (
+                                                                <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                                                                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                                                                        {/* Start Meeting Button */}
+                                                                        <button
+                                                                            className={cn(
+                                                                                "px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 shadow-sm text-sm",
+                                                                                buttonState.canStart
+                                                                                    ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200"
+                                                                                    : "bg-gray-100 text-gray-400 cursor-not-allowed",
+                                                                                buttonState.label.includes('🔴') && "animate-pulse"
+                                                                            )}
+                                                                            disabled={!buttonState.canStart}
+                                                                            onClick={() => {
+                                                                                if (buttonState.canStart) {
+                                                                                    window.open(booking.meetingLink || 'https://meet.google.com', '_blank');
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Video className="w-4 h-4" />
+                                                                            {buttonState.label}
+                                                                        </button>
+
+                                                                        {/* Complete Session Button - only after session starts */}
+                                                                        {buttonState.canComplete && (
+                                                                            <button
+                                                                                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm text-sm shadow-blue-200"
+                                                                                onClick={() => {
+                                                                                    setSelectedBookingForComplete(booking);
+                                                                                    setConfirmModalOpen(true);
+                                                                                }}
+                                                                            >
+                                                                                <CheckCircle className="w-4 h-4" />
+                                                                                إنهاء
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    {buttonState.sublabel && (
+                                                                        <span className="text-xs text-gray-400">
+                                                                            {buttonState.sublabel}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })() : undefined
+                                                    }
+                                                />
+                                            ))}
+                                        </>
+                                    );
+                                })()}
                             </div>
-                        ))}
+
+                            {/* Pagination */}
+                            {bookings.length > ITEMS_PER_PAGE && (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalPages={Math.ceil(bookings.length / ITEMS_PER_PAGE)}
+                                    onPageChange={(page) => {
+                                        setCurrentPage(page);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    className="mt-6"
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Session Completion Modal */}
+                {confirmModalOpen && selectedBookingForComplete && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <Card className="max-w-md w-full">
+                            <CardContent className="p-6 text-center">
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <CheckCircle className="w-8 h-8 text-blue-600" />
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-2">إنهاء الحصة</h2>
+                                <p className="text-sm text-gray-600 mb-6">
+                                    هل تأكدت من انتهاء الحصة التعليمية؟ سيتم إخطار الطالب للتأكيد وتحويل الأرباح إلى محفظتك.
+                                </p>
+
+                                <div className="flex gap-3">
+                                    <Button
+                                        onClick={handleCompleteSession}
+                                        disabled={completingId === selectedBookingForComplete.id}
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+                                    >
+                                        {completingId === selectedBookingForComplete.id ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                جاري الإنهاء...
+                                            </>
+                                        ) : (
+                                            'نعم، تم الإنهاء'
+                                        )}
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            setConfirmModalOpen(false);
+                                            setSelectedBookingForComplete(null);
+                                        }}
+                                        disabled={completingId === selectedBookingForComplete.id}
+                                        variant="outline"
+                                        className="flex-1"
+                                    >
+                                        إلغاء
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
                 )}
             </div>
-        </div>
+        </TeacherApprovalGuard>
     );
 }

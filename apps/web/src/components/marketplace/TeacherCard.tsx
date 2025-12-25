@@ -1,6 +1,7 @@
 import { SearchResult } from '@/lib/api/search';
 import { Button } from '../ui/button';
 import { Star, GraduationCap, Briefcase, MapPin } from 'lucide-react';
+import Link from 'next/link';
 
 interface TeacherCardProps {
     result: SearchResult;
@@ -23,9 +24,11 @@ export default function TeacherCard({ result, onBook }: TeacherCardProps) {
             <div className="flex-grow space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h3 className="font-bold text-lg text-primary">
-                            {teacherProfile.displayName || 'أستاذ مجهول'}
-                        </h3>
+                        <Link href={`/teachers/${teacherProfile.slug || teacherProfile.id}`} className="hover:underline">
+                            <h3 className="font-bold text-lg text-primary">
+                                {teacherProfile.displayName || 'أستاذ مجهول'}
+                            </h3>
+                        </Link>
                         <p className="text-text-subtle text-sm flex items-center gap-1">
                             {teacherProfile.education || 'مؤهل غير محدد'}
                         </p>
@@ -50,6 +53,23 @@ export default function TeacherCard({ result, onBook }: TeacherCardProps) {
                         <MapPin className="w-3 h-3" />
                         {curriculum.nameAr}
                     </span>
+
+                    {/* Grades Display in Search Card */}
+                    {result.gradeLevels && result.gradeLevels.length > 0 && (
+                        <div className="flex flex-wrap gap-1 px-1">
+                            {result.gradeLevels.length > 3 ? (
+                                <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
+                                    {result.gradeLevels.length} صفوف دراسية
+                                </span>
+                            ) : (
+                                result.gradeLevels.map((g, idx) => (
+                                    <span key={idx} className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
+                                        {g.nameAr}
+                                    </span>
+                                ))
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <p className="text-text-subtle text-sm line-clamp-2">
@@ -70,11 +90,14 @@ export default function TeacherCard({ result, onBook }: TeacherCardProps) {
                     >
                         احجز الآن
                     </Button>
-                    <Button variant="outline" className="w-full border-primary/20 text-primary hover:bg-primary/5">
-                        عرض الملف
-                    </Button>
+                    <Link href={`/teachers/${teacherProfile.slug || teacherProfile.id}`}>
+                        <Button variant="outline" className="w-full border-primary/20 text-primary hover:bg-primary/5">
+                            عرض الملف
+                        </Button>
+                    </Link>
                 </div>
             </div>
         </div>
     );
 }
+

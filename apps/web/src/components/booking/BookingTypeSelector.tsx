@@ -30,7 +30,7 @@ interface BookingTypeSelectorProps {
     subjectId: string;
     basePrice: number;
     onSelect: (option: BookingTypeOption) => void;
-    selectedType: BookingType | null;
+    selectedOption: BookingTypeOption | null;  // Changed from selectedType to track full option
 }
 
 // =====================================================
@@ -42,7 +42,7 @@ export function BookingTypeSelector({
     subjectId,
     basePrice,
     onSelect,
-    selectedType
+    selectedOption  // Changed from selectedType
 }: BookingTypeSelectorProps) {
     const [loading, setLoading] = useState(true);
     const [demoEnabled, setDemoEnabled] = useState(false);
@@ -81,19 +81,35 @@ export function BookingTypeSelector({
     // Build options based on fetched data
     const options: BookingTypeOption[] = [];
 
-    // 1. Demo option (first priority)
+    // 1. Existing package (Highest priority)
+    if (existingPackage) {
+        const sessionsRemaining = existingPackage.sessionCount - existingPackage.sessionsUsed;
+        if (sessionsRemaining > 0 && existingPackage.status === 'ACTIVE') {
+            options.push({
+                type: 'PACKAGE',
+                enabled: true,
+                packageId: existingPackage.id,
+                price: 0,
+                displayPrice: 'من باقتك الحالية',
+                sessionsRemaining,
+                sessionCount: existingPackage.sessionCount,
+                expiresAt: existingPackage.expiresAt
+            });
+        }
+    }
+
+    // 2. Demo option
     if (demoEnabled) {
-        const demoOption: BookingTypeOption = {
+        options.push({
             type: 'DEMO',
             enabled: demoEligibility?.allowed ?? false,
             reason: demoEligibility?.reason ? getDemoDisabledReason(demoEligibility.reason) : undefined,
             price: 0,
-            displayPrice: 'مجاني'
-        };
-        options.push(demoOption);
+            displayPrice: 'مجاناً'
+        });
     }
 
-    // 2. Single session (always available)
+    // 3. Single session
     options.push({
         type: 'SINGLE',
         enabled: true,
@@ -101,157 +117,119 @@ export function BookingTypeSelector({
         displayPrice: `${basePrice} SDG`
     });
 
-    // 3. Existing package (if user has active one for this teacher+subject)
-    if (existingPackage) {
-        const sessionsRemaining = existingPackage.sessionCount - existingPackage.sessionsUsed;
+    // 4. Package Tiers (as new purchases)
+    tiers.forEach((tier) => {
+        const totalPrice = basePrice * tier.sessionCount;
+        const discountedTotal = Math.round(totalPrice * (1 - tier.discountPercent / 100));
+        const savings = totalPrice - discountedTotal;
+
         options.push({
             type: 'PACKAGE',
-            enabled: sessionsRemaining > 0 && existingPackage.status === 'ACTIVE',
-            reason: sessionsRemaining === 0 ? 'لا توجد حصص متبقية' : undefined,
-            packageId: existingPackage.id,
-            price: 0, // Already paid
-            displayPrice: 'من باقتك',
-            sessionsRemaining,
-            sessionCount: existingPackage.sessionCount,
-            expiresAt: existingPackage.expiresAt
+            enabled: true,
+            tierId: tier.id,
+            price: discountedTotal,
+            displayPrice: `${discountedTotal} SDG`,
+            sessionCount: tier.sessionCount,
+            savings: `وفّر ${savings.toFixed(0)} SDG (${tier.discountPercent}%)`
         });
-    }
+    });
 
     if (loading) {
         return (
             <div className="space-y-3 animate-pulse">
-                <div className="h-20 bg-gray-100 rounded-xl" />
-                <div className="h-20 bg-gray-100 rounded-xl" />
+                <div className="h-16 bg-gray-100 rounded-xl" />
+                <div className="h-16 bg-gray-100 rounded-xl" />
+                <div className="h-16 bg-gray-100 rounded-xl" />
             </div>
         );
     }
 
     return (
         <div className="space-y-3">
-            <h3 className="font-bold text-sm text-gray-700">نوع الحجز</h3>
+            <h3 className="font-bold text-sm text-gray-700 mb-2">نوع الحجز</h3>
 
-            {options.map((option) => (
-                <button
-                    key={option.type}
-                    onClick={() => option.enabled && onSelect(option)}
-                    disabled={!option.enabled}
-                    className={cn(
-                        "w-full p-4 rounded-xl border-2 transition-all text-right",
-                        option.enabled && selectedType === option.type
-                            ? "border-primary bg-primary/5"
-                            : option.enabled
-                                ? "border-gray-200 hover:border-primary/50 hover:bg-gray-50"
-                                : "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed"
-                    )}
-                >
-                    <div className="flex items-start gap-3">
-                        {/* Icon */}
-                        <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-                            option.type === 'DEMO' && "bg-amber-100 text-amber-600",
-                            option.type === 'SINGLE' && "bg-blue-100 text-blue-600",
-                            option.type === 'PACKAGE' && "bg-green-100 text-green-600"
-                        )}>
-                            {option.type === 'DEMO' && <Play className="w-5 h-5" />}
-                            {option.type === 'SINGLE' && <Clock className="w-5 h-5" />}
-                            {option.type === 'PACKAGE' && <Package className="w-5 h-5" />}
-                        </div>
+            <div className="grid gap-3">
+                {options.map((option, idx) => {
+                    // Proper selection check: match type AND specific tier/package ID
+                    const isSelected = selectedOption?.type === option.type &&
+                        (option.tierId
+                            ? selectedOption?.tierId === option.tierId
+                            : option.packageId
+                                ? selectedOption?.packageId === option.packageId
+                                : option.type !== 'PACKAGE' || (!option.tierId && !option.packageId));
 
-                        {/* Content */}
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                                <span className="font-semibold text-sm">
-                                    {getOptionTitle(option.type)}
-                                </span>
-                                <span className={cn(
-                                    "font-bold",
-                                    option.type === 'DEMO' && "text-amber-600",
-                                    option.type === 'SINGLE' && "text-gray-800",
-                                    option.type === 'PACKAGE' && "text-green-600"
-                                )}>
-                                    {option.displayPrice}
-                                </span>
-                            </div>
-
-                            <p className="text-xs text-gray-500 mt-1">
-                                {getOptionDescription(option)}
-                            </p>
-
-                            {/* Package remaining sessions */}
-                            {option.type === 'PACKAGE' && option.sessionsRemaining !== undefined && (
-                                <div className="flex items-center gap-2 mt-2">
-                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                        {option.sessionsRemaining} حصص متبقية
-                                    </span>
-                                </div>
+                    return (
+                        <button
+                            key={`${option.type}-${option.tierId || option.packageId || idx}`}
+                            onClick={() => option.enabled && onSelect(option)}
+                            disabled={!option.enabled}
+                            className={cn(
+                                "relative w-full p-4 rounded-xl border-2 transition-all text-right flex flex-col gap-1",
+                                isSelected
+                                    ? "border-primary bg-primary/5 shadow-sm"
+                                    : option.enabled
+                                        ? "border-gray-100 hover:border-primary/30"
+                                        : "border-gray-50 bg-gray-50/50 opacity-60 cursor-not-allowed"
                             )}
-
-                            {/* Disabled reason */}
-                            {!option.enabled && option.reason && (
-                                <div className="flex items-center gap-1 mt-2 text-xs text-red-500">
-                                    <AlertCircle className="w-3 h-3" />
-                                    {option.reason}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Selection indicator */}
-                        {option.enabled && selectedType === option.type && (
-                            <Check className="w-5 h-5 text-primary shrink-0" />
-                        )}
-                    </div>
-                </button>
-            ))}
-
-            {/* Package tiers section (if no existing package) */}
-            {!existingPackage && tiers.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Sparkles className="w-4 h-4 text-amber-500" />
-                        <h4 className="font-bold text-sm text-gray-700">اشتري باقة ووفّر!</h4>
-                    </div>
-                    <div className="grid gap-2">
-                        {tiers.map((tier) => {
-                            const totalPrice = basePrice * tier.sessionCount;
-                            const discountedTotal = totalPrice * (1 - tier.discountPercent / 100);
-                            const savings = totalPrice - discountedTotal;
-
-                            return (
-                                <div
-                                    key={tier.id}
-                                    className="p-3 rounded-lg border border-dashed border-amber-300 bg-amber-50/50"
-                                >
-                                    <div className="flex items-center justify-between">
+                        >
+                            <div className="flex items-center justify-between pointer-events-none">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                                        isSelected ? "border-primary" : "border-gray-300"
+                                    )}>
+                                        {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                                    </div>
+                                    <div className="flex flex-col">
                                         <div className="flex items-center gap-2">
-                                            <Package className="w-4 h-4 text-amber-600" />
-                                            <span className="font-medium text-sm">
-                                                {tier.sessionCount} حصص
+                                            <span className="font-bold text-gray-900">
+                                                {option.tierId ? `باقة ${option.sessionCount} حصص` : getOptionTitle(option.type)}
                                             </span>
-                                            <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
-                                                خصم {tier.discountPercent}%
-                                            </span>
-                                        </div>
-                                        <div className="text-left">
-                                            <span className="font-bold text-amber-700">
-                                                {discountedTotal.toFixed(0)} SDG
-                                            </span>
-                                            <span className="text-xs text-gray-500 line-through mr-2">
-                                                {totalPrice.toFixed(0)}
-                                            </span>
+                                            {option.type === 'DEMO' && (
+                                                <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                                                    مجاناً
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                    <p className="text-xs text-green-600 mt-1">
-                                        وفّر {savings.toFixed(0)} SDG
-                                    </p>
                                 </div>
-                            );
-                        })}
-                        <p className="text-xs text-gray-400 text-center mt-1">
-                            يمكنك شراء باقة من صفحة الباقات
-                        </p>
-                    </div>
-                </div>
-            )}
+
+                                <div className="flex flex-col items-end">
+                                    {option.type === 'DEMO' ? (
+                                        <Play className="w-5 h-5 text-amber-500" />
+                                    ) : (
+                                        <div className="flex flex-col items-end">
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-lg font-bold text-primary">{option.price}</span>
+                                                <span className="text-[10px] text-primary font-medium">SDG</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="pr-8 pointer-events-none">
+                                <p className="text-[11px] text-gray-500 leading-tight">
+                                    {option.tierId ? `شراء باقة جديدة والبدء فوراً` : getOptionDescription(option)}
+                                    {option.savings && <span className="text-green-600 font-bold mr-2">({option.savings})</span>}
+                                    {option.sessionsRemaining !== undefined && (
+                                        <span className="text-primary font-bold mr-2">
+                                            (متبقي {option.sessionsRemaining} حصص)
+                                        </span>
+                                    )}
+                                </p>
+
+                                {!option.enabled && option.reason && (
+                                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {option.reason}
+                                    </p>
+                                )}
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }

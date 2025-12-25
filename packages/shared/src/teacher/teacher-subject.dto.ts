@@ -13,5 +13,5 @@ export class CreateTeacherSubjectDto {
 
     @IsArray()
     @IsString({ each: true })
-    gradeLevels!: string[];
+    gradeLevelIds!: string[];
 }

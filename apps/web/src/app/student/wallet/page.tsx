@@ -63,20 +63,19 @@ export default function StudentWalletPage() {
                 </header>
 
                 {/* Balance Card */}
-                <div className="bg-gradient-to-l from-indigo-600 to-primary text-white rounded-2xl p-8 shadow-lg flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-r-4 border-r-primary-600">
                     <div className="space-y-2 text-center md:text-right">
-                        <p className="text-white/80 text-sm">الرصيد المتاح</p>
-                        <h2 className="text-5xl font-bold">{wallet?.balance || '0'} <span className="text-2xl font-normal">SDG</span></h2>
+                        <p className="text-gray-500 text-sm">الرصيد المتاح</p>
+                        <h2 className="text-5xl font-bold text-primary-700">{wallet?.balance || '0'} <span className="text-2xl font-normal text-gray-500">SDG</span></h2>
                         {Number(wallet?.pendingBalance) > 0 && (
-                            <p className="text-white/60 text-sm bg-white/10 px-3 py-1 rounded-full inline-block mt-2">
+                            <p className="text-warning-700 text-sm bg-warning-50 px-3 py-1 rounded-full inline-block mt-2">
                                 معلق: {wallet?.pendingBalance} SDG
                             </p>
                         )}
                     </div>
                     <Button
-                        variant="secondary"
                         size="lg"
-                        className="bg-white text-primary hover:bg-white/90 gap-2 min-w-[150px]"
+                        className="gap-2 min-w-[150px]"
                         onClick={() => setIsDepositOpen(true)}
                     >
                         <ArrowUpRight className="w-5 h-5" />

@@ -22,6 +22,9 @@ export * from './src/teacher/teacher-subject.dto';
 export * from './src/teacher/availability.dto';
 export * from './src/teacher/exception.dto';
 
+// Utils
+export * from './src/utils/display-name.util';
+
 // Global enums
 export enum UserRole {
     PARENT = 'PARENT',
@@ -30,3 +33,14 @@ export enum UserRole {
     SUPPORT = 'SUPPORT',
     STUDENT = 'STUDENT'
 }
+
+export enum ApplicationStatus {
+    DRAFT = 'DRAFT',
+    SUBMITTED = 'SUBMITTED',
+    CHANGES_REQUESTED = 'CHANGES_REQUESTED',
+    INTERVIEW_REQUIRED = 'INTERVIEW_REQUIRED',
+    INTERVIEW_SCHEDULED = 'INTERVIEW_SCHEDULED',
+    APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED'
+}
+

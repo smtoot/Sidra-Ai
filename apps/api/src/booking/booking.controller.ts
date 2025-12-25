@@ -3,7 +3,7 @@ import { BookingService } from './booking.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { UserRole, CreateBookingDto, UpdateBookingStatusDto } from '@sidra/shared';
+import { UserRole, CreateBookingDto, UpdateBookingStatusDto, CreateRatingDto } from '@sidra/shared';
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
@@ -50,6 +50,14 @@ export class BookingController {
         return this.bookingService.getTeacherSessions(req.user.userId);
     }
 
+    // Get ALL teacher bookings (all statuses - for requests page)
+    @Get('teacher/all')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    getAllTeacherBookings(@Request() req: any) {
+        return this.bookingService.getAllTeacherBookings(req.user.userId);
+    }
+
     // Get parent's bookings
     @Get('parent/my-bookings')
     @UseGuards(RolesGuard)
@@ -64,6 +72,24 @@ export class BookingController {
     @Roles(UserRole.STUDENT)
     getStudentBookings(@Request() req: any) {
         return this.bookingService.getStudentBookings(req.user.userId);
+    }
+
+    // Get single booking by ID (for session detail page)
+    @Get(':id')
+    getBookingById(@Request() req: any, @Param('id') id: string) {
+        return this.bookingService.getBookingById(req.user.userId, req.user.role, id);
+    }
+
+    // Teacher updates their private notes (prep notes and summary)
+    @Patch(':id/teacher-notes')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    updateTeacherNotes(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto: { teacherPrepNotes?: string; teacherSummary?: string }
+    ) {
+        return this.bookingService.updateTeacherNotes(req.user.userId, id, dto);
     }
 
     // --- Phase 2C: Payment Integration ---
@@ -90,5 +116,72 @@ export class BookingController {
     @Roles(UserRole.ADMIN)
     markCompleted(@Param('id') id: string) {
         return this.bookingService.markCompleted(id);
+    }
+
+    // --- Escrow Payment Release System ---
+
+    // Parent/Student confirms session early (before auto-release)
+    @Patch(':id/confirm-early')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.PARENT, UserRole.STUDENT)
+    confirmSessionEarly(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto?: { rating?: number }
+    ) {
+        return this.bookingService.confirmSessionEarly(req.user.userId, id, dto?.rating);
+    }
+
+    // --- Session Rating ---
+
+    // Parent/Student rates a completed session
+    @Post(':id/rate')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.PARENT, UserRole.STUDENT)
+    rateBooking(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto: CreateRatingDto
+    ) {
+        return this.bookingService.rateBooking(req.user.userId, id, dto);
+    }
+
+    // Parent/Student raises a dispute
+    @Post(':id/dispute')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.PARENT, UserRole.STUDENT)
+    raiseDispute(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto: { type: string; description: string; evidence?: string[] }
+    ) {
+        return this.bookingService.raiseDispute(req.user.userId, id, dto);
+    }
+
+    // --- Cancellation Flow ---
+
+    // Get cancellation estimate (read-only preview)
+    @Get(':id/cancel-estimate')
+    getCancellationEstimate(@Request() req: any, @Param('id') id: string) {
+        return this.bookingService.getCancellationEstimate(
+            req.user.userId,
+            req.user.role,
+            id
+        );
+    }
+
+    // Cancel booking (role-based logic)
+    @Patch(':id/cancel')
+    cancelBooking(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto: { reason?: string }
+    ) {
+        return this.bookingService.cancelBooking(
+            req.user.userId,
+            req.user.role,
+            id,
+            dto.reason
+        );
     }
 }

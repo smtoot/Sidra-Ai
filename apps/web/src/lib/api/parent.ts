@@ -6,6 +6,14 @@ export const parentApi = {
         const response = await api.get('/parent/dashboard');
         return response.data;
     },
+    getProfile: async () => {
+        const response = await api.get('/parent/profile');
+        return response.data;
+    },
+    updateProfile: async (data: any) => {
+        const response = await api.patch('/parent/profile', data);
+        return response.data;
+    },
     getChildren: async () => {
         const response = await api.get('/parent/children');
         return response.data;

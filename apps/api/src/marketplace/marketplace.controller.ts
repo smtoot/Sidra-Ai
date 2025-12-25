@@ -85,7 +85,80 @@ export class MarketplaceController {
     return this.marketplaceService.softDeleteSubject(id);
   }
 
-  // --- Teacher Availability (Public) ---
+  // --- Educational Stages ---
+
+  @Post('stages')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  createStage(@Body() dto: { curriculumId: string; nameAr: string; nameEn: string; sequence: number }) {
+    return this.marketplaceService.createStage(dto);
+  }
+
+  @Get('stages')
+  findAllStages(@Query('curriculumId') curriculumId?: string, @Query('all') all?: string) {
+    const includeInactive = all === 'true';
+    return this.marketplaceService.findAllStages(curriculumId, includeInactive);
+  }
+
+  @Get('stages/:id')
+  findOneStage(@Param('id') id: string) {
+    return this.marketplaceService.findOneStage(id);
+  }
+
+  @Patch('stages/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  updateStage(@Param('id') id: string, @Body() dto: { nameAr?: string; nameEn?: string; sequence?: number; isActive?: boolean }) {
+    return this.marketplaceService.updateStage(id, dto);
+  }
+
+  @Delete('stages/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  removeStage(@Param('id') id: string) {
+    return this.marketplaceService.softDeleteStage(id);
+  }
+
+  // --- Grade Levels ---
+
+  @Post('grades')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  createGrade(@Body() dto: { stageId: string; nameAr: string; nameEn: string; code: string; sequence: number }) {
+    return this.marketplaceService.createGrade(dto);
+  }
+
+  @Get('grades')
+  findAllGrades(@Query('stageId') stageId?: string, @Query('all') all?: string) {
+    const includeInactive = all === 'true';
+    return this.marketplaceService.findAllGrades(stageId, includeInactive);
+  }
+
+  @Get('grades/:id')
+  findOneGrade(@Param('id') id: string) {
+    return this.marketplaceService.findOneGrade(id);
+  }
+
+  @Patch('grades/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  updateGrade(@Param('id') id: string, @Body() dto: { nameAr?: string; nameEn?: string; code?: string; sequence?: number; isActive?: boolean }) {
+    return this.marketplaceService.updateGrade(id, dto);
+  }
+
+  @Delete('grades/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  removeGrade(@Param('id') id: string) {
+    return this.marketplaceService.softDeleteGrade(id);
+  }
+
+  // --- Teacher Public Profile ---
+
+  @Get('teachers/:teacherId/profile')
+  getTeacherPublicProfile(@Param('teacherId') teacherId: string) {
+    return this.marketplaceService.getTeacherPublicProfile(teacherId);
+  }
 
   @Get('teachers/:teacherId/availability')
   getTeacherAvailability(@Param('teacherId') teacherId: string) {
@@ -95,8 +168,22 @@ export class MarketplaceController {
   @Get('teachers/:teacherId/available-slots')
   getAvailableSlots(
     @Param('teacherId') teacherId: string,
-    @Query('date') dateStr: string
+    @Query('date') dateStr: string,
+    @Query('userTimezone') userTimezone?: string
   ) {
-    return this.marketplaceService.getAvailableSlots(teacherId, dateStr);
+    return this.marketplaceService.getAvailableSlots(teacherId, dateStr, userTimezone);
+  }
+
+  @Get('teachers/:teacherId/ratings')
+  getTeacherRatings(
+    @Param('teacherId') teacherId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.marketplaceService.getTeacherRatings(
+      teacherId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10
+    );
   }
 }

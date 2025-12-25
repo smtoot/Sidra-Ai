@@ -14,6 +14,7 @@ export interface PackageTier {
 
 export interface StudentPackage {
     id: string;
+    readableId?: string; // e.g. "PKG-2412-1234"
     payerId: string;
     studentId: string;
     teacherId: string;
@@ -30,11 +31,23 @@ export interface StudentPackage {
     teacher: {
         displayName: string;
         profilePhotoUrl: string | null;
+        userId?: string;
     };
     subject: {
         nameAr: string;
         nameEn: string;
     };
+    redemptions?: Array<{
+        id: string;
+        bookingId: string;
+        createdAt: string;
+        booking: {
+            startTime?: string;
+            status: string;
+            childId?: string;
+            child?: { id: string; name: string };
+        };
+    }>;
 }
 
 export interface DemoEligibility {
@@ -79,6 +92,16 @@ export const packageApi = {
     // Cancel a package
     cancelPackage: async (id: string): Promise<void> => {
         await api.post(`/packages/${id}/cancel`);
+    },
+
+    // Schedule a session from a package
+    scheduleSession: async (packageId: string, data: {
+        startTime: string;
+        endTime: string;
+        timezone: string;
+    }): Promise<any> => {
+        const response = await api.post(`/packages/${packageId}/schedule-session`, data);
+        return response.data;
     },
 
     // Check demo eligibility

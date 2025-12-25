@@ -11,7 +11,7 @@ export class ParentService {
     ) { }
 
     async getDashboardStats(userId: string) {
-        const [wallet, upcomingClasses] = await Promise.all([
+        const [wallet, upcomingClasses, parentProfile] = await Promise.all([
             this.walletService.getBalance(userId),
             this.prisma.booking.findMany({
                 where: {
@@ -25,12 +25,17 @@ export class ParentService {
                     subject: true,
                     child: true // Include child name
                 }
+            }),
+            this.prisma.parentProfile.findUnique({
+                where: { userId },
+                include: { children: true }
             })
         ]);
 
         return {
             balance: wallet.balance,
-            upcomingClasses
+            upcomingClasses,
+            children: parentProfile?.children || []
         };
     }
 
@@ -79,5 +84,55 @@ export class ParentService {
             where: { id: childId },
             data
         });
+    }
+
+    // --- Profile Management ---
+
+    async getProfile(userId: string) {
+        const parentProfile = await this.prisma.parentProfile.findUnique({
+            where: { userId },
+            include: {
+                user: true,
+                children: true
+            }
+        });
+
+        if (!parentProfile) throw new NotFoundException('Parent profile not found');
+        return parentProfile;
+    }
+
+    async updateProfile(userId: string, data: {
+        whatsappNumber?: string;
+        city?: string;
+        country?: string;
+        firstName?: string;
+        lastName?: string;
+    }) {
+        // Update user fields (firstName, lastName)
+        if (data.firstName !== undefined || data.lastName !== undefined) {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: {
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                }
+            });
+        }
+
+        // Update parent profile fields
+        const profile = await this.prisma.parentProfile.update({
+            where: { userId },
+            data: {
+                whatsappNumber: data.whatsappNumber,
+                city: data.city,
+                country: data.country,
+            },
+            include: {
+                user: true,
+                children: true
+            }
+        });
+
+        return profile;
     }
 }

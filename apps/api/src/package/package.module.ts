@@ -5,8 +5,10 @@ import { PackageController } from './package.controller';
 import { PackageScheduler } from './package.scheduler';
 import { PrismaModule } from '../prisma/prisma.module';
 
+import { ReadableIdModule } from '../common/readable-id/readable-id.module';
+
 @Module({
-    imports: [PrismaModule],
+    imports: [PrismaModule, ReadableIdModule],
     controllers: [PackageController],
     providers: [PackageService, DemoService, PackageScheduler],
     exports: [PackageService, DemoService]

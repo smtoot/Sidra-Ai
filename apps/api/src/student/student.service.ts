@@ -47,5 +47,39 @@ export class StudentService {
         return profile;
     }
 
-    // Assuming we might want update logic later
+    async updateProfile(userId: string, data: {
+        gradeLevel?: string;
+        bio?: string;
+        whatsappNumber?: string;
+        city?: string;
+        country?: string;
+        firstName?: string;
+        lastName?: string;
+    }) {
+        // Update user fields (firstName, lastName)
+        if (data.firstName !== undefined || data.lastName !== undefined) {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: {
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                }
+            });
+        }
+
+        // Update student profile fields
+        const profile = await this.prisma.studentProfile.update({
+            where: { userId },
+            data: {
+                gradeLevel: data.gradeLevel,
+                bio: data.bio,
+                whatsappNumber: data.whatsappNumber,
+                city: data.city,
+                country: data.country,
+            },
+            include: { user: true }
+        });
+
+        return profile;
+    }
 }

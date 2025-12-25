@@ -8,14 +8,29 @@ import Link from 'next/link';
 export default function RegisterPage() {
     const { register } = useAuth();
     const [email, setEmail] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
     const [password, setPassword] = useState('');
+    const [firstName, setFirstName] = useState('');
     const [role, setRole] = useState<string>('PARENT');
     const [error, setError] = useState('');
 
+    // firstName is required for PARENT and STUDENT only
+    const isFirstNameRequired = role === 'PARENT' || role === 'STUDENT';
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isFirstNameRequired && !firstName.trim()) {
+            setError('الاسم الأول مطلوب');
+            return;
+        }
         try {
-            await register({ email, password, role: role as any });
+            await register({
+                email: email || undefined,
+                phoneNumber,
+                password,
+                role: role as any,
+                firstName: firstName || undefined
+            });
         } catch (err: any) {
             setError(err.response?.data?.message || 'Registration failed');
         }
@@ -76,13 +91,43 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
+                    {/* First Name - Required for Parent/Student */}
+                    {isFirstNameRequired && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                الاسم الأول *
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="أدخل اسمك الأول"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={firstName}
+                                onChange={(e) => setFirstName(e.target.value)}
+                            />
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            البريد الإلكتروني
+                            رقم الجوال *
+                        </label>
+                        <input
+                            type="tel"
+                            required
+                            placeholder="05XXXXXXXX"
+                            className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            البريد الإلكتروني (اختياري)
                         </label>
                         <input
                             type="email"
-                            required
                             className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}

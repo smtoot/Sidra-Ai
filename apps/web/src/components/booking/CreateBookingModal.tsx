@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, formatISO } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { bookingApi } from '@/lib/api/booking';
 import { parentApi } from '@/lib/api/parent';
 import { teacherApi } from '@/lib/api/teacher';
+import { packageApi } from '@/lib/api/package';
 import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
 import { authApi, Child } from '@/lib/api/auth';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { BookingTypeSelector, BookingType, BookingTypeOption } from './BookingTypeSelector';
@@ -32,6 +34,8 @@ interface CreateBookingModalProps {
         price: number;
     }>;
     userRole: 'PARENT' | 'STUDENT';
+    initialSubjectId?: string;
+    initialOptionId?: string;
 }
 
 export function CreateBookingModal({
@@ -39,19 +43,26 @@ export function CreateBookingModal({
     onClose,
     teacherId,
     teacherName,
-    teacherSubjects
+    teacherSubjects,
+    initialSubjectId,
+    initialOptionId
 }: CreateBookingModalProps) {
     const router = useRouter();
+    const { user } = useAuth();
     const [selectedDate, setSelectedDate] = useState<Date>();
     const [selectedSlot, setSelectedSlot] = useState<SlotWithTimezone | null>(null);  // Now stores full slot object
-    const [selectedSubject, setSelectedSubject] = useState<string>('');
+    const [selectedSubject, setSelectedSubject] = useState<string>(initialSubjectId || '');
     const [selectedChildId, setSelectedChildId] = useState<string>('');
     const [bookingNotes, setBookingNotes] = useState<string>('');
     const [userRole, setUserRole] = useState<'PARENT' | 'STUDENT' | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     // Booking type state (demo/single/package)
-    const [selectedBookingType, setSelectedBookingType] = useState<BookingType | null>(null);
+    const [selectedBookingType, setSelectedBookingType] = useState<BookingType | null>(
+        initialOptionId === 'demo' ? 'DEMO' :
+            initialOptionId === 'single' ? 'SINGLE' :
+                initialOptionId?.startsWith('package-') ? 'PACKAGE' : null
+    );
     const [selectedBookingOption, setSelectedBookingOption] = useState<BookingTypeOption | null>(null);
 
     // Data state
@@ -135,66 +146,63 @@ export function CreateBookingModal({
     const canSubmit = selectedDate && selectedSlot && selectedSubject && selectedBookingOption && (!isParent || selectedChildId);
 
     const handleSubmit = async () => {
-        if (!canSubmit || !selectedSubjectData || !selectedSlot) {
-            toast.error('يرجى ملء جميع الحقول المطلوبة');
+        if (!selectedDate || !selectedSlot) {
+            toast.error('يرجى اختيار الموعد');
+            return;
+        }
+
+        if (userRole === 'PARENT' && !selectedChildId) {
+            toast.error('يرجى اختيار الطالب');
+            return;
+        }
+
+        if (!selectedSubject) {
+            toast.error('يرجى اختيار المادة');
+            return;
+        }
+
+        if (!selectedBookingOption) {
+            toast.error('يرجى اختيار نوع الحجز');
             return;
         }
 
         setIsLoading(true);
+
         try {
-            // Use startTimeUtc directly from the slot (canonical source!)
-            const startTime = new Date(selectedSlot.startTimeUtc);
-            // Demo sessions are 30 minutes, regular sessions are 60 minutes
-            const sessionDuration = selectedBookingOption?.type === 'DEMO' ? 30 : 60;
-            const endTime = new Date(startTime.getTime() + sessionDuration * 60 * 1000);
+            // For package tiers (new purchases), we don't purchase upfront
+            // Instead, we pass the tierId with the booking request
+            // The purchase happens after teacher approval during the payment confirmation window
+            const packageIdToUse = selectedBookingOption?.packageId; // Only for existing packages
+            const tierIdToUse = selectedBookingOption?.tierId; // For new package purchases
 
-            // Detect user's timezone for audit purposes
-            const userTimezone = getUserTimezone();
+            const startTime = selectedSlot.startTimeUtc; // Already ISO string from API
+            // Calculate end time (60 mins usually, 30 for demo)
+            const duration = selectedBookingType === 'DEMO' ? 30 : 60;
+            const startDt = new Date(startTime);
+            const endDt = new Date(startDt.getTime() + duration * 60 * 1000);
+            const endTime = formatISO(endDt);
 
-            // Determine price based on booking type
-            const price = selectedBookingOption?.type === 'DEMO'
-                ? 0
-                : selectedBookingOption?.type === 'PACKAGE'
-                    ? 0 // Package sessions are pre-paid
-                    : selectedSubjectData.price;
-
-            // Create booking request using UTC times
             await bookingApi.createRequest({
                 teacherId,
-                childId: selectedChildId || undefined,
                 subjectId: selectedSubject,
-                price,
-                startTime: startTime.toISOString(),
-                endTime: endTime.toISOString(),
-                timezone: userTimezone,
-                bookingNotes: bookingNotes.trim() || undefined,
-                // NEW: Package and Demo support
-                packageId: selectedBookingOption?.packageId,
-                isDemo: selectedBookingOption?.type === 'DEMO'
+                childId: userRole === 'PARENT' ? selectedChildId : undefined,
+                startTime,
+                endTime,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                bookingNotes,
+                price: selectedBookingOption?.price || 0,
+                isDemo: selectedBookingType === 'DEMO',
+                packageId: packageIdToUse,
+                tierId: tierIdToUse  // For new package purchases - payment deferred until teacher approval
             });
 
-            // Success feedback
-            toast.success('تم إنشاء الحجز بنجاح! ✅');
-
-            // Reset form and close
-            resetForm();
+            toast.success('تم إرسال طلب الحجز بنجاح!');
             onClose();
-
-            // Redirect based on user role
-            const redirectPath = userRole === 'PARENT' ? '/parent/bookings' : '/student/bookings';
-            router.push(redirectPath);
-
+            router.push(userRole === 'PARENT' ? '/parent/bookings' : '/student/sessions');
         } catch (error: any) {
-            console.error('Failed to create booking:', error);
-            console.error('Error response:', error?.response?.data);
-            console.error('Error message:', error?.response?.data?.message);
-
-            // Better error handling - show actual error
+            console.error('Booking failed:', error);
             const errorMessage = error?.response?.data?.message || error?.message || 'فشل إنشاء الحجز';
             const errorDetails = Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage;
-
-            // Log full details for debugging
-            console.error('Full error details:', errorDetails);
 
             if (errorDetails.includes('غير متاح') || errorDetails.includes('not available')) {
                 toast.error('هذا الموعد غير متاح. يرجى اختيار وقت آخر.');
@@ -203,7 +211,6 @@ export function CreateBookingModal({
             } else if (errorDetails.includes('Child')) {
                 toast.error('يرجى اختيار الطالب');
             } else {
-                // Show the actual error for debugging
                 toast.error(`حدث خطأ: ${errorDetails}`);
             }
         } finally {
@@ -298,7 +305,7 @@ export function CreateBookingModal({
                                 subjectId={selectedSubject}
                                 basePrice={selectedSubjectData.price}
                                 onSelect={handleBookingTypeSelect}
-                                selectedType={selectedBookingType}
+                                selectedOption={selectedBookingOption}
                             />
                         )}
 

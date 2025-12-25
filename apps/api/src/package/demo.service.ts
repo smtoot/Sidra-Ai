@@ -1,21 +1,35 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DEMO_POLICY } from './demo-policy.constants';
 
 export type DemoEligibility = {
     allowed: boolean;
-    reason?: 'ALREADY_USED' | 'PENDING_EXISTS' | 'DEMO_DISABLED' | 'NOT_ELIGIBLE';
+    reason?: 'QUOTA_EXCEEDED' | 'TEACHER_ALREADY_USED' | 'PENDING_EXISTS' | 'DEMO_DISABLED' | 'FEATURE_DISABLED';
+    details?: string;
 };
+
+export type DemoOwnerType = 'PARENT' | 'STUDENT';
 
 @Injectable()
 export class DemoService {
     constructor(private prisma: PrismaService) { }
 
     // =====================================================
-    // CHECK DEMO ELIGIBILITY
+    // CHECK DEMO ELIGIBILITY (Anti-Abuse Hardened)
+    // Uses demoOwnerId (Parent or Student) for quota
     // =====================================================
 
-    async canBookDemo(studentId: string, teacherId: string): Promise<DemoEligibility> {
-        // Check if teacher has demo enabled
+    async canBookDemo(
+        demoOwnerId: string,
+        teacherId: string
+    ): Promise<DemoEligibility> {
+        // 1. Check if demo feature is globally enabled
+        const settings = await this.prisma.systemSettings.findFirst();
+        if (settings && !settings.demosEnabled) {
+            return { allowed: false, reason: 'FEATURE_DISABLED' };
+        }
+
+        // 2. Check if teacher has demos enabled
         const demoSettings = await this.prisma.teacherDemoSettings.findUnique({
             where: { teacherId }
         });
@@ -24,38 +38,52 @@ export class DemoService {
             return { allowed: false, reason: 'DEMO_DISABLED' };
         }
 
-        // Check if demo already completed (usedAt is set)
-        const completedDemo = await this.prisma.demoSession.findFirst({
+        // 3. LIFETIME CHECK: One demo per owner-teacher (any status)
+        const existingDemo = await this.prisma.demoSession.findUnique({
             where: {
-                studentId,
-                teacherId,
-                usedAt: { not: null } // Only count completed demos
+                demoOwnerId_teacherId: { demoOwnerId, teacherId }
             }
         });
 
-        if (completedDemo) {
-            return { allowed: false, reason: 'ALREADY_USED' };
+        if (existingDemo) {
+            return {
+                allowed: false,
+                reason: 'TEACHER_ALREADY_USED',
+                details: 'You have already had a demo with this teacher'
+            };
         }
 
-        // Check if there's a pending demo booking
-        const pendingDemoBooking = await this.prisma.booking.findFirst({
+        // 4. MONTHLY QUOTA CHECK: Count COMPLETED + CANCELLED this month
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const usedDemosThisMonth = await this.prisma.demoSession.count({
             where: {
-                studentUserId: studentId,
-                teacherId,
-                status: { in: ['PENDING_TEACHER_APPROVAL', 'SCHEDULED', 'WAITING_FOR_PAYMENT'] }
+                demoOwnerId,
+                status: { in: ['COMPLETED', 'CANCELLED'] },
+                createdAt: { gte: startOfMonth }
             }
         });
 
-        // Also check for pending DemoSession records (created but not completed)
-        const pendingDemoSession = await this.prisma.demoSession.findFirst({
+        if (usedDemosThisMonth >= DEMO_POLICY.maxDemosPerOwnerPerMonth) {
+            return {
+                allowed: false,
+                reason: 'QUOTA_EXCEEDED',
+                details: `You have used ${usedDemosThisMonth}/${DEMO_POLICY.maxDemosPerOwnerPerMonth} demos this month`
+            };
+        }
+
+        // 5. Check for pending demo with this teacher (shouldn't exist due to unique constraint)
+        const pendingDemo = await this.prisma.demoSession.findFirst({
             where: {
-                studentId,
+                demoOwnerId,
                 teacherId,
-                usedAt: null // Created but not completed
+                status: 'SCHEDULED'
             }
         });
 
-        if (pendingDemoBooking || pendingDemoSession) {
+        if (pendingDemo) {
             return { allowed: false, reason: 'PENDING_EXISTS' };
         }
 
@@ -65,22 +93,29 @@ export class DemoService {
     // =====================================================
     // CREATE DEMO SESSION RECORD
     // Called when demo booking is created
-    // usedAt stays NULL until completion
     // =====================================================
 
-    async createDemoRecord(studentId: string, teacherId: string) {
+    async createDemoRecord(
+        demoOwnerId: string,
+        demoOwnerType: DemoOwnerType,
+        teacherId: string,
+        beneficiaryId?: string
+    ) {
         // Verify eligibility first
-        const eligibility = await this.canBookDemo(studentId, teacherId);
+        const eligibility = await this.canBookDemo(demoOwnerId, teacherId);
         if (!eligibility.allowed) {
-            throw new BadRequestException(`Cannot book demo: ${eligibility.reason}`);
+            throw new BadRequestException(`Cannot book demo: ${eligibility.reason}. ${eligibility.details || ''}`);
         }
 
-        // Create record with usedAt = null
+        // Create record with status = SCHEDULED
         return this.prisma.demoSession.create({
             data: {
-                studentId,
+                demoOwnerId,
+                demoOwnerType,
                 teacherId,
-                usedAt: null // IMPORTANT: Set only on completion
+                beneficiaryId,
+                status: 'SCHEDULED',
+                rescheduleCount: 0
             }
         });
     }
@@ -90,10 +125,10 @@ export class DemoService {
     // Called only when demo booking status → COMPLETED
     // =====================================================
 
-    async markDemoCompleted(studentId: string, teacherId: string) {
+    async markDemoCompleted(demoOwnerId: string, teacherId: string) {
         const demoSession = await this.prisma.demoSession.findUnique({
             where: {
-                studentId_teacherId: { studentId, teacherId }
+                demoOwnerId_teacherId: { demoOwnerId, teacherId }
             }
         });
 
@@ -101,26 +136,28 @@ export class DemoService {
             throw new NotFoundException('Demo session record not found');
         }
 
-        if (demoSession.usedAt) {
-            // Already marked as used - idempotent
+        if (demoSession.status === 'COMPLETED') {
+            // Idempotent
             return demoSession;
         }
 
         return this.prisma.demoSession.update({
             where: { id: demoSession.id },
-            data: { usedAt: new Date() }
+            data: {
+                status: 'COMPLETED',
+                usedAt: new Date()
+            }
         });
     }
 
     // =====================================================
-    // CANCEL DEMO (if booking is cancelled)
-    // Deletes the DemoSession record so student can try again
+    // CANCEL DEMO (COUNTS TOWARD QUOTA - NO DELETE)
     // =====================================================
 
-    async cancelDemoRecord(studentId: string, teacherId: string) {
+    async cancelDemoRecord(demoOwnerId: string, teacherId: string) {
         const demoSession = await this.prisma.demoSession.findUnique({
             where: {
-                studentId_teacherId: { studentId, teacherId }
+                demoOwnerId_teacherId: { demoOwnerId, teacherId }
             }
         });
 
@@ -128,12 +165,85 @@ export class DemoService {
             return; // Nothing to cancel
         }
 
-        // Only delete if not already used
-        if (!demoSession.usedAt) {
-            await this.prisma.demoSession.delete({
-                where: { id: demoSession.id }
-            });
+        if (demoSession.status === 'CANCELLED') {
+            // Idempotent
+            return demoSession;
         }
+
+        // CRITICAL: Do NOT delete - mark as cancelled (counts toward quota)
+        return this.prisma.demoSession.update({
+            where: { id: demoSession.id },
+            data: {
+                status: 'CANCELLED',
+                cancelledAt: new Date()
+            }
+        });
+    }
+
+    // =====================================================
+    // RESCHEDULE DEMO (MAX 1 ALLOWED)
+    // =====================================================
+
+    async rescheduleDemoSession(
+        demoOwnerId: string,
+        teacherId: string,
+        newStartTime: Date
+    ) {
+        const demoSession = await this.prisma.demoSession.findUnique({
+            where: {
+                demoOwnerId_teacherId: { demoOwnerId, teacherId }
+            }
+        });
+
+        if (!demoSession) {
+            throw new NotFoundException('Demo session not found');
+        }
+
+        if (demoSession.status !== 'SCHEDULED') {
+            throw new ForbiddenException(`Cannot reschedule: demo status is ${demoSession.status}`);
+        }
+
+        if (demoSession.rescheduleCount >= DEMO_POLICY.demoMaxReschedules) {
+            throw new ForbiddenException(
+                `Maximum ${DEMO_POLICY.demoMaxReschedules} reschedule(s) allowed per demo`
+            );
+        }
+
+        return this.prisma.demoSession.update({
+            where: { id: demoSession.id },
+            data: {
+                rescheduleCount: { increment: 1 }
+            }
+        });
+    }
+
+    // =====================================================
+    // GET OWNER'S DEMO USAGE STATS
+    // =====================================================
+
+    async getDemoUsageStats(demoOwnerId: string) {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const [usedThisMonth, totalLifetime] = await Promise.all([
+            this.prisma.demoSession.count({
+                where: {
+                    demoOwnerId,
+                    status: { in: ['COMPLETED', 'CANCELLED'] },
+                    createdAt: { gte: startOfMonth }
+                }
+            }),
+            this.prisma.demoSession.count({
+                where: { demoOwnerId }
+            })
+        ]);
+
+        return {
+            usedThisMonth,
+            remainingThisMonth: Math.max(0, DEMO_POLICY.maxDemosPerOwnerPerMonth - usedThisMonth),
+            totalLifetime
+        };
     }
 
     // =====================================================
@@ -149,24 +259,42 @@ export class DemoService {
     async updateDemoSettings(teacherId: string, demoEnabled: boolean) {
         return this.prisma.teacherDemoSettings.upsert({
             where: { teacherId },
-            create: {
-                teacherId,
-                demoEnabled
-            },
-            update: {
-                demoEnabled
-            }
+            create: { teacherId, demoEnabled },
+            update: { demoEnabled }
         });
     }
-
-    // =====================================================
-    // CHECK IF TEACHER HAS DEMO ENABLED
-    // =====================================================
 
     async isTeacherDemoEnabled(teacherId: string): Promise<boolean> {
         const settings = await this.prisma.teacherDemoSettings.findUnique({
             where: { teacherId }
         });
         return settings?.demoEnabled ?? false;
+    }
+
+    // =====================================================
+    // ADMIN: LIST ALL DEMO SESSIONS
+    // =====================================================
+
+    async getAllDemoSessions() {
+        return this.prisma.demoSession.findMany({
+            include: {
+                owner: {
+                    select: {
+                        id: true,
+                        email: true,
+                        phoneNumber: true,
+                        role: true
+                    }
+                },
+                teacher: {
+                    select: {
+                        id: true,
+                        displayName: true,
+                        profilePhotoUrl: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
     }
 }
