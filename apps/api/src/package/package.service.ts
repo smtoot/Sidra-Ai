@@ -455,33 +455,55 @@ export class PackageService {
     // =====================================================
 
     async createRedemption(packageId: string, bookingId: string) {
-        const pkg = await this.prisma.studentPackage.findUnique({
-            where: { id: packageId }
-        });
+        // SECURITY: Use transaction to prevent double-spending race condition
+        return await this.prisma.$transaction(async (tx) => {
+            const pkg = await tx.studentPackage.findUnique({
+                where: { id: packageId }
+            });
 
-        if (!pkg) {
-            throw new NotFoundException('Package not found');
-        }
-
-        if (pkg.status !== 'ACTIVE') {
-            throw new BadRequestException(`Cannot use package: status is ${pkg.status}`);
-        }
-
-        if (pkg.sessionsUsed >= pkg.sessionCount) {
-            throw new BadRequestException('All sessions in this package have been used');
-        }
-
-        // Check expiry
-        if (new Date() > pkg.expiresAt) {
-            throw new BadRequestException('Package has expired');
-        }
-
-        return this.prisma.packageRedemption.create({
-            data: {
-                packageId,
-                bookingId,
-                status: 'RESERVED'
+            if (!pkg) {
+                throw new NotFoundException('Package not found');
             }
+
+            if (pkg.status !== 'ACTIVE') {
+                throw new BadRequestException(`Cannot use package: status is ${pkg.status}`);
+            }
+
+            if (pkg.sessionsUsed >= pkg.sessionCount) {
+                throw new BadRequestException('All sessions in this package have been used');
+            }
+
+            // Check expiry
+            if (new Date() > pkg.expiresAt) {
+                throw new BadRequestException('Package has expired');
+            }
+
+            // SECURITY: Atomic increment with conditional update to prevent race conditions
+            const updateResult = await tx.studentPackage.updateMany({
+                where: {
+                    id: packageId,
+                    sessionsUsed: { lt: pkg.sessionCount }, // Only update if sessions available
+                    status: 'ACTIVE',
+                    expiresAt: { gt: new Date() }
+                },
+                data: {
+                    sessionsUsed: { increment: 1 }
+                }
+            });
+
+            // If no rows updated, package became unavailable (race condition detected)
+            if (updateResult.count === 0) {
+                throw new BadRequestException('Package session no longer available (concurrent booking detected)');
+            }
+
+            // Create redemption record
+            return tx.packageRedemption.create({
+                data: {
+                    packageId,
+                    bookingId,
+                    status: 'RESERVED'
+                }
+            });
         });
     }
 
