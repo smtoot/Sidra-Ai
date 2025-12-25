@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { BookingService } from './booking.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -11,7 +12,9 @@ export class BookingController {
     constructor(private readonly bookingService: BookingService) { }
 
     // Parent creates a booking request
+    // SECURITY: Rate limit to prevent booking spam
     @Post()
+    @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 bookings per minute
     @UseGuards(RolesGuard)
     @Roles(UserRole.PARENT, (UserRole as any).STUDENT) // Allow both roles
     createRequest(@Request() req: any, @Body() dto: CreateBookingDto) {
@@ -95,7 +98,9 @@ export class BookingController {
     // --- Phase 2C: Payment Integration ---
 
     // Parent or Student pays for approved booking
+    // SECURITY: Rate limit payment attempts to prevent abuse
     @Patch(':id/pay')
+    @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 payment attempts per minute
     @UseGuards(RolesGuard)
     @Roles(UserRole.PARENT, UserRole.STUDENT)
     payForBooking(@Request() req: any, @Param('id') id: string) {

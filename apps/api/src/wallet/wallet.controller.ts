@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, UseGuards, Query, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -15,7 +16,9 @@ export class WalletController {
         return this.walletService.getBalance(req.user.userId);
     }
 
+    // SECURITY: Rate limit deposits to prevent transaction spam
     @Post('deposit')
+    @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 deposits per minute
     @Roles(UserRole.PARENT, UserRole.TEACHER)
     deposit(@Request() req: any, @Body() dto: DepositDto) {
         return this.walletService.deposit(req.user.userId, dto);
@@ -27,7 +30,9 @@ export class WalletController {
         return this.walletService.upsertBankInfo(req.user.userId, dto);
     }
 
+    // SECURITY: Rate limit withdrawals to prevent abuse
     @Post('withdraw')
+    @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 withdrawal requests per minute
     @Roles(UserRole.TEACHER)
     requestWithdrawal(@Request() req: any, @Body() dto: WithdrawalRequestDto) {
         return this.walletService.requestWithdrawal(req.user.userId, dto);
