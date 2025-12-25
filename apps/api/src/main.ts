@@ -36,8 +36,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  // SECURITY: Limit request body size to prevent DoS attacks
+  // File uploads are handled separately with their own limits (5MB in upload.service.ts)
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
 
   await app.listen(process.env.PORT ?? 4000);
 }
