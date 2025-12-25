@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { marketplaceApi } from '@/lib/api/marketplace';
+import { useState, useEffect, useMemo } from 'react';
 import { searchApi, SearchResult } from '@/lib/api/search';
 import TeacherCard from '@/components/marketplace/TeacherCard';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, Filter } from 'lucide-react';
 import { CreateBookingModal } from '@/components/booking/CreateBookingModal';
+import { useCurricula } from '@/hooks/useCurricula';
+import { useSubjects } from '@/hooks/useSubjects';
+import { useCurriculumHierarchy } from '@/hooks/useCurriculumHierarchy';
 
 export default function SearchPage() {
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -17,42 +19,54 @@ export default function SearchPage() {
     // Filters
     const [subjectId, setSubjectId] = useState('');
     const [curriculumId, setCurriculumId] = useState('');
+    const [gradeLevelId, setGradeLevelId] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
 
     // Booking Modal State
     const [selectedTeacher, setSelectedTeacher] = useState<SearchResult | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Data for dropdowns
-    const [subjects, setSubjects] = useState<any[]>([]);
-    const [curricula, setCurricula] = useState<any[]>([]);
+    // React Query hooks for cached data
+    const { data: subjects = [] } = useSubjects();
+    const { data: curricula = [] } = useCurricula();
+    const { data: hierarchy, isLoading: loadingHierarchy } = useCurriculumHierarchy(curriculumId || null);
 
+    // Flatten hierarchy grades for dropdown
+    const grades = useMemo(() => {
+        if (!hierarchy?.stages) return [];
+        return hierarchy.stages.flatMap(s =>
+            s.grades.map(g => ({
+                ...g,
+                stageName: s.nameAr
+            }))
+        );
+    }, [hierarchy]);
+
+    // Reset grade when curriculum changes
     useEffect(() => {
-        loadFilters();
+        setGradeLevelId('');
+    }, [curriculumId]);
+
+    // Initial search on mount
+    useEffect(() => {
         handleSearch();
     }, []);
-
-    const loadFilters = async () => {
-        try {
-            const [subj, curr] = await Promise.all([
-                marketplaceApi.getSubjects(),
-                marketplaceApi.getCurricula()
-            ]);
-            setSubjects(subj);
-            setCurricula(curr);
-        } catch (e) {
-            console.error("Failed to load filters", e);
-        }
-    };
 
     const handleSearch = async () => {
         setLoading(true);
         try {
-            const data = await searchApi.searchTeachers({
+            const filters: any = {
                 subjectId,
                 curriculumId,
                 maxPrice: maxPrice ? Number(maxPrice) : undefined
-            });
+            };
+
+            // Only add gradeLevelId if selected (Strict Mode)
+            if (gradeLevelId) {
+                filters.gradeLevelId = gradeLevelId;
+            }
+
+            const data = await searchApi.searchTeachers(filters);
             setResults(data);
         } catch (e) {
             console.error("Failed to search", e);
@@ -100,6 +114,33 @@ export default function SearchPage() {
                                 </select>
                             </div>
 
+                            {/* Grade Filter - Dependent on Curriculum */}
+                            <div className="space-y-2">
+                                <Label className={!curriculumId ? "text-gray-400" : ""}>
+                                    الصف الدراسي {curriculumId && "(اختياري)"}
+                                </Label>
+                                <select
+                                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-400"
+                                    value={gradeLevelId}
+                                    onChange={(e) => setGradeLevelId(e.target.value)}
+                                    disabled={!curriculumId || loadingHierarchy}
+                                >
+                                    <option value="">
+                                        {!curriculumId
+                                            ? "اختر المنهج أولاً"
+                                            : loadingHierarchy
+                                                ? "جاري التحميل..."
+                                                : "الكل (بحث عام)"
+                                        }
+                                    </option>
+                                    {grades.map(g => (
+                                        <option key={g.id} value={g.id}>
+                                            {g.stageName ? `${g.stageName} - ${g.nameAr}` : g.nameAr}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div className="space-y-2">
                                 <Label>المادة</Label>
                                 <select
@@ -124,9 +165,9 @@ export default function SearchPage() {
                                 />
                             </div>
 
-                            <Button onClick={handleSearch} className="w-full gap-2">
+                            <Button onClick={handleSearch} className="w-full gap-2" disabled={loading}>
                                 <Search className="w-4 h-4" />
-                                بحث
+                                {loading ? 'جاري البحث...' : 'بحث'}
                             </Button>
                         </div>
                     </div>
@@ -175,6 +216,7 @@ export default function SearchPage() {
                             price: Number(selectedTeacher.pricePerHour)
                         }
                     ]}
+                    userRole="PARENT"  // Default to PARENT for search page
                 />
             )}
         </div>

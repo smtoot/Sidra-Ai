@@ -4,9 +4,12 @@ import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
 import { PackageService } from '../package/package.service';
 import { DemoService } from '../package/demo.service';
+import { ReadableIdService } from '../common/readable-id/readable-id.service';
 import { CreateBookingDto, UpdateBookingStatusDto, CreateRatingDto } from '@sidra/shared';
 import { formatInTimezone } from '../common/utils/timezone.util';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { normalizeMoney } from '../utils/money';
+import { BOOKING_POLICY } from './booking-policy.constants';
 
 @Injectable()
 export class BookingService {
@@ -17,7 +20,8 @@ export class BookingService {
         private walletService: WalletService,
         private notificationService: NotificationService,
         private packageService: PackageService,
-        private demoService: DemoService
+        private demoService: DemoService,
+        private readableIdService: ReadableIdService
     ) { }
 
     // Create a booking request (Parent or Student)
@@ -76,6 +80,11 @@ export class BookingService {
             throw new ForbiddenException('لا يمكنك حجز حصة مع نفسك');
         }
 
+        // SECURITY: Prevent booking sessions in the past
+        if (new Date(dto.startTime) <= new Date()) {
+            throw new BadRequestException('Cannot book sessions in the past');
+        }
+
         // **VALIDATION**: Check if the slot is actually available
         const isAvailable = await this.validateSlotAvailability(
             dto.teacherId,
@@ -86,9 +95,40 @@ export class BookingService {
             throw new BadRequestException('هذا الموعد غير متاح. يرجى اختيار وقت آخر.');
         }
 
+        // **P0-1 FIX: Price Manipulation**
+        // Ignore dto.price completely. Calculate based on TeacherSubject price and duration.
+        const durationHours = (new Date(dto.endTime).getTime() - new Date(dto.startTime).getTime()) / (1000 * 60 * 60);
+
+        // Ensure duration is positive
+        if (durationHours <= 0) {
+            throw new BadRequestException('End time must be after start time');
+        }
+
+        // SECURITY: Enforce maximum session duration to prevent abuse
+        const MAX_SESSION_HOURS = 8;
+        if (durationHours > MAX_SESSION_HOURS) {
+            throw new BadRequestException(`Session duration cannot exceed ${MAX_SESSION_HOURS} hours`);
+        }
+
+        // Calculate price: pricePerHour * duration
+        // Assuming pricePerHour is Decimal in Prism but JS number here? 
+        // teacherSubject.pricePerHour is likely Decimal/string from Prisma.
+        // Let's use Number() for simplicity in this logic, but ideally Decimal.js.
+        const pricePerHour = Number(teacherSubject.pricePerHour);
+        const rawPrice = pricePerHour * durationHours;
+        const calculatedPrice = normalizeMoney(rawPrice); // MONEY NORMALIZATION: Round to integer
+
+        // Snapshot commission rate (from system settings or default)
+        // Hardcoded default for now or fetch settings. Using 0.18 as per schema default.
+        const commissionRate = 0.18;
+
+        // Generate human-readable booking ID
+        const readableId = await this.readableIdService.generate('BOOKING');
+
         // Create booking
         const booking = await this.prisma.booking.create({
             data: {
+                readableId,
                 teacherId: dto.teacherId,
                 bookedByUserId: user.userId,
                 beneficiaryType,
@@ -99,10 +139,12 @@ export class BookingService {
                 startTime: new Date(dto.startTime),
                 endTime: new Date(dto.endTime),
                 timezone: dto.timezone || 'UTC',  // Store user's timezone
-                price: dto.price,
+                price: calculatedPrice, // P0-1: Server-calculated, normalized to integer
+                commissionRate: commissionRate,
                 bookingNotes: dto.bookingNotes || null,  // Notes from parent/student
                 meetingLink: teacherSubject.teacherProfile.encryptedMeetingLink,
-                status: 'PENDING_TEACHER_APPROVAL'
+                status: 'PENDING_TEACHER_APPROVAL',
+                pendingTierId: dto.tierId || null  // For deferred package purchases
             },
             include: {
                 teacherProfile: { include: { user: true } },
@@ -131,11 +173,22 @@ export class BookingService {
 
         // =====================================================
         // DEMO INTEGRATION: Create demo record if isDemo
+        // Anti-Abuse: demoOwnerId is the bookedBy user (parent or standalone student)
         // =====================================================
         if (dto.isDemo && studentUserId) {
             try {
-                await this.demoService.createDemoRecord(studentUserId, dto.teacherId);
-                this.logger.log(`Demo session record created for student ${studentUserId} with teacher ${dto.teacherId}`);
+                // Determine demoOwner: The person booking (parent or standalone student)
+                const demoOwnerId = user.userId;
+                const demoOwnerType = beneficiaryType === 'CHILD' ? 'PARENT' : 'STUDENT';
+                const beneficiaryId = beneficiaryType === 'CHILD' ? (childId ?? undefined) : undefined;
+
+                await this.demoService.createDemoRecord(
+                    demoOwnerId,
+                    demoOwnerType as 'PARENT' | 'STUDENT',
+                    dto.teacherId,
+                    beneficiaryId
+                );
+                this.logger.log(`Demo session record created for owner ${demoOwnerId} with teacher ${dto.teacherId}`);
             } catch (err: any) {
                 // If demo record fails, we should cancel the booking
                 this.logger.error(`Failed to create demo record: ${err.message}`, err);
@@ -186,7 +239,7 @@ export class BookingService {
 
             // Idempotency: if already SCHEDULED or beyond, return current state
             if (booking.status === 'SCHEDULED' || booking.status === 'COMPLETED' || booking.status === 'PENDING_CONFIRMATION') {
-                return booking;
+                return { booking, paymentRequired: false, isPackage: false };
             }
 
             // Allow re-approval if it was WAITING_FOR_PAYMENT (e.g. parent asks teacher to try again manually?) 
@@ -232,30 +285,100 @@ export class BookingService {
                     }
                 });
 
-                return { booking: updatedBooking, paymentRequired: true };
+                return { booking: updatedBooking, paymentRequired: true, isPackage: false };
             }
 
-            // --- Sufficient Balance Flow (Lock Funds) ---
+            // --- Sufficient Balance Flow (Lock Funds or Purchase Package) ---
 
-            // Lock funds in escrow (validates balance internally too, but we checked above)
+            // Check if this is a package booking
+            if (booking.pendingTierId) {
+                // For package bookings, purchase the package (outside transaction for package service)
+                // We'll do this after the transaction completes
+                return {
+                    booking,
+                    paymentRequired: false,
+                    isPackage: true,
+                    pendingTierId: booking.pendingTierId,
+                    bookedByUserId: booking.bookedByUserId
+                };
+            }
+
+            // For single sessions, lock funds in escrow
+            // P0-2 FIX: Atomic wallet lock and booking update
             await this.walletService.lockFundsForBooking(
                 booking.bookedByUserId,
                 bookingId,
-                price
+                price,
+                tx // Pass transaction client!
             );
 
             // Update booking status to SCHEDULED
+            // P0-2 FIX: Conditional Update
+            // While we are inside a transaction that started with findUnique on this ID,
+            // strict conditional update is still good practice.
             const updatedBooking = await tx.booking.update({
-                where: { id: bookingId },
+                where: {
+                    id: bookingId,
+                    status: { in: ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'] } // Allow transition from these states
+                },
                 data: {
                     status: 'SCHEDULED',
                     paymentDeadline: null // Clear deadline if exists
                 }
             });
 
-            return { booking: updatedBooking, paymentRequired: false };
-        }).then(async (result: { booking: any; paymentRequired: boolean }) => {
-            const { booking: updatedBooking, paymentRequired } = result;
+            return { booking: updatedBooking, paymentRequired: false, isPackage: false };
+        }).then(async (result: { booking: any; paymentRequired: boolean; isPackage?: boolean; pendingTierId?: string; bookedByUserId?: string }) => {
+            const { booking: bookingFromTx, paymentRequired, isPackage, pendingTierId, bookedByUserId } = result;
+            let updatedBooking = bookingFromTx;
+
+            // Handle package purchase outside of transaction
+            if (isPackage && pendingTierId && bookedByUserId) {
+                try {
+                    // For student bookings: use studentUserId
+                    // For parent bookings with children: childId is NOT a User, so use bookedByUserId (parent)
+                    // The package will be owned by the parent who can then redeem sessions for their child
+                    const studentId = bookingFromTx.studentUserId || bookedByUserId;
+
+                    this.logger.log(`Package purchase: studentId=${studentId}, bookedByUserId=${bookedByUserId}`);
+
+                    if (!studentId) {
+                        throw new BadRequestException('Cannot determine student for package purchase');
+                    }
+
+                    // Purchase the package
+                    const studentPackage = await this.packageService.purchasePackage(
+                        bookedByUserId,
+                        studentId,
+                        bookingFromTx.teacherId,
+                        bookingFromTx.subjectId,
+                        pendingTierId,
+                        `pkgpurchase:${bookingFromTx.id}:${Date.now()}`
+                    );
+
+                    if (!studentPackage) {
+                        throw new BadRequestException('Package purchase returned null');
+                    }
+
+                    // Create redemption
+                    await this.packageService.createRedemption(studentPackage.id, bookingFromTx.id);
+
+                    // Update booking to clear pendingTierId and set status
+                    updatedBooking = await this.prisma.booking.update({
+                        where: { id: bookingFromTx.id },
+                        data: {
+                            pendingTierId: null,
+                            status: 'SCHEDULED',
+                            paymentDeadline: null
+                        }
+                    });
+
+                    this.logger.log(`Package ${studentPackage.id} purchased for booking ${bookingFromTx.id}`);
+                } catch (error: any) {
+                    this.logger.error(`Package purchase failed in approveRequest: ${error.message}`);
+                    throw new BadRequestException(error.message || 'فشل شراء الباقة');
+                }
+            }
 
             if (paymentRequired) {
                 // Notify parent: Payment Required
@@ -373,7 +496,7 @@ export class BookingService {
 
         if (!teacherProfile) throw new NotFoundException('Teacher profile not found');
 
-        return this.prisma.booking.findMany({
+        const bookings = await this.prisma.booking.findMany({
             where: { teacherId: teacherProfile.id },
             include: {
                 bookedByUser: { include: { parentProfile: { include: { user: true } } } },
@@ -383,6 +506,27 @@ export class BookingService {
             },
             orderBy: { createdAt: 'desc' }  // Newest requests first
         });
+
+        // Enrich with tier session count for package bookings
+        const enrichedBookings = await Promise.all(bookings.map(async (booking) => {
+            let pendingTierSessionCount: number | null = null;
+
+            if (booking.pendingTierId) {
+                const tier = await this.prisma.packageTier.findUnique({
+                    where: { id: booking.pendingTierId }
+                });
+                if (tier) {
+                    pendingTierSessionCount = tier.sessionCount;
+                }
+            }
+
+            return {
+                ...booking,
+                pendingTierSessionCount
+            };
+        }));
+
+        return enrichedBookings;
     }
     // Get parent's bookings
     async getParentBookings(parentUserId: string) {
@@ -392,7 +536,7 @@ export class BookingService {
 
         if (!parentProfile) throw new NotFoundException('Parent profile not found');
 
-        return this.prisma.booking.findMany({
+        const bookings = await this.prisma.booking.findMany({
             where: { bookedByUserId: parentUserId },
             include: {
                 teacherProfile: { include: { user: true } },
@@ -404,6 +548,27 @@ export class BookingService {
             },
             orderBy: { createdAt: 'desc' }
         });
+
+        // Enrich with tier session count for package bookings
+        const enrichedBookings = await Promise.all(bookings.map(async (booking) => {
+            let pendingTierSessionCount: number | null = null;
+
+            if (booking.pendingTierId) {
+                const tier = await this.prisma.packageTier.findUnique({
+                    where: { id: booking.pendingTierId }
+                });
+                if (tier) {
+                    pendingTierSessionCount = tier.sessionCount;
+                }
+            }
+
+            return {
+                ...booking,
+                pendingTierSessionCount
+            };
+        }));
+
+        return enrichedBookings;
     }
 
     // Get student's bookings
@@ -573,54 +738,84 @@ export class BookingService {
 
     /**
      * Parent pays for approved booking (WAITING_FOR_PAYMENT → SCHEDULED)
-     * Locks funds from parent's wallet
+     * Handles both single sessions and package purchases
      */
     async payForBooking(parentUserId: string, bookingId: string) {
+        // Fetch booking to decide path
         const booking = await this.prisma.booking.findUnique({
             where: { id: bookingId },
             include: {
                 bookedByUser: { include: { parentProfile: { include: { user: true } } } },
-                teacherProfile: { include: { user: true } }
+                teacherProfile: { include: { user: true } },
+                child: true
             }
         });
 
         if (!booking) throw new NotFoundException('Booking not found');
-        if (booking.bookedByUser.id !== parentUserId) {
-            throw new ForbiddenException('Not your booking');
+        if (booking.bookedByUser.id !== parentUserId) throw new ForbiddenException('Not your booking');
+        if (booking.status === 'SCHEDULED') return booking; // Idempotent
+        if (booking.status !== 'WAITING_FOR_PAYMENT') throw new BadRequestException('Booking is not awaiting payment');
+
+        let updatedBooking;
+
+        // PATH A: Package Purchase
+        if (booking.pendingTierId) {
+            this.logger.log(`Processing package purchase for booking ${bookingId}`);
+            const studentId = booking.studentUserId || parentUserId;
+            if (!studentId) throw new BadRequestException('Cannot determine student');
+
+            try {
+                const studentPackage = await this.packageService.purchasePackage(
+                    parentUserId, studentId, booking.teacherId, booking.subjectId,
+                    booking.pendingTierId, `pkgpurchase:${bookingId}:${Date.now()}`
+                );
+                if (!studentPackage) throw new BadRequestException('Package purchase failed');
+
+                await this.packageService.createRedemption(studentPackage.id, bookingId);
+
+                updatedBooking = await this.prisma.booking.update({
+                    where: { id: bookingId },
+                    data: { pendingTierId: null, status: 'SCHEDULED' }
+                });
+            } catch (e: any) {
+                this.logger.error('Package purchase failed', e);
+                throw new BadRequestException(e.message || 'Failed package purchase');
+            }
         }
-        if (booking.status !== 'WAITING_FOR_PAYMENT') {
-            throw new BadRequestException('Booking is not awaiting payment');
+        // PATH B: Single Session (Atomic)
+        else {
+            updatedBooking = await this.prisma.$transaction(async (tx) => {
+                await this.walletService.lockFundsForBooking(
+                    parentUserId,
+                    bookingId,
+                    Number(booking.price),
+                    tx
+                );
+                return tx.booking.update({
+                    where: { id: bookingId, status: 'WAITING_FOR_PAYMENT' },
+                    data: { status: 'SCHEDULED' }
+                });
+            });
         }
 
-        // Lock funds atomically
-        await this.walletService.lockFundsForBooking(
-            parentUserId,
-            bookingId,
-            Number(booking.price)
-        );
+        // Notifications
+        const successTitle = 'تم الدفع بنجاح';
+        const msg = booking.pendingTierId ? 'تم شراء الباقة.' : 'تم تأكيد الدفع.';
 
-        // Update booking status
-        const updatedBooking = await this.prisma.booking.update({
-            where: { id: bookingId },
-            data: { status: 'SCHEDULED' }
-        });
-
-        // Notify parent about successful payment
         await this.notificationService.notifyUser({
             userId: parentUserId,
-            title: 'تم الدفع بنجاح',
-            message: 'تم الدفع بنجاح وتم تأكيد الحجز. ستتلقى رابط الاجتماع قريباً.',
+            title: successTitle,
+            message: msg,
             type: 'PAYMENT_SUCCESS',
             link: '/parent/bookings',
             dedupeKey: `PAYMENT_SUCCESS:${bookingId}:${parentUserId}`,
             metadata: { bookingId }
         });
 
-        // Notify teacher about new scheduled session
         await this.notificationService.notifyUser({
             userId: booking.teacherProfile.user.id,
             title: 'حجز جديد مؤكد',
-            message: `تم تأكيد حجز جديد ودفع المبلغ. تحقق من جدولك.`,
+            message: `تم تأكيد حجز جديد.`,
             type: 'PAYMENT_SUCCESS',
             link: '/teacher/sessions',
             dedupeKey: `PAYMENT_SUCCESS:${bookingId}:${booking.teacherProfile.user.id}`,
@@ -725,87 +920,109 @@ export class BookingService {
 
     /**
      * Parent/Student confirms session early (before auto-release)
-     * Releases payment immediately and notifies teacher
+     * P1-1 FIX: Atomic transaction with conditional update for race safety
      */
     async confirmSessionEarly(userId: string, bookingId: string, rating?: number) {
-        const booking = await this.prisma.booking.findUnique({
-            where: { id: bookingId },
-            include: {
-                bookedByUser: true,
-                teacherProfile: { include: { user: true } },
-                packageRedemption: true // Include package link
+        const result = await this.prisma.$transaction(async (tx) => {
+            // 1. Fetch booking inside transaction
+            const booking = await tx.booking.findUnique({
+                where: { id: bookingId },
+                include: {
+                    bookedByUser: true,
+                    teacherProfile: { include: { user: true } },
+                    packageRedemption: true
+                }
+            });
+
+            if (!booking) throw new NotFoundException('Booking not found');
+
+            // Auth check
+            if (booking.bookedByUserId !== userId) {
+                throw new ForbiddenException('Not authorized to confirm this session');
             }
+
+            // Idempotency: Already COMPLETED - return early with flag
+            if (booking.status === 'COMPLETED') {
+                return { updatedBooking: booking, bookingContext: booking, alreadyCompleted: true };
+            }
+
+            // Status check
+            if (booking.status !== 'PENDING_CONFIRMATION') {
+                throw new BadRequestException('Session is not pending confirmation');
+            }
+
+            // Dispute window check
+            if (booking.disputeWindowClosesAt && new Date() > booking.disputeWindowClosesAt) {
+                throw new BadRequestException('Dispute window has expired - payment already auto-released');
+            }
+
+            const now = new Date();
+
+            // 2. Strict Conditional Update (P1-1 FIX)
+            // This ensures only one process can transition the status
+            const updatedBooking = await tx.booking.update({
+                where: {
+                    id: bookingId,
+                    status: 'PENDING_CONFIRMATION' // Conditional!
+                },
+                data: {
+                    status: 'COMPLETED',
+                    studentConfirmedAt: now,
+                    paymentReleasedAt: now
+                }
+            });
+
+            // 3. Release Funds (Atomically inside TX)
+            const price = Number(booking.price);
+            const commissionRate = Number(booking.commissionRate);
+
+            await this.walletService.releaseFundsOnCompletion(
+                booking.bookedByUserId,
+                booking.teacherProfile.userId,
+                booking.id,
+                price,
+                commissionRate,
+                tx // Pass transaction client
+            );
+
+            return { updatedBooking, bookingContext: booking, alreadyCompleted: false };
         });
 
-        if (!booking) throw new NotFoundException('Booking not found');
-
-        // Only the person who booked can confirm
-        if (booking.bookedByUserId !== userId) {
-            throw new ForbiddenException('Not authorized to confirm this session');
+        // Skip side effects if already completed (idempotency)
+        if (result.alreadyCompleted) {
+            return result.updatedBooking;
         }
 
-        // Only PENDING_CONFIRMATION sessions can be confirmed
-        if (booking.status !== 'PENDING_CONFIRMATION') {
-            throw new BadRequestException('Session is not pending confirmation');
-        }
+        // 4. Post-Transaction: Best-effort side effects
+        const { updatedBooking, bookingContext } = result;
 
-        // Check if dispute window has expired
-        if (booking.disputeWindowClosesAt && new Date() > booking.disputeWindowClosesAt) {
-            throw new BadRequestException('Dispute window has expired - payment already auto-released');
-        }
-
-        const now = new Date();
-
-        // Update booking and release payment
-        const updatedBooking = await this.prisma.booking.update({
-            where: { id: bookingId },
-            data: {
-                status: 'COMPLETED',
-                studentConfirmedAt: now,
-                paymentReleasedAt: now
-            }
-        });
-
-        // Release payment to teacher (calculate after commission)
-        await this.releasePaymentToTeacher(booking);
-
-        // =====================================================
-        // PACKAGE INTEGRATION: Release session from package
-        // =====================================================
-        if (booking.packageRedemption) {
+        // Package Release
+        if (bookingContext.packageRedemption) {
             try {
                 const idempotencyKey = `RELEASE_${bookingId}_${Date.now()}`;
                 await this.packageService.releaseSession(bookingId, idempotencyKey);
                 this.logger.log(`Package session released for booking ${bookingId}`);
             } catch (err) {
                 this.logger.error(`Failed to release package session for booking ${bookingId}`, err);
-                // Don't block completion - session is complete, log the error
             }
         }
 
-        // =====================================================
-        // DEMO INTEGRATION: Mark demo as used
-        // =====================================================
-        // Check if this was a demo booking (price = 0 typically indicates demo)
-        const isDemo = Number(booking.price) === 0;
-        if (isDemo && booking.studentUserId) {
+        // Demo Complete
+        const isDemo = Number(bookingContext.price) === 0;
+        if (isDemo && bookingContext.studentUserId) {
             try {
-                await this.demoService.markDemoCompleted(
-                    booking.studentUserId,
-                    booking.teacherId
-                );
-                this.logger.log(`Demo marked complete for student ${booking.studentUserId} with teacher ${booking.teacherId}`);
+                await this.demoService.markDemoCompleted(bookingContext.studentUserId, bookingContext.teacherId);
+                this.logger.log(`Demo marked complete for student ${bookingContext.studentUserId}`);
             } catch (err) {
                 this.logger.error(`Failed to mark demo complete for booking ${bookingId}`, err);
-                // Don't block completion - session is complete, log the error
             }
         }
 
-        // Notify teacher that payment was released (confirmed by student)
+        // Notify teacher
         await this.notificationService.notifyTeacherPaymentReleased({
-            bookingId: booking.id,
-            teacherId: booking.teacherProfile.user.id,
-            amount: Number(booking.price) * (1 - Number(booking.commissionRate)),
+            bookingId: updatedBooking.id,
+            teacherId: bookingContext.teacherProfile.user.id,
+            amount: Number(bookingContext.price) * (1 - Number(bookingContext.commissionRate)),
             releaseType: 'CONFIRMED',
         });
 
@@ -1419,5 +1636,432 @@ export class BookingService {
         }
 
         return { percent, amount: (paidAmount * percent) / 100, message };
+    }
+    // P1-2 FIX: Auto-Complete Safety Net Cron
+    // Runs every hour to catch "forgotten" scheduled sessions
+    @Cron(CronExpression.EVERY_HOUR)
+    async autoCompleteScheduledSessions() {
+        const GRACE_PERIOD_HOURS = 2; // Teacher has 2 hours after end time to complete manually
+        const cutoffTime = new Date(Date.now() - GRACE_PERIOD_HOURS * 60 * 60 * 1000);
+
+        const stuckBookings = await this.prisma.booking.findMany({
+            where: {
+                status: 'SCHEDULED',
+                endTime: { lt: cutoffTime }
+            },
+            take: 100 // Batch size
+        });
+
+        for (const booking of stuckBookings) {
+            try {
+                // Auto-complete: Move to PENDING_CONFIRMATION to start dispute window
+                await this.prisma.booking.update({
+                    where: { id: booking.id, status: 'SCHEDULED' },
+                    data: {
+                        status: 'PENDING_CONFIRMATION',
+                        disputeWindowOpensAt: new Date(),
+                        disputeWindowClosesAt: new Date(Date.now() + 48 * 60 * 60 * 1000) // 48h from NOW (auto-action time)
+                    }
+                });
+                this.logger.log(`Auto-completed stuck booking ${booking.id}`);
+                // TODO: Notify teacher they forgot?
+            } catch (e) {
+                this.logger.error(`Failed to auto-complete booking ${booking.id}`, e);
+            }
+        }
+    }
+
+    // =====================================================
+    // PACKAGE SESSION RESCHEDULE (Reschedule-Only Model)
+    // =====================================================
+
+    /**
+     * Student/Parent directly reschedules a package session.
+     * Enforces: status=SCHEDULED, time window, max reschedules, availability.
+     */
+    async reschedulePackageSession(
+        userId: string,
+        userRole: string,
+        bookingId: string,
+        newStartTime: Date,
+        newEndTime: Date
+    ) {
+        // Validate new times are in the future
+        if (newStartTime < new Date()) {
+            throw new BadRequestException('New start time must be in the future');
+        }
+
+        // 1. Fetch booking with package redemption
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                packageRedemption: true,
+                teacherProfile: true
+            }
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Booking not found');
+        }
+
+        // 2. Must be a package session
+        if (!booking.packageRedemption) {
+            throw new BadRequestException('Only package sessions can use this endpoint');
+        }
+
+        // 3. Authorization: Only bookedByUser or studentUser can reschedule
+        if (booking.bookedByUserId !== userId && booking.studentUserId !== userId) {
+            throw new ForbiddenException('You do not have permission to reschedule this session');
+        }
+
+        // 4. Status enforcement: ONLY SCHEDULED allowed
+        if (booking.status !== 'SCHEDULED') {
+            throw new ForbiddenException(
+                `Cannot reschedule: status is ${booking.status}. Only SCHEDULED sessions can be rescheduled.`
+            );
+        }
+
+        // 5. Time window check
+        const hoursUntilSession = (new Date(booking.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntilSession < BOOKING_POLICY.studentRescheduleWindowHours) {
+            throw new ForbiddenException(
+                `Cannot reschedule within ${BOOKING_POLICY.studentRescheduleWindowHours} hours of session start`
+            );
+        }
+
+        // 6. Max reschedules check
+        if (booking.rescheduleCount >= BOOKING_POLICY.studentMaxReschedules) {
+            throw new ForbiddenException(
+                `Maximum ${BOOKING_POLICY.studentMaxReschedules} reschedules allowed per session`
+            );
+        }
+
+        // 7. Availability conflict check
+        const isAvailable = await this.validateSlotAvailability(booking.teacherId, newStartTime);
+        if (!isAvailable) {
+            throw new ConflictException('Teacher is not available at the requested time');
+        }
+
+        // Store old times for audit
+        const oldStartTime = booking.startTime;
+        const oldEndTime = booking.endTime;
+
+        // 8. Atomic conditional update (race safety)
+        const updateResult = await this.prisma.booking.updateMany({
+            where: {
+                id: bookingId,
+                status: 'SCHEDULED',
+                rescheduleCount: booking.rescheduleCount // Conditional: prevent race
+            },
+            data: {
+                startTime: newStartTime,
+                endTime: newEndTime,
+                rescheduleCount: { increment: 1 },
+                lastRescheduledAt: new Date(),
+                rescheduledByRole: userRole
+            }
+        });
+
+        if (updateResult.count === 0) {
+            throw new ConflictException('Reschedule failed due to concurrent update. Please retry.');
+        }
+
+        // 9. Audit log
+        await this.prisma.auditLog.create({
+            data: {
+                actorId: userId,
+                action: 'RESCHEDULE' as any,
+                targetId: bookingId,
+                payload: {
+                    oldStartTime,
+                    oldEndTime,
+                    newStartTime,
+                    newEndTime,
+                    actorRole: userRole,
+                    reason: 'Direct student/parent reschedule'
+                }
+            }
+        });
+
+        this.logger.log(`📅 RESCHEDULE | bookingId=${bookingId} | by=${userRole} | from=${oldStartTime} to=${newStartTime}`);
+
+        return {
+            success: true,
+            bookingId,
+            oldStartTime,
+            newStartTime,
+            rescheduleCount: booking.rescheduleCount + 1
+        };
+    }
+
+    /**
+     * Teacher submits a reschedule request (requires student approval).
+     */
+    async requestReschedule(
+        teacherUserId: string,
+        bookingId: string,
+        reason: string,
+        proposedStartTime?: Date,
+        proposedEndTime?: Date
+    ) {
+        // Validate reason provided
+        if (!reason || reason.trim().length === 0) {
+            throw new BadRequestException('Reason is required for reschedule request');
+        }
+
+        // 1. Fetch booking
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                packageRedemption: true,
+                teacherProfile: true,
+                rescheduleRequests: true
+            }
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Booking not found');
+        }
+
+        // 2. Must be a package session
+        if (!booking.packageRedemption) {
+            throw new BadRequestException('Only package sessions can use this endpoint');
+        }
+
+        // 3. Teacher authorization
+        if (booking.teacherProfile.userId !== teacherUserId) {
+            throw new ForbiddenException('You are not the teacher for this session');
+        }
+
+        // 4. Status enforcement
+        if (booking.status !== 'SCHEDULED') {
+            throw new ForbiddenException(`Cannot request reschedule: status is ${booking.status}`);
+        }
+
+        // 5. Time window check
+        const hoursUntilSession = (new Date(booking.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntilSession < BOOKING_POLICY.teacherRescheduleRequestWindowHours) {
+            throw new ForbiddenException(
+                `Cannot request reschedule within ${BOOKING_POLICY.teacherRescheduleRequestWindowHours} hours of session start`
+            );
+        }
+
+        // 6. Max requests PER BOOKING check
+        const pendingOrApprovedCount = booking.rescheduleRequests.filter(
+            r => r.status === 'PENDING' || r.status === 'APPROVED'
+        ).length;
+        if (pendingOrApprovedCount >= BOOKING_POLICY.teacherMaxRescheduleRequests) {
+            throw new ForbiddenException(
+                `Maximum ${BOOKING_POLICY.teacherMaxRescheduleRequests} reschedule requests per booking`
+            );
+        }
+
+        // 7. Create reschedule request
+        const expiresAt = new Date(Date.now() + BOOKING_POLICY.studentResponseTimeoutHours * 60 * 60 * 1000);
+
+        const request = await this.prisma.rescheduleRequest.create({
+            data: {
+                bookingId,
+                requestedById: teacherUserId,
+                proposedStartTime,
+                proposedEndTime,
+                reason,
+                status: 'PENDING',
+                expiresAt
+            }
+        });
+
+        // 8. Notify student/parent
+        await this.notificationService.notifyUser({
+            userId: booking.bookedByUserId,
+            type: 'RESCHEDULE_REQUEST' as any,
+            title: 'طلب تغيير موعد الجلسة',
+            message: `طلب المعلم تغيير موعد الجلسة. السبب: ${reason}`,
+        });
+
+        this.logger.log(`📝 RESCHEDULE_REQUEST | bookingId=${bookingId} | teacher=${teacherUserId}`);
+
+        return {
+            success: true,
+            requestId: request.id,
+            expiresAt
+        };
+    }
+
+    /**
+     * Student/Parent approves a reschedule request.
+     * Lazy expiration: Check if expired before processing.
+     */
+    async approveRescheduleRequest(
+        userId: string,
+        userRole: string,
+        requestId: string,
+        newStartTime: Date,
+        newEndTime: Date
+    ) {
+        // 1. Fetch request with booking
+        const request = await this.prisma.rescheduleRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                booking: {
+                    include: { packageRedemption: true, teacherProfile: true }
+                }
+            }
+        });
+
+        if (!request) {
+            throw new NotFoundException('Reschedule request not found');
+        }
+
+        // 2. Authorization: Only bookedByUser can approve
+        if (request.booking.bookedByUserId !== userId && request.booking.studentUserId !== userId) {
+            throw new ForbiddenException('You do not have permission to approve this request');
+        }
+
+        // 3. Lazy expiration check: If expired, mark as EXPIRED and reject
+        if (new Date() > request.expiresAt && request.status === 'PENDING') {
+            await this.prisma.rescheduleRequest.update({
+                where: { id: requestId },
+                data: { status: 'EXPIRED' }
+            });
+            throw new ForbiddenException('This reschedule request has expired');
+        }
+
+        // 4. Idempotency: If already approved, return success
+        if (request.status === 'APPROVED') {
+            return { success: true, message: 'Request already approved', idempotent: true };
+        }
+
+        // 5. Must be PENDING
+        if (request.status !== 'PENDING') {
+            throw new ForbiddenException(`Cannot approve: request status is ${request.status}`);
+        }
+
+        // 6. Booking must be SCHEDULED
+        if (request.booking.status !== 'SCHEDULED') {
+            throw new ForbiddenException(`Cannot reschedule: booking status is ${request.booking.status}`);
+        }
+
+        // 7. Availability check
+        const isAvailable = await this.validateSlotAvailability(request.booking.teacherId, newStartTime);
+        if (!isAvailable) {
+            throw new ConflictException('Teacher is not available at the requested time');
+        }
+
+        const oldStartTime = request.booking.startTime;
+        const oldEndTime = request.booking.endTime;
+
+        // 8. Atomic update: Booking + Request
+        await this.prisma.$transaction(async (tx) => {
+            // Update booking (conditional)
+            const updateResult = await tx.booking.updateMany({
+                where: {
+                    id: request.bookingId,
+                    status: 'SCHEDULED',
+                    rescheduleCount: request.booking.rescheduleCount
+                },
+                data: {
+                    startTime: newStartTime,
+                    endTime: newEndTime,
+                    rescheduleCount: { increment: 1 },
+                    lastRescheduledAt: new Date(),
+                    rescheduledByRole: 'TEACHER' // Via approval
+                }
+            });
+
+            if (updateResult.count === 0) {
+                throw new ConflictException('Reschedule failed due to concurrent update');
+            }
+
+            // Update request
+            await tx.rescheduleRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: 'APPROVED',
+                    respondedAt: new Date(),
+                    respondedById: userId
+                }
+            });
+
+            // Audit log
+            await tx.auditLog.create({
+                data: {
+                    actorId: userId,
+                    action: 'RESCHEDULE' as any,
+                    targetId: request.bookingId,
+                    payload: {
+                        oldStartTime,
+                        oldEndTime,
+                        newStartTime,
+                        newEndTime,
+                        actorRole: userRole,
+                        reason: request.reason,
+                        requestId
+                    }
+                }
+            });
+        });
+
+        this.logger.log(`✅ RESCHEDULE_APPROVED | requestId=${requestId} | bookingId=${request.bookingId}`);
+
+        return {
+            success: true,
+            bookingId: request.bookingId,
+            newStartTime,
+            rescheduleCount: request.booking.rescheduleCount + 1
+        };
+    }
+
+    /**
+     * Student/Parent declines a reschedule request.
+     * Booking remains unchanged. Teacher must attend original time.
+     */
+    async declineRescheduleRequest(userId: string, requestId: string, reason?: string) {
+        // 1. Fetch request
+        const request = await this.prisma.rescheduleRequest.findUnique({
+            where: { id: requestId },
+            include: { booking: true }
+        });
+
+        if (!request) {
+            throw new NotFoundException('Reschedule request not found');
+        }
+
+        // 2. Authorization
+        if (request.booking.bookedByUserId !== userId && request.booking.studentUserId !== userId) {
+            throw new ForbiddenException('You do not have permission to decline this request');
+        }
+
+        // 3. Idempotency: If already declined/expired, return success
+        if (request.status === 'DECLINED' || request.status === 'EXPIRED') {
+            return { success: true, message: 'Request already declined', idempotent: true };
+        }
+
+        // 4. Must be PENDING
+        if (request.status !== 'PENDING') {
+            throw new ForbiddenException(`Cannot decline: request status is ${request.status}`);
+        }
+
+        // 5. Update request
+        await this.prisma.rescheduleRequest.update({
+            where: { id: requestId },
+            data: {
+                status: 'DECLINED',
+                respondedAt: new Date(),
+                respondedById: userId
+            }
+        });
+
+        // 6. Notify teacher
+        await this.notificationService.notifyUser({
+            userId: request.requestedById,
+            type: 'RESCHEDULE_DECLINED' as any,
+            title: 'تم رفض طلب تغيير الموعد',
+            message: 'تم رفض طلب تغيير موعد الجلسة. يرجى الحضور في الموعد الأصلي.',
+        });
+
+        this.logger.log(`❌ RESCHEDULE_DECLINED | requestId=${requestId}`);
+
+        return { success: true, bookingId: request.bookingId };
     }
 }

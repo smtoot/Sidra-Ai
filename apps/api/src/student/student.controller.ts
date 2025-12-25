@@ -1,5 +1,5 @@
 
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards, Request } from '@nestjs/common';
 import { StudentService } from './student.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -20,5 +20,10 @@ export class StudentController {
     @Get('profile')
     getProfile(@Request() req: any) {
         return this.studentService.getProfile(req.user.userId);
+    }
+
+    @Patch('profile')
+    updateProfile(@Request() req: any, @Body() data: any) {
+        return this.studentService.updateProfile(req.user.userId, data);
     }
 }

@@ -59,8 +59,13 @@ interface PackageCardProps {
 }
 
 function PackageCard({ pkg, onBook }: PackageCardProps) {
-    const sessionsRemaining = pkg.sessionCount - pkg.sessionsUsed;
-    const progressPercent = (pkg.sessionsUsed / pkg.sessionCount) * 100;
+    // Calculate stats from redemptions
+    const completedSessions = pkg.redemptions?.filter(r => r.booking.status === 'COMPLETED').length || 0;
+
+    // Remaining based on Completed only
+    const sessionsRemaining = pkg.sessionCount - completedSessions;
+    const progressPercent = (completedSessions / pkg.sessionCount) * 100;
+
     const daysUntilExpiry = differenceInDays(new Date(pkg.expiresAt), new Date());
     const isActive = pkg.status === 'ACTIVE' && sessionsRemaining > 0;
     const isExpiringSoon = isActive && daysUntilExpiry <= 7;
@@ -84,20 +89,27 @@ function PackageCard({ pkg, onBook }: PackageCardProps) {
                             </h3>
                             <p className="text-sm text-gray-500 flex items-center gap-1">
                                 <BookOpen className="w-3 h-3" />
-                                {pkg.subject?.nameAr || 'مادة'}
+                                <span className="truncate">{pkg.subject?.nameAr || 'مادة'}</span>
                             </p>
                         </div>
                     </div>
-                    <StatusBadge status={pkg.status} />
+                    <div className="flex flex-col items-end gap-1">
+                        <StatusBadge status={pkg.status} />
+                        {pkg.readableId && (
+                            <span className="text-[10px] text-gray-400 font-mono px-1.5 py-0.5 bg-gray-50 rounded border border-gray-100" dir="ltr">
+                                #{pkg.readableId}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Sessions Progress */}
             <div className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-600">الحصص</span>
+                    <span className="text-sm text-gray-600">التقدم (مكتملة)</span>
                     <span className="font-bold text-gray-800">
-                        {pkg.sessionsUsed} / {pkg.sessionCount}
+                        {completedSessions} / {pkg.sessionCount}
                     </span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -106,13 +118,13 @@ function PackageCard({ pkg, onBook }: PackageCardProps) {
                             "h-full rounded-full transition-all",
                             pkg.status === 'COMPLETED' ? "bg-blue-500" :
                                 pkg.status === 'CANCELLED' || pkg.status === 'EXPIRED' ? "bg-gray-400" :
-                                    "bg-green-500"
+                                    "bg-blue-500"
                         )}
                         style={{ width: `${progressPercent}%` }}
                     />
                 </div>
                 <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                    <span>{pkg.sessionsUsed} مستخدمة</span>
+                    <span>{completedSessions} مكتملة</span>
                     <span className={cn(
                         "font-medium",
                         sessionsRemaining > 0 && pkg.status === 'ACTIVE' ? "text-green-600" : "text-gray-400"
@@ -152,7 +164,7 @@ function PackageCard({ pkg, onBook }: PackageCardProps) {
                             onClick={() => onBook(pkg)}
                             className="flex items-center gap-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                         >
-                            احجز حصة
+                            جدول حصة
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                     ) : (
@@ -200,9 +212,9 @@ export function MyPackages({ userRole }: MyPackagesProps) {
     };
 
     const handleBook = (pkg: StudentPackage) => {
-        // Redirect to marketplace with teacher pre-selected
-        // The booking modal will pick up the existing package automatically
-        router.push(`/marketplace/teacher/${pkg.teacherId}?subject=${pkg.subjectId}&package=${pkg.id}`);
+        // Navigate to package details page
+        const basePath = userRole === 'PARENT' ? '/parent' : '/student';
+        router.push(`${basePath}/packages/${pkg.id}`);
     };
 
     const filteredPackages = packages.filter(pkg => {
@@ -289,7 +301,7 @@ export function MyPackages({ userRole }: MyPackagesProps) {
                     </button>
                 </div>
             ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-4">
                     {filteredPackages.map(pkg => (
                         <PackageCard
                             key={pkg.id}

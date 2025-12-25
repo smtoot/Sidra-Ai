@@ -18,7 +18,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     if (isLoading) return <>{children}</>;
 
     const userRole = user?.role as 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT' | undefined;
-    const userName = user?.email.split('@')[0];
+
+    // Get display name with proper Arabic fallbacks based on role
+    const getRoleFallback = (role: string | undefined) => {
+        switch (role) {
+            case 'PARENT': return 'ولي الأمر';
+            case 'STUDENT': return 'الطالب';
+            case 'TEACHER': return 'المعلم';
+            case 'ADMIN': return 'المسؤول';
+            default: return 'مستخدم';
+        }
+    };
+    const userName = (user as any)?.displayName || (user as any)?.firstName || getRoleFallback(user?.role);
 
     // Check if we should render navigation
     if (isPublicPage || (isHome && !userRole) || !userRole) {
@@ -28,7 +39,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen">
             <Navigation userRole={userRole} userName={userName} />
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1">
                 {children}
             </main>
         </div>

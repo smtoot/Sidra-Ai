@@ -10,7 +10,7 @@
         "db:push": "prisma db push"
     },
     "dependencies": {
-        "@prisma/client": "5.22.0",
+        "@prisma/client": "^5.22.0",
         "pg": "latest"
     },
     "devDependencies": {

@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
 
 export enum UserRole {
     PARENT = 'PARENT',
@@ -10,7 +10,12 @@ export enum UserRole {
 
 export class RegisterDto {
     @IsEmail()
-    email!: string;
+    @IsOptional() // Phone-first: email is optional
+    email?: string;
+
+    @IsString()
+    @IsNotEmpty()
+    phoneNumber!: string; // Phone-first: phone is required
 
     @IsString()
     @MinLength(8)
@@ -18,4 +23,14 @@ export class RegisterDto {
 
     @IsEnum(UserRole)
     role!: UserRole;
+
+    // firstName is required for PARENT and STUDENT only
+    @ValidateIf(o => o.role === UserRole.PARENT || o.role === UserRole.STUDENT)
+    @IsString()
+    @IsNotEmpty({ message: 'الاسم الأول مطلوب' })
+    firstName?: string;
+
+    @IsOptional()
+    @IsString()
+    lastName?: string;
 }

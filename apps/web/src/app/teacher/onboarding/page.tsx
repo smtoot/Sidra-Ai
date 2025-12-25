@@ -1,16 +1,17 @@
 import 'reflect-metadata';
 import { Metadata } from 'next';
-import TeacherProfileWizard from '@/components/teacher/TeacherProfileWizard';
+import { TeacherOnboardingLayout } from '@/components/teacher/onboarding/TeacherOnboardingLayout';
+import { OnboardingWizard } from '@/components/teacher/onboarding/OnboardingWizard';
 
 export const metadata: Metadata = {
-    title: 'إعداد الملف الشخصي | سدرة',
-    description: 'أكمل ملفك الشخصي لتبدأ في التدريس على منصة سدرة',
+    title: 'إعداد ملفك الشخصي | سِدرة',
+    description: 'أكمل ملفك الشخصي لتبدأ رحلتك في التدريس على منصة سِدرة',
 };
 
 export default function TeacherOnboardingPage() {
     return (
-        <main className="container mx-auto py-10 px-4">
-            <TeacherProfileWizard />
-        </main>
+        <TeacherOnboardingLayout>
+            <OnboardingWizard />
+        </TeacherOnboardingLayout>
     );
 }

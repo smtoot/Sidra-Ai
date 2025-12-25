@@ -7,7 +7,7 @@ import DepositModal from '@/components/wallet/DepositModal';
 import { Wallet as WalletIcon, ArrowUpRight, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function WalletPage() {
+export default function ParentWalletPage() {
     const [wallet, setWallet] = useState<Wallet | null>(null);
     const [loading, setLoading] = useState(true);
     const [isDepositOpen, setIsDepositOpen] = useState(false);
@@ -39,31 +39,47 @@ export default function WalletPage() {
         }
     };
 
+    const getTransactionTypeLabel = (type: string) => {
+        switch (type) {
+            case 'DEPOSIT':
+                return 'إيداع بنكي';
+            case 'PAYMENT_LOCK':
+                return 'دفع حجز';
+            case 'REFUND':
+                return 'استرداد';
+            case 'PACKAGE_PURCHASE':
+                return 'شراء باقة';
+            case 'PACKAGE_RELEASE':
+                return 'إكمال حصة باقة';
+            default:
+                return type;
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background font-tajawal rtl p-8">
             <div className="max-w-4xl mx-auto space-y-8">
                 <header className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-bold text-primary">المحفظة</h1>
+                        <h1 className="text-3xl font-bold text-primary">المحفظة 💳</h1>
                         <p className="text-text-subtle">إدارة رصيدك وعمليات الدفع</p>
                     </div>
                 </header>
 
                 {/* Balance Card */}
-                <div className="bg-primary text-white rounded-2xl p-8 shadow-lg flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-r-4 border-r-primary-600">
                     <div className="space-y-2 text-center md:text-right">
-                        <p className="text-white/80 text-sm">الرصيد المتاح</p>
-                        <h2 className="text-5xl font-bold">{wallet?.balance || '0'} <span className="text-2xl font-normal">SDG</span></h2>
+                        <p className="text-gray-500 text-sm">الرصيد المتاح</p>
+                        <h2 className="text-5xl font-bold text-primary-700">{wallet?.balance || '0'} <span className="text-2xl font-normal text-gray-500">SDG</span></h2>
                         {Number(wallet?.pendingBalance) > 0 && (
-                            <p className="text-white/60 text-sm bg-white/10 px-3 py-1 rounded-full inline-block mt-2">
+                            <p className="text-warning-700 text-sm bg-warning-50 px-3 py-1 rounded-full inline-block mt-2">
                                 معلق: {wallet?.pendingBalance} SDG
                             </p>
                         )}
                     </div>
                     <Button
-                        variant="secondary"
                         size="lg"
-                        className="bg-white text-primary hover:bg-white/90 gap-2 min-w-[150px]"
+                        className="gap-2 min-w-[150px]"
                         onClick={() => setIsDepositOpen(true)}
                     >
                         <ArrowUpRight className="w-5 h-5" />
@@ -75,7 +91,9 @@ export default function WalletPage() {
                 <div className="bg-surface rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                     <div className="p-4 border-b font-bold text-lg text-primary">آخر العمليات</div>
                     <div className="divide-y divide-gray-100">
-                        {wallet?.transactions.length === 0 ? (
+                        {loading ? (
+                            <div className="p-8 text-center text-text-subtle">جاري التحميل...</div>
+                        ) : wallet?.transactions.length === 0 ? (
                             <div className="p-8 text-center text-text-subtle">لا توجد عمليات سابقة.</div>
                         ) : (
                             wallet?.transactions.map(tx => (
@@ -83,13 +101,15 @@ export default function WalletPage() {
                                     <div className="flex items-center gap-4">
                                         <div className={cn(
                                             "w-10 h-10 rounded-full flex items-center justify-center",
-                                            tx.type === 'DEPOSIT' ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
+                                            tx.type === 'DEPOSIT' ? "bg-green-100 text-green-600" :
+                                                tx.type === 'REFUND' ? "bg-blue-100 text-blue-600" :
+                                                    "bg-orange-100 text-orange-600"
                                         )}>
                                             {tx.type === 'DEPOSIT' ? <ArrowUpRight className="w-5 h-5" /> : <WalletIcon className="w-5 h-5" />}
                                         </div>
                                         <div>
                                             <p className="font-bold text-primary">
-                                                {tx.type === 'DEPOSIT' ? 'إيداع بنكي' : tx.type}
+                                                {getTransactionTypeLabel(tx.type)}
                                             </p>
                                             <p className="text-xs text-text-subtle">
                                                 {new Date(tx.createdAt).toLocaleDateString('ar-EG')}
@@ -97,7 +117,12 @@ export default function WalletPage() {
                                         </div>
                                     </div>
                                     <div className="text-left">
-                                        <p className="font-bold text-primary">{tx.amount} SDG</p>
+                                        <p className={cn(
+                                            "font-bold",
+                                            tx.type === 'DEPOSIT' || tx.type === 'REFUND' ? "text-green-600" : "text-orange-600"
+                                        )}>
+                                            {tx.type === 'DEPOSIT' || tx.type === 'REFUND' ? '+' : '-'}{tx.amount} SDG
+                                        </p>
                                         <div className="mt-1">{getStatusBadge(tx.status)}</div>
                                     </div>
                                 </div>

@@ -17,6 +17,16 @@ export class ParentController {
         return this.parentService.getDashboardStats(req.user.userId);
     }
 
+    @Get('profile')
+    getProfile(@Request() req: any) {
+        return this.parentService.getProfile(req.user.userId);
+    }
+
+    @Patch('profile')
+    updateProfile(@Request() req: any, @Body() data: any) {
+        return this.parentService.updateProfile(req.user.userId, data);
+    }
+
     @Get('children')
     getChildren(@Request() req: any) {
         return this.parentService.getChildren(req.user.userId);

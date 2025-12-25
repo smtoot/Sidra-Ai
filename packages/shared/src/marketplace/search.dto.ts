@@ -11,6 +11,10 @@ export class SearchTeachersDto {
     curriculumId?: string;
 
     @IsOptional()
+    @IsString()
+    gradeLevelId?: string;
+
+    @IsOptional()
     @Type(() => Number)
     @IsNumber()
     @Min(0)

@@ -7,8 +7,12 @@ import { useRouter } from 'next/navigation';
 
 interface User {
     id: string;
-    email: string;
+    email?: string;
+    phoneNumber?: string;
     role: string;
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
 }
 
 interface AuthContextType {
@@ -16,7 +20,23 @@ interface AuthContextType {
     login: (dto: LoginDto) => Promise<void>;
     register: (dto: RegisterDto) => Promise<void>;
     logout: () => void;
+    updateUser: (updates: Partial<User>) => void;
     isLoading: boolean;
+}
+
+// Helper to safely decode JWT with UTF-8 characters (like Arabic)
+function parseJwt(token: string) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        console.error("Failed to parse JWT", e);
+        return {};
+    }
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,36 +51,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = localStorage.getItem('token');
         if (token) {
             // Decode simple payload or fetch profile (simulating decode for now)
-            try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                setUser({ id: payload.sub, email: payload.email, role: payload.role });
-            } catch (e) {
+            const payload = parseJwt(token);
+            if (payload && payload.sub) {
+                setUser({
+                    id: payload.sub,
+                    email: payload.email,
+                    phoneNumber: payload.phoneNumber,
+                    role: payload.role,
+                    firstName: payload.firstName,
+                    lastName: payload.lastName,
+                    displayName: payload.displayName
+                });
+            } else {
                 localStorage.removeItem('token');
             }
         }
         setIsLoading(false);
     }, []);
 
+    /**
+     * Helper to redirect teachers based on their applicationStatus
+     */
+    const redirectTeacher = async () => {
+        try {
+            const { data } = await api.get('/teacher/me/application-status');
+            const status = data.applicationStatus;
+
+            if (status === 'DRAFT' || status === 'CHANGES_REQUESTED') {
+                // Need to complete/update onboarding
+                router.push('/teacher/onboarding');
+            } else if (status === 'APPROVED') {
+                // Fully approved - go to dashboard
+                router.push('/teacher');
+            } else {
+                // SUBMITTED, INTERVIEW_*, REJECTED - go to profile to see status
+                router.push('/teacher');
+            }
+        } catch (error) {
+            // Fallback: if status check fails, go to onboarding
+            console.error('Failed to check teacher status, redirecting to onboarding', error);
+            router.push('/teacher/onboarding');
+        }
+    };
+
     const login = async (dto: LoginDto) => {
         const { data } = await api.post('/auth/login', dto);
         localStorage.setItem('token', data.access_token);
-        const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+        const payload = parseJwt(data.access_token);
 
         // Store user info for Navigation
+        const displayName = payload.displayName || payload.firstName || payload.phoneNumber || payload.email?.split('@')[0] || 'User';
         localStorage.setItem('userRole', payload.role);
-        localStorage.setItem('userName', payload.email.split('@')[0]); // Extract name from email
+        localStorage.setItem('userName', displayName);
 
-        setUser({ id: payload.sub, email: payload.email, role: payload.role });
+        setUser({
+            id: payload.sub,
+            email: payload.email,
+            phoneNumber: payload.phoneNumber,
+            role: payload.role,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            displayName: payload.displayName
+        });
 
         // Role-based redirect
         if (payload.role === 'PARENT') {
-            router.push('/search');
+            router.push('/parent');
         } else if (payload.role === 'TEACHER') {
-            router.push('/teacher/profile');
+            // Check application status for teachers
+            await redirectTeacher();
         } else if (payload.role === 'ADMIN') {
             router.push('/admin/financials');
         } else if (payload.role === 'STUDENT') {
-            router.push('/student/dashboard');
+            router.push('/student');
         } else {
             router.push('/');
         }
@@ -69,23 +132,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const register = async (dto: RegisterDto) => {
         const { data } = await api.post('/auth/register', dto);
         localStorage.setItem('token', data.access_token);
-        const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+        const payload = parseJwt(data.access_token);
 
         // Store user info for Navigation
+        const displayName = payload.displayName || payload.firstName || payload.phoneNumber || payload.email?.split('@')[0] || 'User';
         localStorage.setItem('userRole', payload.role);
-        localStorage.setItem('userName', payload.email.split('@')[0]);
+        localStorage.setItem('userName', displayName);
 
-        setUser({ id: payload.sub, email: payload.email, role: payload.role });
+        setUser({
+            id: payload.sub,
+            email: payload.email,
+            phoneNumber: payload.phoneNumber,
+            role: payload.role,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            displayName: payload.displayName
+        });
 
-        // Role-based redirect (same as login)
+        // Role-based redirect
         if (payload.role === 'PARENT') {
-            router.push('/search');
+            router.push('/parent');
         } else if (payload.role === 'TEACHER') {
-            router.push('/teacher/profile');
+            // New teachers always go to onboarding (they start as DRAFT)
+            router.push('/teacher/onboarding');
         } else if (payload.role === 'ADMIN') {
             router.push('/admin/financials');
         } else if (payload.role === 'STUDENT') {
-            router.push('/student/dashboard');
+            router.push('/student');
         } else {
             router.push('/');
         }
@@ -97,8 +170,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push('/login');
     };
 
+    // Update user info (e.g., after profile update) without requiring re-login
+    const updateUser = (updates: Partial<User>) => {
+        setUser(prev => prev ? { ...prev, ...updates } : null);
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, updateUser, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
@@ -109,3 +187,4 @@ export const useAuth = () => {
     if (!context) throw new Error('useAuth must be used within AuthProvider');
     return context;
 };
+

@@ -3,6 +3,10 @@ import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 export class CreateCurriculumDto {
     @IsString()
     @IsNotEmpty()
+    code!: string;
+
+    @IsString()
+    @IsNotEmpty()
     nameAr!: string;
 
     @IsString()

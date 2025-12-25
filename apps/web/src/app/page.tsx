@@ -17,7 +17,7 @@ export default function Home() {
       if (role === 'TEACHER') {
         router.push('/teacher/sessions');
       } else if (role === 'PARENT') {
-        router.push('/search');
+        router.push('/parent');
       } else if (role === 'ADMIN') {
         router.push('/admin/financials');
       }

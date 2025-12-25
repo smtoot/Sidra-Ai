@@ -16,6 +16,27 @@ export interface TeacherDocument {
     uploadedAt: string;
 }
 
+export interface SlugInfo {
+    slug: string | null;
+    slugLockedAt: string | null;
+    isLocked: boolean;
+    suggestedSlug: string | null;
+}
+
+export interface TeachingApproachTag {
+    id: string;
+    labelAr: string;
+    descriptionAr?: string;
+    icon?: string;
+    sortOrder: number;
+    isActive: boolean;
+}
+
+export interface TeacherTeachingApproach {
+    teachingStyle: string | null;
+    tags: string[]; // List of Tag IDs
+}
+
 export const teacherApi = {
     getProfile: async () => {
         const response = await api.get('/teacher/me');
@@ -94,6 +115,40 @@ export const teacherApi = {
     updateDemoSettings: async (demoEnabled: boolean): Promise<{ demoEnabled: boolean }> => {
         const response = await api.post('/packages/demo/settings', { demoEnabled });
         return response.data;
+    },
+
+    // --- Session Packages ---
+    getPackages: async () => {
+        const response = await api.get('/packages/teacher');
+        return response.data;
+    },
+
+    // --- Slug Management ---
+    getSlugInfo: async (): Promise<SlugInfo> => {
+        const response = await api.get('/teacher/me/slug');
+        return response.data;
+    },
+    checkSlugAvailability: async (slug: string): Promise<{ available: boolean; slug: string; error?: string }> => {
+        const response = await api.get(`/teacher/me/slug/check?slug=${encodeURIComponent(slug)}`);
+        return response.data;
+    },
+    updateSlug: async (slug: string): Promise<{ slug: string; locked: boolean }> => {
+        const response = await api.patch('/teacher/me/slug', { slug });
+        return response.data;
+    },
+    confirmSlug: async (slug: string): Promise<{ slug: string; locked: boolean }> => {
+        const response = await api.post('/teacher/me/slug/confirm', { slug });
+        return response.data;
+    },
+
+    // --- Teaching Approach ---
+    getTeachingApproachTags: async (): Promise<TeachingApproachTag[]> => {
+        const response = await api.get('/teacher/me/teaching-approach-tags');
+        return response.data;
+    },
+
+    updateTeachingApproach: async (data: TeacherTeachingApproach): Promise<void> => {
+        await api.patch('/teacher/me/profile/teaching-approach', data);
     }
 };
 

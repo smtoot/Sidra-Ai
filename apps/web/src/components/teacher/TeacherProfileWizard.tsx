@@ -6,13 +6,32 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { teacherApi } from '@/lib/api/teacher';
-import { marketplaceApi } from '@/lib/api/marketplace';
+import { GradeLevel } from '@/lib/api/marketplace';
 import { useAuth } from '@/context/AuthContext';
-import { ChevronLeft, ChevronRight, Save, Trash2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Trash2, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Gender } from '@sidra/shared';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from '@/lib/utils';
+import { useCurricula } from '@/hooks/useCurricula';
+import { useSubjects } from '@/hooks/useSubjects';
+import { useCurriculumHierarchy } from '@/hooks/useCurriculumHierarchy';
+import { useTeacherApplicationStatus } from '@/hooks/useTeacherApplicationStatus';
+import { AlertCircle, Lock } from 'lucide-react';
 
 export default function TeacherProfileWizard() {
     const { user } = useAuth();
+    const { status: appStatus, isApproved, isChangesRequested, loading: loadingStatus } = useTeacherApplicationStatus();
+
+    // Read-only if NOT approved AND NOT changes requested (AND not DRAFT, but DRAFT should be in onboarding)
+    // Actually, "DRAFT" users are redirected to onboarding usually.
+    // So for this page, we assume mostly SUBMITTED, INTERVIEW_*, APPROVED, REJECTED.
+    // We allow editing only if APPROVED or CHANGES_REQUESTED.
+    const isReadOnly = !loadingStatus && !isApproved && !isChangesRequested;
+
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
@@ -26,18 +45,30 @@ export default function TeacherProfileWizard() {
 
     // Step 2 State
     const [mySubjects, setMySubjects] = useState<any[]>([]); // TeacherSubject[]
-    const [curricula, setCurricula] = useState<any[]>([]);
-    const [subjects, setSubjects] = useState<any[]>([]);
 
     // Add Subject Form
     const [selectedCurriculum, setSelectedCurriculum] = useState('');
     const [selectedSubject, setSelectedSubject] = useState('');
     const [price, setPrice] = useState(0);
+    const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+    const [openStages, setOpenStages] = useState<string[]>([]);
+
+    // React Query hooks for cached data
+    const { data: curricula = [] } = useCurricula();
+    const { data: subjects = [] } = useSubjects();
+    const { data: hierarchy, isLoading: loadingHierarchy } = useCurriculumHierarchy(selectedCurriculum || null);
+
+    // Open all stages when hierarchy loads
+    useEffect(() => {
+        if (hierarchy?.stages) {
+            setOpenStages(hierarchy.stages.map(s => s.id));
+            setSelectedGrades([]); // Reset grades on curriculum change
+        }
+    }, [hierarchy]);
 
     useEffect(() => {
         setIsMounted(true);
         loadProfile();
-        loadMarketplace();
     }, []);
 
     const loadProfile = async () => {
@@ -56,19 +87,6 @@ export default function TeacherProfileWizard() {
             console.error("Failed to load profile", error);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const loadMarketplace = async () => {
-        try {
-            const [currData, subjData] = await Promise.all([
-                marketplaceApi.getCurricula(),
-                marketplaceApi.getSubjects()
-            ]);
-            setCurricula(currData);
-            setSubjects(subjData);
-        } catch (error) {
-            console.error("Failed to load marketplace data", error);
         }
     };
 
@@ -91,22 +109,59 @@ export default function TeacherProfileWizard() {
         }
     };
 
+    const toggleGrade = (gradeId: string) => {
+        setSelectedGrades(prev =>
+            prev.includes(gradeId)
+                ? prev.filter(id => id !== gradeId)
+                : [...prev, gradeId]
+        );
+    };
+
+    const toggleStage = (stageId: string) => {
+        setOpenStages(prev =>
+            prev.includes(stageId)
+                ? prev.filter(id => id !== stageId)
+                : [...prev, stageId]
+        );
+    };
+
+    const toggleStageGrades = (stageId: string, stageGrades: GradeLevel[]) => {
+        const allSelected = stageGrades.every(g => selectedGrades.includes(g.id));
+
+        if (allSelected) {
+            // Deselect all
+            const toRemove = stageGrades.map(g => g.id);
+            setSelectedGrades(prev => prev.filter(id => !toRemove.includes(id)));
+        } else {
+            // Select all
+            const toAdd = stageGrades.map(g => g.id).filter(id => !selectedGrades.includes(id));
+            setSelectedGrades(prev => [...prev, ...toAdd]);
+        }
+    };
+
     const handleAddSubject = async () => {
         if (!selectedSubject || !selectedCurriculum || price <= 0) {
             alert("الرجاء تعبئة جميع الحقول");
             return;
         }
+        if (selectedGrades.length === 0) {
+            alert("الرجاء اختيار صف دراسي على الأقل");
+            return;
+        }
+
         setLoading(true);
         try {
             const newSubject = await teacherApi.addSubject({
                 subjectId: selectedSubject,
                 curriculumId: selectedCurriculum,
                 pricePerHour: Number(price),
-                gradeLevels: ['All'] // Default for MVP
+                gradeLevelIds: selectedGrades
             });
             await loadProfile();
             setSelectedSubject('');
+            setSelectedCurriculum(''); // Reset curriculum to force hierarchy reload if needed for next
             setPrice(0);
+            setSelectedGrades([]);
         } catch (error) {
             console.error("Failed to add subject", error);
             alert("فشل إضافة المادة");
@@ -135,6 +190,20 @@ export default function TeacherProfileWizard() {
                 <p className="text-text-subtle">أكمل بياناتك لتظهر للطلاب وأولياء الأمور</p>
             </header>
 
+            {/* Read Only Banner */}
+            {isReadOnly && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+                    <Lock className="w-5 h-5 text-yellow-600 mt-0.5" />
+                    <div>
+                        <h3 className="font-bold text-yellow-800">الملف الشخصي للقراءة فقط</h3>
+                        <p className="text-sm text-yellow-700">
+                            لا يمكنك تعديل بياناتك حالياً لأن طلبك {appStatus?.applicationStatus === 'SUBMITTED' ? 'قيد المراجعة' : 'بانتظار الإجراء'}.
+                            سيتم فتح التعديل عند الموافقة أو طلب تغييرات.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Progress Bar */}
             <div className="w-full bg-gray-200 rounded-full h-2.5 rtl">
                 <div className="bg-primary h-2.5 rounded-full transition-all duration-300" style={{ width: `${(step / 3) * 100}%` }}></div>
@@ -151,6 +220,7 @@ export default function TeacherProfileWizard() {
                                 placeholder="الاسم الكامل أو اسم الشهرة"
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
+                                disabled={isReadOnly}
                             />
                         </div>
 
@@ -161,6 +231,7 @@ export default function TeacherProfileWizard() {
                                 rows={5}
                                 value={bio}
                                 onChange={(e) => setBio(e.target.value)}
+                                disabled={isReadOnly}
                             />
                             <p className="text-xs text-text-subtle">اكتب بأسلوب ودود ومهني (50 كلمة على الأقل).</p>
                         </div>
@@ -173,6 +244,7 @@ export default function TeacherProfileWizard() {
                                     min={0}
                                     value={yearsOfExperience}
                                     onChange={(e) => setYearsOfExperience(Number(e.target.value))}
+                                    disabled={isReadOnly}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -181,6 +253,7 @@ export default function TeacherProfileWizard() {
                                     value={education}
                                     onChange={(e) => setEducation(e.target.value)}
                                     placeholder="مثال: بكالوريوس تربية - جامعة الخرطوم"
+                                    disabled={isReadOnly}
                                 />
                             </div>
                         </div>
@@ -214,7 +287,7 @@ export default function TeacherProfileWizard() {
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <Button onClick={handleSaveStep1} disabled={loading} className="gap-2">
+                            <Button onClick={handleSaveStep1} disabled={loading || isReadOnly} className="gap-2">
                                 {loading ? 'جاري الحفظ...' : 'حفظ ومتابعة'}
                                 <ChevronLeft className="w-4 h-4" />
                             </Button>
@@ -229,6 +302,8 @@ export default function TeacherProfileWizard() {
                             <span className="text-sm text-text-subtle">أضف المواد التي تدرسها وسعرك لكل ساعة</span>
                         </div>
 
+                        {/* Read Only overlay for Subjects step specifically if needed, but inputs are disabled */}
+
 
 
                         {/* Add Subject Form */}
@@ -241,6 +316,7 @@ export default function TeacherProfileWizard() {
                                         className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                                         value={selectedCurriculum}
                                         onChange={(e) => setSelectedCurriculum(e.target.value)}
+                                        disabled={isReadOnly}
                                     >
                                         <option value="">اختر المنهج</option>
                                         {isMounted && curricula.map(c => (
@@ -254,6 +330,7 @@ export default function TeacherProfileWizard() {
                                         className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                                         value={selectedSubject}
                                         onChange={(e) => setSelectedSubject(e.target.value)}
+                                        disabled={isReadOnly}
                                     >
                                         <option value="">اختر المادة</option>
                                         {isMounted && subjects.map(s => (
@@ -268,11 +345,82 @@ export default function TeacherProfileWizard() {
                                         min={0}
                                         value={price}
                                         onChange={(e) => setPrice(Number(e.target.value))}
+                                        disabled={isReadOnly}
                                     />
                                 </div>
                             </div>
+
+                            {/* Hierarchy / Grade Selection */}
+                            <div className="md:col-span-3">
+                                {loadingHierarchy && (
+                                    <div className="py-2 text-center text-sm text-gray-500">جاري تحميل المراحل...</div>
+                                )}
+                                {hierarchy && (
+                                    <div className="mb-4 space-y-3 border rounded-lg p-3 bg-gray-50/50">
+                                        <Label className="block mb-2 font-bold text-gray-700 text-sm">تحديد الصفوف (مطلوب)</Label>
+                                        {hierarchy.stages.map(stage => (
+                                            <Collapsible
+                                                key={stage.id}
+                                                open={openStages.includes(stage.id)}
+                                                onOpenChange={() => toggleStage(stage.id)}
+                                                className="bg-white border rounded-md overflow-hidden"
+                                            >
+                                                <div className="flex items-center justify-between p-2 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <CollapsibleTrigger asChild>
+                                                            <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent">
+                                                                {openStages.includes(stage.id) ?
+                                                                    <ChevronUp className="w-4 h-4 text-gray-500" /> :
+                                                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                                                }
+                                                            </Button>
+                                                        </CollapsibleTrigger>
+                                                        <span className="font-medium text-sm">{stage.nameAr}</span>
+                                                        <span className="text-xs text-gray-400">({stage.grades.length})</span>
+                                                    </div>
+                                                    {!isReadOnly && (
+                                                        <Button
+                                                            variant="link"
+                                                            size="sm"
+                                                            className="text-[10px] h-auto p-0 text-primary"
+                                                            onClick={() => toggleStageGrades(stage.id, stage.grades)}
+                                                        >
+                                                            {stage.grades.every(g => selectedGrades.includes(g.id)) ? 'إلغاء الكل' : 'تحديد الكل'}
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                <CollapsibleContent>
+                                                    <div className="p-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                        {stage.grades.map(grade => {
+                                                            const isSelected = selectedGrades.includes(grade.id);
+                                                            return (
+                                                                <div
+                                                                    key={grade.id}
+                                                                    onClick={() => !isReadOnly && toggleGrade(grade.id)}
+                                                                    className={cn(
+                                                                        "cursor-pointer text-xs border rounded px-2 py-1.5 transition-all flex items-center justify-between",
+                                                                        isSelected
+                                                                            ? "bg-primary/10 border-primary text-primary font-medium"
+                                                                            : "bg-white border-gray-200 hover:border-gray-300 text-gray-600",
+                                                                        isReadOnly && "cursor-not-allowed opacity-70"
+                                                                    )}
+                                                                >
+                                                                    <span>{grade.nameAr}</span>
+                                                                    {isSelected && <Check className="w-3 h-3" />}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex justify-end">
-                                <Button onClick={handleAddSubject} size="sm" className="gap-2" disabled={loading}>
+                                <Button onClick={handleAddSubject} size="sm" className="gap-2" disabled={loading || isReadOnly}>
                                     <Plus className="w-4 h-4" />
                                     إضافة
                                 </Button>
@@ -293,9 +441,11 @@ export default function TeacherProfileWizard() {
                                                 <span className="text-text-subtle text-sm">({item.curriculum?.nameAr || 'منهج'})</span>
                                                 <span className="font-bold text-accent">{item.pricePerHour} SDG/ساعة</span>
                                             </div>
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveSubject(item.id)} className="text-error hover:bg-error/10">
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
+                                            {!isReadOnly && (
+                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveSubject(item.id)} className="text-error hover:bg-error/10">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

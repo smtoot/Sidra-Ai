@@ -75,6 +75,10 @@ describe('PackageService', () => {
             findFirst: jest.fn(),
             update: jest.fn()
         },
+        transaction: { // P1 FIX: Add wallet Transaction mock
+            create: jest.fn(),
+            findUnique: jest.fn()
+        },
         systemSettings: {
             findFirst: jest.fn()
         },
@@ -126,11 +130,12 @@ describe('PackageService', () => {
             mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
             mockPrismaBase.packageTier.findUnique.mockResolvedValue(mockPackageTier);
             mockPrismaBase.teacherSubject.findFirst.mockResolvedValue(mockTeacherSubject);
-            mockPrismaBase.systemSettings.findFirst.mockResolvedValue({});
+            mockPrismaBase.systemSettings.findFirst.mockResolvedValue({ packagesEnabled: true });
             mockPrismaBase.wallet.findUnique.mockResolvedValue({ balance: new Decimal(1000) });
             mockPrismaBase.wallet.update.mockResolvedValue({});
             mockPrismaBase.studentPackage.create.mockResolvedValue(mockStudentPackage);
             mockPrismaBase.packageTransaction.create.mockResolvedValue({ id: 'tx-1' });
+            mockPrismaBase.transaction.create.mockResolvedValue({ id: 'wallet-tx-1' });
         });
 
         it('should successfully purchase a package and debit wallet', async () => {
@@ -282,7 +287,7 @@ describe('PackageService', () => {
                 expect.objectContaining({
                     where: { userId: 'payer-1' },
                     data: expect.objectContaining({
-                        balance: expect.objectContaining({ increment: mockStudentPackage.escrowRemaining })
+                        balance: expect.objectContaining({ increment: 450 }) // P1: normalizeMoney returns int
                     })
                 })
             );

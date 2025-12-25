@@ -1,0 +1,142 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { Image as ImageIcon, Loader2, ExternalLink } from 'lucide-react';
+
+interface AuthenticatedImageProps {
+    /** File key from the upload system (e.g., "deposits/userId/timestamp-file.jpg") */
+    fileKey: string;
+    /** Alt text for the image */
+    alt?: string;
+    /** CSS class for the image container */
+    className?: string;
+    /** CSS class for the image itself */
+    imageClassName?: string;
+    /** Show loading spinner */
+    showLoader?: boolean;
+    /** Allow click to view full size in modal */
+    enableFullView?: boolean;
+}
+
+/**
+ * Component that displays images from the authenticated storage system.
+ * Fetches the image with JWT token and displays it using a blob URL.
+ * 
+ * Use this for receipt images, documents, etc. that require authentication.
+ */
+export function AuthenticatedImage({
+    fileKey,
+    alt = 'Image',
+    className = '',
+    imageClassName = '',
+    showLoader = true,
+    enableFullView = true,
+}: AuthenticatedImageProps) {
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [showModal, setShowModal] = useState(false);
+
+    useEffect(() => {
+        if (!fileKey) {
+            setLoading(false);
+            setError('No file key provided');
+            return;
+        }
+
+        // Check if it's already a full URL (legacy)
+        if (fileKey.startsWith('http://') || fileKey.startsWith('https://')) {
+            setBlobUrl(fileKey);
+            setLoading(false);
+            return;
+        }
+
+        const fetchImage = async () => {
+            setLoading(true);
+            setError(null);
+
+            try {
+                const response = await api.get(`/upload/file?key=${encodeURIComponent(fileKey)}`, {
+                    responseType: 'blob',
+                });
+
+                const url = URL.createObjectURL(response.data);
+                setBlobUrl(url);
+            } catch (err: any) {
+                console.error('Failed to load image:', err);
+                setError(err?.response?.status === 401 ? 'غير مصرح' : 'فشل تحميل الصورة');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchImage();
+
+        // Cleanup blob URL on unmount
+        return () => {
+            if (blobUrl && !blobUrl.startsWith('http')) {
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+    }, [fileKey]);
+
+    if (loading && showLoader) {
+        return (
+            <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
+                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+            </div>
+        );
+    }
+
+    if (error || !blobUrl) {
+        return (
+            <div className={`flex flex-col items-center justify-center bg-gray-100 text-gray-400 ${className}`}>
+                <ImageIcon className="w-8 h-8 mb-1" />
+                <span className="text-xs">{error || 'لا توجد صورة'}</span>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <div
+                className={`relative ${className} ${enableFullView ? 'cursor-pointer' : ''}`}
+                onClick={enableFullView ? () => setShowModal(true) : undefined}
+            >
+                <img
+                    src={blobUrl}
+                    alt={alt}
+                    className={`w-full h-full object-cover ${imageClassName}`}
+                />
+                {enableFullView && (
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                        <ExternalLink className="w-6 h-6 text-white" />
+                    </div>
+                )}
+            </div>
+
+            {/* Full-size modal */}
+            {showModal && (
+                <div
+                    className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                    onClick={() => setShowModal(false)}
+                >
+                    <div className="max-w-4xl max-h-[90vh] relative">
+                        <img
+                            src={blobUrl}
+                            alt={alt}
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                        />
+                        <button
+                            onClick={() => setShowModal(false)}
+                            className="absolute top-2 right-2 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}

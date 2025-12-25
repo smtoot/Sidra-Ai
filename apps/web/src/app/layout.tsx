@@ -1,9 +1,10 @@
 import "reflect-metadata";
 import type { Metadata } from "next";
-import { Tajawal, Poppins } from "next/font/google";
+import { Tajawal, Poppins, Cairo } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -19,6 +20,13 @@ const poppins = Poppins({
   display: "swap",
 });
 
+const cairo = Cairo({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-cairo",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Sidra - سدرة",
   description: "Marketplace for Sudanese Teachers",
@@ -30,16 +38,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
+        suppressHydrationWarning
+        className={`${cairo.variable} ${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
       >
-        <AuthProvider>
-          <DashboardLayout>
-            {children}
-          </DashboardLayout>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <DashboardLayout>
+              {children}
+            </DashboardLayout>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );
 }
+

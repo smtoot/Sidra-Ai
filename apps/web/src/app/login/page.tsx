@@ -6,14 +6,19 @@ import Link from 'next/link';
 
 export default function LoginPage() {
     const { login } = useAuth();
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await login({ email, password });
+            const isEmail = identifier.includes('@');
+            await login({
+                email: isEmail ? identifier : undefined,
+                phoneNumber: !isEmail ? identifier : undefined,
+                password
+            });
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed');
         }
@@ -35,14 +40,16 @@ export default function LoginPage() {
                 <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            البريد الإلكتروني
+                            البريد الإلكتروني أو رقم الجوال
                         </label>
                         <input
-                            type="email"
+                            name="identifier"
+                            type="text"
                             required
+                            placeholder="البريد الإلكتروني أو رقم الجوال"
                             className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
                         />
                     </div>
 
@@ -51,6 +58,7 @@ export default function LoginPage() {
                             كلمة المرور
                         </label>
                         <input
+                            name="password"
                             type="password"
                             required
                             className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"

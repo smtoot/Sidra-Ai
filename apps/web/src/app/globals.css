@@ -1,66 +1,334 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors - Nile Heritage */
+  /* ========================================
+     SIDRA DESIGN SYSTEM - Brand Colors (Nile Heritage)
+     ======================================== */
+
+  /* Primary Brand Color - Deep Blue */
+  --color-primary-50: #e6f0f7;
+  --color-primary-100: #cce1ef;
+  --color-primary-200: #99c3df;
+  --color-primary-300: #66a5cf;
+  --color-primary-400: #3387bf;
+  --color-primary-500: #003366;
+  /* Main Brand Color */
+  --color-primary-600: #002952;
+  --color-primary-700: #001f3d;
+  --color-primary-800: #001429;
+  --color-primary-900: #000a14;
+
+  /* Legacy compatibility */
   --color-primary: #003366;
   --color-primary-foreground: #FFFFFF;
   --color-primary-hover: #004080;
 
+  /* Accent Color - Sandy Gold */
+  --color-accent-50: #fef8f0;
+  --color-accent-100: #fef1e1;
+  --color-accent-200: #fce3c3;
+  --color-accent-300: #fbd5a5;
+  --color-accent-400: #f9c787;
+  --color-accent-500: #D4A056;
+  /* Main Accent */
+  --color-accent-600: #aa8045;
+  --color-accent-700: #7f6034;
+  --color-accent-800: #554023;
+  --color-accent-900: #2a2011;
+
+  /* Legacy compatibility */
   --color-accent: #D4A056;
   --color-accent-foreground: #FFFFFF;
   --color-secondary: #D4A056;
-  /* Alias for accent (Sandy Gold) */
 
-  --color-background: #F9F9F9;
+  /* ========================================
+     SEMANTIC COLORS (Inspired by SadaxCart/HiveQ)
+     ======================================== */
+
+  /* Success - Green */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-300: #86efac;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
+  /* Main Success */
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+  --color-success-900: #14532d;
+
+  /* Legacy */
+  --color-success: #22c55e;
+
+  /* Warning - Amber */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  /* Main Warning */
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+
+  /* Legacy */
+  --color-warning: #f59e0b;
+
+  /* Error/Danger - Red */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  /* Main Error */
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+
+  /* Legacy */
+  --color-error: #ef4444;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #FFFFFF;
+
+  /* ========================================
+     NEUTRAL COLORS (Gray Scale)
+     ======================================== */
+
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+
+  /* ========================================
+     BACKGROUND COLORS
+     ======================================== */
+
+  --color-background: #FAFAFA;
+  /* Page background (SadaxCart style) */
   --color-background-light: #f5f7f8;
   --color-surface: #FFFFFF;
+  /* Card/Panel background */
   --color-cream-light: #FFFBF6;
 
-  --color-text: #333333;
-  --color-text-main: #333333;
-  --color-text-subtle: #666666;
-  --color-text-light: #6b7280;
+  /* ========================================
+     TEXT COLORS
+     ======================================== */
 
-  --color-success: #27AE60;
-  --color-error: #E74C3C;
-  --color-warning: #F39C12;
+  --color-text: #333333;
+  --color-text-main: #1f2937;
+  /* Primary text (gray-800) */
+  --color-text-subtle: #6b7280;
+  /* Secondary text (gray-500) */
+  --color-text-light: #9ca3af;
+  /* Tertiary text (gray-400) */
+
+  /* ========================================
+     FORM ELEMENTS
+     ======================================== */
 
   --color-input: #E2E8F0;
   --color-ring: #003366;
-  --color-destructive: #E74C3C;
-  --color-destructive-foreground: #FFFFFF;
+  /* Focus ring */
 
-  /* Custom Shadows */
+  /* ========================================
+     SHADOWS (Inspired by design references)
+     ======================================== */
+
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Legacy custom shadows */
   --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
   --shadow-float: 0 10px 30px -5px rgba(0, 51, 102, 0.1);
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.03);
 
-  /* Fonts */
-  --font-display: var(--font-tajawal), Lexend, sans-serif;
-  --font-body: var(--font-tajawal), sans-serif;
+  /* ========================================
+     TYPOGRAPHY SCALE (Based on Major Second - 1.125 ratio)
+     ======================================== */
+
+  --font-size-xs: 0.75rem;
+  /* 12px - Captions, metadata */
+  --font-size-sm: 0.875rem;
+  /* 14px - Body text, labels */
+  --font-size-base: 1rem;
+  /* 16px - Default body */
+  --font-size-lg: 1.125rem;
+  /* 18px - Emphasized text */
+  --font-size-xl: 1.25rem;
+  /* 20px - Section headers */
+  --font-size-2xl: 1.5rem;
+  /* 24px - Page titles */
+  --font-size-3xl: 1.875rem;
+  /* 30px - Hero headings */
+  --font-size-4xl: 2.25rem;
+  /* 36px - Display headings */
+
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  /* Headings */
+  --line-height-snug: 1.375;
+  /* Subheadings */
+  --line-height-normal: 1.5;
+  /* Body text */
+  --line-height-relaxed: 1.625;
+  /* Large body text */
+  --line-height-loose: 2;
+  /* Very relaxed */
+
+  /* ========================================
+     SPACING SCALE (Base 4px)
+     ======================================== */
+
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  /* 4px */
+  --spacing-2: 0.5rem;
+  /* 8px */
+  --spacing-3: 0.75rem;
+  /* 12px */
+  --spacing-4: 1rem;
+  /* 16px */
+  --spacing-5: 1.25rem;
+  /* 20px */
+  --spacing-6: 1.5rem;
+  /* 24px */
+  --spacing-7: 1.75rem;
+  /* 28px */
+  --spacing-8: 2rem;
+  /* 32px */
+  --spacing-9: 2.25rem;
+  /* 36px */
+  --spacing-10: 2.5rem;
+  /* 40px */
+  --spacing-12: 3rem;
+  /* 48px */
+  --spacing-16: 4rem;
+  /* 64px */
+  --spacing-20: 5rem;
+  /* 80px */
+  --spacing-24: 6rem;
+  /* 96px */
+
+  /* ========================================
+     BORDER RADIUS (Inspired by modern dashboards)
+     ======================================== */
+
+  --radius-sm: 0.375rem;
+  /* 6px - Buttons, inputs */
+  --radius-md: 0.5rem;
+  /* 8px - Cards */
+  --radius-lg: 0.75rem;
+  /* 12px - Large cards */
+  --radius-xl: 1rem;
+  /* 16px - Modals */
+  --radius-full: 9999px;
+  /* Pills, avatars */
+
+  /* ========================================
+     FONTS
+     ======================================== */
+
+  /* Arabic: Cairo (preferred) or Tajawal (current) */
+  --font-display: var(--font-cairo), var(--font-tajawal), Lexend, sans-serif;
+  --font-body: var(--font-cairo), var(--font-tajawal), sans-serif;
   --font-tajawal: var(--font-tajawal);
+  --font-cairo: var(--font-cairo);
   --font-poppins: var(--font-poppins);
 
   /* Override defaults */
-  --font-sans: var(--font-poppins), var(--font-tajawal), sans-serif;
+  --font-sans: var(--font-poppins), var(--font-cairo), var(--font-tajawal), system-ui, sans-serif;
+
+  /* Monospace for numbers/IDs */
+  --font-mono: ui-monospace, 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
 }
 
-/* Custom Utilities */
-@layer base {
-  body {
-    @apply font-sans bg-background text-text antialiased;
-  }
+/* ========================================
+   BASE STYLES
+   ======================================== */
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@layer utilities {
-  .text-shadow-sm {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
+h1 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
 }
 
-/* Custom Scrollbar (WebKit) */
+h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-main);
+}
+
+h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-main);
+}
+
+h4 {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-main);
+}
+
+p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: var(--color-primary-500);
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--color-primary-600);
+}
+
+/* ========================================
+   CUSTOM UTILITIES
+   ======================================== */
+
+.text-shadow-sm {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ========================================
+   CUSTOM SCROLLBAR (WebKit)
+   ======================================== */
+
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -76,7 +344,22 @@
   background: #94a3b8;
 }
 
-/* React Day Picker Custom Styles */
+/* ========================================
+   RTL SUPPORT
+   ======================================== */
+
+[dir="rtl"] {
+  direction: rtl;
+}
+
+[dir="rtl"] .rdp-custom {
+  direction: rtl;
+}
+
+/* ========================================
+   REACT DAY PICKER CUSTOM STYLES
+   ======================================== */
+
 .rdp-custom {
   --rdp-cell-size: 36px;
   --rdp-accent-color: var(--color-primary);

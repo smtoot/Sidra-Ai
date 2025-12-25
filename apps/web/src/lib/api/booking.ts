@@ -26,11 +26,13 @@ export interface CreateBookingRequest {
     bookingNotes?: string; // Notes from parent/student about what they want to study
     // Package & Demo support
     packageId?: string; // If booking using a purchased package
+    tierId?: string; // If booking will trigger a new package purchase (deferred payment)
     isDemo?: boolean; // If this is a demo session
 }
 
 export interface Booking {
     id: string;
+    readableId?: string | null;
     teacherId: string;
     parentId: string;
     studentId: string;
@@ -73,6 +75,10 @@ export interface Booking {
     bookingNotes?: string;     // Notes from parent/student about what they want to study
     teacherPrepNotes?: string; // Teacher's private preparation notes
     teacherSummary?: string;   // Teacher's class summary after session
+    // Package support
+    pendingTierId?: string | null; // Tier ID for pending package purchase
+    pendingTierSessionCount?: number | null; // Number of sessions in the pending tier
+    isDemo?: boolean; // If this is a demo session
 }
 
 export const bookingApi = {
