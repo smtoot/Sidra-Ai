@@ -25,6 +25,9 @@ export * from './src/teacher/exception.dto';
 // Utils
 export * from './src/utils/display-name.util';
 
+// Validators
+export * from './src/validators/password.validator';
+
 // Global enums
 export enum UserRole {
     PARENT = 'PARENT',

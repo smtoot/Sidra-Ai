@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { TeacherService } from './teacher.service';
 import { SlugService } from '../common/slug.service';
 import {
@@ -34,34 +35,44 @@ export class TeacherController {
     return this.teacherService.getDashboardStats(req.user.userId);
   }
 
+  // SECURITY: Rate limit profile updates to prevent abuse
   @Patch('me')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 updates per minute
   updateProfile(@Request() req: any, @Body() dto: UpdateTeacherProfileDto) {
     return this.teacherService.updateProfile(req.user.userId, dto);
   }
 
+  // SECURITY: Rate limit subject additions to prevent spam
   @Post('me/subjects')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 subjects per minute
   addSubject(@Request() req: any, @Body() dto: CreateTeacherSubjectDto) {
     return this.teacherService.addSubject(req.user.userId, dto);
   }
 
   @Delete('me/subjects/:id')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
   removeSubject(@Request() req: any, @Param('id') id: string) {
     return this.teacherService.removeSubject(req.user.userId, id);
   }
 
+  // SECURITY: Rate limit availability changes to prevent excessive updates
+  // Note: Higher limits because teachers need to set up full weekly schedules (7 days × multiple slots)
   @Post('me/availability')
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 slots per minute (enough for full weekly setup)
   @RequiresApproval()
   setAvailability(@Request() req: any, @Body() dto: CreateAvailabilityDto) {
     return this.teacherService.setAvailability(req.user.userId, dto);
   }
 
   @Post('me/availability/bulk')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 bulk updates per minute (teachers may adjust multiple times)
   @RequiresApproval()
   setBulkAvailability(@Request() req: any, @Body() dto: { slots: CreateAvailabilityDto[] }) {
     return this.teacherService.replaceAvailability(req.user.userId, dto.slots);
   }
 
   @Delete('me/availability/:id')
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 deletions per minute (clearing old schedule)
   @RequiresApproval()
   removeAvailability(@Request() req: any, @Param('id') id: string) {
     return this.teacherService.removeAvailability(req.user.userId, id);
@@ -73,12 +84,14 @@ export class TeacherController {
   }
 
   @Post('me/exceptions')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 exceptions per minute
   @RequiresApproval()
   addException(@Request() req: any, @Body() dto: any) {
     return this.teacherService.addException(req.user.userId, dto);
   }
 
   @Delete('me/exceptions/:id')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
   @RequiresApproval()
   removeException(@Request() req: any, @Param('id') id: string) {
     return this.teacherService.removeException(req.user.userId, id);
@@ -92,6 +105,7 @@ export class TeacherController {
   }
 
   @Post('me/documents')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 document uploads per minute
   addDocument(
     @Request() req: any,
     @Body() dto: { type: string; fileKey: string; fileName: string }
@@ -100,6 +114,7 @@ export class TeacherController {
   }
 
   @Delete('me/documents/:id')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
   removeDocument(@Request() req: any, @Param('id') id: string) {
     return this.teacherService.removeDocument(req.user.userId, id);
   }
@@ -111,7 +126,9 @@ export class TeacherController {
     return this.teacherService.getApplicationStatus(req.user.userId);
   }
 
+  // SECURITY: Rate limit application submissions to prevent spam
   @Post('me/submit')
+  @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 submissions per hour
   submitForReview(@Request() req: any) {
     return this.teacherService.submitForReview(req.user.userId);
   }
@@ -158,6 +175,7 @@ export class TeacherController {
    * Update slug (only if not locked)
    */
   @Patch('me/slug')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 slug updates per minute
   async updateSlug(@Request() req: any, @Body() dto: { slug: string }) {
     const profile = await this.teacherService.getProfile(req.user.userId);
     return this.slugService.setTeacherSlug(profile.id, dto.slug, false);
@@ -167,6 +185,7 @@ export class TeacherController {
    * Confirm and lock slug (one-time action)
    */
   @Post('me/slug/confirm')
+  @Throttle({ default: { limit: 2, ttl: 3600000 } }) // 2 confirmations per hour (should only happen once)
   async confirmSlug(@Request() req: any, @Body() dto: { slug: string }) {
     const profile = await this.teacherService.getProfile(req.user.userId);
     return this.slugService.setTeacherSlug(profile.id, dto.slug, true);

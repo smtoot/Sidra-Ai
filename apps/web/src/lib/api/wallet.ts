@@ -2,7 +2,19 @@ import { api } from '../api';
 
 // Local type definitions (avoiding importing DTOs with decorators)
 export type TransactionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID';
-export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'PAYMENT_LOCK' | 'PAYMENT_RELEASE' | 'REFUND';
+export type TransactionType =
+    | 'DEPOSIT'
+    | 'WITHDRAWAL'
+    | 'PAYMENT_LOCK'
+    | 'PAYMENT_RELEASE'
+    | 'REFUND'
+    | 'CANCELLATION_COMPENSATION'
+    | 'PACKAGE_PURCHASE'
+    | 'PACKAGE_RELEASE'
+    | 'ESCROW_RELEASE'
+    | 'WITHDRAWAL_COMPLETED'
+    | 'WITHDRAWAL_REFUNDED'
+    | 'DEPOSIT_APPROVED';
 
 export interface DepositRequest {
     amount: number;

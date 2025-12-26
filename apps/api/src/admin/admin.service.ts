@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
 
 
@@ -169,249 +170,257 @@ export class AdminService {
         resolutionNote: string,
         splitPercentage?: number
     ) {
-        // Fetch dispute with all needed relations for wallet operations
-        const dispute = await this.prisma.dispute.findUnique({
-            where: { id: disputeId },
-            include: {
-                booking: {
-                    include: {
-                        teacherProfile: { include: { user: true } },
-                        bookedByUser: true
+        try {
+            // Fetch dispute with all needed relations for wallet operations
+            const dispute = await this.prisma.dispute.findUnique({
+                where: { id: disputeId },
+                include: {
+                    booking: {
+                        include: {
+                            teacherProfile: { include: { user: true } },
+                            bookedByUser: true
+                        }
                     }
                 }
+            });
+
+            if (!dispute) {
+                throw new NotFoundException('Dispute not found');
             }
-        });
 
-        if (!dispute) {
-            throw new NotFoundException('Dispute not found');
-        }
+            // IDEMPOTENCY: Already resolved disputes cannot be resolved again
+            // IDEMPOTENCY: Explicit allow-list for resolvable statuses
+            const RESOLVABLE_STATUSES = ['PENDING', 'UNDER_REVIEW'];
+            if (!RESOLVABLE_STATUSES.includes(dispute.status)) {
+                throw new BadRequestException(`Dispute status '${dispute.status}' cannot be resolved. Expected one of: ${RESOLVABLE_STATUSES.join(', ')}`);
+            }
 
-        // IDEMPOTENCY: Already resolved disputes cannot be resolved again
-        // IDEMPOTENCY: Explicit allow-list for resolvable statuses
-        const RESOLVABLE_STATUSES = ['PENDING', 'UNDER_REVIEW'];
-        if (!RESOLVABLE_STATUSES.includes(dispute.status)) {
-            throw new BadRequestException(`Dispute status '${dispute.status}' cannot be resolved. Expected one of: ${RESOLVABLE_STATUSES.join(', ')}`);
-        }
+            const booking = dispute.booking;
+            const lockedAmountGross = Number(booking.price);
+            const commissionRate = Number(booking.commissionRate);
+            const parentUserId = booking.bookedByUserId;
+            const teacherUserId = booking.teacherProfile.userId;
 
-        const booking = dispute.booking;
-        const lockedAmountGross = Number(booking.price);
-        const commissionRate = Number(booking.commissionRate);
-        const parentUserId = booking.bookedByUserId;
-        const teacherUserId = booking.teacherProfile.userId;
+            // Calculate amounts based on resolution type
+            let disputeStatus: string;
+            let bookingStatus: string;
+            let studentRefundGross: number = 0;
+            let teacherPayoutNet: number = 0;
+            let platformCommission: number = 0;
 
-        // Calculate amounts based on resolution type
-        let disputeStatus: string;
-        let bookingStatus: string;
-        let studentRefundGross: number = 0;
-        let teacherPayoutNet: number = 0;
-        let platformCommission: number = 0;
+            switch (resolutionType) {
+                case 'DISMISSED':
+                case 'TEACHER_WINS':
+                    // Teacher gets paid as normal completion
+                    disputeStatus = resolutionType === 'DISMISSED' ? 'DISMISSED' : 'RESOLVED_TEACHER_WINS';
+                    bookingStatus = 'COMPLETED';
+                    studentRefundGross = 0;
+                    platformCommission = lockedAmountGross * commissionRate;
+                    teacherPayoutNet = lockedAmountGross - platformCommission;
+                    break;
 
-        switch (resolutionType) {
-            case 'DISMISSED':
-            case 'TEACHER_WINS':
-                // Teacher gets paid as normal completion
-                disputeStatus = resolutionType === 'DISMISSED' ? 'DISMISSED' : 'RESOLVED_TEACHER_WINS';
-                bookingStatus = 'COMPLETED';
-                studentRefundGross = 0;
-                platformCommission = lockedAmountGross * commissionRate;
-                teacherPayoutNet = lockedAmountGross - platformCommission;
-                break;
+                case 'STUDENT_WINS':
+                    // Full refund to student, no commission
+                    disputeStatus = 'RESOLVED_STUDENT_WINS';
+                    bookingStatus = 'REFUNDED';
+                    studentRefundGross = lockedAmountGross;
+                    teacherPayoutNet = 0;
+                    platformCommission = 0;
+                    break;
 
-            case 'STUDENT_WINS':
-                // Full refund to student, no commission
-                disputeStatus = 'RESOLVED_STUDENT_WINS';
-                bookingStatus = 'REFUNDED';
-                studentRefundGross = lockedAmountGross;
-                teacherPayoutNet = 0;
-                platformCommission = 0;
-                break;
+                case 'SPLIT':
+                    // Split the payment
+                    if (splitPercentage === undefined || splitPercentage < 0 || splitPercentage > 100) {
+                        throw new BadRequestException('Split percentage must be between 0 and 100');
+                    }
+                    disputeStatus = 'RESOLVED_SPLIT';
+                    bookingStatus = 'PARTIALLY_REFUNDED';
 
-            case 'SPLIT':
-                // Split the payment
-                if (splitPercentage === undefined || splitPercentage < 0 || splitPercentage > 100) {
-                    throw new BadRequestException('Split percentage must be between 0 and 100');
-                }
-                disputeStatus = 'RESOLVED_SPLIT';
-                bookingStatus = 'PARTIALLY_REFUNDED';
+                    // Student gets GROSS refund of their portion
+                    studentRefundGross = lockedAmountGross * (splitPercentage / 100);
 
-                // Student gets GROSS refund of their portion
-                studentRefundGross = lockedAmountGross * (splitPercentage / 100);
+                    // Teacher's portion calculation
+                    const teacherGrossPortion = lockedAmountGross - studentRefundGross;
+                    platformCommission = teacherGrossPortion * commissionRate;
+                    teacherPayoutNet = teacherGrossPortion - platformCommission;
+                    break;
 
-                // Teacher's portion calculation
-                const teacherGrossPortion = lockedAmountGross - studentRefundGross;
-                platformCommission = teacherGrossPortion * commissionRate;
-                teacherPayoutNet = teacherGrossPortion - platformCommission;
-                break;
+                default:
+                    throw new BadRequestException('Invalid resolution type');
+            }
 
-            default:
-                throw new BadRequestException('Invalid resolution type');
-        }
+            // INVARIANT CHECK (MANDATORY):
+            // studentRefundGross + teacherPayoutNet + platformCommission MUST equal lockedAmountGross
+            const totalDistributed = studentRefundGross + teacherPayoutNet + platformCommission;
+            const tolerance = 0.01; // Allow 1 cent tolerance for floating point
+            if (Math.abs(totalDistributed - lockedAmountGross) > tolerance) {
+                const errorDetails = {
+                    disputeId,
+                    bookingId: booking.id,
+                    lockedAmountGross,
+                    studentRefundGross,
+                    teacherPayoutNet,
+                    platformCommission,
+                    totalDistributed,
+                    diff: totalDistributed - lockedAmountGross
+                };
+                console.error('CRITICAL FINANCIAL INVARIANT VIOLATED:', JSON.stringify(errorDetails, null, 2));
 
-        // INVARIANT CHECK (MANDATORY):
-        // studentRefundGross + teacherPayoutNet + platformCommission MUST equal lockedAmountGross
-        const totalDistributed = studentRefundGross + teacherPayoutNet + platformCommission;
-        const tolerance = 0.01; // Allow 1 cent tolerance for floating point
-        if (Math.abs(totalDistributed - lockedAmountGross) > tolerance) {
-            const errorDetails = {
-                disputeId,
-                bookingId: booking.id,
-                lockedAmountGross,
-                studentRefundGross,
-                teacherPayoutNet,
-                platformCommission,
-                totalDistributed,
-                diff: totalDistributed - lockedAmountGross
-            };
-            console.error('CRITICAL FINANCIAL INVARIANT VIOLATED:', JSON.stringify(errorDetails, null, 2));
+                throw new BadRequestException(
+                    `Financial invariant violated: ${studentRefundGross} + ${teacherPayoutNet} + ${platformCommission} = ${totalDistributed} != ${lockedAmountGross}`
+                );
+            }
 
-            throw new BadRequestException(
-                `Financial invariant violated: ${studentRefundGross} + ${teacherPayoutNet} + ${platformCommission} = ${totalDistributed} != ${lockedAmountGross}`
-            );
-        }
-
-        // Get wallets before transaction
-        const parentWallet = await this.prisma.wallet.findFirst({
-            where: { userId: parentUserId }
-        });
-        const teacherWallet = await this.prisma.wallet.findFirst({
-            where: { userId: teacherUserId }
-        });
-
-        if (!parentWallet) {
-            throw new NotFoundException('Parent wallet not found');
-        }
-        if (!teacherWallet && teacherPayoutNet > 0) {
-            throw new NotFoundException('Teacher wallet not found');
-        }
-
-        // Execute the resolution in an ATOMIC transaction
-        // Execute the resolution in an ATOMIC transaction
-        const result = await this.prisma.$transaction(async (tx) => {
-            // 1. Update dispute status
-            const updatedDispute = await tx.dispute.update({
-                where: { id: disputeId },
-                data: {
-                    status: disputeStatus as any,
-                    resolvedByAdminId: adminUserId,
-                    resolution: resolutionNote,
-                    teacherPayout: teacherPayoutNet,
-                    studentRefund: studentRefundGross,
-                    resolvedAt: new Date()
-                }
+            // Get wallets before transaction
+            const parentWallet = await this.prisma.wallet.findFirst({
+                where: { userId: parentUserId }
+            });
+            const teacherWallet = await this.prisma.wallet.findFirst({
+                where: { userId: teacherUserId }
             });
 
-            // 2. Update booking status
-            await tx.booking.update({
-                where: { id: dispute.bookingId },
-                data: {
-                    status: bookingStatus as any,
-                    paymentReleasedAt: new Date()
-                }
-            });
+            if (!parentWallet) {
+                throw new NotFoundException('Parent wallet not found');
+            }
+            if (!teacherWallet && teacherPayoutNet > 0) {
+                throw new NotFoundException('Teacher wallet not found');
+            }
 
-            // 3. Release locked funds from parent's pendingBalance
-            await tx.wallet.update({
-                where: { id: parentWallet.id },
-                data: {
-                    pendingBalance: { decrement: lockedAmountGross }
-                }
-            });
+            // Execute the resolution in an ATOMIC transaction
+            const result = await this.prisma.$transaction(async (tx) => {
+                // 1. Update dispute status
+                const updatedDispute = await tx.dispute.update({
+                    where: { id: disputeId },
+                    data: {
+                        status: disputeStatus as any,
+                        resolvedByAdminId: adminUserId,
+                        resolution: resolutionNote,
+                        teacherPayout: teacherPayoutNet,
+                        studentRefund: studentRefundGross,
+                        resolvedAt: new Date()
+                    }
+                });
 
-            // 4. Refund to student if applicable
-            if (studentRefundGross > 0) {
+                // 2. Update booking status
+                await tx.booking.update({
+                    where: { id: dispute.bookingId },
+                    data: {
+                        status: bookingStatus as any,
+                        paymentReleasedAt: new Date()
+                    }
+                });
+
+                // 3. Release locked funds from parent's pendingBalance
                 await tx.wallet.update({
                     where: { id: parentWallet.id },
                     data: {
-                        balance: { increment: studentRefundGross }
+                        pendingBalance: { decrement: lockedAmountGross }
                     }
                 });
 
+                // 4. Refund to student if applicable
+                if (studentRefundGross > 0) {
+                    await tx.wallet.update({
+                        where: { id: parentWallet.id },
+                        data: {
+                            balance: { increment: studentRefundGross }
+                        }
+                    });
+
+                    await tx.transaction.create({
+                        data: {
+                            walletId: parentWallet.id,
+                            amount: studentRefundGross,
+                            type: 'REFUND',
+                            status: 'APPROVED',
+                            adminNote: `Dispute refund for booking ${booking.id} - ${resolutionType}`
+                        }
+                    });
+                }
+
+                // 5. Pay teacher if applicable
+                if (teacherPayoutNet > 0 && teacherWallet) {
+                    await tx.wallet.update({
+                        where: { id: teacherWallet.id },
+                        data: {
+                            balance: { increment: teacherPayoutNet }
+                        }
+                    });
+
+                    await tx.transaction.create({
+                        data: {
+                            walletId: teacherWallet.id,
+                            amount: teacherPayoutNet,
+                            type: 'PAYMENT_RELEASE',
+                            status: 'APPROVED',
+                            adminNote: `Dispute resolution payment for booking ${booking.id} (${(commissionRate * 100).toFixed(0)}% commission)`
+                        }
+                    });
+                }
+
+                // 6. P1 FIX: Record escrow release from parent (positive amount + semantic type)
                 await tx.transaction.create({
                     data: {
                         walletId: parentWallet.id,
-                        amount: studentRefundGross,
-                        type: 'REFUND',
+                        amount: lockedAmountGross, // P1 FIX: Use positive amount
+                        type: 'ESCROW_RELEASE', // P1 FIX: Semantic type instead of negative
                         status: 'APPROVED',
-                        adminNote: `Dispute refund for booking ${booking.id} - ${resolutionType}`
-                    }
-                });
-            }
-
-            // 5. Pay teacher if applicable
-            if (teacherPayoutNet > 0 && teacherWallet) {
-                await tx.wallet.update({
-                    where: { id: teacherWallet.id },
-                    data: {
-                        balance: { increment: teacherPayoutNet }
+                        adminNote: `Dispute resolution - escrow released for booking ${booking.id}`
                     }
                 });
 
-                await tx.transaction.create({
-                    data: {
-                        walletId: teacherWallet.id,
-                        amount: teacherPayoutNet,
-                        type: 'PAYMENT_RELEASE',
-                        status: 'APPROVED',
-                        adminNote: `Dispute resolution payment for booking ${booking.id} (${(commissionRate * 100).toFixed(0)}% commission)`
-                    }
-                });
-            }
-
-            // 6. P1 FIX: Record escrow release from parent (positive amount + semantic type)
-            await tx.transaction.create({
-                data: {
-                    walletId: parentWallet.id,
-                    amount: lockedAmountGross, // P1 FIX: Use positive amount
-                    type: 'ESCROW_RELEASE', // P1 FIX: Semantic type instead of negative
-                    status: 'APPROVED',
-                    adminNote: `Dispute resolution - escrow released for booking ${booking.id}`
-                }
+                return updatedDispute;
             });
 
-            return updatedDispute;
-        });
+            // NOTIFICATIONS
+            let parentMessage = '';
+            let teacherMessage = '';
+            const bookingId = booking.id.slice(0, 8); // Short ID for message
 
-        // NOTIFICATIONS
-        let parentMessage = '';
-        let teacherMessage = '';
-        const bookingId = booking.id.slice(0, 8); // Short ID for message
+            switch (resolutionType) {
+                case 'TEACHER_WINS':
+                    parentMessage = `تم حل النزاع للحجز #${bookingId} لصالح المعلم. المبلغ المحجوز تم تحويله للمعلم.`;
+                    teacherMessage = `تم حل النزاع للحجز #${bookingId} لصالحك. تم إيداع المبلغ في محفظتك.`;
+                    break;
+                case 'STUDENT_WINS':
+                    parentMessage = `تم حل النزاع للحجز #${bookingId} لصالحك. تم استرداد كامل المبلغ إلى محفظتك.`;
+                    teacherMessage = `تم حل النزاع للحجز #${bookingId} لصالح الطالب. تم استرداد المبلغ للطالب.`;
+                    break;
+                case 'SPLIT':
+                    parentMessage = `تم حل النزاع للحجز #${bookingId} بتسوية جزئية. تم استرداد ${splitPercentage}% من المبلغ لمحفظتك.`;
+                    teacherMessage = `تم حل النزاع للحجز #${bookingId} بتسوية جزئية. تم إيداع الجزء المستحق في محفظتك.`;
+                    break;
+                case 'DISMISSED':
+                    parentMessage = `تم رفض النزاع للحجز #${bookingId} لعدم كفاية الأدلة أو عدم توافقها مع السياسات.`;
+                    teacherMessage = `تم رفض النزاع المقدم ضدك للحجز #${bookingId}.`;
+                    break;
+            }
 
-        switch (resolutionType) {
-            case 'TEACHER_WINS':
-                parentMessage = `تم حل النزاع للحجز #${bookingId} لصالح المعلم. المبلغ المحجوز تم تحويله للمعلم.`;
-                teacherMessage = `تم حل النزاع للحجز #${bookingId} لصالحك. تم إيداع المبلغ في محفظتك.`;
-                break;
-            case 'STUDENT_WINS':
-                parentMessage = `تم حل النزاع للحجز #${bookingId} لصالحك. تم استرداد كامل المبلغ إلى محفظتك.`;
-                teacherMessage = `تم حل النزاع للحجز #${bookingId} لصالح الطالب. تم استرداد المبلغ للطالب.`;
-                break;
-            case 'SPLIT':
-                parentMessage = `تم حل النزاع للحجز #${bookingId} بتسوية جزئية. تم استرداد ${splitPercentage}% من المبلغ لمحفظتك.`;
-                teacherMessage = `تم حل النزاع للحجز #${bookingId} بتسوية جزئية. تم إيداع الجزء المستحق في محفظتك.`;
-                break;
-            case 'DISMISSED':
-                parentMessage = `تم رفض النزاع للحجز #${bookingId} لعدم كفاية الأدلة أو عدم توافقها مع السياسات.`;
-                teacherMessage = `تم رفض النزاع المقدم ضدك للحجز #${bookingId}.`;
-                break;
+            // Send notifications asynchronously
+            await Promise.all([
+                this.notificationService.notifyUser({
+                    userId: parentUserId,
+                    title: 'تحديث بخصوص النزاع',
+                    message: parentMessage,
+                    type: 'DISPUTE_UPDATE'
+                }),
+                this.notificationService.notifyUser({
+                    userId: teacherUserId,
+                    title: 'تحديث بخصوص النزاع',
+                    message: teacherMessage,
+                    type: 'DISPUTE_UPDATE'
+                })
+            ]);
+
+            return result;
+        } catch (e: any) {
+            console.error('Resolve Dispute Error:', e);
+            // Rethrow proper HTTP exceptions, wrap others
+            if (e instanceof NotFoundException || e instanceof BadRequestException) {
+                throw e;
+            }
+            throw new BadRequestException(`Internal Error: ${e.message}`);
         }
-
-        // Send notifications asynchronously
-        await Promise.all([
-            this.notificationService.notifyUser({
-                userId: parentUserId,
-                title: 'تحديث بخصوص النزاع',
-                message: parentMessage,
-                type: 'DISPUTE_UPDATE'
-            }),
-            this.notificationService.notifyUser({
-                userId: teacherUserId,
-                title: 'تحديث بخصوص النزاع',
-                message: teacherMessage,
-                type: 'DISPUTE_UPDATE'
-            })
-        ]);
-
-        return result;
     }
 
     /**
@@ -769,6 +778,17 @@ export class AdminService {
                     } as any // Cast for schema fields
                 });
 
+                // P1-1: Create ledger transaction for withdrawal completion
+                await tx.transaction.create({
+                    data: {
+                        walletId: transaction.walletId,
+                        amount: transaction.amount,
+                        type: 'WITHDRAWAL_COMPLETED',
+                        status: 'APPROVED',
+                        adminNote: `Withdrawal ${transactionId} paid out - proof: ${proofDocumentId}`
+                    } as any
+                });
+
                 // Notify NotificationService (Teacher)
                 // this.notificationService.notifyUser(...) // TODO: Add template
             }
@@ -796,6 +816,17 @@ export class AdminService {
                         adminNote
                     }
                 });
+
+                // P1-1: Create ledger transaction for withdrawal refund
+                await tx.transaction.create({
+                    data: {
+                        walletId: transaction.walletId,
+                        amount: transaction.amount,
+                        type: 'WITHDRAWAL_REFUNDED',
+                        status: 'APPROVED',
+                        adminNote: `Withdrawal ${transactionId} rejected and refunded - reason: ${adminNote || 'N/A'}`
+                    } as any
+                });
             }
             else if (newStatus === STATUS.APPROVED) {
                 // LEDGER: No Change (Funds stay locked)
@@ -813,15 +844,23 @@ export class AdminService {
     }
 
     /**
-     * Generate a secure random temporary password
+     * Generate a cryptographically secure random temporary password
+     * P1-7 FIX: Uses crypto.randomBytes instead of Math.random for security
      */
     private generateTemporaryPassword(): string {
         const length = 12;
         const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
         let password = '';
+
+        // Generate cryptographically secure random bytes
+        const randomBytes = crypto.randomBytes(length);
+
         for (let i = 0; i < length; i++) {
-            password += charset.charAt(Math.floor(Math.random() * charset.length));
+            // Use random byte to select from charset
+            const randomIndex = randomBytes[i] % charset.length;
+            password += charset.charAt(randomIndex);
         }
+
         return password;
     }
 

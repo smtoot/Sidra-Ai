@@ -15,6 +15,21 @@ import { toZonedTime } from 'date-fns-tz';
 export class MarketplaceService {
   constructor(private prisma: PrismaService) { }
 
+  /**
+   * Get public platform configuration (for frontend booking UI)
+   */
+  async getPlatformConfig() {
+    const settings = await this.prisma.systemSettings.findUnique({
+      where: { id: 'default' }
+    });
+
+    // Return only public-facing settings
+    return {
+      defaultSessionDurationMinutes: settings?.defaultSessionDurationMinutes || 60,
+      allowedSessionDurations: settings?.allowedSessionDurations || [60]
+    };
+  }
+
   // --- Search ---
   async searchTeachers(dto: SearchTeachersDto) {
     const whereClause: any = {};
@@ -593,6 +608,7 @@ export class MarketplaceService {
   /**
    * Filter out slots that already have bookings.
    * All comparisons happen in UTC.
+   * IMPORTANT: Now accounts for booking duration - a booking blocks multiple 30-min slots
    */
   private async filterBookings(
     slots: SlotWithTimezone[],
@@ -610,12 +626,21 @@ export class MarketplaceService {
 
     if (bookings.length === 0) return slots;
 
-    // Create set of booked time slots (as ISO strings for easy comparison)
-    const bookedTimes = new Set(
-      bookings.map(b => b.startTime.toISOString())
-    );
+    // Filter out slots that conflict with ANY existing booking
+    // A slot conflicts if it falls within [booking.startTime, booking.endTime)
+    return slots.filter(slot => {
+      const slotTime = new Date(slot.startTimeUtc);
 
-    return slots.filter(slot => !bookedTimes.has(slot.startTimeUtc));
+      for (const booking of bookings) {
+        // Check if slot falls within booking window
+        // Slot is blocked if: booking.startTime <= slotTime < booking.endTime
+        if (slotTime >= booking.startTime && slotTime < booking.endTime) {
+          return false; // Slot is blocked by this booking
+        }
+      }
+
+      return true; // Slot is available
+    });
   }
 
   private getDayOfWeek(date: Date): string {

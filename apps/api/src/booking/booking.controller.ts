@@ -22,7 +22,9 @@ export class BookingController {
     }
 
     // Teacher approves a booking
+    // SECURITY: Rate limit to prevent rapid approval spam
     @Patch(':id/approve')
+    @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 approvals per minute
     @UseGuards(RolesGuard)
     @Roles(UserRole.TEACHER)
     approveRequest(@Request() req: any, @Param('id') id: string) {
@@ -30,7 +32,9 @@ export class BookingController {
     }
 
     // Teacher rejects a booking
+    // SECURITY: Rate limit to prevent rapid rejection spam
     @Patch(':id/reject')
+    @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 rejections per minute
     @UseGuards(RolesGuard)
     @Roles(UserRole.TEACHER)
     rejectRequest(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateBookingStatusDto) {
@@ -108,7 +112,9 @@ export class BookingController {
     }
 
     // Teacher marks session as completed
+    // SECURITY: Rate limit to prevent accidental duplicate completions
     @Patch(':id/complete-session')
+    @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 completions per minute (teachers may have back-to-back sessions)
     @UseGuards(RolesGuard)
     @Roles(UserRole.TEACHER)
     completeSession(@Request() req: any, @Param('id') id: string) {

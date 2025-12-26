@@ -8,12 +8,14 @@ import {
 } from '@sidra/shared';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { WalletService } from '../wallet/wallet.service';
+import { SystemSettingsService } from '../admin/system-settings.service';
 
 @Injectable()
 export class TeacherService {
   constructor(
     private prisma: PrismaService,
-    private walletService: WalletService
+    private walletService: WalletService,
+    private systemSettingsService: SystemSettingsService
   ) { }
 
   async getProfile(userId: string) {
@@ -34,9 +36,66 @@ export class TeacherService {
   }
 
   async updateProfile(userId: string, dto: UpdateTeacherProfileDto) {
+    // Validation: Years of experience
+    if (dto.yearsOfExperience !== undefined) {
+      if (dto.yearsOfExperience < 0) {
+        throw new BadRequestException('Years of experience cannot be negative');
+      }
+      if (dto.yearsOfExperience > 50) {
+        throw new BadRequestException('Years of experience seems unrealistic (max 50 years)');
+      }
+    }
+
+    // Validation: Bio length
+    if (dto.bio !== undefined) {
+      const MAX_BIO_LENGTH = 2000;
+      if (dto.bio.length > MAX_BIO_LENGTH) {
+        throw new BadRequestException(`Bio cannot exceed ${MAX_BIO_LENGTH} characters`);
+      }
+    }
+
+    // Validation: Display name length
+    if (dto.displayName !== undefined) {
+      if (dto.displayName.trim().length < 2) {
+        throw new BadRequestException('Display name must be at least 2 characters');
+      }
+      if (dto.displayName.length > 100) {
+        throw new BadRequestException('Display name cannot exceed 100 characters');
+      }
+    }
+
+    // Validation: Meeting link URL format
     let encryptedLink = undefined;
     if (dto.meetingLink) {
-      encryptedLink = await EncryptionUtil.encrypt(dto.meetingLink);
+      try {
+        const url = new URL(dto.meetingLink);
+        // Validate it's a known meeting platform
+        const validDomains = ['meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com'];
+        const isValidDomain = validDomains.some(domain => url.hostname.includes(domain));
+
+        if (!isValidDomain) {
+          throw new BadRequestException('Meeting link must be from Google Meet, Zoom, or Microsoft Teams');
+        }
+
+        encryptedLink = await EncryptionUtil.encrypt(dto.meetingLink);
+      } catch (error) {
+        if (error instanceof BadRequestException) throw error;
+        throw new BadRequestException('Invalid meeting link URL format');
+      }
+    }
+
+    // Validation: Date of birth (must be at least 18 years old)
+    if (dto.dateOfBirth) {
+      const dob = new Date(dto.dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - dob.getFullYear();
+
+      if (age < 18) {
+        throw new BadRequestException('Teacher must be at least 18 years old');
+      }
+      if (age > 100) {
+        throw new BadRequestException('Invalid date of birth');
+      }
     }
 
     return this.prisma.teacherProfile.update({
@@ -58,7 +117,7 @@ export class TeacherService {
         country: dto.country,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         // Mark onboarding as complete if basic info is present (simplification for MVP)
-        // hasCompletedOnboarding: true, 
+        // hasCompletedOnboarding: true,
       },
     });
   }
@@ -75,7 +134,33 @@ export class TeacherService {
     const curriculum = await this.prisma.curriculum.findUnique({ where: { id: dto.curriculumId } });
     if (!curriculum || !curriculum.isActive) throw new NotFoundException('Curriculum not found or inactive');
 
-    // 3. Validation: Verify Grades
+    // 3. Validation: Price must be positive
+    if (!dto.pricePerHour || dto.pricePerHour <= 0) {
+      throw new BadRequestException('Price per hour must be a positive number');
+    }
+
+    // 4. Validation: Price maximum check (prevent unrealistic prices)
+    // Fetch the configurable max price from system settings
+    const settings = await this.systemSettingsService.getSettings();
+    const maxPrice = Number(settings.maxPricePerHour);
+    if (dto.pricePerHour > maxPrice) {
+      throw new BadRequestException(`Price per hour cannot exceed ${maxPrice} SDG`);
+    }
+
+    // 5. Validation: Check for duplicate subject+curriculum combination
+    const existingSubject = await this.prisma.teacherSubject.findFirst({
+      where: {
+        teacherId: profile.id,
+        subjectId: dto.subjectId,
+        curriculumId: dto.curriculumId,
+      },
+    });
+
+    if (existingSubject) {
+      throw new BadRequestException('You already teach this subject with this curriculum. Please update the existing one instead.');
+    }
+
+    // 6. Validation: Verify Grades
     if (!dto.gradeLevelIds || dto.gradeLevelIds.length === 0) {
       throw new BadRequestException('At least one grade level is required');
     }
@@ -139,9 +224,58 @@ export class TeacherService {
     const profile = await this.prisma.teacherProfile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    // Check if slot exists for this day/time to avoid duplicates?
-    // For MVP, simplistic add. Or maybe replace availability for that day?
-    // Let's allow creating slots.
+    // Validation: Time format check (HH:MM)
+    const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(dto.startTime) || !timeRegex.test(dto.endTime)) {
+      throw new BadRequestException('Time must be in HH:MM format (24-hour)');
+    }
+
+    // Validation: End time must be after start time
+    const [startHour, startMin] = dto.startTime.split(':').map(Number);
+    const [endHour, endMin] = dto.endTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    if (endMinutes <= startMinutes) {
+      throw new BadRequestException('End time must be after start time');
+    }
+
+    // Validation: Minimum slot duration (15 minutes)
+    const durationMinutes = endMinutes - startMinutes;
+    if (durationMinutes < 15) {
+      throw new BadRequestException('Availability slot must be at least 15 minutes');
+    }
+
+    // Validation: Maximum slot duration (12 hours)
+    if (durationMinutes > 720) {
+      throw new BadRequestException('Availability slot cannot exceed 12 hours');
+    }
+
+    // Validation: Check for overlapping slots on the same day
+    const existingSlots = await this.prisma.availability.findMany({
+      where: {
+        teacherId: profile.id,
+        dayOfWeek: dto.dayOfWeek,
+      },
+    });
+
+    for (const slot of existingSlots) {
+      const [slotStartHour, slotStartMin] = slot.startTime.split(':').map(Number);
+      const [slotEndHour, slotEndMin] = slot.endTime.split(':').map(Number);
+      const slotStartMinutes = slotStartHour * 60 + slotStartMin;
+      const slotEndMinutes = slotEndHour * 60 + slotEndMin;
+
+      // Check for overlap
+      if (
+        (startMinutes >= slotStartMinutes && startMinutes < slotEndMinutes) ||
+        (endMinutes > slotStartMinutes && endMinutes <= slotEndMinutes) ||
+        (startMinutes <= slotStartMinutes && endMinutes >= slotEndMinutes)
+      ) {
+        throw new BadRequestException(
+          `This time slot overlaps with an existing availability (${slot.startTime} - ${slot.endTime})`
+        );
+      }
+    }
 
     return this.prisma.availability.create({
       data: {
@@ -219,11 +353,60 @@ export class TeacherService {
     const profile = await this.prisma.teacherProfile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundException('Profile not found');
 
+    // Validation: Dates must be valid
+    const startDate = new Date(dto.startDate);
+    const endDate = new Date(dto.endDate);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    // Validation: End date must be on or after start date
+    if (endDate < startDate) {
+      throw new BadRequestException('End date must be on or after start date');
+    }
+
+    // Validation: Cannot create exceptions in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (startDate < today) {
+      throw new BadRequestException('Cannot create exceptions for past dates');
+    }
+
+    // Validation: Maximum exception duration (1 year)
+    const maxDuration = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
+    if (endDate.getTime() - startDate.getTime() > maxDuration) {
+      throw new BadRequestException('Exception duration cannot exceed 1 year');
+    }
+
+    // Validation: For PARTIAL_DAY, time is required
+    if (dto.type === 'PARTIAL_DAY') {
+      if (!dto.startTime || !dto.endTime) {
+        throw new BadRequestException('Start time and end time are required for partial day exceptions');
+      }
+
+      // Validate time format
+      const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(dto.startTime) || !timeRegex.test(dto.endTime)) {
+        throw new BadRequestException('Time must be in HH:MM format (24-hour)');
+      }
+
+      // Validate end time is after start time
+      const [startHour, startMin] = dto.startTime.split(':').map(Number);
+      const [endHour, endMin] = dto.endTime.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      if (endMinutes <= startMinutes) {
+        throw new BadRequestException('End time must be after start time');
+      }
+    }
+
     return this.prisma.availabilityException.create({
       data: {
         teacherId: profile.id,
-        startDate: new Date(dto.startDate),
-        endDate: new Date(dto.endDate),
+        startDate,
+        endDate,
         type: dto.type || 'ALL_DAY',
         startTime: dto.startTime,
         endTime: dto.endTime,

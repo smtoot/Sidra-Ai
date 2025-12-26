@@ -34,7 +34,7 @@ export interface TeachingApproachTag {
 
 export interface TeacherTeachingApproach {
     teachingStyle: string | null;
-    tags: string[]; // List of Tag IDs
+    tagIds: string[]; // List of Tag IDs
 }
 
 export const teacherApi = {

@@ -174,6 +174,9 @@ export const adminApi = {
         minHoursBeforeSession?: number;
         packagesEnabled?: boolean;
         demosEnabled?: boolean;
+        maxPricePerHour?: number;
+        defaultSessionDurationMinutes?: number;
+        allowedSessionDurations?: number[];
     }) => {
         const response = await api.patch('/admin/settings', data);
         return response.data;

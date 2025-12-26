@@ -19,7 +19,11 @@ export enum TransactionType {
     PACKAGE_PURCHASE = 'PACKAGE_PURCHASE',
     PACKAGE_RELEASE = 'PACKAGE_RELEASE',
     // P1 Addition: Escrow release for disputes
-    ESCROW_RELEASE = 'ESCROW_RELEASE'
+    ESCROW_RELEASE = 'ESCROW_RELEASE',
+    // P1-1: Ledger completeness - track all balance mutations
+    WITHDRAWAL_COMPLETED = 'WITHDRAWAL_COMPLETED',
+    WITHDRAWAL_REFUNDED = 'WITHDRAWAL_REFUNDED',
+    DEPOSIT_APPROVED = 'DEPOSIT_APPROVED'
 }
 
 export class DepositDto {

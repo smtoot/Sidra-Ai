@@ -16,6 +16,7 @@ async function main() {
         update: {},
         create: {
             email,
+            phoneNumber: '0599999999', // Admin placeholder phone
             passwordHash: hashedPassword,
             role: UserRole.ADMIN,
             isActive: true,

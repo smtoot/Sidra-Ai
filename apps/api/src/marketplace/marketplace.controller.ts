@@ -9,6 +9,12 @@ import { Roles } from '../auth/roles.decorator';
 export class MarketplaceController {
   constructor(private readonly marketplaceService: MarketplaceService) { }
 
+  // --- Platform Configuration (Public) ---
+  @Get('config')
+  getPlatformConfig() {
+    return this.marketplaceService.getPlatformConfig();
+  }
+
   // --- Search ---
   @Get('teachers')
   searchTeachers(@Query() query: SearchTeachersDto) {

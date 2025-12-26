@@ -11,5 +11,6 @@ import { PackageModule } from '../package/package.module';
     imports: [WalletModule, NotificationModule, PackageModule],
     controllers: [AdminController],
     providers: [AdminService, AuditService, SystemSettingsService],
+    exports: [SystemSettingsService], // Export for use in other modules
 })
 export class AdminModule { }

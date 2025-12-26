@@ -102,7 +102,7 @@ export default function ProfileHubPage() {
         try {
             await teacherApi.updateTeachingApproach({
                 teachingStyle: profile.teachingStyle,
-                tags: profile.teachingTagIds || profile.teachingTags?.map((t: any) => t.tagId) || []
+                tagIds: profile.teachingTagIds || profile.teachingTags?.map((t: any) => t.tagId) || []
             });
             toast.success('تم حفظ أسلوب التدريس');
         } catch (error) {

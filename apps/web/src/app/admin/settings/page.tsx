@@ -16,7 +16,9 @@ export default function AdminSettingsPage() {
         paymentWindowHours: 24,
         minHoursBeforeSession: 2,
         packagesEnabled: true,
-        demosEnabled: true
+        demosEnabled: true,
+        maxPricePerHour: '50000',
+        defaultSessionDurationMinutes: 60
     });
 
     // Form state (separate from data to handle dirty state/validation)
@@ -24,6 +26,8 @@ export default function AdminSettingsPage() {
     const [releaseHours, setReleaseHours] = useState('48');
     const [paymentWindowHours, setPaymentWindowHours] = useState('24');
     const [minHoursBeforeSession, setMinHoursBeforeSession] = useState('2');
+    const [maxPricePerHour, setMaxPricePerHour] = useState('50000');
+    const [sessionDuration, setSessionDuration] = useState('60');
 
     useEffect(() => {
         loadSettings();
@@ -37,6 +41,8 @@ export default function AdminSettingsPage() {
             setReleaseHours(data.confirmationWindowHours.toString());
             setPaymentWindowHours((data.paymentWindowHours || 24).toString());
             setMinHoursBeforeSession((data.minHoursBeforeSession || 2).toString());
+            setMaxPricePerHour((data.maxPricePerHour || 50000).toString());
+            setSessionDuration((data.defaultSessionDurationMinutes || 60).toString());
         } catch (error) {
             console.error(error);
             toast.error('فشل تحميل الإعدادات');
@@ -52,6 +58,8 @@ export default function AdminSettingsPage() {
         const hours = Number(releaseHours);
         const paymentWindow = Number(paymentWindowHours);
         const minBuffer = Number(minHoursBeforeSession);
+        const maxPrice = Number(maxPricePerHour);
+        const duration = Number(sessionDuration);
 
         if (isNaN(fee) || fee < 0 || fee > 100) {
             toast.error('نسبة العمولة يجب أن تكون بين 0 و 100');
@@ -73,6 +81,16 @@ export default function AdminSettingsPage() {
             return;
         }
 
+        if (isNaN(maxPrice) || maxPrice < 1) {
+            toast.error('الحد الأقصى للسعر يجب أن يكون 1 جنيه على الأقل');
+            return;
+        }
+
+        if (isNaN(duration) || duration < 15 || duration > 240) {
+            toast.error('مدة الحصة يجب أن تكون بين 15 و 240 دقيقة');
+            return;
+        }
+
         setSaving(true);
         try {
             await adminApi.updateSettings({
@@ -81,7 +99,9 @@ export default function AdminSettingsPage() {
                 paymentWindowHours: paymentWindow,
                 minHoursBeforeSession: minBuffer,
                 packagesEnabled: settings.packagesEnabled,
-                demosEnabled: settings.demosEnabled
+                demosEnabled: settings.demosEnabled,
+                maxPricePerHour: maxPrice,
+                defaultSessionDurationMinutes: duration
             });
             toast.success('تم تحديث الإعدادات بنجاح');
             loadSettings(); // Reload to confirm
@@ -217,6 +237,63 @@ export default function AdminSettingsPage() {
                                     className="pl-16"
                                 />
                                 <span className="absolute left-3 top-2 text-gray-400 text-sm">ساعة</span>
+                            </div>
+                        </div>
+
+                        <hr className="border-gray-100" />
+
+                        {/* Max Price Per Hour */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">الحد الأقصى لسعر الساعة</h3>
+                                    <p className="text-sm text-text-subtle mt-1">
+                                        الحد الأقصى المسموح به للمعلمين عند تحديد سعر الحصة بالجنيه السوداني.
+                                    </p>
+                                </div>
+                                <div className="bg-gray-50 px-3 py-1 rounded text-sm font-mono">
+                                    الحالية: {Number(settings.maxPricePerHour || 50000).toLocaleString()} جنيه
+                                </div>
+                            </div>
+                            <div className="relative w-full md:w-1/3">
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    step="100"
+                                    value={maxPricePerHour}
+                                    onChange={(e) => setMaxPricePerHour(e.target.value)}
+                                    className="pl-16"
+                                />
+                                <span className="absolute left-3 top-2 text-gray-400 text-sm">جنيه</span>
+                            </div>
+                        </div>
+
+                        <hr className="border-gray-100" />
+
+                        {/* Session Duration */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">مدة الحصة الافتراضية</h3>
+                                    <p className="text-sm text-text-subtle mt-1">
+                                        المدة الافتراضية للحصة بالدقائق (حالياً لجميع المعلمين، لاحقاً يمكن للمعلم الاختيار)
+                                    </p>
+                                </div>
+                                <div className="bg-gray-50 px-3 py-1 rounded text-sm font-mono">
+                                    الحالية: {Number(settings.defaultSessionDurationMinutes || 60)} دقيقة
+                                </div>
+                            </div>
+                            <div className="relative w-full md:w-1/3">
+                                <Input
+                                    type="number"
+                                    min="15"
+                                    max="240"
+                                    step="15"
+                                    value={sessionDuration}
+                                    onChange={(e) => setSessionDuration(e.target.value)}
+                                    className="pl-16"
+                                />
+                                <span className="absolute left-3 top-2 text-gray-400 text-sm">دقيقة</span>
                             </div>
                         </div>
 

@@ -50,6 +50,9 @@ export class SystemSettingsService {
             minHoursBeforeSession?: number;
             packagesEnabled?: boolean;
             demosEnabled?: boolean;
+            maxPricePerHour?: number; // Maximum allowed price per hour (SDG)
+            defaultSessionDurationMinutes?: number; // Default session duration in minutes
+            allowedSessionDurations?: number[]; // Allowed session durations (future-proof)
         }
     ) {
         // Get old settings for diff logging
@@ -81,6 +84,18 @@ export class SystemSettingsService {
 
         if (data.demosEnabled !== undefined) {
             updateData.demosEnabled = data.demosEnabled;
+        }
+
+        if (data.maxPricePerHour !== undefined) {
+            updateData.maxPricePerHour = new Decimal(data.maxPricePerHour);
+        }
+
+        if (data.defaultSessionDurationMinutes !== undefined) {
+            updateData.defaultSessionDurationMinutes = data.defaultSessionDurationMinutes;
+        }
+
+        if (data.allowedSessionDurations !== undefined) {
+            updateData.allowedSessionDurations = data.allowedSessionDurations;
         }
 
         // Execute update

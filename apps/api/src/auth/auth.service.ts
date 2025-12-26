@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -11,14 +11,37 @@ export class AuthService {
     private jwtService: JwtService,
   ) { }
 
+  /**
+   * P1-5: Validate strong password requirements
+   * Must have: 12+ chars, uppercase, lowercase, number, special char
+   */
+  private validateStrongPassword(password: string): void {
+    if (password.length < 12) {
+      throw new BadRequestException('كلمة المرور يجب أن تكون 12 حرفاً على الأقل');
+    }
+    if (!/[A-Z]/.test(password)) {
+      throw new BadRequestException('كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل');
+    }
+    if (!/[a-z]/.test(password)) {
+      throw new BadRequestException('كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل');
+    }
+    if (!/[0-9]/.test(password)) {
+      throw new BadRequestException('كلمة المرور يجب أن تحتوي على رقم واحد على الأقل');
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      throw new BadRequestException('كلمة المرور يجب أن تحتوي على رمز خاص واحد على الأقل (!@#$%^&* إلخ)');
+    }
+  }
+
   async register(dto: RegisterDto) {
     // PHONE-FIRST: Check by phone number (primary identifier), not email
     const existingByPhone = dto.phoneNumber ? await this.prisma.user.findFirst({
       where: { phoneNumber: dto.phoneNumber },
     }) : null;
 
+    // P1-6 FIX: Use generic message to prevent account enumeration
     if (existingByPhone) {
-      throw new ConflictException('Phone number already registered');
+      throw new ConflictException('An account with these credentials already exists');
     }
 
     // Optional: Also check email if provided
@@ -26,8 +49,9 @@ export class AuthService {
       const existingByEmail = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
+      // P1-6 FIX: Use generic message to prevent account enumeration
       if (existingByEmail) {
-        throw new ConflictException('Email already registered');
+        throw new ConflictException('An account with these credentials already exists');
       }
     }
 
@@ -121,10 +145,8 @@ export class AuthService {
     const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isMatch) throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
 
-    // Validate new password length
-    if (newPassword.length < 6) {
-      throw new UnauthorizedException('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل');
-    }
+    // P1-5: Validate strong password requirements
+    this.validateStrongPassword(newPassword);
 
     // Hash new password and update
     const hashedPassword = await bcrypt.hash(newPassword, 10);

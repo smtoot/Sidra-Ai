@@ -5,30 +5,65 @@ import { teacherApi } from '@/lib/api/teacher';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, User, ExternalLink, MessageCircle, Wallet, TrendingUp } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Calendar, Clock, User, ExternalLink, MessageCircle, Wallet, TrendingUp, AlertCircle, Link as LinkIcon, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { ApplicationStatusBanner } from '@/components/teacher/ApplicationStatusBanner';
 import { getFileUrl } from '@/lib/api/upload';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 export default function TeacherDashboardPage() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [showMeetingLinkInput, setShowMeetingLinkInput] = useState(false);
+    const [meetingLinkInput, setMeetingLinkInput] = useState('');
+    const [savingMeetingLink, setSavingMeetingLink] = useState(false);
+
+    const loadDashboard = async () => {
+        try {
+            const data = await teacherApi.getDashboardStats();
+            setStats(data);
+        } catch (error) {
+            console.error("Failed to load dashboard stats", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const loadRequests = async () => {
-            try {
-                const data = await teacherApi.getDashboardStats();
-                setStats(data);
-            } catch (error) {
-                console.error("Failed to load dashboard stats", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadRequests();
+        loadDashboard();
     }, []);
+
+    const handleSaveMeetingLink = async () => {
+        if (!meetingLinkInput.trim()) {
+            toast.error('يرجى إدخال رابط الاجتماع');
+            return;
+        }
+
+        // Basic URL validation
+        try {
+            new URL(meetingLinkInput);
+        } catch {
+            toast.error('يرجى إدخال رابط صحيح (مثال: https://meet.google.com/abc-defg-hij)');
+            return;
+        }
+
+        setSavingMeetingLink(true);
+        try {
+            await teacherApi.updateProfile({ meetingLink: meetingLinkInput });
+            toast.success('تم حفظ رابط الاجتماع بنجاح! ✅');
+            setShowMeetingLinkInput(false);
+            setMeetingLinkInput('');
+            await loadDashboard(); // Reload to get updated meeting link
+        } catch (error) {
+            console.error('Failed to save meeting link', error);
+            toast.error('فشل حفظ رابط الاجتماع');
+        } finally {
+            setSavingMeetingLink(false);
+        }
+    };
 
     if (loading) return <div className="p-8 text-center text-gray-500">جاري تحميل البيانات...</div>;
     if (!stats) return <div className="p-8 text-center text-red-500">فشل تحميل البيانات</div>;
@@ -138,11 +173,94 @@ export default function TeacherDashboardPage() {
                                         </div>
                                     </div>
                                 </div>
-                                <Button className="w-full sm:w-auto bg-primary-700 hover:bg-primary-800">
+                                <Button
+                                    className="w-full sm:w-auto bg-primary-700 hover:bg-primary-800"
+                                    disabled={!upcomingSession.meetingLink}
+                                    onClick={() => {
+                                        if (upcomingSession.meetingLink) {
+                                            window.open(upcomingSession.meetingLink, '_blank');
+                                        }
+                                    }}
+                                    title={!upcomingSession.meetingLink ? 'يجب إضافة رابط الاجتماع في الإعدادات أولاً' : ''}
+                                >
                                     انضم للدرس الآن
                                     <ExternalLink className="w-4 h-4 mr-2" />
                                 </Button>
                             </div>
+                            {!upcomingSession.meetingLink && (
+                                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <div className="flex items-start gap-2 mb-3">
+                                        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                                        <div className="text-sm text-amber-800 flex-1">
+                                            <strong>تنبيه:</strong> لم تقم بإضافة رابط الاجتماع بعد.
+                                        </div>
+                                    </div>
+
+                                    {!showMeetingLinkInput ? (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => setShowMeetingLinkInput(true)}
+                                                size="sm"
+                                                className="bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                                            >
+                                                <LinkIcon className="w-4 h-4" />
+                                                إضافة الرابط الآن
+                                            </Button>
+                                            <Link href="/teacher/settings">
+                                                <Button size="sm" variant="outline" className="border-amber-300">
+                                                    الذهاب للإعدادات
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white rounded-lg p-3 border border-amber-200">
+                                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                                                رابط الاجتماع (Google Meet, Zoom, Teams)
+                                            </label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="url"
+                                                    placeholder="https://meet.google.com/abc-defg-hij"
+                                                    value={meetingLinkInput}
+                                                    onChange={(e) => setMeetingLinkInput(e.target.value)}
+                                                    className="flex-1 text-sm"
+                                                    dir="ltr"
+                                                    disabled={savingMeetingLink}
+                                                />
+                                                <Button
+                                                    onClick={handleSaveMeetingLink}
+                                                    disabled={savingMeetingLink || !meetingLinkInput.trim()}
+                                                    size="sm"
+                                                    className="bg-green-600 hover:bg-green-700"
+                                                >
+                                                    {savingMeetingLink ? (
+                                                        <>
+                                                            <Loader2 className="w-3 h-3 animate-spin ml-1" />
+                                                            حفظ...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Save className="w-3 h-3 ml-1" />
+                                                            حفظ
+                                                        </>
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    onClick={() => {
+                                                        setShowMeetingLinkInput(false);
+                                                        setMeetingLinkInput('');
+                                                    }}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={savingMeetingLink}
+                                                >
+                                                    إلغاء
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 ) : (

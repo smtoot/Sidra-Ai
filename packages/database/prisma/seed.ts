@@ -1,359 +1,484 @@
-import { PrismaClient } from '@prisma/client';
+
+import { PrismaClient, UserRole, ApplicationStatus, BookingStatus, TransactionType, TransactionStatus, BeneficiaryType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting comprehensive seed with proper transactions...');
+  console.log('🌱 Starting COMPREHENSIVE seed...');
 
   const pw = await bcrypt.hash('password123', 10);
   const now = new Date();
 
-  // Clear data
+  // Helper to clear data in order
   console.log('🧹 Clearing old data...');
-  await prisma.transaction.deleteMany();
+  // Delete in reverse order of dependencies
+  await prisma.auditLog.deleteMany();
   await prisma.notification.deleteMany();
+  await prisma.rating.deleteMany();
+  await prisma.dispute.deleteMany();
+  await prisma.packageRedemption.deleteMany();
+  await prisma.packageTransaction.deleteMany();
+  await prisma.studentPackage.deleteMany();
+  await prisma.transaction.deleteMany();
   await prisma.booking.deleteMany();
+  await prisma.wallet.deleteMany();
   await prisma.teacherSubjectGrade.deleteMany();
   await prisma.teacherSubject.deleteMany();
+  await prisma.teacherTeachingApproachTag.deleteMany();
+  await prisma.teachingApproachTag.deleteMany();
   await prisma.availability.deleteMany();
+  await prisma.availabilityException.deleteMany();
   await prisma.child.deleteMany();
-  await prisma.wallet.deleteMany();
   await prisma.teacherProfile.deleteMany();
   await prisma.parentProfile.deleteMany();
   await prisma.studentProfile.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.curriculumSubject.deleteMany();
+  await prisma.gradeLevel.deleteMany();
+  await prisma.educationalStage.deleteMany();
   await prisma.subject.deleteMany();
+  await prisma.curriculum.deleteMany();
+  await prisma.packageTier.deleteMany();
   await prisma.systemSettings.deleteMany();
+  await prisma.readableIdCounter.deleteMany();
 
-  // 1. System Settings
-  console.log('⚙️  Creating system settings...');
+  // 1. System Settings & Configuration
+  console.log('⚙️  Creating system settings & configurations...');
   await prisma.systemSettings.create({
     data: {
       id: 'default',
       disputeWindowHours: 48,
-      reminderIntervals: [6, 12, 24],
-      autoReleaseEnabled: true,
       confirmationWindowHours: 48,
-      reminderHoursBeforeRelease: 6,
-      defaultCommissionRate: 0.18,
-    },
+      autoReleaseEnabled: true,
+      packagesEnabled: true,
+      demosEnabled: true,
+      currency: 'SDG',
+      timezone: 'Africa/Khartoum'
+    }
   });
 
-  // 2. Create Subjects
-  console.log('📖 Creating subjects...');
-  const math = await prisma.subject.create({
-    data: { nameAr: 'الرياضيات', nameEn: 'Mathematics' }
+  await prisma.packageTier.createMany({
+    data: [
+      { sessionCount: 5, discountPercent: 5, displayOrder: 1 },
+      { sessionCount: 10, discountPercent: 10, displayOrder: 2 },
+      { sessionCount: 20, discountPercent: 15, displayOrder: 3 },
+    ]
   });
 
-  const english = await prisma.subject.create({
-    data: { nameAr: 'اللغة الإنجليزية', nameEn: 'English' }
-  });
+  // 2. Content Hierarchy
+  console.log('📚 Creating Curriculum, Stages, Grades & Subjects...');
 
-  const science = await prisma.subject.create({
-    data: { nameAr: 'العلوم', nameEn: 'Science' }
-  });
-
-  // 3. Create Users
-  console.log('👥 Creating users...');
-  const teacher = await prisma.user.create({
+  // National Curriculum
+  const curriculum = await prisma.curriculum.create({
     data: {
-      phoneNumber: '0500000002',
+      code: 'SUDAN-NATIONAL',
+      nameAr: 'المنهج القومي السوداني',
+      nameEn: 'Sudanese National Curriculum',
+      systemType: 'NATIONAL'
+    }
+  });
+
+  // Stages
+  const primaryStage = await prisma.educationalStage.create({
+    data: { curriculumId: curriculum.id, nameAr: 'المرحلة الابتدائية', nameEn: 'Primary Stage', sequence: 1 }
+  });
+  const interStage = await prisma.educationalStage.create({
+    data: { curriculumId: curriculum.id, nameAr: 'المرحلة المتوسطة', nameEn: 'Intermediate Stage', sequence: 2 }
+  });
+  const secondaryStage = await prisma.educationalStage.create({
+    data: { curriculumId: curriculum.id, nameAr: 'المرحلة الثانوية', nameEn: 'Secondary Stage', sequence: 3 }
+  });
+
+  // Grades
+  const createGrades = async (stageId: string, start: number, end: number, prefix: string) => {
+    for (let i = start; i <= end; i++) {
+      await prisma.gradeLevel.create({
+        data: {
+          stageId,
+          nameAr: `الصف ${i}`,
+          nameEn: `Grade ${i}`,
+          code: `${prefix}-${i}`,
+          sequence: i
+        }
+      });
+    }
+  };
+
+  await createGrades(primaryStage.id, 1, 6, 'PRI');
+  await createGrades(interStage.id, 7, 9, 'INT');
+  await createGrades(secondaryStage.id, 10, 12, 'SEC');
+
+  // Subjects
+  const math = await prisma.subject.create({ data: { nameAr: 'الرياضيات', nameEn: 'Mathematics' } });
+  const english = await prisma.subject.create({ data: { nameAr: 'اللغة الإنجليزية', nameEn: 'English' } });
+  const science = await prisma.subject.create({ data: { nameAr: 'العلوم', nameEn: 'Science' } });
+  const arabic = await prisma.subject.create({ data: { nameAr: 'اللغة العربية', nameEn: 'Arabic' } });
+
+  // Link Subjects to Curriculum
+  await prisma.curriculumSubject.createMany({
+    data: [
+      { curriculumId: curriculum.id, subjectId: math.id },
+      { curriculumId: curriculum.id, subjectId: english.id },
+      { curriculumId: curriculum.id, subjectId: science.id },
+      { curriculumId: curriculum.id, subjectId: arabic.id },
+    ]
+  });
+
+  // Tags
+  console.log('🏷️ Creating Tags...');
+  const tagPatient = await prisma.teachingApproachTag.create({ data: { labelAr: 'صبور' } });
+  const tagInteractive = await prisma.teachingApproachTag.create({ data: { labelAr: 'تفاعلي' } });
+  const tagExam = await prisma.teachingApproachTag.create({ data: { labelAr: 'تركيز على الامتحانات' } });
+
+  // 3. Users
+  console.log('👥 Creating Users (Admin, Teacher, Parent, Student)...');
+
+  // Admin
+  await prisma.user.create({
+    data: {
+      email: 'admin@sidra.com',
+      phoneNumber: '0599999999',
+      passwordHash: pw,
+      role: 'ADMIN',
+      isVerified: true,
+      firstName: 'System',
+      lastName: 'Admin'
+    }
+  });
+
+  // Teacher
+  const teacherUser = await prisma.user.create({
+    data: {
       email: 'teacher@sidra.com',
+      phoneNumber: '0500000002',
       passwordHash: pw,
       role: 'TEACHER',
       isVerified: true,
+      firstName: 'Ahmad',
+      lastName: 'Teacher',
+      wallet: { create: { balance: 0, pendingBalance: 0 } },
       teacherProfile: {
         create: {
-          displayName: 'أحمد المعلم',
-          fullName: 'أحمد محمد العلي',
-          bio: 'معلم رياضيات وعلوم خبرة 10 سنوات في التدريس',
-          education: 'بكالوريوس رياضيات - جامعة الملك سعود',
-          yearsOfExperience: 10,
+          displayName: 'أستاذ أحمد',
+          fullName: 'أحمد محمد علي',
+          slug: 'ahmad-ali',
+          slugLockedAt: now,
+          bio: 'معلم متخصص في تدريس الرياضيات والعلوم للمراحل المدرسية المختلفة. أعتمد أسلوباً مبسطاً وتفاعلياً.',
+          education: 'بكالوريوس تربية - قسم رياضيات',
+          yearsOfExperience: 8,
           applicationStatus: 'APPROVED',
-          hasCompletedOnboarding: true,
-          timezone: 'Asia/Riyadh',
-        },
-      },
-    },
+          teachingStyle: 'أركز على فهم الأساسيات وبناء الثقة لدى الطالب من خلال الأمثلة العملية.',
+          profilePhotoUrl: 'uploads/demo-avatar-teacher.jpg' // Placeholder
+        }
+      }
+    }
   });
 
-  const parent = await prisma.user.create({
+  const teacherProfile = await prisma.teacherProfile.findUniqueOrThrow({ where: { userId: teacherUser.id } });
+
+  // Link Tags
+  await prisma.teacherTeachingApproachTag.createMany({
+    data: [
+      { teacherId: teacherProfile.id, tagId: tagPatient.id },
+      { teacherId: teacherProfile.id, tagId: tagInteractive.id }
+    ]
+  });
+
+  // Teacher Subjects (Price & Grades)
+  // Math for Secondary (Grades 10-12)
+  const secGrades = await prisma.gradeLevel.findMany({ where: { stageId: secondaryStage.id } });
+  const teacherMath = await prisma.teacherSubject.create({
     data: {
-      phoneNumber: '0500000004',
+      teacherId: teacherProfile.id,
+      subjectId: math.id,
+      curriculumId: curriculum.id,
+      pricePerHour: 5000,
+    }
+  });
+  await prisma.teacherSubjectGrade.createMany({
+    data: secGrades.map(g => ({ teacherSubjectId: teacherMath.id, gradeLevelId: g.id }))
+  });
+
+  // Science for Intermediate (Grades 7-9)
+  const intGrades = await prisma.gradeLevel.findMany({ where: { stageId: interStage.id } });
+  const teacherScience = await prisma.teacherSubject.create({
+    data: {
+      teacherId: teacherProfile.id,
+      subjectId: science.id,
+      curriculumId: curriculum.id,
+      pricePerHour: 4500,
+    }
+  });
+  await prisma.teacherSubjectGrade.createMany({
+    data: intGrades.map(g => ({ teacherSubjectId: teacherScience.id, gradeLevelId: g.id }))
+  });
+
+  // Availability (Sun-Thu, 4PM-8PM)
+  await prisma.availability.createMany({
+    data: ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY'].map(day => ({
+      teacherId: teacherProfile.id,
+      dayOfWeek: day as any,
+      startTime: '16:00',
+      endTime: '20:00'
+    }))
+  });
+
+  // Parent
+  const parentUser = await prisma.user.create({
+    data: {
       email: 'parent@sidra.com',
+      phoneNumber: '0500000004',
       passwordHash: pw,
       role: 'PARENT',
       isVerified: true,
-      parentProfile: { create: {} },
-    },
+      firstName: 'Khalid',
+      lastName: 'Parent',
+      wallet: { create: { balance: 50000, pendingBalance: 0 } }, // 50k deposit
+      parentProfile: { create: { city: 'Khartoum' } }
+    }
+  });
+  // Deposit Transaction for Parent
+  await prisma.transaction.create({
+    data: {
+      walletId: (await prisma.wallet.findUniqueOrThrow({ where: { userId: parentUser.id } })).id,
+      amount: 50000,
+      type: 'DEPOSIT',
+      status: 'APPROVED',
+      readableId: 'TX-DEP-001'
+    }
   });
 
-  const student = await prisma.user.create({
+  // Child
+  const child = await prisma.child.create({
     data: {
-      phoneNumber: '0500000006',
+      parentId: (await prisma.parentProfile.findUniqueOrThrow({ where: { userId: parentUser.id } })).id,
+      name: 'Sarah',
+      gradeLevel: 'Grade 8'
+    }
+  });
+
+  // Student
+  const studentUser = await prisma.user.create({
+    data: {
       email: 'student@sidra.com',
+      phoneNumber: '0500000006',
       passwordHash: pw,
       role: 'STUDENT',
       isVerified: true,
-      studentProfile: { create: {} },
-    },
+      firstName: 'Omar',
+      lastName: 'Student',
+      wallet: { create: { balance: 20000, pendingBalance: 0 } }, // 20k deposit
+      studentProfile: { create: { gradeLevel: 'Grade 11' } }
+    }
   });
-
-  // 4. Create Child
-  console.log('👶 Creating children...');
-  const parentProfile = await prisma.parentProfile.findUnique({
-    where: { userId: parent.id }
-  });
-
-  const child = await prisma.child.create({
+  // Deposit for Student
+  await prisma.transaction.create({
     data: {
-      name: 'محمد',
-      gradeLevel: 'الصف التاسع',
-      parentId: parentProfile!.id,
-    },
-  });
-
-  // 5. Create Wallets WITH INITIAL BALANCES
-  console.log('💰 Creating wallets with balances...');
-  const teacherWallet = await prisma.wallet.create({
-    data: {
-      userId: teacher.id,
-      balance: 500,  // Teacher has some existing balance
-      pendingBalance: 0
+      walletId: (await prisma.wallet.findUniqueOrThrow({ where: { userId: studentUser.id } })).id,
+      amount: 20000,
+      type: 'DEPOSIT',
+      status: 'APPROVED',
+      readableId: 'TX-DEP-002'
     }
   });
 
-  // Parent starts with 1200 (will spend 200 on 2 bookings)
-  const parentWallet = await prisma.wallet.create({
+
+  // 4. Booking Scenarios
+  console.log('📅 Creating Booking Scenarios...');
+
+  const studentWallet = await prisma.wallet.findUniqueOrThrow({ where: { userId: studentUser.id } });
+  const teacherWallet = await prisma.wallet.findUniqueOrThrow({ where: { userId: teacherUser.id } });
+
+  // SCENARIO A: Student Package Purchase (Math, 10 sessions)
+  // Price: 5000/hr * 10 sessions * 0.9 (10% discount) = 45,000. Wait, student only has 20k.
+  // Let's adjust package size or balance. Let's give student more money.
+  await prisma.wallet.update({ where: { id: studentWallet.id }, data: { balance: { increment: 30000 } } }); // Now 50k
+
+  const pkgPrice = 5000 * 10 * 0.9; // 45,000
+  const studentPackage = await prisma.studentPackage.create({
     data: {
-      userId: parent.id,
-      balance: 1000,  // After 2 bookings locked (1200 - 200 = 1000)
-      pendingBalance: 200  // 2 bookings × 100 each locked in escrow
-    }
-  });
-
-  const studentWallet = await prisma.wallet.create({
-    data: {
-      userId: student.id,
-      balance: 200,  // After 1 booking locked (300 - 100 = 200)
-      pendingBalance: 100  // 1 booking locked
-    }
-  });
-
-  // 6. Get Teacher Profile
-  const teacherProfile = await prisma.teacherProfile.findUnique({
-    where: { userId: teacher.id },
-  });
-
-  // 7. Create teacher availability
-  console.log('📅 Creating teacher availability...');
-  await prisma.availability.createMany({
-    data: [
-      { teacherId: teacherProfile!.id, dayOfWeek: 'SUNDAY', startTime: '09:00', endTime: '17:00' },
-      { teacherId: teacherProfile!.id, dayOfWeek: 'MONDAY', startTime: '09:00', endTime: '17:00' },
-      { teacherId: teacherProfile!.id, dayOfWeek: 'TUESDAY', startTime: '14:00', endTime: '20:00' },
-      { teacherId: teacherProfile!.id, dayOfWeek: 'WEDNESDAY', startTime: '09:00', endTime: '17:00' },
-      { teacherId: teacherProfile!.id, dayOfWeek: 'THURSDAY', startTime: '09:00', endTime: '15:00' },
-    ],
-  });
-
-  // 8. Create test bookings WITH PROPER TRANSACTIONS
-  console.log('📝 Creating test bookings with transactions...');
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  // === BOOKING 1: SCHEDULED (past - for teacher to mark complete) ===
-  const booking1 = await prisma.booking.create({
-    data: {
-      bookedByUserId: parent.id,
-      beneficiaryType: 'CHILD',
-      childId: child.id,
-      teacherId: teacherProfile!.id,
+      readableId: 'PKG-DEMO-01',
+      payerId: studentUser.id,
+      studentId: studentUser.id,
+      teacherId: teacherProfile.id,
       subjectId: math.id,
-      startTime: yesterday,
-      endTime: new Date(yesterday.getTime() + 60 * 60 * 1000),
-      price: 100,
-      commissionRate: 0.18,
-      status: 'SCHEDULED',
-      timezone: 'Asia/Riyadh',
-    },
+      sessionCount: 10,
+      sessionsUsed: 0,
+      originalPricePerSession: 5000,
+      discountedPricePerSession: 4500,
+      perSessionReleaseAmount: 4500,
+      totalPaid: pkgPrice,
+      escrowRemaining: pkgPrice,
+      status: 'ACTIVE',
+      expiresAt: new Date(now.getFullYear() + 1, 0, 1), // 1 year expiry
+    }
   });
 
-  // Create PAYMENT_LOCK transaction for booking1
-  await prisma.transaction.create({
-    data: {
-      walletId: parentWallet.id,
-      amount: 100,
-      type: 'PAYMENT_LOCK',
-      status: 'APPROVED',
-      adminNote: `Funds locked for booking ${booking1.id}`,
-    },
-  });
-
-  // === BOOKING 2: PENDING_CONFIRMATION (with dispute window - completed but not confirmed) ===
-  const booking2 = await prisma.booking.create({
-    data: {
-      bookedByUserId: parent.id,
-      beneficiaryType: 'CHILD',
-      childId: child.id,
-      teacherId: teacherProfile!.id,
-      subjectId: math.id,
-      startTime: new Date(now.getTime() - 60 * 60 * 1000),
-      endTime: now,
-      price: 100,
-      commissionRate: 0.18,
-      status: 'PENDING_CONFIRMATION',
-      disputeWindowOpensAt: now,
-      disputeWindowClosesAt: new Date(now.getTime() + 47 * 60 * 60 * 1000),
-      teacherCompletedAt: now,
-      paymentReleasedAt: now,  // Payment was released when marked complete
-      timezone: 'Asia/Riyadh',
-    },
-  });
-
-  // PAYMENT_LOCK for booking2 (when it was first scheduled)
-  await prisma.transaction.create({
-    data: {
-      walletId: parentWallet.id,
-      amount: 100,
-      type: 'PAYMENT_LOCK',
-      status: 'APPROVED',
-      adminNote: `Funds locked for booking ${booking2.id}`,
-    },
-  });
-
-  // PAYMENT_RELEASE for booking2 (parent's escrow released)
-  await prisma.transaction.create({
-    data: {
-      walletId: parentWallet.id,
-      amount: -100,  // Negative = money leaving
-      type: 'PAYMENT_RELEASE',
-      status: 'APPROVED',
-      adminNote: `Payment for booking ${booking2.id}`,
-    },
-  });
-
-  // PAYMENT_RELEASE for booking2 (teacher receives 82 = 100 - 18% commission)
-  const teacherEarnings2 = 100 * (1 - 0.18);
-  await prisma.transaction.create({
-    data: {
-      walletId: teacherWallet.id,
-      amount: teacherEarnings2,
-      type: 'PAYMENT_RELEASE',
-      status: 'APPROVED',
-      adminNote: `Earnings from booking ${booking2.id} (18% commission deducted)`,
-    },
-  });
-
-  // Update teacher balance to reflect payment received
-  await prisma.wallet.update({
-    where: { id: teacherWallet.id },
-    data: { balance: 500 + teacherEarnings2 }, // 500 + 82 = 582
-  });
-
-  // Update parent pendingBalance (one booking released, one still pending)
-  await prisma.wallet.update({
-    where: { id: parentWallet.id },
-    data: { pendingBalance: 100 }, // Only booking1 still locked
-  });
-
-  // === BOOKING 3: Future SCHEDULED booking (student booking) ===
-  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const booking3 = await prisma.booking.create({
-    data: {
-      bookedByUserId: student.id,
-      beneficiaryType: 'STUDENT',
-      studentUserId: student.id,
-      teacherId: teacherProfile!.id,
-      subjectId: science.id,
-      startTime: tomorrow,
-      endTime: new Date(tomorrow.getTime() + 60 * 60 * 1000),
-      price: 100,
-      commissionRate: 0.18,
-      status: 'SCHEDULED',
-      timezone: 'Asia/Riyadh',
-    },
-  });
-
-  // PAYMENT_LOCK for booking3
+  // Deduct from wallet
+  await prisma.wallet.update({ where: { id: studentWallet.id }, data: { balance: { decrement: pkgPrice } } });
   await prisma.transaction.create({
     data: {
       walletId: studentWallet.id,
-      amount: 100,
-      type: 'PAYMENT_LOCK',
+      amount: -pkgPrice, // Negative for deduction
+      type: 'PACKAGE_PURCHASE',
       status: 'APPROVED',
-      adminNote: `Funds locked for booking ${booking3.id}`,
-    },
+      readableId: 'TX-PKG-001',
+      adminNote: 'Purchased 10 sessions Math package'
+    }
   });
 
-  // 9. Create notification for pending confirmation
-  console.log('🔔 Creating notifications...');
-  await prisma.notification.create({
+  // SCENARIO B: Completed & Disputed Booking (Parent triggers)
+  // Booking ID: BK-DISPUTE-01
+  const disputeBooking = await prisma.booking.create({
     data: {
-      userId: parent.id,
-      title: 'جلسة مكتملة - Session Completed',
-      message: 'أكمل المعلم الجلسة. لديك 48 ساعة للمراجعة أو فتح نزاع إذا لزم الأمر.',
-      type: 'BOOKING_APPROVED',
-      link: `/parent/bookings`,
-      metadata: {
-        bookingId: booking2.id,
-        disputeDeadline: new Date(now.getTime() + 47 * 60 * 60 * 1000).toISOString(),
-      },
-      status: 'UNREAD',
-    },
+      readableId: 'BK-DISPUTE-01',
+      bookedByUserId: parentUser.id,
+      beneficiaryType: 'CHILD',
+      childId: child.id,
+      teacherId: teacherProfile.id,
+      subjectId: science.id,
+      startTime: new Date(now.getTime() - 48 * 60 * 60 * 1000), // 2 days ago
+      endTime: new Date(now.getTime() - 47 * 60 * 60 * 1000),
+      price: 4500,
+      status: 'DISPUTED',
+      disputeWindowOpensAt: new Date(now.getTime() - 47 * 60 * 60 * 1000),
+      paymentLockedAt: new Date(now.getTime() - 96 * 60 * 60 * 1000),
+    }
+  });
+  // Create Dispute
+  await prisma.dispute.create({
+    data: {
+      bookingId: disputeBooking.id,
+      raisedByUserId: parentUser.id,
+      type: 'TECHNICAL_ISSUE',
+      description: 'Connection was very bad, could not hear the teacher.',
+      status: 'PENDING'
+    }
+  });
+  // Lock funds (Parent Wallet -> Pending)
+  // For simplicity moving funds directly to pending
+  await prisma.wallet.update({
+    where: { userId: parentUser.id },
+    data: { balance: { decrement: 4500 }, pendingBalance: { increment: 4500 } }
   });
 
-  // 10. Verification Queries
+
+  // SCENARIO C: Completed & Pending Confirmation (Optimistic Release to Teacher)
+  // Booking ID: BK-CONFIRM-01
+  const completedBooking = await prisma.booking.create({
+    data: {
+      readableId: 'BK-CONFIRM-01',
+      bookedByUserId: parentUser.id,
+      beneficiaryType: 'CHILD',
+      childId: child.id,
+      teacherId: teacherProfile.id,
+      subjectId: science.id,
+      startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2 hours ago
+      endTime: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      price: 4500,
+      status: 'PENDING_CONFIRMATION',
+      disputeWindowOpensAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      disputeWindowClosesAt: new Date(now.getTime() + 46 * 60 * 60 * 1000), // 48h window
+      paymentReleasedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000), // Paid to teacher
+    }
+  });
+  // Money moved: Parent -4500, Teacher +3690 (4500 * 0.82)
+  await prisma.wallet.update({ where: { userId: parentUser.id }, data: { balance: { decrement: 4500 } } });
+  await prisma.wallet.update({ where: { userId: teacherUser.id }, data: { balance: { increment: 3690 } } });
+
+  await prisma.transaction.create({
+    data: { walletId: teacherWallet.id, amount: 3690, type: 'PAYMENT_RELEASE', status: 'APPROVED', readableId: 'TX-PAY-002' }
+  });
+
+
+  // SCENARIO D: Scheduled Future Booking (Locked Funds)
+  // Booking ID: BK-FUTURE-01
+  const futureBooking = await prisma.booking.create({
+    data: {
+      readableId: 'BK-FUTURE-01',
+      bookedByUserId: parentUser.id,
+      beneficiaryType: 'CHILD',
+      childId: child.id,
+      teacherId: teacherProfile.id,
+      subjectId: science.id,
+      startTime: new Date(now.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
+      endTime: new Date(now.getTime() + 25 * 60 * 60 * 1000),
+      price: 4500,
+      status: 'SCHEDULED',
+      paymentLockedAt: now,
+    }
+  });
+  // Lock funds
+  await prisma.wallet.update({
+    where: { userId: parentUser.id },
+    data: { balance: { decrement: 4500 }, pendingBalance: { increment: 4500 } }
+  });
+
+
+  // SCENARIO E: Pending Teacher Request (Student)
+  // Booking ID: BK-REQ-01
+  await prisma.booking.create({
+    data: {
+      readableId: 'BK-REQ-01',
+      bookedByUserId: studentUser.id,
+      beneficiaryType: 'STUDENT',
+      studentUserId: studentUser.id,
+      teacherId: teacherProfile.id,
+      subjectId: math.id,
+      startTime: new Date(now.getTime() + 48 * 60 * 60 * 1000), // Day after tomorrow
+      endTime: new Date(now.getTime() + 49 * 60 * 60 * 1000),
+      price: 5000,
+      status: 'PENDING_TEACHER_APPROVAL',
+      bookingNotes: 'I need help with Algebra please.',
+    }
+  });
+  // Usually we lock funds on request, let's lock it
+  await prisma.wallet.update({
+    where: { userId: studentUser.id },
+    data: { balance: { decrement: 5000 }, pendingBalance: { increment: 5000 } }
+  });
+
+
+  // SCENARIO F: Demo Session Request
+  // Booking ID: BK-DEMO-01
+  await prisma.booking.create({
+    data: {
+      readableId: 'BK-DEMO-01',
+      bookedByUserId: studentUser.id,
+      beneficiaryType: 'STUDENT',
+      studentUserId: studentUser.id,
+      teacherId: teacherProfile.id,
+      subjectId: math.id, // Subject doesn't strictly matter for demo, but we use Math
+      startTime: new Date(now.getTime() + 72 * 60 * 60 * 1000),
+      endTime: new Date(now.getTime() + 72 * 60 * 60 * 1000 + 15 * 60 * 1000), // 15 mins
+      price: 0,
+      status: 'PENDING_TEACHER_APPROVAL',
+      bookingNotes: 'Introduction session',
+    }
+  });
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('✅ SEED COMPLETE - VERIFICATION');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-  const allTransactions = await prisma.transaction.findMany({
-    include: { wallet: { include: { user: true } } },
-    orderBy: { createdAt: 'asc' }
-  });
-
-  console.log(`📊 Total Transactions Created: ${allTransactions.length}`);
-  allTransactions.forEach((tx, i) => {
-    console.log(`  ${i + 1}. ${tx.type} | ${tx.amount} SDG | ${tx.wallet.user.phoneNumber} | ${tx.adminNote}`);
-  });
-
-  const finalBalances = await prisma.wallet.findMany({
-    include: { user: true }
-  });
-
-  console.log('\n💰 Final Wallet Balances:');
-  finalBalances.forEach(w => {
-    console.log(`  ${w.user.phoneNumber}: Balance=${w.balance}, Pending=${w.pendingBalance}`);
-  });
-
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('📋 Test Accounts:');
+  console.log('✅ COMPREHENSIVE SEED COMPLETE');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('👨‍🏫 Teacher: 0500000002 / password123');
-  console.log('   Balance: 582 SDG (500 initial + 82 from booking2)');
-  console.log('👨‍👩‍👧 Parent: 0500000004 / password123');
-  console.log('   Balance: 1000 SDG, Pending: 100 SDG (booking1 locked)');
-  console.log('🎓 Student: 0500000006 / password123');
-  console.log('   Balance: 200 SDG, Pending: 100 SDG (booking3 locked)');
+  console.log('Accounts:');
+  console.log('👉 Admin:   admin@sidra.com / password123');
+  console.log('👉 Teacher: teacher@sidra.com / password123 (Ahmad)');
+  console.log('👉 Parent:  parent@sidra.com / password123 (Khalid, Child: Sarah)');
+  console.log('👉 Student: student@sidra.com / password123 (Omar)');
+  console.log('\nData Scenarios:');
+  console.log('1. National Curriculum with Stages/Grades created.');
+  console.log('2. Teacher Ahmad has tags, subjects, and availability.');
+  console.log('3. Student Omar has a 10-session Math package.');
+  console.log('4. Parent has a DISPUTED booking (check Admin Panel).');
+  console.log('5. Parent has a PENDING_CONFIRMATION booking (check Dashboard).');
+  console.log('6. Teacher has 2 Pending Requests (1 regular, 1 demo).');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  console.log('📊 Test Bookings:');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`1. SCHEDULED (${booking1.id})`);
-  console.log('   → 100 SDG locked in parent escrow');
-  console.log('   → Teacher can mark complete');
-  console.log(`2. PENDING_CONFIRMATION (${booking2.id})`);
-  console.log('   → Payment already released (82 SDG to teacher)');
-  console.log('   → Parent can confirm or dispute (47h remaining)');
-  console.log(`3. SCHEDULED future (${booking3.id})`);
-  console.log('   → 100 SDG locked in student escrow');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  console.log('🧪 READY FOR E2E TESTING!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed error:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

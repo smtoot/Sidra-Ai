@@ -5,7 +5,7 @@ import { X, Calendar, Clock, ChevronLeft, ChevronRight, Loader2, CheckCircle, Us
 import { cn } from '@/lib/utils';
 import { marketplaceApi } from '@/lib/api/marketplace';
 import { packageApi } from '@/lib/api/package';
-import { format, addDays, startOfDay, isSameDay, addHours } from 'date-fns';
+import { format, addDays, startOfDay, isSameDay, addMinutes } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { getUserTimezone } from '@/lib/utils/timezone';
@@ -47,6 +47,7 @@ export function SchedulePackageSessionModal({
     const [selectedSlot, setSelectedSlot] = useState<SlotWithTimezone | null>(null);
     const [scheduling, setScheduling] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [sessionDurationMinutes, setSessionDurationMinutes] = useState(60); // Default 60 minutes
 
     const userTimezone = getUserTimezone();
 
@@ -54,6 +55,20 @@ export function SchedulePackageSessionModal({
     const visibleDates = Array.from({ length: 7 }, (_, i) =>
         addDays(startOfDay(new Date()), startDateOffset + i + 1)
     );
+
+    // Load platform configuration on mount
+    useEffect(() => {
+        const loadConfig = async () => {
+            try {
+                const config = await marketplaceApi.getPlatformConfig();
+                setSessionDurationMinutes(config.defaultSessionDurationMinutes);
+            } catch (err) {
+                console.error('Failed to load platform config:', err);
+                // Keep default 60 minutes
+            }
+        };
+        loadConfig();
+    }, []);
 
     useEffect(() => {
         if (isOpen && teacherId && selectedDate) {
@@ -83,9 +98,9 @@ export function SchedulePackageSessionModal({
 
         setScheduling(true);
         try {
-            // Use startTimeUtc from the slot - add 1 hour for endTime
+            // Use startTimeUtc from the slot - add configured duration for endTime
             const startTime = new Date(selectedSlot.startTimeUtc);
-            const endTime = addHours(startTime, 1);
+            const endTime = addMinutes(startTime, sessionDurationMinutes);
 
             await packageApi.scheduleSession(packageId, {
                 startTime: startTime.toISOString(),

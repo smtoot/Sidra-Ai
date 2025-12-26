@@ -52,6 +52,7 @@ export interface TeacherPublicProfile {
         text: string | null;
         tags: Array<{ id: string; labelAr: string }>;
     } | null;
+    isFavorited?: boolean;
 }
 
 export interface GradeLevel {
@@ -92,7 +93,16 @@ export interface Subject {
     isActive: boolean;
 }
 
+export interface PlatformConfig {
+    defaultSessionDurationMinutes: number;
+    allowedSessionDurations: number[];
+}
+
 export const marketplaceApi = {
+    getPlatformConfig: async (): Promise<PlatformConfig> => {
+        const response = await api.get('/marketplace/config');
+        return response.data;
+    },
     getCurricula: async (): Promise<Curriculum[]> => {
         const response = await api.get('/marketplace/curricula');
         return response.data;

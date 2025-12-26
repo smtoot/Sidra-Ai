@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
+import { FavoritesModule } from './favorites/favorites.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { TeacherModule } from './teacher/teacher.module';
 import { WalletModule } from './wallet/wallet.module';
@@ -46,6 +47,7 @@ import { TeachingApproachModule } from './teaching-approach/teaching-approach.mo
     StorageModule,
     PackageModule,
     TeachingApproachModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [

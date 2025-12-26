@@ -243,6 +243,17 @@ export class WalletService {
                         }
                     });
 
+                    // P1-1: Create ledger transaction for withdrawal completion
+                    await tx.transaction.create({
+                        data: {
+                            walletId: transaction.walletId,
+                            amount: transaction.amount,
+                            type: 'WITHDRAWAL_COMPLETED',
+                            status: 'APPROVED',
+                            adminNote: `Withdrawal ${transaction.id} paid out via ${dto.referenceId}`
+                        }
+                    });
+
                     // Notify User
                     await this.notificationService.notifyUser({
                         userId: transaction.wallet.userId,
@@ -260,6 +271,17 @@ export class WalletService {
                             balance: { increment: transaction.amount }
                         }
                     });
+
+                    // P1-1: Create ledger transaction for withdrawal refund
+                    await tx.transaction.create({
+                        data: {
+                            walletId: transaction.walletId,
+                            amount: transaction.amount,
+                            type: 'WITHDRAWAL_REFUNDED',
+                            status: 'APPROVED',
+                            adminNote: `Withdrawal ${transaction.id} rejected and refunded to balance`
+                        }
+                    });
                 }
             }
             // Logic for Deposit:
@@ -269,6 +291,17 @@ export class WalletService {
                         where: { id: transaction.walletId },
                         data: {
                             balance: { increment: transaction.amount }
+                        }
+                    });
+
+                    // P1-1: Create ledger transaction for deposit approval
+                    await tx.transaction.create({
+                        data: {
+                            walletId: transaction.walletId,
+                            amount: transaction.amount,
+                            type: 'DEPOSIT_APPROVED',
+                            status: 'APPROVED',
+                            adminNote: `Deposit ${transaction.id} approved and credited to balance`
                         }
                     });
                 }
@@ -338,7 +371,10 @@ export class WalletService {
         if (tx) {
             return operation(tx);
         } else {
-            return this.prisma.$transaction(operation);
+            // SECURITY: Use SERIALIZABLE isolation to prevent race conditions on balance checks
+            return this.prisma.$transaction(operation, {
+                isolationLevel: 'Serializable'
+            });
         }
     }
 
@@ -420,7 +456,10 @@ export class WalletService {
         if (tx) {
             return operation(tx);
         } else {
-            return this.prisma.$transaction(operation);
+            // SECURITY: Use SERIALIZABLE isolation for multi-wallet fund transfer
+            return this.prisma.$transaction(operation, {
+                isolationLevel: 'Serializable'
+            });
         }
     }
 
@@ -514,7 +553,10 @@ export class WalletService {
         if (tx) {
             return operation(tx);
         } else {
-            return this.prisma.$transaction(operation);
+            // SECURITY: Use SERIALIZABLE isolation for multi-wallet cancellation settlement
+            return this.prisma.$transaction(operation, {
+                isolationLevel: 'Serializable'
+            });
         }
     }
 
@@ -658,6 +700,9 @@ export class WalletService {
                     bankSnapshot: bankSnapshot
                 } as any
             });
+        }, {
+            // SECURITY: Use SERIALIZABLE isolation to prevent double-withdrawal and race conditions
+            isolationLevel: 'Serializable'
         });
     }
 }

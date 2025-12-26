@@ -85,7 +85,17 @@ export class AdminController {
     @Patch('settings')
     updateSettings(
         @Request() req: any,
-        @Body() dto: { platformFeePercent?: number; autoReleaseHours?: number }
+        @Body() dto: {
+            platformFeePercent?: number;
+            autoReleaseHours?: number;
+            paymentWindowHours?: number;
+            minHoursBeforeSession?: number;
+            packagesEnabled?: boolean;
+            demosEnabled?: boolean;
+            maxPricePerHour?: number;
+            defaultSessionDurationMinutes?: number;
+            allowedSessionDurations?: number[];
+        }
     ) {
         return this.settingsService.updateSettings(req.user.userId, dto);
     }

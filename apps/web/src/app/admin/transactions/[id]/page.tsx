@@ -98,11 +98,27 @@ export default function TransactionDetailsPage() {
 
     const getTypeColor = (type: string) => {
         switch (type) {
-            case 'DEPOSIT': return 'text-emerald-700 bg-emerald-50 border-emerald-100';
-            case 'WITHDRAWAL': return 'text-amber-700 bg-amber-50 border-amber-100';
-            case 'PAYMENT_RELEASE': return 'text-blue-700 bg-blue-50 border-blue-100';
-            case 'REFUND': return 'text-red-700 bg-red-50 border-red-100';
-            default: return 'text-gray-700 bg-gray-50 border-gray-100';
+            case 'DEPOSIT':
+            case 'DEPOSIT_APPROVED':
+                return 'text-emerald-700 bg-emerald-50 border-emerald-100';
+            case 'WITHDRAWAL':
+            case 'WITHDRAWAL_COMPLETED':
+            case 'WITHDRAWAL_REFUNDED':
+                return 'text-amber-700 bg-amber-50 border-amber-100';
+            case 'PAYMENT_LOCK':
+                return 'text-purple-700 bg-purple-50 border-purple-100';
+            case 'PAYMENT_RELEASE':
+            case 'PACKAGE_RELEASE':
+                return 'text-blue-700 bg-blue-50 border-blue-100';
+            case 'REFUND':
+            case 'CANCELLATION_COMPENSATION':
+                return 'text-red-700 bg-red-50 border-red-100';
+            case 'PACKAGE_PURCHASE':
+                return 'text-indigo-700 bg-indigo-50 border-indigo-100';
+            case 'ESCROW_RELEASE':
+                return 'text-teal-700 bg-teal-50 border-teal-100';
+            default:
+                return 'text-gray-700 bg-gray-50 border-gray-100';
         }
     };
 

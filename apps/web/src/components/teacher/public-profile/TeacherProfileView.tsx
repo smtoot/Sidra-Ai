@@ -8,8 +8,10 @@ import { cn } from '@/lib/utils';
 import {
     ArrowRight, Star, GraduationCap, Clock, CheckCircle,
     Calendar, MessageSquare, ChevronDown, Sparkles,
-    ShieldCheck, Play, Users, Sun, Sunset, Moon, Gift
+    ShieldCheck, Play, Users, Sun, Sunset, Moon, Gift, Share
 } from 'lucide-react';
+import { ShareModal } from '../ShareModal';
+import { FavoriteButton } from '../FavoriteButton';
 import { toast } from 'sonner';
 
 // --- Helper Functions & Constants ---
@@ -97,6 +99,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
     const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
         teacher.subjects.length > 0 ? teacher.subjects[0].subject.id : null
     );
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [selectedOptionId, setSelectedOptionId] = useState<string>('single');
 
     // Ratings dummy state management (since we don't have separate ratings logic here yet)
@@ -211,6 +214,25 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <span>معلم موثق</span>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 mt-6">
+                            {!isPreview && (
+                                <FavoriteButton
+                                    teacherId={teacher.id}
+                                    initialIsFavorited={teacher.isFavorited}
+                                    className="bg-white/90 hover:bg-white shadow-sm border border-gray-100 w-10 h-10 ring-1 ring-gray-200"
+                                />
+                            )}
+                            <Button
+                                variant="outline"
+                                className="bg-white/90 hover:bg-white shadow-sm border border-gray-100 gap-2 rounded-full ring-1 ring-gray-200"
+                                onClick={() => setIsShareModalOpen(true)}
+                            >
+                                <Share className="w-4 h-4" />
+                                <span>مشاركة</span>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -542,6 +564,14 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                 userRole="PARENT"
                 initialSubjectId={selectedSubjectId || undefined}
                 initialOptionId={selectedOptionId}
+            />
+
+            <ShareModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                teacherName={teacher.displayName || 'معلم سدرة'}
+                teacherSlug={teacher.id} // Ideally use slug if available, but id works
+                bio={teacher.bio || undefined}
             />
         </div>
     );

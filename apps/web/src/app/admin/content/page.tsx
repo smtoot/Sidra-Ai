@@ -108,9 +108,16 @@ export default function AdminContentPage() {
             switch (activeTab) {
                 case 'CURRICULA':
                     if (editingItem) {
-                        await adminApi.updateCurriculum(editingItem.id, formData);
+                        await adminApi.updateCurriculum(editingItem.id, {
+                            nameAr: formData.nameAr,
+                            nameEn: formData.nameEn
+                        });
                     } else {
-                        await adminApi.createCurriculum(formData);
+                        await adminApi.createCurriculum({
+                            nameAr: formData.nameAr,
+                            nameEn: formData.nameEn,
+                            code: formData.code
+                        });
                     }
                     break;
                 case 'STAGES':

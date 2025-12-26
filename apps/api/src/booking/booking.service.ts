@@ -237,6 +237,11 @@ export class BookingService {
                 throw new ForbiddenException('Not your booking');
             }
 
+            // Validate that teacher has a meeting link configured
+            if (!booking.teacherProfile.encryptedMeetingLink) {
+                throw new BadRequestException('يجب إضافة رابط الاجتماع في الإعدادات قبل الموافقة على الطلبات');
+            }
+
             // Idempotency: if already SCHEDULED or beyond, return current state
             if (booking.status === 'SCHEDULED' || booking.status === 'COMPLETED' || booking.status === 'PENDING_CONFIRMATION') {
                 return { booking, paymentRequired: false, isPackage: false };
@@ -795,6 +800,9 @@ export class BookingService {
                     where: { id: bookingId, status: 'WAITING_FOR_PAYMENT' },
                     data: { status: 'SCHEDULED' }
                 });
+            }, {
+                // SECURITY: Use SERIALIZABLE isolation for payment locking
+                isolationLevel: 'Serializable'
             });
         }
 
@@ -986,6 +994,9 @@ export class BookingService {
             );
 
             return { updatedBooking, bookingContext: booking, alreadyCompleted: false };
+        }, {
+            // SECURITY: Use SERIALIZABLE isolation for payment release
+            isolationLevel: 'Serializable'
         });
 
         // Skip side effects if already completed (idempotency)
@@ -1509,6 +1520,9 @@ export class BookingService {
                     : booking.teacherProfile.user.id,  // Notify teacher if parent cancelled
                 cancelledByRole: userRole
             };
+        }, {
+            // SECURITY: Use SERIALIZABLE isolation for cancellation settlement
+            isolationLevel: 'Serializable'
         });
 
         // Notify the other party about cancellation (after transaction commits)

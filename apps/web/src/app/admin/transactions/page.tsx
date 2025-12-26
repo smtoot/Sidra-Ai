@@ -76,12 +76,18 @@ export default function AdminTransactionsPage() {
 
     const getTypeLabel = (type: TransactionType): string => {
         const labels: Record<TransactionType, string> = {
-            'DEPOSIT': 'إيداع',
-            'WITHDRAWAL': 'سحب',
+            'DEPOSIT': 'طلب إيداع',
+            'WITHDRAWAL': 'طلب سحب',
             'PAYMENT_LOCK': 'حجز مبلغ',
             'PAYMENT_RELEASE': 'تحويل للمعلم',
             'REFUND': 'استرجاع',
-            'COMMISSION': 'عمولة',
+            'CANCELLATION_COMPENSATION': 'تعويض إلغاء',
+            'PACKAGE_PURCHASE': 'شراء باقة',
+            'PACKAGE_RELEASE': 'دفعة من باقة',
+            'ESCROW_RELEASE': 'تسوية نزاع',
+            'WITHDRAWAL_COMPLETED': 'سحب مكتمل',
+            'WITHDRAWAL_REFUNDED': 'إلغاء سحب',
+            'DEPOSIT_APPROVED': 'إيداع مكتمل',
         };
         return labels[type] || type;
     };
@@ -119,11 +125,18 @@ export default function AdminTransactionsPage() {
                                 onChange={(e) => handleFilterChange('type', e.target.value)}
                             >
                                 <option value="">جميع الأنواع</option>
-                                <option value="DEPOSIT">إيداع</option>
-                                <option value="WITHDRAWAL">سحب</option>
+                                <option value="DEPOSIT">طلب إيداع</option>
+                                <option value="DEPOSIT_APPROVED">إيداع مكتمل</option>
+                                <option value="WITHDRAWAL">طلب سحب</option>
+                                <option value="WITHDRAWAL_COMPLETED">سحب مكتمل</option>
+                                <option value="WITHDRAWAL_REFUNDED">إلغاء سحب</option>
                                 <option value="PAYMENT_LOCK">حجز مبلغ</option>
-                                <option value="PAYMENT_RELEASE">تحويل</option>
+                                <option value="PAYMENT_RELEASE">تحويل للمعلم</option>
                                 <option value="REFUND">استرجاع</option>
+                                <option value="CANCELLATION_COMPENSATION">تعويض إلغاء</option>
+                                <option value="PACKAGE_PURCHASE">شراء باقة</option>
+                                <option value="PACKAGE_RELEASE">دفعة من باقة</option>
+                                <option value="ESCROW_RELEASE">تسوية نزاع</option>
                             </Select>
                         </div>
 

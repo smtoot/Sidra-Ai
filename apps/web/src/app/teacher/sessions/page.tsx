@@ -4,13 +4,15 @@ import { useState, useEffect, useMemo } from 'react';
 import { bookingApi, Booking, BookingStatus } from '@/lib/api/booking';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Video, Bell, Loader2, Eye } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Video, Bell, Loader2, Eye, Link as LinkIcon, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard';
 import Link from 'next/link';
 import { BookingCard } from '@/components/teacher/BookingCard';
+import { teacherApi } from '@/lib/api/teacher';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,6 +23,9 @@ export default function TeacherSessionsPage() {
     const [completingId, setCompletingId] = useState<string | null>(null);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [selectedBookingForComplete, setSelectedBookingForComplete] = useState<Booking | null>(null);
+    const [showMeetingLinkInput, setShowMeetingLinkInput] = useState(false);
+    const [meetingLinkInput, setMeetingLinkInput] = useState('');
+    const [savingMeetingLink, setSavingMeetingLink] = useState(false);
 
     const loadSessions = async (silent = false) => {
         if (!silent) setLoading(true);
@@ -53,6 +58,11 @@ export default function TeacherSessionsPage() {
         return bookings.filter(booking => booking.status === 'PENDING_CONFIRMATION');
     }, [bookings]);
 
+    // Check if there are any scheduled sessions without meeting links
+    const sessionsWithoutMeetingLink = useMemo(() => {
+        return bookings.filter(booking => booking.status === 'SCHEDULED' && !booking.meetingLink);
+    }, [bookings]);
+
     const handleCompleteSession = async () => {
         if (!selectedBookingForComplete) return;
 
@@ -68,6 +78,35 @@ export default function TeacherSessionsPage() {
             toast.error('حدث خطأ أثناء إنهاء الحصة');
         } finally {
             setCompletingId(null);
+        }
+    };
+
+    const handleSaveMeetingLink = async () => {
+        if (!meetingLinkInput.trim()) {
+            toast.error('يرجى إدخال رابط الاجتماع');
+            return;
+        }
+
+        // Basic URL validation
+        try {
+            new URL(meetingLinkInput);
+        } catch {
+            toast.error('يرجى إدخال رابط صحيح (مثال: https://meet.google.com/abc-defg-hij)');
+            return;
+        }
+
+        setSavingMeetingLink(true);
+        try {
+            await teacherApi.updateProfile({ meetingLink: meetingLinkInput });
+            toast.success('تم حفظ رابط الاجتماع بنجاح! ✅');
+            setShowMeetingLinkInput(false);
+            setMeetingLinkInput('');
+            await loadSessions(true); // Reload to get updated meeting links
+        } catch (error) {
+            console.error('Failed to save meeting link', error);
+            toast.error('فشل حفظ رابط الاجتماع');
+        } finally {
+            setSavingMeetingLink(false);
         }
     };
 
@@ -121,6 +160,85 @@ export default function TeacherSessionsPage() {
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">حصصي</h1>
                         <p className="text-sm md:text-base text-gray-600">الجدول الدراسي وجميع الحصص</p>
                     </header>
+
+                    {/* Missing Meeting Link Banner */}
+                    {sessionsWithoutMeetingLink.length > 0 && (
+                        <Card className="border-red-200 bg-red-50">
+                            <CardContent className="p-5">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <AlertCircle className="w-5 h-5 text-red-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-red-800 mb-1">
+                                            ⚠️ رابط الاجتماع غير متوفر ({sessionsWithoutMeetingLink.length} حصة)
+                                        </h3>
+                                        <p className="text-sm text-red-700 mb-3">
+                                            لديك حصص مجدولة ولكن لم تقم بإضافة رابط الاجتماع بعد. أضف الرابط الآن لتتمكن من بدء الحصص.
+                                        </p>
+
+                                        {!showMeetingLinkInput ? (
+                                            <Button
+                                                onClick={() => setShowMeetingLinkInput(true)}
+                                                size="sm"
+                                                className="bg-red-600 hover:bg-red-700 text-white gap-2"
+                                            >
+                                                <LinkIcon className="w-4 h-4" />
+                                                إضافة رابط الاجتماع الآن
+                                            </Button>
+                                        ) : (
+                                            <div className="bg-white rounded-lg p-4 border border-red-200">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    رابط الاجتماع (Google Meet, Zoom, Teams)
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        type="url"
+                                                        placeholder="https://meet.google.com/abc-defg-hij"
+                                                        value={meetingLinkInput}
+                                                        onChange={(e) => setMeetingLinkInput(e.target.value)}
+                                                        className="flex-1"
+                                                        dir="ltr"
+                                                        disabled={savingMeetingLink}
+                                                    />
+                                                    <Button
+                                                        onClick={handleSaveMeetingLink}
+                                                        disabled={savingMeetingLink || !meetingLinkInput.trim()}
+                                                        className="bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        {savingMeetingLink ? (
+                                                            <>
+                                                                <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                                                                جاري الحفظ...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Save className="w-4 h-4 ml-2" />
+                                                                حفظ
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => {
+                                                            setShowMeetingLinkInput(false);
+                                                            setMeetingLinkInput('');
+                                                        }}
+                                                        variant="outline"
+                                                        disabled={savingMeetingLink}
+                                                    >
+                                                        إلغاء
+                                                    </Button>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-2">
+                                                    💡 نصيحة: استخدم نفس رابط الاجتماع لجميع الحصص، أو يمكنك تغييره لاحقاً من الإعدادات
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Pending Completion Banner */}
                     {pendingCompletions.length > 0 && (
@@ -249,17 +367,20 @@ export default function TeacherSessionsPage() {
                                                                         <button
                                                                             className={cn(
                                                                                 "px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 shadow-sm text-sm",
-                                                                                buttonState.canStart
+                                                                                buttonState.canStart && booking.meetingLink
                                                                                     ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200"
                                                                                     : "bg-gray-100 text-gray-400 cursor-not-allowed",
-                                                                                buttonState.label.includes('🔴') && "animate-pulse"
+                                                                                buttonState.label.includes('🔴') && booking.meetingLink && "animate-pulse"
                                                                             )}
-                                                                            disabled={!buttonState.canStart}
+                                                                            disabled={!buttonState.canStart || !booking.meetingLink}
                                                                             onClick={() => {
-                                                                                if (buttonState.canStart) {
-                                                                                    window.open(booking.meetingLink || 'https://meet.google.com', '_blank');
+                                                                                if (buttonState.canStart && booking.meetingLink) {
+                                                                                    window.open(booking.meetingLink, '_blank');
+                                                                                } else if (buttonState.canStart && !booking.meetingLink) {
+                                                                                    toast.error('رابط الاجتماع غير متوفر. يرجى إضافة رابط الاجتماع في الإعدادات');
                                                                                 }
                                                                             }}
+                                                                            title={!booking.meetingLink ? 'يجب إضافة رابط الاجتماع في الإعدادات أولاً' : ''}
                                                                         >
                                                                             <Video className="w-4 h-4" />
                                                                             {buttonState.label}

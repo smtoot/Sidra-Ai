@@ -192,6 +192,9 @@ export class PackageService {
             });
 
             return studentPackage;
+        }, {
+            // SECURITY: Use SERIALIZABLE isolation for package purchase
+            isolationLevel: 'Serializable'
         });
     }
 
@@ -292,6 +295,9 @@ export class PackageService {
                     amount: releaseAmount
                 }
             });
+        }, {
+            // SECURITY: Use SERIALIZABLE isolation for session payment release
+            isolationLevel: 'Serializable'
         });
     }
 
@@ -372,6 +378,9 @@ export class PackageService {
                     amount: refundAmount
                 }
             });
+        }, {
+            // SECURITY: Use SERIALIZABLE isolation for package cancellation refund
+            isolationLevel: 'Serializable'
         });
     }
 

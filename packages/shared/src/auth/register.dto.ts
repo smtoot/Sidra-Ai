@@ -1,4 +1,5 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsStrongPassword } from '../validators/password.validator';
 
 export enum UserRole {
     PARENT = 'PARENT',
@@ -18,7 +19,7 @@ export class RegisterDto {
     phoneNumber!: string; // Phone-first: phone is required
 
     @IsString()
-    @MinLength(8)
+    @IsStrongPassword() // P1-5: Strong password policy (12+ chars, uppercase, lowercase, number, special char)
     password!: string;
 
     @IsEnum(UserRole)

@@ -47,7 +47,21 @@ model User {
   rescheduleRequestsMade     RescheduleRequest[] @relation("RescheduleRequestedBy")
   rescheduleRequestsAnswered RescheduleRequest[] @relation("RescheduleRespondedBy")
 
+  savedTeachers  SavedTeacher[]
+
   @@map("users")
+}
+
+model SavedTeacher {
+  id        String         @id @default(uuid())
+  userId    String
+  teacherId String
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teacherId])
+  @@map("saved_teachers")
 }
 
 enum SystemType {
@@ -122,6 +136,8 @@ model TeacherProfile {
   // Teaching Approach
   teachingStyle          String?                 @db.Text
   teachingTags           TeacherTeachingApproachTag[]
+
+  savedBy                SavedTeacher[]
 
   @@map("teacher_profiles")
 }
@@ -516,6 +532,10 @@ enum TransactionType {
   PACKAGE_PURCHASE  // Package purchase wallet debit
   PACKAGE_RELEASE   // Package session release to teacher
   ESCROW_RELEASE    // Dispute escrow release (semantic)
+  // P1-1: Ledger completeness - track all balance mutations
+  WITHDRAWAL_COMPLETED  // Withdrawal paid out (pending -> external)
+  WITHDRAWAL_REFUNDED   // Withdrawal rejected (pending -> balance)
+  DEPOSIT_APPROVED      // Deposit approved (external -> balance)
 }
 
 enum TransactionStatus {
@@ -578,6 +598,13 @@ model SystemSettings {
   // NEW: Feature Toggles
   packagesEnabled            Boolean  @default(true)
   demosEnabled             Boolean  @default(true)
+
+  // NEW: Configurable Business Rules
+  maxPricePerHour            Decimal  @default(50000) @db.Decimal(10, 2) // Maximum allowed price per hour (SDG)
+
+  // Session Duration Configuration (Future-proof design)
+  defaultSessionDurationMinutes Int      @default(60) // Default session length (currently platform-wide)
+  allowedSessionDurations       Int[]    @default([60]) // Allowed durations in minutes (for future teacher selection)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

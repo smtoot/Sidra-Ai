@@ -1,6 +1,6 @@
 
 import { PrismaClient, TransactionType } from '@prisma/client';
-import { ReadableIdService } from '../apps/api/src/common/readable-id/readable-id.service';
+// ReadableIdService logic is replicated locally to avoid dependency issues
 
 // Mock ReadableIdService to use Prisma directly or reuse logic
 // Since we can't easily import the NestJS service here without context, 
