@@ -15,6 +15,7 @@ export * from './src/wallet/wallet.dto';
 
 // Booking
 export * from './src/booking/booking.dto';
+export * from './src/booking/payment-proof.dto';
 
 // Teacher
 export * from './src/teacher/update-profile.dto';

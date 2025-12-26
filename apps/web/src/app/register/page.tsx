@@ -5,34 +5,72 @@ import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@sidra/shared';
 import Link from 'next/link';
 
+// Common country codes for MENA region
+const COUNTRY_CODES = [
+    { code: '+966', country: 'السعودية', flag: '🇸🇦' },
+    { code: '+971', country: 'الإمارات', flag: '🇦🇪' },
+    { code: '+965', country: 'الكويت', flag: '🇰🇼' },
+    { code: '+973', country: 'البحرين', flag: '🇧🇭' },
+    { code: '+968', country: 'عُمان', flag: '🇴🇲' },
+    { code: '+974', country: 'قطر', flag: '🇶🇦' },
+    { code: '+20', country: 'مصر', flag: '🇪🇬' },
+    { code: '+962', country: 'الأردن', flag: '🇯🇴' },
+    { code: '+961', country: 'لبنان', flag: '🇱🇧' },
+    { code: '+970', country: 'فلسطين', flag: '🇵🇸' },
+    { code: '+212', country: 'المغرب', flag: '🇲🇦' },
+    { code: '+216', country: 'تونس', flag: '🇹🇳' },
+    { code: '+213', country: 'الجزائر', flag: '🇩🇿' },
+    { code: '+967', country: 'اليمن', flag: '🇾🇪' },
+    { code: '+964', country: 'العراق', flag: '🇮🇶' },
+    { code: '+963', country: 'سوريا', flag: '🇸🇾' },
+];
+
 export default function RegisterPage() {
     const { register } = useAuth();
     const [email, setEmail] = useState('');
+    const [countryCode, setCountryCode] = useState('+966');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [password, setPassword] = useState('');
     const [firstName, setFirstName] = useState('');
     const [role, setRole] = useState<string>('PARENT');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    // firstName is required for PARENT and STUDENT only
-    const isFirstNameRequired = role === 'PARENT' || role === 'STUDENT';
+    // Name is required for all roles
+    const isTeacher = role === 'TEACHER';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (isFirstNameRequired && !firstName.trim()) {
-            setError('الاسم الأول مطلوب');
+        setError('');
+
+        // Validate name for all roles
+        if (!firstName.trim()) {
+            setError('الاسم مطلوب');
             return;
         }
+
+        // Validate phone number
+        if (!phoneNumber.trim()) {
+            setError('رقم الجوال مطلوب');
+            return;
+        }
+
+        // Format full phone number with country code
+        const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
+
+        setIsLoading(true);
         try {
             await register({
                 email: email || undefined,
-                phoneNumber,
+                phoneNumber: fullPhoneNumber,
                 password,
                 role: role as any,
-                firstName: firstName || undefined
+                firstName: firstName.trim()
             });
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Registration failed');
+            setError(err.response?.data?.message || 'فشل التسجيل. حاول مرة أخرى.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -50,12 +88,13 @@ export default function RegisterPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+                    {/* Role Selection */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             أنا أريد التسجيل كـ:
                         </label>
                         <div className="mt-2 flex gap-4">
-                            <label className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="radio"
                                     name="role"
@@ -66,7 +105,7 @@ export default function RegisterPage() {
                                 />
                                 <span className="text-gray-900 dark:text-gray-100">ولي أمر</span>
                             </label>
-                            <label className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="radio"
                                     name="role"
@@ -77,7 +116,7 @@ export default function RegisterPage() {
                                 />
                                 <span className="text-gray-900 dark:text-gray-100">طالب</span>
                             </label>
-                            <label className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="radio"
                                     name="role"
@@ -91,68 +130,94 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
-                    {/* First Name - Required for Parent/Student */}
-                    {isFirstNameRequired && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                الاسم الأول *
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                placeholder="أدخل اسمك الأول"
-                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                value={firstName}
-                                onChange={(e) => setFirstName(e.target.value)}
-                            />
-                        </div>
-                    )}
-
+                    {/* Name Field - Required for ALL roles */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            رقم الجوال *
+                            {isTeacher ? 'الاسم الكامل' : 'الاسم الأول'} <span className="text-red-500">*</span>
                         </label>
                         <input
-                            type="tel"
+                            type="text"
                             required
-                            placeholder="05XXXXXXXX"
+                            placeholder={isTeacher ? 'أدخل اسمك الكامل' : 'أدخل اسمك الأول'}
                             className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
                         />
+                        {isTeacher && (
+                            <p className="mt-1 text-xs text-gray-500">سيظهر هذا الاسم في ملفك الشخصي</p>
+                        )}
                     </div>
 
+                    {/* Phone Number with Country Code */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            رقم الجوال <span className="text-red-500">*</span>
+                        </label>
+                        <div className="mt-1 flex gap-2">
+                            {/* Country Code Selector */}
+                            <select
+                                value={countryCode}
+                                onChange={(e) => setCountryCode(e.target.value)}
+                                className="w-[140px] rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
+                            >
+                                {COUNTRY_CODES.map((c) => (
+                                    <option key={c.code} value={c.code}>
+                                        {c.flag} {c.code}
+                                    </option>
+                                ))}
+                            </select>
+                            {/* Phone Number Input */}
+                            <input
+                                type="tel"
+                                required
+                                placeholder="5XXXXXXXX"
+                                className="flex-1 rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                dir="ltr"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Email - Optional */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             البريد الإلكتروني (اختياري)
                         </label>
                         <input
                             type="email"
+                            placeholder="example@email.com"
                             className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            dir="ltr"
                         />
                     </div>
 
+                    {/* Password */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            كلمة المرور
+                            كلمة المرور <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="password"
                             required
                             minLength={8}
+                            placeholder="••••••••"
                             className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
+                        <p className="mt-1 text-xs text-gray-500">8 أحرف على الأقل</p>
                     </div>
 
+                    {/* Submit Button */}
                     <button
                         type="submit"
-                        className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        disabled={isLoading}
+                        className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        إنشاء الحساب
+                        {isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
                     </button>
                 </form>
 

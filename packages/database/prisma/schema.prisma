@@ -405,6 +405,15 @@ model Booking {
   paymentReleasedAt DateTime? // When funds were moved to teacher
   paymentDeadline  DateTime? // NEW: Deadline for payment if balance was insufficient
 
+  // Payment Proof Tracking (Manual Payment Verification)
+  paymentProofUrl       String?   // URL to uploaded payment receipt/screenshot
+  paymentProofUploadedAt DateTime? // When parent/student uploaded proof
+  paymentVerifiedBy     String?   // Admin user ID who verified payment
+  paymentVerifiedAt     DateTime? // When admin approved payment
+  paymentRejectedBy     String?   // Admin user ID who rejected payment
+  paymentRejectedAt     DateTime? // When admin rejected payment
+  paymentRejectionNote  String?   // Why payment was rejected (to show parent)
+
   // Dispute & Confirmation
   studentConfirmedAt    DateTime? // When student clicked "Confirm Session"
   teacherCompletedAt DateTime? // DEPRECATED: Use disputeWindowOpensAt
