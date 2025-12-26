@@ -1,13 +1,15 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { useOnboarding } from '../OnboardingContext';
-import { ArrowLeft, ArrowRight, Loader2, GraduationCap, Clock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { BioField, ExperienceFields } from '@/components/teacher/shared';
 
+/**
+ * Onboarding Step 2: Teaching Experience
+ * Uses shared components for consistency with Profile Hub
+ */
 export function ExperienceStep() {
     const { data, updateData, setCurrentStep, saveCurrentStep, saving } = useOnboarding();
 
@@ -38,58 +40,20 @@ export function ExperienceStep() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-6">
-                {/* Years of Experience */}
-                <div className="space-y-2">
-                    <Label className="text-base font-medium flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-primary" />
-                        سنوات الخبرة في التدريس
-                    </Label>
-                    <div className="flex items-center gap-3">
-                        <Input
-                            type="number"
-                            min={0}
-                            max={50}
-                            value={data.yearsOfExperience}
-                            onChange={(e) => updateData({ yearsOfExperience: Number(e.target.value) })}
-                            className="w-24 h-12 text-center text-lg font-bold"
-                        />
-                        <span className="text-text-subtle">سنة</span>
-                    </div>
-                </div>
+                {/* Experience Fields - Using shared component */}
+                <ExperienceFields
+                    yearsOfExperience={data.yearsOfExperience}
+                    education={data.education}
+                    onChange={(updates) => updateData(updates)}
+                />
 
-                {/* Education */}
-                <div className="space-y-2">
-                    <Label className="text-base font-medium flex items-center gap-2">
-                        <GraduationCap className="w-5 h-5 text-primary" />
-                        المؤهل العلمي
-                    </Label>
-                    <Input
-                        value={data.education}
-                        onChange={(e) => updateData({ education: e.target.value })}
-                        placeholder="مثال: بكالوريوس تربية - جامعة الخرطوم"
-                        className="h-12"
-                    />
-                </div>
-
-                {/* Bio */}
-                <div className="space-y-2">
-                    <Label className="text-base font-medium">عن نفسك (سيظهر للطلاب وأولياء الأمور)</Label>
-                    <Textarea
-                        value={data.bio}
-                        onChange={(e) => updateData({ bio: e.target.value })}
-                        placeholder="اكتب نبذة تعريفية عن نفسك وأسلوبك في التدريس..."
-                        rows={5}
-                        className="resize-none"
-                    />
-                    <div className="flex justify-between text-sm">
-                        <p className="text-amber-600 flex items-center gap-1">
-                            💡 اذكر أسلوبك في التدريس وإنجازاتك مع الطلاب
-                        </p>
-                        <span className={data.bio.length >= 50 ? 'text-green-600' : 'text-text-subtle'}>
-                            {data.bio.length} / 50 حرف (الحد الأدنى)
-                        </span>
-                    </div>
-                </div>
+                {/* Bio Field - Using shared component */}
+                <BioField
+                    value={data.bio}
+                    onChange={(bio) => updateData({ bio })}
+                    minLength={50}
+                    useWordCount={false}
+                />
             </div>
 
             {/* Navigation */}

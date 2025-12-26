@@ -157,6 +157,42 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         }
     }, [updateData]);
 
+    // AUTO-SAVE: Debounced save when data changes (after initial load)
+    const [hasLoadedInitially, setHasLoadedInitially] = useState(false);
+
+    useEffect(() => {
+        // Mark as loaded after first profile load
+        if (!loading && !hasLoadedInitially) {
+            setHasLoadedInitially(true);
+            return;
+        }
+
+        // Don't auto-save during loading or before initial load
+        if (loading || !hasLoadedInitially) return;
+
+        // Don't auto-save if on welcome or status dashboard
+        if (currentStep === 0 || currentStep === 6) return;
+
+        // Debounce: save after 2 seconds of no changes
+        const timer = setTimeout(() => {
+            teacherApi.updateProfile({
+                displayName: data.displayName || undefined,
+                fullName: data.fullName || undefined,
+                bio: data.bio || undefined,
+                yearsOfExperience: data.yearsOfExperience || undefined,
+                education: data.education || undefined,
+                gender: data.gender || undefined,
+                profilePhotoUrl: data.profilePhotoUrl || undefined,
+                introVideoUrl: data.introVideoUrl || undefined,
+            }).catch(err => {
+                console.error('Auto-save failed:', err);
+                // Silent fail - don't interrupt user
+            });
+        }, 2000);
+
+        return () => clearTimeout(timer);
+    }, [data, loading, hasLoadedInitially, currentStep]);
+
     useEffect(() => {
         loadProfile();
     }, [loadProfile]);
