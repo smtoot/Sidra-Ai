@@ -172,16 +172,49 @@ export function StatusDashboard() {
 
             {/* Approved Actions */}
             {status === 'APPROVED' && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center space-y-4">
-                    <p className="text-green-800 font-medium">
-                        🎊 مبروك! أنت الآن معلم معتمد في سِدرة
-                    </p>
-                    <Link
-                        href="/teacher"
-                        className="inline-block bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors"
-                    >
-                        انتقل إلى لوحة التحكم
-                    </Link>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-6 space-y-6">
+                    <div className="text-center">
+                        <p className="text-green-800 font-bold text-lg mb-2">
+                            🎊 مبروك! أنت الآن معلم/ة معتمد/ة في سِدرة
+                        </p>
+                        <p className="text-green-700">
+                            أكمل الخطوات التالية لتبدأ في استقبال الحجوزات
+                        </p>
+                    </div>
+
+                    {/* Next Steps */}
+                    <div className="bg-white rounded-lg p-4 border border-green-100 space-y-3">
+                        <h4 className="font-bold text-gray-700 mb-3">الخطوات التالية:</h4>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">1</span>
+                                <span>حدد أوقات التدريس المتاحة</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">2</span>
+                                <span>أضف بيانات الدفع لاستلام الأرباح</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">3</span>
+                                <span>أضف رابط Google Meet أو Zoom</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Link
+                            href="/teacher/profile-hub"
+                            className="inline-flex items-center justify-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors"
+                        >
+                            أكمل ملفك الشخصي
+                        </Link>
+                        <Link
+                            href="/teacher"
+                            className="inline-flex items-center justify-center gap-2 border border-green-300 text-green-700 px-6 py-3 rounded-xl font-medium hover:bg-green-100 transition-colors"
+                        >
+                            لوحة التحكم
+                        </Link>
+                    </div>
                 </div>
             )}
 

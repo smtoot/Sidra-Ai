@@ -14,10 +14,9 @@ import { TeacherDocumentUpload } from '@/components/teacher/TeacherDocumentUploa
 import { SubjectsManager } from '@/components/teacher/profile-hub/sections/SubjectsManager';
 import { TeachingApproachSection } from '@/components/teacher/profile-hub/sections/TeachingApproachSection';
 import { AccountSettingsSection } from '@/components/teacher/profile-hub/sections/AccountSettingsSection';
-// AvailabilityManager removed - now links to full /teacher/availability page
-// BankInfoSection removed - bank info managed in Wallet page only
 import { ProfilePreviewPage } from '@/components/teacher/profile-hub/ProfilePreviewModal';
 import { PersonalInfoSection } from '@/components/teacher/profile-hub/sections/PersonalInfoSection';
+import { NewTeacherWelcomeBanner } from '@/components/teacher/profile-hub/NewTeacherWelcomeBanner';
 import { toast } from 'sonner';
 import { Loader2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +30,7 @@ export default function ProfileHubPage() {
     const [saving, setSaving] = useState(false);
     const [activeSection, setActiveSection] = useState('profile');
     const [showPreview, setShowPreview] = useState(false);
+    const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
 
     const { percentage, items } = useProfileCompletion(profile, walletData);
 
@@ -149,10 +149,23 @@ export default function ProfileHubPage() {
                     )}
                 </header>
 
-                {/* Application Status Banner */}
-                <div className="mb-6">
-                    <ApplicationStatusBanner />
-                </div>
+                {/* Welcome Banner for Newly Approved Teachers */}
+                {isApproved && showWelcomeBanner && (
+                    <NewTeacherWelcomeBanner
+                        displayName={profile?.displayName}
+                        hasAvailability={(profile?.availability?.length || 0) > 0}
+                        hasBankInfo={walletData.hasBankInfo}
+                        hasMeetingLink={Boolean(profile?.meetingLink || profile?.encryptedMeetingLink)}
+                        onDismiss={() => setShowWelcomeBanner(false)}
+                    />
+                )}
+
+                {/* Application Status Banner (for non-approved states) */}
+                {!isApproved && (
+                    <div className="mb-6">
+                        <ApplicationStatusBanner />
+                    </div>
+                )}
 
                 {/* Main Layout */}
                 <div className="flex gap-6 relative">
