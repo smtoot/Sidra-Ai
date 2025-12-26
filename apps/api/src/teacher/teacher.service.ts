@@ -116,6 +116,10 @@ export class TeacherService {
         city: dto.city,
         country: dto.country,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+        // ID Verification fields
+        idType: dto.idType,
+        idNumber: dto.idNumber,
+        idImageUrl: dto.idImageUrl,
         // Mark onboarding as complete if basic info is present (simplification for MVP)
         // hasCompletedOnboarding: true,
       },

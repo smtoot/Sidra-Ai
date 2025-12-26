@@ -1,7 +1,7 @@
 'use client';
 
 import { Gender } from '@sidra/shared';
-import { ExperienceFields, GenderSelector } from '@/components/teacher/shared';
+import { ExperienceFields, GenderSelector, CertificatesSection } from '@/components/teacher/shared';
 
 interface QualificationsSectionProps {
     education: string;
@@ -17,7 +17,8 @@ interface QualificationsSectionProps {
 
 /**
  * Qualifications section for Profile Hub.
- * Uses shared ExperienceFields and GenderSelector components for consistency with Onboarding.
+ * Uses shared ExperienceFields, GenderSelector, and CertificatesSection components
+ * for consistency with Onboarding.
  */
 export function QualificationsSection({
     education,
@@ -42,6 +43,9 @@ export function QualificationsSection({
                 onChange={(g) => onUpdate({ gender: g })}
                 disabled={isReadOnly}
             />
+
+            {/* Certificates Section - Same as in Onboarding */}
+            <CertificatesSection disabled={isReadOnly} />
         </div>
     );
 }

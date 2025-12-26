@@ -118,6 +118,10 @@ model TeacherProfile {
   interviewScheduledAt   DateTime?
   interviewLink          String?
   rejectedAt             DateTime?
+  // --- ID Verification ---
+  idType                 IdType?             // Type of ID document
+  idNumber               String?             // ID number
+  idImageUrl             String?             // Uploaded ID image
   // --- Relations ---
   availability           Availability[]
   availabilityExceptions AvailabilityException[]
@@ -510,6 +514,14 @@ enum DocumentType {
   CERTIFICATE
   DEGREE
   OTHER
+}
+
+// Type of ID for teacher verification
+enum IdType {
+  NATIONAL_ID      // البطاقة الوطنية
+  PASSPORT         // جواز السفر
+  DRIVER_LICENSE   // رخصة القيادة
+  RESIDENT_PERMIT  // إقامة
 }
 
 enum DayOfWeek {

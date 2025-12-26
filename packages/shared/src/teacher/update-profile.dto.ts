@@ -5,6 +5,14 @@ export enum Gender {
     FEMALE = 'FEMALE',
 }
 
+// ID Type for verification
+export enum IdType {
+    NATIONAL_ID = 'NATIONAL_ID',       // البطاقة الوطنية
+    PASSPORT = 'PASSPORT',             // جواز السفر
+    DRIVER_LICENSE = 'DRIVER_LICENSE', // رخصة القيادة
+    RESIDENT_PERMIT = 'RESIDENT_PERMIT', // إقامة
+}
+
 // Valid meeting link patterns:
 // - Google Meet: https://meet.google.com/xxx-xxxx-xxx
 // - Zoom: https://zoom.us/j/123456789 or https://us04web.zoom.us/j/...
@@ -73,5 +81,17 @@ export class UpdateTeacherProfileDto {
     @IsOptional()
     @IsDateString()
     dateOfBirth?: string; // ISO date string (optional)
-}
 
+    // ID Verification Fields
+    @IsOptional()
+    @IsEnum(IdType)
+    idType?: IdType; // Type of ID document
+
+    @IsOptional()
+    @IsString()
+    idNumber?: string; // ID document number
+
+    @IsOptional()
+    @IsString()
+    idImageUrl?: string; // Uploaded ID image URL
+}

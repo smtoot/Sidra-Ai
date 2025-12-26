@@ -6,3 +6,5 @@ export { NameFields } from './NameFields';
 export { BioField } from './BioField';
 export { GenderSelector } from './GenderSelector';
 export { ExperienceFields } from './ExperienceFields';
+export { IdVerificationSection } from './IdVerificationSection';
+export { CertificatesSection } from './CertificatesSection';

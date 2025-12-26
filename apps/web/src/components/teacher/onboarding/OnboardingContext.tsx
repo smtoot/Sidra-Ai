@@ -21,7 +21,12 @@ export interface OnboardingData {
     // Step 3: Subjects (managed separately via API)
     subjects: any[];
 
-    // Step 4: Documents
+    // Step 4: ID Verification
+    idType: string | null;
+    idNumber: string;
+    idImageUrl: string | null;
+
+    // Legacy: Documents (still needed for certificates)
     documents: any[];
 
     // Application status
@@ -57,6 +62,9 @@ const defaultData: OnboardingData = {
     education: '',
     bio: '',
     subjects: [],
+    idType: null,
+    idNumber: '',
+    idImageUrl: null,
     documents: [],
     applicationStatus: null,
 };
@@ -92,6 +100,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                     education: profile.education || '',
                     bio: profile.bio || '',
                     subjects: profile.subjects || [],
+                    idType: profile.idType || null,
+                    idNumber: profile.idNumber || '',
+                    idImageUrl: profile.idImageUrl || null,
                     documents: profile.documents || [],
                     applicationStatus: status,
                 });
@@ -133,6 +144,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 gender: data.gender || undefined,
                 profilePhotoUrl: data.profilePhotoUrl || undefined,
                 introVideoUrl: data.introVideoUrl || undefined,
+                // ID Verification fields (cast to enum type)
+                idType: data.idType as any || undefined,
+                idNumber: data.idNumber || undefined,
+                idImageUrl: data.idImageUrl || undefined,
             });
         } catch (error) {
             console.error('Failed to save step', error);

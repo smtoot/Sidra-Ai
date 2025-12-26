@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { useOnboarding } from '../OnboardingContext';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { BioField, ExperienceFields } from '@/components/teacher/shared';
+import { BioField, ExperienceFields, CertificatesSection } from '@/components/teacher/shared';
 
 /**
- * Onboarding Step 2: Teaching Experience
- * Uses shared components for consistency with Profile Hub
+ * Onboarding Step 2: Teaching Experience & Qualifications
+ * Uses shared components for consistency with Profile Hub.
+ * Now includes Certificates section (moved from Documents step).
  */
 export function ExperienceStep() {
     const { data, updateData, setCurrentStep, saveCurrentStep, saving } = useOnboarding();
@@ -35,8 +36,8 @@ export function ExperienceStep() {
         <div className="space-y-8 font-tajawal">
             {/* Header */}
             <div className="text-center space-y-2">
-                <h1 className="text-2xl md:text-3xl font-bold text-primary">الخطوة 2: خبراتك التدريسية</h1>
-                <p className="text-text-subtle">أخبرنا عن نفسك وخبرتك في مجال التدريس</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-primary">الخطوة 2: الخبرة والمؤهلات</h1>
+                <p className="text-text-subtle">أخبرنا عن خبرتك ومؤهلاتك في مجال التدريس</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-6">
@@ -54,6 +55,9 @@ export function ExperienceStep() {
                     minLength={50}
                     useWordCount={false}
                 />
+
+                {/* Certificates Section - Moved from Documents step */}
+                <CertificatesSection />
             </div>
 
             {/* Navigation */}
