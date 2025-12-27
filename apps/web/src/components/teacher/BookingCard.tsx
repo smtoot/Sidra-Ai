@@ -91,6 +91,14 @@ const STATUS_CONFIG = {
         textColor: 'text-gray-600',
         icon: XCircle,
     },
+    CANCELLED_BY_TEACHER: {
+        label: 'ملغاة من المعلم',
+        gradient: 'from-gray-400 to-slate-500',
+        bgColor: 'bg-gray-50',
+        borderColor: 'border-gray-200',
+        textColor: 'text-gray-600',
+        icon: XCircle,
+    },
     CANCELLED_BY_ADMIN: {
         label: 'ملغاة',
         gradient: 'from-gray-400 to-slate-500',

@@ -12,6 +12,7 @@ export type BookingStatus =
     | 'PARTIALLY_REFUNDED'    // NEW: Admin split the payment
     | 'REJECTED_BY_TEACHER'
     | 'CANCELLED_BY_PARENT'
+    | 'CANCELLED_BY_TEACHER'  // FIX: Added missing status
     | 'CANCELLED_BY_ADMIN'
     | 'EXPIRED';
 
@@ -97,8 +98,17 @@ export const bookingApi = {
         return response.data;
     },
 
-    completeSession: async (id: string) => {
-        const response = await api.patch(`/bookings/${id}/complete-session`);
+    completeSession: async (id: string, data?: {
+        sessionProofUrl?: string;
+        topicsCovered?: string;
+        studentPerformanceRating?: number;
+        studentPerformanceNotes?: string;
+        homeworkAssigned?: boolean;
+        homeworkDescription?: string;
+        nextSessionRecommendations?: string;
+        additionalNotes?: string;
+    }) => {
+        const response = await api.patch(`/bookings/${id}/complete-session`, data || {});
         return response.data;
     },
 
@@ -125,6 +135,11 @@ export const bookingApi = {
 
     updateTeacherNotes: async (id: string, notes: { teacherPrepNotes?: string; teacherSummary?: string }) => {
         const response = await api.patch(`/bookings/${id}/teacher-notes`, notes);
+        return response.data;
+    },
+
+    updateMeetingLink: async (id: string, meetingLink: string) => {
+        const response = await api.patch(`/bookings/${id}/meeting-link`, { meetingLink });
         return response.data;
     },
 

@@ -11,9 +11,10 @@ import { ProfileSection } from '@/components/teacher/profile-hub/ProfileSection'
 import { ProfileBasicsSection } from '@/components/teacher/profile-hub/sections/ProfileBasicsSection';
 import { QualificationsSection } from '@/components/teacher/profile-hub/sections/QualificationsSection';
 import { TeacherDocumentUpload } from '@/components/teacher/TeacherDocumentUpload';
+import { IdVerificationSection } from '@/components/teacher/shared';
 import { SubjectsManager } from '@/components/teacher/profile-hub/sections/SubjectsManager';
 import { TeachingApproachSection } from '@/components/teacher/profile-hub/sections/TeachingApproachSection';
-import { AccountSettingsSection } from '@/components/teacher/profile-hub/sections/AccountSettingsSection';
+import { TeachingPoliciesSection } from '@/components/teacher/profile-hub/sections/TeachingPoliciesSection';
 import { ProfilePreviewPage } from '@/components/teacher/profile-hub/ProfilePreviewModal';
 import { PersonalInfoSection } from '@/components/teacher/profile-hub/sections/PersonalInfoSection';
 import { NewTeacherWelcomeBanner } from '@/components/teacher/profile-hub/NewTeacherWelcomeBanner';
@@ -77,16 +78,44 @@ export default function ProfileHubPage() {
     };
 
     const handleSaveSection = async (sectionId: string) => {
+        // Validation for Documents section
+        if (sectionId === 'documents') {
+            if (!profile.idType || !profile.idNumber || !profile.idImageUrl) {
+                toast.error('الرجاء إكمال جميع حقول الهوية');
+                return;
+            }
+        }
+
         setSaving(true);
+
+
+
         try {
+            // Sanitize slug (remove leading/trailing hyphens)
+            const cleanSlug = profile.slug ? profile.slug.replace(/^-+|-+$/g, '') : undefined;
+
             await teacherApi.updateProfile({
                 displayName: profile.displayName,
+                slug: cleanSlug,
                 bio: profile.bio,
                 profilePhotoUrl: profile.profilePhotoUrl,
                 introVideoUrl: profile.introVideoUrl,
                 education: profile.education,
-                yearsOfExperience: profile.yearsOfExperience,
-                gender: profile.gender,
+                yearsOfExperience: Number(profile.yearsOfExperience) || 0,
+                gender: profile.gender || undefined,
+
+                // Personal Info (Check root first (if edited), then nested user object)
+                firstName: profile.firstName ?? profile.user?.firstName,
+                lastName: profile.lastName ?? profile.user?.lastName,
+                city: profile.city,
+                country: profile.country,
+                whatsappNumber: profile.whatsappNumber,
+                dateOfBirth: profile.dateOfBirth,
+
+                // ID Fields
+                idType: profile.idType || undefined,
+                idNumber: profile.idNumber || undefined,
+                idImageUrl: profile.idImageUrl || undefined,
             });
             toast.success('تم حفظ التغييرات');
         } catch (error) {
@@ -169,12 +198,13 @@ export default function ProfileHubPage() {
 
                 {/* Main Layout */}
                 <div className="flex gap-6 relative">
-                    {/* Responsive Sidebar */}
+                    {/* Responsive Sidebar - Hide percentage before approval */}
                     <ResponsiveSidebar
-                        percentage={percentage}
+                        percentage={isApproved ? percentage : 0}
                         items={items}
                         activeSection={activeSection}
                         onSectionClick={setActiveSection}
+                        showPercentage={isApproved}
                     />
 
                     {/* Content Area */}
@@ -209,8 +239,11 @@ export default function ProfileHubPage() {
                                 onSave={() => handleSaveSection('personal-info')}
                             >
                                 <PersonalInfoSection
-                                    fullName={profile?.fullName || ''}
-                                    phoneNumber={undefined} // TODO: Get from user
+                                    firstName={profile?.firstName ?? profile?.user?.firstName ?? ''}
+                                    lastName={profile?.lastName ?? profile?.user?.lastName ?? ''}
+                                    displayName={profile?.displayName || ''}
+                                    slug={profile?.slug} // Pass slug
+                                    phoneNumber={profile?.user?.phoneNumber} // From user registration
                                     whatsappNumber={profile?.whatsappNumber || ''}
                                     city={profile?.city || ''}
                                     country={profile?.country || ''}
@@ -269,14 +302,29 @@ export default function ProfileHubPage() {
                             </ProfileSection>
                         )}
 
-                        {/* Documents */}
+                        {/* Documents/ID Verification - Read-only after onboarding */}
                         {activeSection === 'documents' && (
                             <ProfileSection
                                 id="documents"
                                 title="تأكيد الهوية"
                                 isLocked={false}
                             >
-                                <TeacherDocumentUpload />
+                                {/* Show info message if ID verification is complete */}
+                                {profile?.idType && profile?.idNumber && profile?.idImageUrl && (
+                                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm">
+                                        <p className="font-medium">✓ تم التحقق من هويتك</p>
+                                        <p className="text-green-600 mt-1">
+                                            تأكيد الهوية هو إجراء لمرة واحدة. إذا كنت بحاجة لتحديث بياناتك، يرجى التواصل مع الدعم.
+                                        </p>
+                                    </div>
+                                )}
+                                <IdVerificationSection
+                                    idType={profile?.idType}
+                                    idNumber={profile?.idNumber || ''}
+                                    idImageUrl={profile?.idImageUrl}
+                                    onChange={handleUpdateProfile}
+                                    disabled={Boolean(profile?.idType && profile?.idNumber && profile?.idImageUrl)}
+                                />
                             </ProfileSection>
                         )}
 
@@ -285,7 +333,7 @@ export default function ProfileHubPage() {
                             <ProfileSection
                                 id="availability"
                                 title="الأوقات المتاحة"
-                                isLocked={!isApproved}
+                                isLocked={false}
                             >
                                 <div className="space-y-4">
                                     <p className="text-gray-600">
@@ -293,7 +341,8 @@ export default function ProfileHubPage() {
                                     </p>
                                     <a
                                         href="/teacher/availability"
-                                        className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-hover transition-colors"
+                                        className="inline-flex items-center gap-2 bg-primary px-6 py-3 rounded-lg hover:bg-primary-hover transition-colors"
+                                        style={{ color: 'white' }}
                                     >
                                         <span>إدارة المواعيد</span>
                                         <span>←</span>
@@ -304,14 +353,14 @@ export default function ProfileHubPage() {
 
                         {/* Note: Bank info section removed - managed in Wallet page only */}
 
-                        {/* Settings - Post Approval */}
-                        {activeSection === 'settings' && (
+                        {/* Teaching Options */}
+                        {activeSection === 'policies' && (
                             <ProfileSection
-                                id="settings"
-                                title="إعدادات الحساب"
-                                isLocked={!isApproved}
+                                id="policies"
+                                title="خيارات التدريس"
+                                isLocked={false}
                             >
-                                <AccountSettingsSection isReadOnly={!isApproved} />
+                                <TeachingPoliciesSection isReadOnly={false} />
                             </ProfileSection>
                         )}
                     </div>

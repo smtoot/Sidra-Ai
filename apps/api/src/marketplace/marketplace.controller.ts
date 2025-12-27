@@ -4,18 +4,21 @@ import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubje
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('marketplace')
 export class MarketplaceController {
   constructor(private readonly marketplaceService: MarketplaceService) { }
 
   // --- Platform Configuration (Public) ---
+  @Public()
   @Get('config')
   getPlatformConfig() {
     return this.marketplaceService.getPlatformConfig();
   }
 
   // --- Search ---
+  @Public()
   @Get('teachers')
   searchTeachers(@Query() query: SearchTeachersDto) {
     return this.marketplaceService.searchTeachers(query);
@@ -30,6 +33,7 @@ export class MarketplaceController {
     return this.marketplaceService.createCurriculum(dto);
   }
 
+  @Public()
   @Get('curricula')
   findAllCurricula(@Query('all') all?: string) {
     // Public endpoint, but allow admin to filter
@@ -38,6 +42,7 @@ export class MarketplaceController {
     return this.marketplaceService.findAllCurricula(includeInactive);
   }
 
+  @Public()
   @Get('curricula/:id')
   findOneCurriculum(@Param('id') id: string) {
     return this.marketplaceService.findOneCurriculum(id);
@@ -66,12 +71,14 @@ export class MarketplaceController {
     return this.marketplaceService.createSubject(dto);
   }
 
+  @Public()
   @Get('subjects')
   findAllSubjects(@Query('all') all?: string) {
     const includeInactive = all === 'true';
     return this.marketplaceService.findAllSubjects(includeInactive);
   }
 
+  @Public()
   @Get('subjects/:id')
   findOneSubject(@Param('id') id: string) {
     return this.marketplaceService.findOneSubject(id);
@@ -100,12 +107,14 @@ export class MarketplaceController {
     return this.marketplaceService.createStage(dto);
   }
 
+  @Public()
   @Get('stages')
   findAllStages(@Query('curriculumId') curriculumId?: string, @Query('all') all?: string) {
     const includeInactive = all === 'true';
     return this.marketplaceService.findAllStages(curriculumId, includeInactive);
   }
 
+  @Public()
   @Get('stages/:id')
   findOneStage(@Param('id') id: string) {
     return this.marketplaceService.findOneStage(id);
@@ -134,12 +143,14 @@ export class MarketplaceController {
     return this.marketplaceService.createGrade(dto);
   }
 
+  @Public()
   @Get('grades')
   findAllGrades(@Query('stageId') stageId?: string, @Query('all') all?: string) {
     const includeInactive = all === 'true';
     return this.marketplaceService.findAllGrades(stageId, includeInactive);
   }
 
+  @Public()
   @Get('grades/:id')
   findOneGrade(@Param('id') id: string) {
     return this.marketplaceService.findOneGrade(id);
@@ -161,16 +172,19 @@ export class MarketplaceController {
 
   // --- Teacher Public Profile ---
 
+  @Public()
   @Get('teachers/:teacherId/profile')
   getTeacherPublicProfile(@Param('teacherId') teacherId: string) {
     return this.marketplaceService.getTeacherPublicProfile(teacherId);
   }
 
+  @Public()
   @Get('teachers/:teacherId/availability')
   getTeacherAvailability(@Param('teacherId') teacherId: string) {
     return this.marketplaceService.getTeacherAvailability(teacherId);
   }
 
+  @Public()
   @Get('teachers/:teacherId/available-slots')
   getAvailableSlots(
     @Param('teacherId') teacherId: string,
@@ -180,6 +194,7 @@ export class MarketplaceController {
     return this.marketplaceService.getAvailableSlots(teacherId, dateStr, userTimezone);
   }
 
+  @Public()
   @Get('teachers/:teacherId/ratings')
   getTeacherRatings(
     @Param('teacherId') teacherId: string,

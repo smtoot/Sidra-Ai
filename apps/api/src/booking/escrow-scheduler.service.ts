@@ -217,6 +217,137 @@ export class EscrowSchedulerService {
     }
 
     /**
+     * Meeting Link Reminder: Runs every 15 minutes
+     * Notifies teacher if meeting link is missing 30 minutes before session
+     */
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async checkMissingMeetingLinks() {
+        this.logger.log('🔗 Checking for missing meeting links...');
+
+        try {
+            const now = new Date();
+            const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+            const twentyMinutesFromNow = new Date(now.getTime() + 20 * 60 * 1000);
+
+            // Find SCHEDULED sessions starting in 20-30 minutes without meeting link
+            const sessionsNeedingLink = await this.prisma.booking.findMany({
+                where: {
+                    status: 'SCHEDULED',
+                    startTime: {
+                        gte: twentyMinutesFromNow,
+                        lte: thirtyMinutesFromNow
+                    },
+                    OR: [
+                        { meetingLink: null },
+                        { meetingLink: '' }
+                    ]
+                },
+                include: {
+                    teacherProfile: { include: { user: true } },
+                },
+                take: 50
+            });
+
+            let notificationCount = 0;
+            for (const booking of sessionsNeedingLink) {
+                try {
+                    // Send notification to teacher
+                    await this.notificationService.notifyUser({
+                        userId: booking.teacherProfile.userId,
+                        title: 'تنبيه: رابط الحصة مفقود',
+                        message: `لديك حصة خلال 30 دقيقة ولم تقم بإضافة رابط الاجتماع. يرجى إضافة الرابط الآن.`,
+                        type: 'URGENT',
+                        link: `/teacher/sessions/${booking.id}`,
+                        dedupeKey: `MISSING_LINK:${booking.id}`,
+                        metadata: { bookingId: booking.id }
+                    });
+
+                    notificationCount++;
+                    this.logger.log(`🔔 Notified teacher about missing link for booking ${booking.id.slice(0, 8)}`);
+                } catch (err) {
+                    this.logger.error(`Failed to notify teacher for booking ${booking.id}:`, err);
+                }
+            }
+
+            this.logger.log(`✅ Meeting link check complete: ${notificationCount} notifications sent`);
+            return { notified: notificationCount };
+
+        } catch (err) {
+            this.logger.error('Meeting link check failed:', err);
+            return { notified: 0, error: err.message };
+        }
+    }
+
+    /**
+     * Stale Session Alert: Runs every hour
+     * Alerts admin when sessions end but no completion action taken after 6 hours
+     */
+    @Cron(CronExpression.EVERY_HOUR)
+    async alertStaleSession() {
+        this.logger.log('⚠️  Checking for stale sessions...');
+
+        try {
+            const now = new Date();
+            const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+
+            // Find SCHEDULED sessions that ended 6+ hours ago (teacher forgot to complete)
+            const staleSessions = await this.prisma.booking.findMany({
+                where: {
+                    status: 'SCHEDULED',
+                    endTime: { lte: sixHoursAgo }
+                },
+                include: {
+                    teacherProfile: { include: { user: true } },
+                    bookedByUser: true
+                },
+                take: 50
+            });
+
+            if (staleSessions.length === 0) {
+                this.logger.log('✓ No stale sessions found');
+                return { stale: 0 };
+            }
+
+            // Get admin users
+            const admins = await this.prisma.user.findMany({
+                where: { role: 'ADMIN' }
+            });
+
+            let alertCount = 0;
+            for (const booking of staleSessions) {
+                try {
+                    const hoursStale = Math.round((now.getTime() - new Date(booking.endTime).getTime()) / (1000 * 60 * 60));
+
+                    // Alert all admins
+                    for (const admin of admins) {
+                        await this.notificationService.notifyUser({
+                            userId: admin.id,
+                            title: `حصة عالقة - ${hoursStale} ساعات بعد الانتهاء`,
+                            message: `الحصة ${booking.id.slice(0, 8)} انتهت منذ ${hoursStale} ساعات ولم يتم تأكيد الإكمال من المعلم أو الطالب. يرجى التحقق.`,
+                            type: 'ADMIN_ALERT',
+                            link: `/admin/bookings/${booking.id}`,
+                            dedupeKey: `STALE_SESSION:${booking.id}:${hoursStale}h`,
+                            metadata: { bookingId: booking.id, hoursStale }
+                        });
+                    }
+
+                    alertCount++;
+                    this.logger.log(`🚨 Alerted admins about stale session ${booking.id.slice(0, 8)} (${hoursStale}h stale)`);
+                } catch (err) {
+                    this.logger.error(`Failed to alert for stale session ${booking.id}:`, err);
+                }
+            }
+
+            this.logger.log(`✅ Stale session check complete: ${alertCount} sessions flagged`);
+            return { stale: alertCount };
+
+        } catch (err) {
+            this.logger.error('Stale session check failed:', err);
+            return { stale: 0, error: err.message };
+        }
+    }
+
+    /**
      * Manual trigger for testing: Force run auto-release
      * Can be called from admin endpoint
      */

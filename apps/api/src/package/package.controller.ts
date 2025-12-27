@@ -5,31 +5,60 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@sidra/shared';
 import { PackageService } from './package.service';
 import { DemoService } from './demo.service';
+import { IsBoolean, IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
 
 // =====================================================
 // DTOs
 // =====================================================
 
 class PurchasePackageDto {
+    @IsString()
     studentId: string; // Session attendee (can be same as payer or different)
+
+    @IsString()
     teacherId: string;
+
+    @IsString()
     subjectId: string;
+
+    @IsString()
     tierId: string;
 }
 
 class UpdateDemoSettingsDto {
+    @IsBoolean()
     demoEnabled: boolean;
 }
 
 class CreateTierDto {
+    @IsNumber()
+    @Min(1)
     sessionCount: number;
+
+    @IsNumber()
+    @Min(0)
+    @Max(100)
     discountPercent: number;
+
+    @IsNumber()
+    @Min(0)
     displayOrder: number;
 }
 
 class UpdateTierDto {
+    @IsOptional()
+    @IsBoolean()
     isActive?: boolean;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
     displayOrder?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(100)
     discountPercent?: number;
 }
 
@@ -147,6 +176,39 @@ export class PackageController {
     async getTeacherPackages(@Req() req: any) {
         const teacherProfile = await this.getTeacherProfile(req.user.userId);
         return this.packageService.getTeacherPackages(teacherProfile.id);
+    }
+
+    // =====================================================
+    // TEACHER: Get available package tiers
+    // =====================================================
+
+    @Get('teacher/tiers')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    async getTeacherTiers() {
+        // Returns all available tier options (session counts and discounts)
+        return this.packageService.getAllTiers();
+    }
+
+    // =====================================================
+    // TEACHER: Update tier active status for their account
+    // =====================================================
+
+    @Patch('teacher/tiers/:tierId')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    async updateTeacherTierStatus(
+        @Req() req: any,
+        @Param('tierId') tierId: string,
+        @Body() dto: { isActive: boolean }
+    ) {
+        // Teachers can only toggle isActive status, not change discount/count
+        const teacherProfile = await this.getTeacherProfile(req.user.userId);
+
+        // Note: This would require teacher-specific tier preferences
+        // For now, we'll update the global tier (admin-controlled)
+        // TODO: Consider adding TeacherTierPreference table if needed
+        return this.packageService.updateTier(tierId, { isActive: dto.isActive });
     }
 
     @Get(':id')

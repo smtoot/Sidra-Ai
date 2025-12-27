@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useOnboarding } from '../OnboardingContext';
-import { ArrowLeft, Camera, Briefcase, BookOpen, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Camera, Briefcase, BookOpen, FileText } from 'lucide-react';
 
 export function WelcomeStep() {
     const { setCurrentStep } = useOnboarding();
@@ -20,7 +20,7 @@ export function WelcomeStep() {
                 <p className="text-lg text-text-subtle max-w-md mx-auto">
                     نحن سعداء بانضمامك كمعلم معنا.
                     <br />
-                    ستحتاج من 5 إلى 10 دقائق فقط لإكمال ملفك وبدء رحلتك معنا.
+                    ستحتاج من 10 إلى 15 دقيقة فقط لإكمال ملفك وبدء رحلتك معنا.
                 </p>
             </div>
 

@@ -126,16 +126,19 @@ export default function TeacherRequestsPage() {
 
     return (
         <TeacherApprovalGuard>
-            <div className="min-h-screen bg-gray-50 font-sans p-4 md:p-8" dir="rtl">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 font-sans p-4 md:p-8" dir="rtl">
                 <div className="max-w-6xl mx-auto space-y-6">
                     {/* Header */}
-                    <header>
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">طلبات التدريس</h1>
-                        <p className="text-sm md:text-base text-gray-600">جميع طلبات الحجز الخاصة بك</p>
+                    <header className="mb-2">
+                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">طلبات التدريس</h1>
+                        <p className="text-gray-600 flex items-center gap-2">
+                            <Calendar className="w-5 h-5" />
+                            <span>جميع طلبات الحجز الخاصة بك</span>
+                        </p>
                     </header>
 
                     {/* Filter Tabs */}
-                    <Card>
+                    <Card className="border-none shadow-md">
                         <CardContent className="p-4">
                             <div className="flex flex-wrap gap-2">
                                 {tabs.map((tab) => {
@@ -146,8 +149,8 @@ export default function TeacherRequestsPage() {
                                             className={cn(
                                                 "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
                                                 activeTab === tab.id
-                                                    ? "bg-primary-600 text-white shadow-md"
-                                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                    ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg"
+                                                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow-sm"
                                             )}
                                             onClick={() => {
                                                 setActiveTab(tab.id);
@@ -173,17 +176,19 @@ export default function TeacherRequestsPage() {
 
                     {/* Requests List */}
                     {loading ? (
-                        <Card>
-                            <CardContent className="p-12 text-center text-gray-500">
+                        <Card className="border-none shadow-md">
+                            <CardContent className="p-12 text-center">
                                 <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary-600" />
-                                <p>جاري التحميل...</p>
+                                <p className="text-gray-500">جاري التحميل...</p>
                             </CardContent>
                         </Card>
                     ) : filteredRequests.length === 0 ? (
-                        <Card className="border-dashed border-2">
+                        <Card className="border-2 border-dashed border-gray-200">
                             <CardContent className="p-12 text-center">
-                                <Clock className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                                <h3 className="text-xl font-bold text-gray-700 mb-2">
+                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Clock className="w-8 h-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">
                                     {activeTab === 'pending' ? 'لا توجد طلبات معلقة' : 'لا توجد طلبات'}
                                 </h3>
                                 <p className="text-gray-500 mb-4">سيظهر هنا طلبات الحجز الجديدة</p>

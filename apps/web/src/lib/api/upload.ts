@@ -158,7 +158,7 @@ export async function uploadFile(
     const formData = new FormData();
     formData.append('file', fileToUpload);
 
-    const response = await api.post(`/upload?folder=${folder}`, formData, {
+    const response = await api.post(`/storage?folder=${folder}`, formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
@@ -176,7 +176,7 @@ export async function uploadFile(
  */
 export function getFileUrl(fileKey: string): string {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-    return `${baseUrl}/upload/file?key=${encodeURIComponent(fileKey)}`;
+    return `${baseUrl}/storage/file?key=${encodeURIComponent(fileKey)}`;
 }
 
 /**
@@ -185,7 +185,7 @@ export function getFileUrl(fileKey: string): string {
  * @param fileKey - File key to delete
  */
 export async function deleteFile(fileKey: string): Promise<void> {
-    await api.delete(`/upload?key=${encodeURIComponent(fileKey)}`);
+    await api.delete(`/storage?key=${encodeURIComponent(fileKey)}`);
 }
 
 /**

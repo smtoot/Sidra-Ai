@@ -122,6 +122,9 @@ model TeacherProfile {
   idType                 IdType?             // Type of ID document
   idNumber               String?             // ID number
   idImageUrl             String?             // Uploaded ID image
+  // --- Terms & Conditions ---
+  termsAcceptedAt        DateTime?           // When teacher accepted terms
+  termsVersion           String?             // Version of terms accepted (e.g., "1.0")
   // --- Relations ---
   availability           Availability[]
   availabilityExceptions AvailabilityException[]
@@ -142,8 +145,22 @@ model TeacherProfile {
   teachingTags           TeacherTeachingApproachTag[]
 
   savedBy                SavedTeacher[]
+  interviewTimeSlots     InterviewTimeSlot[]
 
   @@map("teacher_profiles")
+}
+
+model InterviewTimeSlot {
+  id              String   @id @default(uuid())
+  teacherProfileId String
+  proposedDateTime DateTime
+  meetingLink     String
+  isSelected      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  teacherProfile  TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+
+  @@map("interview_time_slots")
 }
 
 model StudentProfile {
@@ -391,7 +408,18 @@ model Booking {
   cancelReason   String?
   bookingNotes   String?       @db.Text // Notes from parent/student about what they want to study
   teacherPrepNotes String?     @db.Text // Teacher's private preparation notes
-  teacherSummary String?       @db.Text // Teacher's class summary after session
+
+  // Session Completion Details (Structured)
+  sessionProofUrl              String?  // Optional screenshot/proof from session (confidential, for disputes)
+  topicsCovered                String?  @db.Text // What was taught in this session
+  studentPerformanceRating     Int?     // 1-5 stars rating of student performance
+  studentPerformanceNotes      String?  @db.Text // Notes on how student performed
+  homeworkAssigned             Boolean? // Whether homework was assigned
+  homeworkDescription          String?  @db.Text // Description of homework if assigned
+  nextSessionRecommendations   String?  @db.Text // What to prepare/focus on next time
+  additionalNotes              String?  @db.Text // Any other observations
+  teacherSummary               String?  @db.Text // Legacy: Auto-generated or free-form summary
+
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -400,19 +428,13 @@ model Booking {
   disputeWindowClosesAt DateTime? // When dispute window expires (48h after opens)
   disputeReminderSentAt DateTime? // Track if reminder notifications sent
 
+  // Meeting Link Reminder Tracking
+  meetingLinkReminderSentAt DateTime? // Track if 30-min reminder sent about missing meeting link
+
   // Payment & Escrow
   paymentLockedAt  DateTime? // When funds were moved to pending
   paymentReleasedAt DateTime? // When funds were moved to teacher
   paymentDeadline  DateTime? // NEW: Deadline for payment if balance was insufficient
-
-  // Payment Proof Tracking (Manual Payment Verification)
-  paymentProofUrl       String?   // URL to uploaded payment receipt/screenshot
-  paymentProofUploadedAt DateTime? // When parent/student uploaded proof
-  paymentVerifiedBy     String?   // Admin user ID who verified payment
-  paymentVerifiedAt     DateTime? // When admin approved payment
-  paymentRejectedBy     String?   // Admin user ID who rejected payment
-  paymentRejectedAt     DateTime? // When admin rejected payment
-  paymentRejectionNote  String?   // Why payment was rejected (to show parent)
 
   // Dispute & Confirmation
   studentConfirmedAt    DateTime? // When student clicked "Confirm Session"
@@ -627,6 +649,9 @@ model SystemSettings {
   defaultSessionDurationMinutes Int      @default(60) // Default session length (currently platform-wide)
   allowedSessionDurations       Int[]    @default([60]) // Allowed durations in minutes (for future teacher selection)
 
+  // Meeting Link Access Configuration
+  meetingLinkAccessMinutesBefore Int     @default(15) // Minutes before session when teacher can access meeting link (default: 15 min)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -742,6 +767,8 @@ enum NotificationType {
   DISPUTE_RAISED
   DISPUTE_UPDATE
   SYSTEM_ALERT
+  URGENT           // FIX: Added for urgent notifications
+  ADMIN_ALERT      // FIX: Added for admin alerts
 }
 
 enum NotificationStatus {

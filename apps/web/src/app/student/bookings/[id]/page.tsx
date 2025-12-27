@@ -197,27 +197,27 @@ export default function StudentBookingDetailsPage() {
                                     </div>
                                 </div>
 
-                                {booking.meetingUrl && (
+                                {booking.meetingLink && (
                                     <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
                                         <Video className="w-5 h-5 text-green-600 mt-0.5" />
                                         <div className="flex-1">
                                             <div className="text-sm text-green-700 mb-1">رابط الاجتماع</div>
                                             <a
-                                                href={booking.meetingUrl}
+                                                href={booking.meetingLink}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-sm text-blue-600 hover:text-blue-700 underline break-all"
                                             >
-                                                {booking.meetingUrl}
+                                                {booking.meetingLink}
                                             </a>
                                         </div>
                                     </div>
                                 )}
 
-                                {booking.notes && (
+                                {booking.bookingNotes && (
                                     <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                         <div className="text-sm text-blue-700 font-medium mb-2">ملاحظات</div>
-                                        <p className="text-sm text-gray-700">{booking.notes}</p>
+                                        <p className="text-sm text-gray-700">{booking.bookingNotes}</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -256,8 +256,8 @@ export default function StudentBookingDetailsPage() {
                                             className="w-full bg-success-600 hover:bg-success-700"
                                             size="lg"
                                             onClick={() => {
-                                                if (booking.meetingUrl) {
-                                                    window.open(booking.meetingUrl, '_blank');
+                                                if (booking.meetingLink) {
+                                                    window.open(booking.meetingLink, '_blank');
                                                 } else {
                                                     alert('سيتم توجيهك إلى رابط الاجتماع');
                                                 }
@@ -282,12 +282,6 @@ export default function StudentBookingDetailsPage() {
                                         <div className="w-2 h-2 rounded-full bg-primary-600" />
                                         <span>تم الحجز: {new Date(booking.createdAt).toLocaleDateString('ar-SA')}</span>
                                     </div>
-                                    {booking.updatedAt !== booking.createdAt && (
-                                        <div className="flex items-center gap-2 text-gray-600">
-                                            <div className="w-2 h-2 rounded-full bg-gray-400" />
-                                            <span>آخر تحديث: {new Date(booking.updatedAt).toLocaleDateString('ar-SA')}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </CardContent>
                         </Card>

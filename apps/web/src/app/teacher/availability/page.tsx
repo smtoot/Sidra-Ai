@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { teacherApi } from '@/lib/api/teacher';
 import { DayOfWeek } from '@sidra/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, Trash2, CalendarX, Loader2 } from 'lucide-react';
+import { Clock, Trash2, CalendarX, Loader2, PlayCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import AvailabilityGrid from '@/components/teacher/AvailabilityGrid';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -50,6 +50,9 @@ export default function TeacherAvailabilityPage() {
     const [timeSlots, setTimeSlots] = useState<{ startTime: string; endTime: string }[]>([
         { startTime: '09:00', endTime: '17:00' }
     ]);
+
+    // Video tutorial state
+    const [showTutorial, setShowTutorial] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -208,6 +211,31 @@ export default function TeacherAvailabilityPage() {
                     </div>
                 ) : (
                     <>
+                        {/* Help Section - Video Tutorial Only */}
+                        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <button
+                                onClick={() => setShowTutorial(!showTutorial)}
+                                className="w-full flex items-center justify-between text-primary hover:text-primary-hover transition-colors font-medium"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <PlayCircle className="w-5 h-5" />
+                                    <span>كيف تستخدم الجدول؟ 💡</span>
+                                </span>
+                                {showTutorial ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </button>
+
+                            {/* Video Tutorial */}
+                            {showTutorial && (
+                                <div className="mt-4 rounded-lg overflow-hidden border border-blue-300">
+                                    <img
+                                        src="/tutorials/availability-tutorial.webp"
+                                        alt="شرح كيفية استخدام جدول المواعيد"
+                                        className="w-full"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
                         <AvailabilityGrid
                             availability={availability}
                             onSave={handleSave}
@@ -265,17 +293,6 @@ export default function TeacherAvailabilityPage() {
                                     ))}
                                 </div>
                             )}
-                        </div>
-
-                        {/* Help Section */}
-                        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
-                            <h3 className="font-bold text-primary mb-2">💡 كيف تستخدم الجدول؟</h3>
-                            <ul className="space-y-2 text-sm text-text-subtle">
-                                <li>• اضغط واسحب لتحديد عدة خلايا متتالية بسرعة</li>
-                                <li>• اضغط على خلية خضراء واسحب لإلغاء التحديد</li>
-                                <li>• استخدم "الاستثناءات" لحجز أيام محددة (إجازات، عطلات)</li>
-                                <li>• لا تنسَ الضغط على "حفظ التغييرات" بعد الانتهاء</li>
-                            </ul>
                         </div>
                     </>
                 )}

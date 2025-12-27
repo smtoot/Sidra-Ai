@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { OnboardingProvider, useOnboarding } from './OnboardingContext';
 import { StepProgressIndicator } from './StepProgressIndicator';
+import { AutoSaveIndicator } from './AutoSaveIndicator';
 import { Loader2 } from 'lucide-react';
 
 function OnboardingLayoutContent({ children }: { children: ReactNode }) {
@@ -26,8 +27,12 @@ function OnboardingLayoutContent({ children }: { children: ReactNode }) {
             {/* Progress Indicator - Fixed at top for steps 1-5 */}
             {showProgressIndicator && (
                 <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-100 shadow-sm">
-                    <div className="max-w-4xl mx-auto">
-                        <StepProgressIndicator currentStep={currentStep} />
+                    <div className="max-w-4xl mx-auto px-4 py-3">
+                        <div className="flex items-center justify-between">
+                            <StepProgressIndicator currentStep={currentStep} />
+                            {/* P1-2 FIX: Auto-save status indicator */}
+                            <AutoSaveIndicator />
+                        </div>
                     </div>
                 </div>
             )}

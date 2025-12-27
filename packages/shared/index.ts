@@ -15,13 +15,15 @@ export * from './src/wallet/wallet.dto';
 
 // Booking
 export * from './src/booking/booking.dto';
-export * from './src/booking/payment-proof.dto';
+export * from './src/booking/complete-session.dto';
 
 // Teacher
 export * from './src/teacher/update-profile.dto';
 export * from './src/teacher/teacher-subject.dto';
 export * from './src/teacher/availability.dto';
 export * from './src/teacher/exception.dto';
+export * from './src/teacher/propose-interview-slots.dto';
+export * from './src/teacher/accept-terms.dto';
 
 // Utils
 export * from './src/utils/display-name.util';

@@ -196,7 +196,7 @@ export function StatusDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">3</span>
-                                <span>أضف رابط Google Meet أو Zoom</span>
+                                <span>راجع سياسات التدريس والمنطقة الزمنية</span>
                             </div>
                         </div>
                     </div>

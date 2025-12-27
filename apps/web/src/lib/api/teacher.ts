@@ -2,7 +2,8 @@ import { api } from '../api';
 import {
     UpdateTeacherProfileDto,
     CreateTeacherSubjectDto,
-    CreateAvailabilityDto
+    CreateAvailabilityDto,
+    AcceptTermsDto
 } from '@sidra/shared';
 
 export type DocumentType = 'ID_CARD' | 'CERTIFICATE' | 'DEGREE' | 'OTHER';
@@ -100,6 +101,10 @@ export const teacherApi = {
     // --- Application Status ---
     getApplicationStatus: async (): Promise<TeacherApplicationStatus> => {
         const response = await api.get('/teacher/me/application-status');
+        return response.data;
+    },
+    acceptTerms: async (termsVersion: string) => {
+        const response = await api.post('/teacher/me/accept-terms', { termsVersion } as AcceptTermsDto);
         return response.data;
     },
     submitForReview: async () => {

@@ -1,7 +1,7 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { Lock } from 'lucide-react';
+import { ReactNode, useState, useEffect } from 'react';
+import { Lock, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +22,42 @@ export function ProfileSection({
     onSave,
     children,
 }: ProfileSectionProps) {
+    const [showSaved, setShowSaved] = useState(false);
+    const [wasSaving, setWasSaving] = useState(false);
+
+    // Track when saving transitions from true to false (save completed)
+    useEffect(() => {
+        if (wasSaving && !isSaving) {
+            // Save just completed
+            setShowSaved(true);
+            const timer = setTimeout(() => {
+                setShowSaved(false);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+        setWasSaving(isSaving);
+    }, [isSaving, wasSaving]);
+
+    const getButtonContent = () => {
+        if (isSaving) {
+            return (
+                <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري الحفظ...
+                </>
+            );
+        }
+        if (showSaved) {
+            return (
+                <>
+                    <Check className="w-4 h-4" />
+                    تم الحفظ
+                </>
+            );
+        }
+        return 'حفظ التغييرات';
+    };
+
     return (
         <div
             id={id}
@@ -39,11 +75,14 @@ export function ProfileSection({
                 {onSave && !isLocked && (
                     <Button
                         onClick={onSave}
-                        disabled={isSaving}
+                        disabled={isSaving || showSaved}
                         size="sm"
-                        className="gap-2"
+                        className={cn(
+                            "gap-2 transition-all duration-200",
+                            showSaved && "bg-green-500 hover:bg-green-500"
+                        )}
                     >
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                        {getButtonContent()}
                     </Button>
                 )}
             </div>
@@ -69,3 +108,4 @@ export function ProfileSection({
         </div>
     );
 }
+

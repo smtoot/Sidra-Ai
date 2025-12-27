@@ -36,12 +36,6 @@ export function DocumentsStep() {
         }
     };
 
-    const handleSkip = () => {
-        // Allow skipping for now, but show warning
-        toast.info('يمكنك إكمال هذه الخطوة لاحقاً من ملفك الشخصي');
-        setCurrentStep(5);
-    };
-
     return (
         <div className="space-y-8 font-tajawal">
             {/* Header */}
@@ -52,8 +46,15 @@ export function DocumentsStep() {
 
             {/* Info Banner */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-right">
-                <p className="text-blue-800">
+                <p className="text-blue-800 font-medium">
                     🔒 بياناتك محمية ولن تُشارك مع أي طرف. سيتم التحقق منها فقط بواسطة فريق الإدارة.
+                </p>
+            </div>
+
+            {/* Required Notice */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-right">
+                <p className="text-amber-800 font-medium">
+                    ⚠️ <strong>مطلوب:</strong> تأكيد الهوية إلزامي لإكمال عملية التسجيل
                 </p>
             </div>
 
@@ -77,31 +78,23 @@ export function DocumentsStep() {
                     <ArrowRight className="w-4 h-4" />
                     السابق
                 </Button>
-                <div className="flex gap-3">
-                    <Button
-                        variant="ghost"
-                        onClick={handleSkip}
-                    >
-                        تخطي الآن
-                    </Button>
-                    <Button
-                        onClick={handleNext}
-                        disabled={saving}
-                        className="gap-2 px-6"
-                    >
-                        {saving ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                جاري الحفظ...
-                            </>
-                        ) : (
-                            <>
-                                التالي
-                                <ArrowLeft className="w-4 h-4" />
-                            </>
-                        )}
-                    </Button>
-                </div>
+                <Button
+                    onClick={handleNext}
+                    disabled={saving}
+                    className="gap-2 px-6"
+                >
+                    {saving ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            جاري الحفظ...
+                        </>
+                    ) : (
+                        <>
+                            التالي
+                            <ArrowLeft className="w-4 h-4" />
+                        </>
+                    )}
+                </Button>
             </div>
         </div>
     );

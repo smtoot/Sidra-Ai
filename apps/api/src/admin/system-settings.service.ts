@@ -53,6 +53,7 @@ export class SystemSettingsService {
             maxPricePerHour?: number; // Maximum allowed price per hour (SDG)
             defaultSessionDurationMinutes?: number; // Default session duration in minutes
             allowedSessionDurations?: number[]; // Allowed session durations (future-proof)
+            meetingLinkAccessMinutesBefore?: number; // Minutes before session when meeting link becomes accessible
         }
     ) {
         // Get old settings for diff logging
@@ -96,6 +97,10 @@ export class SystemSettingsService {
 
         if (data.allowedSessionDurations !== undefined) {
             updateData.allowedSessionDurations = data.allowedSessionDurations;
+        }
+
+        if (data.meetingLinkAccessMinutesBefore !== undefined) {
+            updateData.meetingLinkAccessMinutesBefore = data.meetingLinkAccessMinutesBefore;
         }
 
         // Execute update

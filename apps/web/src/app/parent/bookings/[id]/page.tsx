@@ -8,12 +8,14 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     ArrowRight, Calendar, Clock, CheckCircle, XCircle, AlertCircle,
-    CreditCard, Video, BookOpen, Mail, Loader2, Globe, ThumbsUp, AlertTriangle, User
+    CreditCard, Video, BookOpen, Mail, Loader2, Globe, ThumbsUp, AlertTriangle, User, RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PaymentConfirmModal } from '@/components/booking/PaymentConfirmModal';
 import { CountdownTimer } from '@/components/booking/CountdownTimer';
 import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
+import { SessionDetailsCard } from '@/components/booking/SessionDetailsCard';
+import { RatingModal } from '@/components/booking/RatingModal';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -25,6 +27,9 @@ export default function ParentBookingDetailsPage() {
     const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
     const [userTimezone, setUserTimezone] = useState<string>('');
     const [confirmingSession, setConfirmingSession] = useState(false);
+
+    // Rating modal state
+    const [ratingModalOpen, setRatingModalOpen] = useState(false);
 
     // Dispute modal state
     const [disputeModalOpen, setDisputeModalOpen] = useState(false);
@@ -60,6 +65,8 @@ export default function ParentBookingDetailsPage() {
             await bookingApi.confirmSessionEarly(booking.id);
             toast.success('تم تأكيد الحصة بنجاح! 🎉');
             await loadBooking();
+            // Open rating modal after successful confirmation
+            setRatingModalOpen(true);
         } catch (error) {
             console.error('Failed to confirm session', error);
             toast.error('حدث خطأ أثناء تأكيد الحصة');
@@ -173,53 +180,67 @@ export default function ParentBookingDetailsPage() {
                     </CardContent>
                 </Card>
 
-                {/* PENDING_CONFIRMATION Alert */}
+                {/* PENDING_CONFIRMATION - Show Summary First, Then Actions */}
                 {booking.status === 'PENDING_CONFIRMATION' && (
-                    <Card className="bg-warning-50 border-warning-200">
-                        <CardContent className="p-5">
-                            <div className="flex items-start gap-3 mb-4">
-                                <AlertCircle className="w-6 h-6 text-warning-700 shrink-0 mt-0.5" />
-                                <div>
-                                    <h3 className="font-bold text-warning-900 mb-1">الحصة بانتظار تأكيدك ⚠️</h3>
-                                    <p className="text-sm text-warning-700">
-                                        أكمل المعلم الحصة. يرجى التأكيد إذا كانت الحصة قد تمت بنجاح، أو الإبلاغ عن مشكلة إذا كان هناك خطأ.
+                    <Card className="bg-gradient-to-br from-warning-50 to-orange-50 border-warning-300 border-2">
+                        <CardContent className="p-6">
+                            <div className="flex items-start gap-3 mb-5">
+                                <AlertCircle className="w-7 h-7 text-warning-700 shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-warning-900 text-lg mb-2">الحصة بانتظار تأكيدك ⚠️</h3>
+                                    <p className="text-sm text-warning-700 mb-3">
+                                        أكمل المعلم الحصة. يرجى مراجعة ملخص الحصة أدناه، ثم تأكيد إذا تمت الحصة بنجاح، أو الإبلاغ عن مشكلة.
                                     </p>
                                     {booking.disputeWindowClosesAt && (
-                                        <div className="mt-3 bg-white/50 rounded-lg p-3 border border-warning-200">
-                                            <p className="text-xs text-warning-700 font-medium mb-1">الوقت المتبقي للمراجعة:</p>
+                                        <div className="bg-white rounded-lg p-3 border border-warning-200">
+                                            <p className="text-xs text-warning-700 font-medium mb-1">⏰ الوقت المتبقي للمراجعة:</p>
                                             <CountdownTimer
                                                 deadline={booking.disputeWindowClosesAt}
                                                 className="text-sm font-bold text-warning-900"
                                                 onExpire={() => loadBooking()}
                                             />
+                                            <p className="text-xs text-warning-600 mt-2">
+                                                سيتم تحويل الدفع تلقائياً للمعلم بعد انتهاء الوقت
+                                            </p>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex gap-3">
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3 mt-5 pt-5 border-t border-warning-200">
                                 <Button
                                     onClick={handleConfirmSession}
                                     disabled={confirmingSession}
-                                    className="flex-1 bg-success-600 hover:bg-success-700"
+                                    className="flex-1 bg-success-600 hover:bg-success-700 shadow-lg"
                                     size="lg"
                                 >
                                     {confirmingSession ? (
-                                        <Loader2 className="w-5 h-5 animate-spin ml-2" />
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin ml-2" />
+                                            جاري التأكيد...
+                                        </>
                                     ) : (
-                                        <ThumbsUp className="w-5 h-5 ml-2" />
+                                        <>
+                                            <ThumbsUp className="w-5 h-5 ml-2" />
+                                            ✅ تأكيد الحصة وتقييم المعلم
+                                        </>
                                     )}
-                                    {confirmingSession ? 'جاري التأكيد...' : 'تأكيد الحصة'}
                                 </Button>
                                 <Button
                                     onClick={() => setDisputeModalOpen(true)}
                                     variant="outline"
-                                    className="flex-1 border-warning-300 text-warning-700 hover:bg-warning-100"
+                                    className="flex-1 border-2 border-red-300 text-red-700 hover:bg-red-50 shadow-md"
                                     size="lg"
                                 >
                                     <AlertTriangle className="w-5 h-5 ml-2" />
-                                    الإبلاغ عن مشكلة
+                                    🚨 الإبلاغ عن مشكلة
                                 </Button>
                             </div>
+
+                            <p className="text-xs text-center text-warning-600 mt-3">
+                                📝 ملاحظة: عند التأكيد، ستتمكن من تقييم المعلم ومشاركة تجربتك
+                            </p>
                         </CardContent>
                     </Card>
                 )}
@@ -241,9 +262,6 @@ export default function ParentBookingDetailsPage() {
                                         <h3 className="font-bold text-gray-900">
                                             {booking.child?.name || booking.studentUser?.displayName || 'طالب'}
                                         </h3>
-                                        {booking.child?.gradeLevel && (
-                                            <p className="text-sm text-gray-600">المرحلة: {booking.child.gradeLevel}</p>
-                                        )}
                                     </div>
                                 </div>
                             </CardContent>
@@ -344,6 +362,43 @@ export default function ParentBookingDetailsPage() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* Session Completion Details (show if completed or pending confirmation) */}
+                        {(booking.status === 'COMPLETED' || booking.status === 'PENDING_CONFIRMATION') && (
+                            <SessionDetailsCard
+                                booking={booking}
+                                showProof={false} // Parents don't see proof
+                                userRole="parent"
+                            />
+                        )}
+
+                        {/* Rebook Button (only for COMPLETED sessions) */}
+                        {booking.status === 'COMPLETED' && booking.teacherProfile && (
+                            <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 overflow-hidden">
+                                <CardContent className="p-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <RefreshCw className="w-6 h-6 text-green-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-lg font-bold text-green-900 mb-2">
+                                                أعجبتك الحصة؟ 🎉
+                                            </h3>
+                                            <p className="text-sm text-green-700 mb-4">
+                                                احجز حصة أخرى مع <span className="font-bold">{booking.teacherProfile.displayName}</span> وواصل رحلة التعلم!
+                                            </p>
+                                            <Link
+                                                href={`/teachers/${booking.teacherProfile.slug}`}
+                                                className="inline-flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                            >
+                                                <RefreshCw className="w-5 h-5" />
+                                                احجز حصة جديدة
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
 
                     {/* Sidebar */}
@@ -423,58 +478,112 @@ export default function ParentBookingDetailsPage() {
                 />
             )}
 
-            {/* Dispute Modal */}
+            {/* Improved Dispute Modal */}
             {disputeModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
-                        <h2 className="text-xl font-bold text-primary mb-4">الإبلاغ عن مشكلة</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            اختر نوع المشكلة وصفها لنتمكن من مساعدتك
-                        </p>
-
-                        <div className="mb-4">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">نوع المشكلة</label>
-                            <select
-                                value={disputeType}
-                                onChange={(e) => setDisputeType(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                            >
-                                <option value="">اختر نوع المشكلة...</option>
-                                <option value="TEACHER_NO_SHOW">المعلم لم يحضر</option>
-                                <option value="SESSION_TOO_SHORT">الحصة كانت أقصر من المحدد</option>
-                                <option value="QUALITY_ISSUE">مشكلة في جودة التدريس</option>
-                                <option value="TECHNICAL_ISSUE">مشكلة تقنية</option>
-                                <option value="OTHER">أخرى</option>
-                            </select>
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" dir="rtl">
+                    <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                                    <AlertTriangle className="w-7 h-7 text-white" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-white">الإبلاغ عن مشكلة</h2>
+                            </div>
+                            <p className="text-white/90 text-sm">
+                                سيقوم فريق الإدارة بمراجعة شكواك والتواصل معك في أقرب وقت
+                            </p>
                         </div>
 
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">وصف المشكلة</label>
-                            <textarea
-                                value={disputeDescription}
-                                onChange={(e) => setDisputeDescription(e.target.value)}
-                                placeholder="اشرح المشكلة بالتفصيل..."
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent min-h-[100px] resize-none"
-                            />
+                        {/* Body */}
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 mb-3">
+                                    ⚠️ ما هي المشكلة؟
+                                </label>
+                                <select
+                                    value={disputeType}
+                                    onChange={(e) => setDisputeType(e.target.value)}
+                                    className="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 font-medium"
+                                >
+                                    <option value="">اختر نوع المشكلة...</option>
+                                    <option value="TEACHER_NO_SHOW">🚫 المعلم لم يحضر</option>
+                                    <option value="SESSION_TOO_SHORT">⏱️ الحصة كانت أقصر من المدة المحددة</option>
+                                    <option value="POOR_QUALITY">📉 جودة التدريس ضعيفة</option>
+                                    <option value="NOT_AS_DESCRIBED">❌ الحصة لم تكن كما هو متفق عليه</option>
+                                    <option value="TECHNICAL_ISSUE">💻 مشكلة تقنية منعت إتمام الحصة</option>
+                                    <option value="INAPPROPRIATE_BEHAVIOR">⚠️ سلوك غير مناسب من المعلم</option>
+                                    <option value="OTHER">📝 أخرى</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 mb-3">
+                                    📋 اشرح المشكلة بالتفصيل
+                                </label>
+                                <textarea
+                                    value={disputeDescription}
+                                    onChange={(e) => setDisputeDescription(e.target.value)}
+                                    placeholder="يرجى وصف ما حدث بالتفصيل حتى نتمكن من مساعدتك..."
+                                    className="w-full p-4 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 min-h-[120px] resize-none"
+                                    maxLength={500}
+                                />
+                                <p className="text-xs text-gray-500 mt-1 text-left">
+                                    {disputeDescription.length}/500
+                                </p>
+                            </div>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-800">
+                                    <strong>💡 ملاحظة:</strong> سيتم إيقاف تحويل الدفع للمعلم حتى يتم حل المشكلة. سنتواصل معك خلال 24-48 ساعة.
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex gap-3">
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-4 flex gap-3">
                             <button
-                                onClick={handleSubmitDispute}
+                                onClick={() => {
+                                    setDisputeModalOpen(false);
+                                    setDisputeType('');
+                                    setDisputeDescription('');
+                                }}
                                 disabled={submittingDispute}
-                                className="flex-1 bg-orange-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-orange-600 transition-colors disabled:opacity-50"
-                            >
-                                {submittingDispute ? 'جاري الإرسال...' : 'إرسال الشكوى'}
-                            </button>
-                            <button
-                                onClick={() => setDisputeModalOpen(false)}
-                                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-bold hover:bg-gray-300 transition-colors"
+                                className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-bold hover:bg-gray-300 transition-colors disabled:opacity-50"
                             >
                                 إلغاء
+                            </button>
+                            <button
+                                onClick={handleSubmitDispute}
+                                disabled={submittingDispute || !disputeType || !disputeDescription.trim()}
+                                className="flex-1 bg-gradient-to-r from-red-500 to-orange-500 text-white py-3 px-4 rounded-lg font-bold hover:from-red-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                                {submittingDispute ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 inline ml-2 animate-spin" />
+                                        جاري الإرسال...
+                                    </>
+                                ) : (
+                                    '📨 إرسال الشكوى للإدارة'
+                                )}
                             </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Rating Modal */}
+            {booking && (
+                <RatingModal
+                    isOpen={ratingModalOpen}
+                    onClose={() => setRatingModalOpen(false)}
+                    bookingId={booking.id}
+                    teacherName={booking.teacherProfile.user.fullName}
+                    onSuccess={() => {
+                        loadBooking();
+                        toast.success('شكراً لتقييمك! 🌟');
+                    }}
+                />
             )}
         </div>
     );

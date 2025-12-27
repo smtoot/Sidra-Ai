@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
-import { Calendar, Clock, User, Loader2 } from 'lucide-react';
+import { SessionDetailsCard } from '@/components/booking/SessionDetailsCard';
+import { Calendar, Clock, User, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -27,6 +28,16 @@ interface Booking {
     studentUser?: { email: string };
     child?: { name: string };
     subject?: { nameAr: string; nameEn: string };
+    // Session completion fields
+    sessionProofUrl?: string | null;
+    topicsCovered?: string | null;
+    studentPerformanceRating?: number | null;
+    studentPerformanceNotes?: string | null;
+    homeworkAssigned?: boolean | null;
+    homeworkDescription?: string | null;
+    nextSessionRecommendations?: string | null;
+    additionalNotes?: string | null;
+    teacherSummary?: string | null;
 }
 
 const STATUS_OPTIONS = [
@@ -46,6 +57,7 @@ export default function AdminBookingsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
     const loadBookings = async () => {
         setLoading(true);
@@ -143,24 +155,38 @@ export default function AdminBookingsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {bookings.map(booking => (
-                                    <TableRow key={booking.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Avatar
-                                                    fallback={booking.teacherProfile?.displayName || booking.teacherProfile?.user?.email || 'T'}
-                                                    size="sm"
-                                                />
-                                                <div>
-                                                    <p className="font-medium text-sm">
-                                                        {booking.teacherProfile?.displayName || '-'}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        {booking.teacherProfile?.user?.email}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
+                                {bookings.map(booking => {
+                                    const isExpanded = expandedBookingId === booking.id;
+                                    const hasCompletionData = booking.status === 'COMPLETED' || booking.status === 'PENDING_CONFIRMATION';
+
+                                    return (
+                                        <>
+                                            <TableRow
+                                                key={booking.id}
+                                                className={hasCompletionData ? 'cursor-pointer hover:bg-blue-50' : ''}
+                                                onClick={() => hasCompletionData && setExpandedBookingId(isExpanded ? null : booking.id)}
+                                            >
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        {hasCompletionData && (
+                                                            isExpanded ?
+                                                                <ChevronUp className="w-4 h-4 text-blue-600 flex-shrink-0" /> :
+                                                                <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                        )}
+                                                        <Avatar
+                                                            fallback={booking.teacherProfile?.displayName || booking.teacherProfile?.user?.email || 'T'}
+                                                            size="sm"
+                                                        />
+                                                        <div>
+                                                            <p className="font-medium text-sm">
+                                                                {booking.teacherProfile?.displayName || '-'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {booking.teacherProfile?.user?.email}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <Avatar
@@ -191,16 +217,31 @@ export default function AdminBookingsPage() {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="font-mono font-bold text-primary-600">
-                                            {booking.price} SDG
-                                        </TableCell>
-                                        <TableCell>
-                                            <StatusBadge variant={getStatusVariant(booking.status)}>
-                                                {getStatusLabel(booking.status)}
-                                            </StatusBadge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                                <TableCell className="font-mono font-bold text-primary-600">
+                                                    {booking.price} SDG
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge variant={getStatusVariant(booking.status)}>
+                                                        {getStatusLabel(booking.status)}
+                                                    </StatusBadge>
+                                                </TableCell>
+                                            </TableRow>
+
+                                            {/* Expanded Details Row */}
+                                            {isExpanded && hasCompletionData && (
+                                                <TableRow key={`${booking.id}-details`}>
+                                                    <TableCell colSpan={6} className="bg-blue-50/50 p-6">
+                                                        <SessionDetailsCard
+                                                            booking={booking}
+                                                            showProof={true} // Admins can see proof
+                                                            userRole="admin"
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     )}

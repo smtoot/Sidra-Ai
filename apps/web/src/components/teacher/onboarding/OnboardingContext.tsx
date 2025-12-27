@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { teacherApi, TeacherApplicationStatus } from '@/lib/api/teacher';
 import { Gender } from '@sidra/shared';
+import { toast } from 'sonner';
 
 // Onboarding data shape
 export interface OnboardingData {
@@ -45,6 +46,7 @@ interface OnboardingContextType {
     // Loading states
     loading: boolean;
     saving: boolean;
+    autoSaving: boolean; // P1-2 FIX: New state to track auto-save status
 
     // Actions
     saveCurrentStep: () => Promise<void>;
@@ -76,6 +78,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const [data, setData] = useState<OnboardingData>(defaultData);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [autoSaving, setAutoSaving] = useState(false); // P1-2 FIX: Track auto-save state
+    const autoSaveRetryCount = useRef(0); // P1-2 FIX: Track retry attempts
+    const MAX_AUTO_SAVE_RETRIES = 3;
 
     const updateData = useCallback((partial: Partial<OnboardingData>) => {
         setData(prev => ({ ...prev, ...partial }));
@@ -139,7 +144,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 displayName: data.displayName,
                 fullName: data.fullName,
                 bio: data.bio,
-                yearsOfExperience: data.yearsOfExperience,
+                yearsOfExperience: Number(data.yearsOfExperience) || 0, // Ensure number
                 education: data.education,
                 gender: data.gender || undefined,
                 profilePhotoUrl: data.profilePhotoUrl || undefined,
@@ -149,8 +154,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 idNumber: data.idNumber || undefined,
                 idImageUrl: data.idImageUrl || undefined,
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save step', error);
+            // Log validation details
+            if (error.response?.data?.message) {
+                console.error('VALIDATION ERROR DETAILS:', error.response.data.message);
+                // Optionally show toast if available
+                // toast.error(`Validation Failed: ${Array.isArray(error.response.data.message) ? error.response.data.message.join(', ') : error.response.data.message}`);
+            }
             throw error;
         } finally {
             setSaving(false);
@@ -172,7 +183,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         }
     }, [updateData]);
 
-    // AUTO-SAVE: Debounced save when data changes (after initial load)
+    // P1-2 FIX: IMPROVED AUTO-SAVE with error handling and retry logic
     const [hasLoadedInitially, setHasLoadedInitially] = useState(false);
 
     useEffect(() => {
@@ -188,25 +199,68 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         // Don't auto-save if on welcome or status dashboard
         if (currentStep === 0 || currentStep === 6) return;
 
-        // Debounce: save after 2 seconds of no changes
-        const timer = setTimeout(() => {
-            teacherApi.updateProfile({
-                displayName: data.displayName || undefined,
-                fullName: data.fullName || undefined,
-                bio: data.bio || undefined,
-                yearsOfExperience: data.yearsOfExperience || undefined,
-                education: data.education || undefined,
-                gender: data.gender || undefined,
-                profilePhotoUrl: data.profilePhotoUrl || undefined,
-                introVideoUrl: data.introVideoUrl || undefined,
-            }).catch(err => {
-                console.error('Auto-save failed:', err);
-                // Silent fail - don't interrupt user
-            });
-        }, 2000);
+        // Don't auto-save if manual save is in progress
+        if (saving) return;
+
+        // P1-2 FIX: Increased debounce to 3 seconds to reduce API calls
+        const timer = setTimeout(async () => {
+            setAutoSaving(true);
+            autoSaveRetryCount.current = 0; // Reset retry count
+
+            const attemptAutoSave = async (attempt: number): Promise<void> => {
+                try {
+                    await teacherApi.updateProfile({
+                        displayName: data.displayName || undefined,
+                        fullName: data.fullName || undefined,
+                        bio: data.bio || undefined,
+                        yearsOfExperience: data.yearsOfExperience || undefined,
+                        education: data.education || undefined,
+                        gender: data.gender || undefined,
+                        profilePhotoUrl: data.profilePhotoUrl || undefined,
+                        introVideoUrl: data.introVideoUrl || undefined,
+                    });
+
+                    // P1-2 FIX: Success - reset retry count
+                    autoSaveRetryCount.current = 0;
+                    setAutoSaving(false);
+
+                } catch (err: any) {
+                    console.error(`Auto-save failed (attempt ${attempt}/${MAX_AUTO_SAVE_RETRIES}):`, err);
+
+                    // P1-2 FIX: Retry with exponential backoff
+                    if (attempt < MAX_AUTO_SAVE_RETRIES) {
+                        autoSaveRetryCount.current = attempt;
+                        const backoffDelay = Math.min(1000 * Math.pow(2, attempt), 10000); // Max 10s
+
+                        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                        return attemptAutoSave(attempt + 1);
+                    } else {
+                        // P1-2 FIX: All retries failed - show error to user
+                        setAutoSaving(false);
+
+                        // Only show error for network/server issues, not validation errors
+                        const isNetworkError = !err.response || err.response.status >= 500;
+                        if (isNetworkError) {
+                            toast.error('فشل الحفظ التلقائي. تحقق من اتصال الإنترنت.', {
+                                duration: 5000,
+                                action: {
+                                    label: 'إعادة المحاولة',
+                                    onClick: () => {
+                                        // Allow manual retry
+                                        attemptAutoSave(1);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+            };
+
+            await attemptAutoSave(1);
+        }, 3000); // P1-2 FIX: Increased from 2s to 3s
 
         return () => clearTimeout(timer);
-    }, [data, loading, hasLoadedInitially, currentStep]);
+    }, [data, loading, hasLoadedInitially, currentStep, saving]);
 
     useEffect(() => {
         loadProfile();
@@ -221,6 +275,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 updateData,
                 loading,
                 saving,
+                autoSaving, // P1-2 FIX: Expose auto-save status
                 saveCurrentStep,
                 loadProfile,
                 submitForReview,

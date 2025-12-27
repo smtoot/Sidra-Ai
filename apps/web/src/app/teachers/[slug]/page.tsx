@@ -5,12 +5,13 @@ import TeacherProfilePageClient from '@/components/teacher/public-profile/Teache
 import { getFileUrl } from '@/lib/api/upload';
 
 type Props = {
-    params: { slug: string }
+    params: Promise<{ slug: string }>
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     try {
-        const teacher = await marketplaceApi.getTeacherProfile(params.slug);
+        const { slug } = await params;
+        const teacher = await marketplaceApi.getTeacherProfile(slug);
 
         return {
             title: `${teacher.displayName || 'معلم سدرة'} | منصة سدرة`,
@@ -30,6 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 }
 
-export default function TeacherProfilePage({ params }: Props) {
-    return <TeacherProfilePageClient slug={params.slug} />;
+export default async function TeacherProfilePage({ params }: Props) {
+    const { slug } = await params;
+    return <TeacherProfilePageClient slug={slug} />;
 }

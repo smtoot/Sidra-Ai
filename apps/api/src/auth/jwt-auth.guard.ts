@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from './public.decorator';
@@ -22,5 +22,28 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     // Otherwise, use default JWT authentication
     return super.canActivate(context);
+  }
+
+  /**
+   * Override handleRequest to ensure 401 is thrown instead of 403 on auth failure
+   * This addresses an issue where Passport sometimes returns 403 instead of 401
+   */
+  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
+    // Log for debugging
+    if (err || !user) {
+      console.warn('JwtAuthGuard: Auth failed', {
+        error: err?.message,
+        info: info?.message || info,
+        hasUser: !!user,
+        path: context?.switchToHttp()?.getRequest()?.url,
+      });
+    }
+
+    // If there's an error or no user, throw UnauthorizedException (401)
+    if (err || !user) {
+      throw err || new UnauthorizedException('Authentication required');
+    }
+
+    return user;
   }
 }

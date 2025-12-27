@@ -12,12 +12,12 @@ export class AuthService {
   ) { }
 
   /**
-   * P1-5: Validate strong password requirements
-   * Must have: 12+ chars, uppercase, lowercase, number, special char
+   * Validate password requirements
+   * Must have: 8+ chars, uppercase, lowercase, number
    */
   private validateStrongPassword(password: string): void {
-    if (password.length < 12) {
-      throw new BadRequestException('كلمة المرور يجب أن تكون 12 حرفاً على الأقل');
+    if (password.length < 8) {
+      throw new BadRequestException('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
     }
     if (!/[A-Z]/.test(password)) {
       throw new BadRequestException('كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل');
@@ -27,9 +27,6 @@ export class AuthService {
     }
     if (!/[0-9]/.test(password)) {
       throw new BadRequestException('كلمة المرور يجب أن تحتوي على رقم واحد على الأقل');
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-      throw new BadRequestException('كلمة المرور يجب أن تحتوي على رمز خاص واحد على الأقل (!@#$%^&* إلخ)');
     }
   }
 
@@ -88,26 +85,41 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    // Sanitize inputs
+    const phoneNumber = dto.phoneNumber?.trim();
+    const email = dto.email?.trim().toLowerCase();
+
+    console.log(`Login attempt for: phone=${phoneNumber}, email=${email}`);
+
     // PHONE-FIRST: Try phone number first, fallback to email
     let user = null;
 
-    if (dto.phoneNumber) {
+    if (phoneNumber) {
       user = await this.prisma.user.findFirst({
-        where: { phoneNumber: dto.phoneNumber },
+        where: { phoneNumber },
         include: { teacherProfile: true }
       });
-    } else if (dto.email) {
+    } else if (email) {
       user = await this.prisma.user.findUnique({
-        where: { email: dto.email },
+        where: { email },
         include: { teacherProfile: true }
       });
     }
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      console.log('User not found');
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
+    console.log('User found, verifying password...');
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
+    if (!isMatch) {
+      console.log('Password mismatch');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    console.log('Login successful');
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,

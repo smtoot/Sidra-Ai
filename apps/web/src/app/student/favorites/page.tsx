@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { TeacherCard } from '@/components/teacher/TeacherCard'; // Assuming this exists or similar
+import TeacherCard from '@/components/marketplace/TeacherCard'; // Assuming this exists or similar
 import { Loader2, Heart, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';

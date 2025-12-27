@@ -152,18 +152,18 @@ export class AdminController {
         return this.adminService.requestChanges(req.user.userId, id, dto.reason);
     }
 
-    @Patch('teacher-applications/:id/request-interview')
-    requestInterview(@Request() req: any, @Param('id') id: string) {
-        return this.adminService.requestInterview(req.user.userId, id);
-    }
-
-    @Patch('teacher-applications/:id/schedule-interview')
-    scheduleInterview(
+    @Post('teacher-applications/:id/propose-interview-slots')
+    proposeInterviewSlots(
         @Request() req: any,
         @Param('id') id: string,
-        @Body() dto: { datetime: string; link: string }
+        @Body() dto: { timeSlots: { dateTime: string; meetingLink: string }[] }
     ) {
-        return this.adminService.scheduleInterview(req.user.userId, id, dto.datetime, dto.link);
+        return this.adminService.proposeInterviewSlots(req.user.userId, id, dto.timeSlots);
+    }
+
+    @Get('teacher-applications/:id/interview-slots')
+    getInterviewTimeSlots(@Param('id') id: string) {
+        return this.adminService.getInterviewTimeSlots(id);
     }
 
     // =================== PASSWORD RECOVERY (ADMIN-ASSISTED) ===================

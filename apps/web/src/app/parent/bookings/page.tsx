@@ -74,6 +74,7 @@ export default function ParentBookingsPage() {
             PARTIALLY_REFUNDED: { label: 'استرداد جزئي', color: 'bg-orange-100 text-orange-600', icon: AlertCircle },
             REJECTED_BY_TEACHER: { label: 'مرفوضة', color: 'bg-error/10 text-error', icon: XCircle },
             CANCELLED_BY_PARENT: { label: 'ملغاة', color: 'bg-gray-100 text-gray-600', icon: XCircle },
+            CANCELLED_BY_TEACHER: { label: 'ملغاة من المعلم', color: 'bg-gray-100 text-gray-600', icon: XCircle },
             CANCELLED_BY_ADMIN: { label: 'ملغاة من الإدارة', color: 'bg-gray-100 text-gray-600', icon: XCircle },
             EXPIRED: { label: 'منتهية', color: 'bg-gray-100 text-gray-600', icon: XCircle },
         };

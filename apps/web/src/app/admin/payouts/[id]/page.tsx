@@ -187,7 +187,7 @@ export default function PayoutDetailsPage({ params }: { params: Promise<{ id: st
                                                 // Extract relative path if getFileUrl returns absolute, or just use the path
                                                 // The api client base URL is already set, so we need the relative path.
                                                 // getFileUrl returns full URL usually. We can just use the endpoint directly.
-                                                const endpoint = `/upload/file?key=${encodeURIComponent(tx.proofDocumentId!)}`;
+                                                const endpoint = `/storage/file?key=${encodeURIComponent(tx.proofDocumentId!)}`;
 
                                                 // Use the global 'api' instance which has the interceptor
                                                 // We need to import 'api' from '@/lib/api' if not available, or use walletApi if we extend it.

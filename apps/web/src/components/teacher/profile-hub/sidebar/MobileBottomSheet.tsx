@@ -16,6 +16,7 @@ interface MobileBottomSheetProps {
     items: SidebarItem[];
     activeSection: string;
     onSectionClick: (id: string) => void;
+    showPercentage?: boolean;
 }
 
 export function MobileBottomSheet({
@@ -23,6 +24,7 @@ export function MobileBottomSheet({
     items,
     activeSection,
     onSectionClick,
+    showPercentage = true,
 }: MobileBottomSheetProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -108,24 +110,26 @@ export function MobileBottomSheet({
                     )}
                     onClick={() => setIsExpanded(true)}
                 >
-                    {/* Mini Progress */}
+                    {/* Mini Progress - Hidden before approval */}
                     <div className="flex items-center gap-3">
-                        <div className="relative w-10 h-10">
-                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                <circle cx="50" cy="50" r="42" stroke="#e5e7eb" strokeWidth="12" fill="none" />
-                                <circle
-                                    cx="50" cy="50" r="42"
-                                    stroke="#10b981"
-                                    strokeWidth="12"
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${percentage * 2.64} 264`}
-                                />
-                            </svg>
-                            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
-                                {percentage}%
-                            </span>
-                        </div>
+                        {showPercentage && (
+                            <div className="relative w-10 h-10">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="42" stroke="#e5e7eb" strokeWidth="12" fill="none" />
+                                    <circle
+                                        cx="50" cy="50" r="42"
+                                        stroke="#10b981"
+                                        strokeWidth="12"
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeDasharray={`${percentage * 2.64} 264`}
+                                    />
+                                </svg>
+                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
+                                    {percentage}%
+                                </span>
+                            </div>
+                        )}
                         <div className="text-right">
                             <p className="text-sm font-medium text-gray-900">{activeItem?.nameAr || 'ملفي'}</p>
                             <p className="text-xs text-gray-500">اسحب للأعلى للتنقل</p>
@@ -153,34 +157,36 @@ export function MobileBottomSheet({
                         <h2 className="font-bold text-lg">ملفي الشخصي</h2>
                     </div>
 
-                    {/* Progress */}
-                    <div className="flex flex-col items-center mb-6">
-                        <div className="relative w-16 h-16 mb-2">
-                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                <circle cx="50" cy="50" r="42" stroke="#e5e7eb" strokeWidth="10" fill="none" />
-                                <circle
-                                    cx="50" cy="50" r="42"
-                                    stroke="url(#progressGradientMobile)"
-                                    strokeWidth="10"
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${percentage * 2.64} 264`}
-                                />
-                                <defs>
-                                    <linearGradient id="progressGradientMobile" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#10b981" />
-                                        <stop offset="100%" stopColor="#34d399" />
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                            <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">
-                                {percentage}%
-                            </span>
+                    {/* Progress - Hidden before approval */}
+                    {showPercentage && (
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="relative w-16 h-16 mb-2">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="42" stroke="#e5e7eb" strokeWidth="10" fill="none" />
+                                    <circle
+                                        cx="50" cy="50" r="42"
+                                        stroke="url(#progressGradientMobile)"
+                                        strokeWidth="10"
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeDasharray={`${percentage * 2.64} 264`}
+                                    />
+                                    <defs>
+                                        <linearGradient id="progressGradientMobile" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stopColor="#10b981" />
+                                            <stop offset="100%" stopColor="#34d399" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">
+                                    {percentage}%
+                                </span>
+                            </div>
+                            <p className="text-sm text-primary font-medium">
+                                {percentage === 100 ? '🎉 ملفك مكتمل!' : 'أكمل ملفك، ضاعف فرصك!'}
+                            </p>
                         </div>
-                        <p className="text-sm text-primary font-medium">
-                            {percentage === 100 ? '🎉 ملفك مكتمل!' : 'أكمل ملفك، ضاعف فرصك!'}
-                        </p>
-                    </div>
+                    )}
 
                     {/* Section List */}
                     <div className="space-y-2">

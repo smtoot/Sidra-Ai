@@ -597,59 +597,62 @@ export class AdminService {
     }
 
     /**
-     * Request interview with teacher
+     * Propose interview time slots to teacher (NEW WORKFLOW)
+     * Admin proposes multiple time slots, teacher selects one
      */
-    async requestInterview(adminUserId: string, profileId: string) {
+    async proposeInterviewSlots(adminUserId: string, profileId: string, timeSlots: { dateTime: string; meetingLink: string }[]) {
+        if (!timeSlots || timeSlots.length < 2) {
+            throw new BadRequestException('يجب تقديم خيارين على الأقل للمعلم');
+        }
+
         const profile = await this.prisma.teacherProfile.findUnique({
-            where: { id: profileId }
+            where: { id: profileId },
+            include: { user: true }
         });
 
         if (!profile) throw new NotFoundException('Application not found');
 
-        if (profile.applicationStatus !== 'SUBMITTED') {
-            throw new BadRequestException('يمكن طلب المقابلة فقط للطلبات المقدمة');
-        }
+        // Delete any existing time slots for this teacher
+        await this.prisma.interviewTimeSlot.deleteMany({
+            where: { teacherProfileId: profileId }
+        });
 
-        return this.prisma.teacherProfile.update({
+        // Create new time slots
+        const createdSlots = await Promise.all(
+            timeSlots.map(slot =>
+                this.prisma.interviewTimeSlot.create({
+                    data: {
+                        teacherProfileId: profileId,
+                        proposedDateTime: new Date(slot.dateTime),
+                        meetingLink: slot.meetingLink
+                    }
+                })
+            )
+        );
+
+        // Update application status to INTERVIEW_REQUIRED
+        await this.prisma.teacherProfile.update({
             where: { id: profileId },
             data: {
                 applicationStatus: 'INTERVIEW_REQUIRED',
                 reviewedAt: new Date(),
-                reviewedBy: adminUserId,
+                reviewedBy: adminUserId
             }
         });
+
+        // TODO: Send notification/email to teacher with the proposed time slots
+        // await this.notificationService.notifyTeacherOfInterviewSlots(profile.userId, createdSlots);
+
+        return { message: 'تم إرسال خيارات المقابلة للمعلم', timeSlots: createdSlots };
     }
 
     /**
-     * Schedule interview with teacher
+     * Get interview time slots for a teacher application
      */
-    async scheduleInterview(adminUserId: string, profileId: string, datetime: string, link: string) {
-        if (!datetime) {
-            throw new BadRequestException('يجب تحديد موعد المقابلة');
-        }
-        if (!link) {
-            throw new BadRequestException('يجب تحديد رابط المقابلة');
-        }
-
-        const profile = await this.prisma.teacherProfile.findUnique({
-            where: { id: profileId }
-        });
-
-        if (!profile) throw new NotFoundException('Application not found');
-
-        if (profile.applicationStatus !== 'INTERVIEW_REQUIRED') {
-            throw new BadRequestException('يمكن جدولة المقابلة فقط للطلبات التي تتطلب مقابلة');
-        }
-
-        return this.prisma.teacherProfile.update({
-            where: { id: profileId },
-            data: {
-                applicationStatus: 'INTERVIEW_SCHEDULED',
-                reviewedAt: new Date(),
-                reviewedBy: adminUserId,
-                interviewScheduledAt: new Date(datetime),
-                interviewLink: link,
-            }
+    async getInterviewTimeSlots(profileId: string) {
+        return this.prisma.interviewTimeSlot.findMany({
+            where: { teacherProfileId: profileId },
+            orderBy: { proposedDateTime: 'asc' }
         });
     }
 

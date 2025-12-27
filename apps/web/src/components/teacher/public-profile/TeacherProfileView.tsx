@@ -494,7 +494,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                                     <th className="py-3 px-4 text-center">
                                                         <div className="flex flex-col items-center gap-1">
                                                             <Sunset className="w-5 h-5 text-orange-500" />
-                                                            <span className="font-bold text-text-main">ظهراً</span>
+                                                            <span className="font-bold text-text-main">بعد الظهر</span>
                                                             <span className="text-xs text-text-subtle">12 - 5 م</span>
                                                         </div>
                                                     </th>

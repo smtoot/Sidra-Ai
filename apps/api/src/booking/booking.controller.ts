@@ -99,6 +99,20 @@ export class BookingController {
         return this.bookingService.updateTeacherNotes(req.user.userId, id, dto);
     }
 
+    // Teacher updates meeting link for a specific session
+    // SECURITY: Rate limit to prevent spam
+    @Patch(':id/meeting-link')
+    @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 updates per minute
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.TEACHER)
+    updateMeetingLink(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto: { meetingLink: string }
+    ) {
+        return this.bookingService.updateMeetingLink(req.user.userId, id, dto);
+    }
+
     // --- Phase 2C: Payment Integration ---
 
     // Parent or Student pays for approved booking
@@ -117,8 +131,12 @@ export class BookingController {
     @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 completions per minute (teachers may have back-to-back sessions)
     @UseGuards(RolesGuard)
     @Roles(UserRole.TEACHER)
-    completeSession(@Request() req: any, @Param('id') id: string) {
-        return this.bookingService.completeSession(req.user.userId, id);
+    completeSession(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() dto: any // CompleteSessionDto - all fields optional
+    ) {
+        return this.bookingService.completeSession(req.user.userId, id, dto);
     }
 
     // Admin marks booking as completed

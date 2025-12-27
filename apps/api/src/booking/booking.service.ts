@@ -10,6 +10,7 @@ import { formatInTimezone } from '../common/utils/timezone.util';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { normalizeMoney } from '../utils/money';
 import { BOOKING_POLICY } from './booking-policy.constants';
+import { EncryptionUtil } from '../common/utils/encryption.util';
 
 @Injectable()
 export class BookingService {
@@ -125,6 +126,10 @@ export class BookingService {
         // Generate human-readable booking ID
         const readableId = await this.readableIdService.generate('BOOKING');
 
+        // CHANGED: Per-session meeting links
+        // Meeting links are now set per-session by the teacher, not copied from global profile
+        // Teacher will be prompted to add meeting link before each session
+
         // Create booking
         const booking = await this.prisma.booking.create({
             data: {
@@ -142,7 +147,7 @@ export class BookingService {
                 price: calculatedPrice, // P0-1: Server-calculated, normalized to integer
                 commissionRate: commissionRate,
                 bookingNotes: dto.bookingNotes || null,  // Notes from parent/student
-                meetingLink: teacherSubject.teacherProfile.encryptedMeetingLink,
+                meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
                 status: 'PENDING_TEACHER_APPROVAL',
                 pendingTierId: dto.tierId || null  // For deferred package purchases
             },
@@ -237,10 +242,9 @@ export class BookingService {
                 throw new ForbiddenException('Not your booking');
             }
 
-            // Validate that teacher has a meeting link configured
-            if (!booking.teacherProfile.encryptedMeetingLink) {
-                throw new BadRequestException('يجب إضافة رابط الاجتماع في الإعدادات قبل الموافقة على الطلبات');
-            }
+            // CHANGE: Per-session meeting links are now used
+            // Teachers will be prompted to add meeting link when managing sessions
+            // No longer requiring global encryptedMeetingLink on teacher profile
 
             // Idempotency: if already SCHEDULED or beyond, return current state
             if (booking.status === 'SCHEDULED' || booking.status === 'COMPLETED' || booking.status === 'PENDING_CONFIRMATION') {
@@ -660,6 +664,55 @@ export class BookingService {
             }
         });
     }
+
+    // Teacher updates meeting link for a specific session
+    async updateMeetingLink(
+        teacherUserId: string,
+        bookingId: string,
+        dto: { meetingLink: string }
+    ) {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: { teacherProfile: true }
+        });
+
+        if (!booking) throw new NotFoundException('Booking not found');
+
+        // Verify teacher owns this booking
+        const teacherProfile = await this.prisma.teacherProfile.findUnique({
+            where: { userId: teacherUserId }
+        });
+
+        if (!teacherProfile || booking.teacherId !== teacherProfile.id) {
+            throw new ForbiddenException('Not authorized to update meeting link for this session');
+        }
+
+        // Validate meeting link URL
+        if (dto.meetingLink) {
+            try {
+                const url = new URL(dto.meetingLink);
+                const validDomains = ['meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com'];
+                const isValid = validDomains.some(domain => url.hostname.includes(domain));
+
+                if (!isValid) {
+                    throw new BadRequestException(
+                        'Meeting link must be from Google Meet, Zoom, or Microsoft Teams'
+                    );
+                }
+            } catch (error) {
+                if (error instanceof BadRequestException) throw error;
+                throw new BadRequestException('Invalid meeting link URL format');
+            }
+        }
+
+        return this.prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+                meetingLink: dto.meetingLink || null
+            }
+        });
+    }
+
     // Cron job: Expire old pending requests (24 hours)
     // Run every hour
     @Cron(CronExpression.EVERY_HOUR)
@@ -868,7 +921,7 @@ export class BookingService {
         });
     }
 
-    async completeSession(teacherUserId: string, bookingId: string) {
+    async completeSession(teacherUserId: string, bookingId: string, dto?: any) {
         const booking = await this.prisma.booking.findUnique({
             where: { id: bookingId },
             include: {
@@ -894,14 +947,35 @@ export class BookingService {
             throw new BadRequestException('Session must be SCHEDULED to mark complete');
         }
 
+        // SECURITY: Prevent completion before session actually ends
+        const now = new Date();
+        const sessionEndTime = new Date(booking.endTime);
+
+        if (now < sessionEndTime) {
+            const minutesRemaining = Math.ceil((sessionEndTime.getTime() - now.getTime()) / 60000);
+            throw new BadRequestException(
+                `Cannot complete session before it ends. ${minutesRemaining} minutes remaining.`
+            );
+        }
+
         // Get system settings for dispute window
         const settings = await this.getSystemSettings();
-        const now = new Date();
         const disputeWindowClosesAt = new Date(
             now.getTime() + settings.disputeWindowHours * 60 * 60 * 1000
         );
 
-        // Update to PENDING_CONFIRMATION with dispute window tracking
+        // Auto-generate teacherSummary from structured fields if provided
+        let teacherSummary = dto?.teacherSummary;
+        if (!teacherSummary && dto) {
+            const parts = [];
+            if (dto.topicsCovered) parts.push(`المواضيع: ${dto.topicsCovered}`);
+            if (dto.studentPerformanceNotes) parts.push(`الأداء: ${dto.studentPerformanceNotes}`);
+            if (dto.homeworkAssigned && dto.homeworkDescription) parts.push(`الواجب: ${dto.homeworkDescription}`);
+            if (dto.nextSessionRecommendations) parts.push(`التوصيات: ${dto.nextSessionRecommendations}`);
+            if (parts.length > 0) teacherSummary = parts.join(' | ');
+        }
+
+        // Update to PENDING_CONFIRMATION with dispute window tracking + session details
         const updatedBooking = await this.prisma.booking.update({
             where: { id: bookingId },
             data: {
@@ -912,6 +986,16 @@ export class BookingService {
                 // LEGACY: Keep for backward compatibility
                 teacherCompletedAt: now,
                 autoReleaseAt: disputeWindowClosesAt,
+                // Session completion details (all optional)
+                // sessionProofUrl: dto?.sessionProofUrl, // REMOVED: Field no longer exists in schema
+                topicsCovered: dto?.topicsCovered,
+                studentPerformanceRating: dto?.studentPerformanceRating,
+                studentPerformanceNotes: dto?.studentPerformanceNotes,
+                homeworkAssigned: dto?.homeworkAssigned,
+                homeworkDescription: dto?.homeworkDescription,
+                nextSessionRecommendations: dto?.nextSessionRecommendations,
+                additionalNotes: dto?.additionalNotes,
+                teacherSummary: teacherSummary,
             }
         });
 
@@ -2077,5 +2161,87 @@ export class BookingService {
         this.logger.log(`❌ RESCHEDULE_DECLINED | requestId=${requestId}`);
 
         return { success: true, bookingId: request.bookingId };
+    }
+
+    /**
+     * Cron Job: Send reminders for scheduled sessions without meeting links
+     * Runs every 10 minutes to check for sessions starting in 30 minutes
+     */
+    @Cron('*/10 * * * *') // Every 10 minutes
+    async sendMeetingLinkReminders() {
+        const logger = new Logger('MeetingLinkReminder');
+
+        // Calculate time window: 20-40 minutes from now
+        // (30 minutes target with 10-minute buffer for cron timing)
+        const now = new Date();
+        const in20Minutes = new Date(now.getTime() + 20 * 60 * 1000);
+        const in40Minutes = new Date(now.getTime() + 40 * 60 * 1000);
+
+        // Find scheduled sessions without meeting link that start in 20-40 minutes
+        // and haven't been reminded yet
+        const sessionsNeedingReminder = await this.prisma.booking.findMany({
+            where: {
+                status: 'SCHEDULED',
+                meetingLink: null, // No meeting link set
+                meetingLinkReminderSentAt: null, // Haven't sent reminder yet
+                startTime: {
+                    gte: in20Minutes,
+                    lte: in40Minutes
+                }
+            },
+            include: {
+                teacherProfile: {
+                    include: { user: true }
+                },
+                child: true,
+                studentUser: true,
+                subject: true
+            }
+        });
+
+        if (sessionsNeedingReminder.length === 0) {
+            logger.debug('No sessions needing meeting link reminders');
+            return { remindersSent: 0 };
+        }
+
+        logger.log(`Found ${sessionsNeedingReminder.length} sessions needing meeting link reminders`);
+
+        let remindersSent = 0;
+
+        for (const booking of sessionsNeedingReminder) {
+            try {
+                const teacherUserId = booking.teacherProfile.userId;
+                const studentName = booking.child?.name || booking.studentUser?.email || 'الطالب';
+                const subjectName = booking.subject?.nameAr || 'الدرس';
+                const minutesUntilStart = Math.round((booking.startTime.getTime() - now.getTime()) / (60 * 1000));
+
+                // Send notification to teacher
+                await this.notificationService.notifyUser({
+                    userId: teacherUserId,
+                    type: 'MEETING_LINK_REMINDER' as any,
+                    title: '⚠️ رابط الاجتماع مفقود',
+                    message: `لديك حصة مع ${studentName} (${subjectName}) تبدأ بعد ${minutesUntilStart} دقيقة ولكن لم تقم بإضافة رابط الاجتماع بعد. يرجى إضافة الرابط الآن.`,
+                    metadata: {
+                        bookingId: booking.id,
+                        action: 'ADD_MEETING_LINK'
+                    }
+                });
+
+                // Mark reminder as sent
+                await this.prisma.booking.update({
+                    where: { id: booking.id },
+                    data: { meetingLinkReminderSentAt: new Date() }
+                });
+
+                logger.log(`Sent meeting link reminder for booking ${booking.id} to teacher ${teacherUserId}`);
+                remindersSent++;
+
+            } catch (error) {
+                logger.error(`Failed to send meeting link reminder for booking ${booking.id}:`, error);
+            }
+        }
+
+        logger.log(`Successfully sent ${remindersSent} meeting link reminders`);
+        return { remindersSent };
     }
 }

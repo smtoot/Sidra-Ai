@@ -62,6 +62,7 @@ export default function StudentBookingsPage() {
             PARTIALLY_REFUNDED: { label: 'استرداد جزئي', color: 'warning', bgColor: 'bg-warning-50', borderColor: 'border-warning-200', icon: AlertCircle },
             REJECTED_BY_TEACHER: { label: 'مرفوضة من المعلم', color: 'error', bgColor: 'bg-red-50', borderColor: 'border-red-200', icon: XCircle },
             CANCELLED_BY_PARENT: { label: 'ملغاة', color: 'gray', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', icon: XCircle },
+            CANCELLED_BY_TEACHER: { label: 'ملغاة من المعلم', color: 'gray', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', icon: XCircle },
             CANCELLED_BY_ADMIN: { label: 'ملغاة من الإدارة', color: 'gray', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', icon: XCircle },
             EXPIRED: { label: 'منتهية', color: 'gray', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', icon: XCircle },
         };

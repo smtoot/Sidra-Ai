@@ -15,7 +15,9 @@ type NotificationType =
     | 'DEPOSIT_REJECTED'
     | 'DISPUTE_RAISED'
     | 'DISPUTE_UPDATE'
-    | 'SYSTEM_ALERT';
+    | 'SYSTEM_ALERT'
+    | 'URGENT'           // FIX: Added missing type
+    | 'ADMIN_ALERT';     // FIX: Added missing type
 
 const NotificationStatus = {
     READ: 'READ',

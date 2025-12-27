@@ -177,6 +177,7 @@ export const adminApi = {
         maxPricePerHour?: number;
         defaultSessionDurationMinutes?: number;
         allowedSessionDurations?: number[];
+        meetingLinkAccessMinutesBefore?: number;
     }) => {
         const response = await api.patch('/admin/settings', data);
         return response.data;
@@ -217,13 +218,13 @@ export const adminApi = {
         return response.data;
     },
 
-    requestInterview: async (id: string) => {
-        const response = await api.patch(`/admin/teacher-applications/${id}/request-interview`);
+    proposeInterviewSlots: async (id: string, timeSlots: { dateTime: string; meetingLink: string }[]) => {
+        const response = await api.post(`/admin/teacher-applications/${id}/propose-interview-slots`, { timeSlots });
         return response.data;
     },
 
-    scheduleInterview: async (id: string, datetime: string, link: string) => {
-        const response = await api.patch(`/admin/teacher-applications/${id}/schedule-interview`, { datetime, link });
+    getInterviewTimeSlots: async (id: string) => {
+        const response = await api.get(`/admin/teacher-applications/${id}/interview-slots`);
         return response.data;
     },
 

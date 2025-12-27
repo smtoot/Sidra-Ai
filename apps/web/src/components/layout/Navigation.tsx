@@ -42,6 +42,8 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'جلساتي', href: '/teacher/sessions', icon: Calendar },
         { label: 'باقات الطلاب', href: '/teacher/packages', icon: Package },
         { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign },
+        { label: 'المواعيد', href: '/teacher/availability', icon: Clock },
+        { label: 'الإعدادات', href: '/teacher/settings', icon: Settings },
     ],
     STUDENT: [
         { label: 'لوحة التحكم', href: '/student', icon: Home },
@@ -64,6 +66,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
                 { label: 'الحجوزات', href: '/admin/bookings', icon: Calendar },
                 { label: 'الشكاوى', href: '/admin/disputes', icon: AlertTriangle },
                 { label: 'طلبات المعلمين', href: '/admin/teacher-applications', icon: Users },
+                { label: 'مقابلات المعلمين', href: '/admin/interviews', icon: Clock },
                 { label: 'المعلمون', href: '/admin/teachers', icon: Users },
                 { label: 'وسوم التدريس', href: '/admin/tags', icon: GraduationCap },
                 { label: 'الحصص التجريبية', href: '/admin/demo', icon: PlayCircle },

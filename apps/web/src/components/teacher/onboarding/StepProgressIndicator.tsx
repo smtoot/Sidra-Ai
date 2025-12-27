@@ -13,7 +13,7 @@ const STEPS: Step[] = [
     { id: 1, label: 'الصورة', icon: Camera },
     { id: 2, label: 'الخبرة', icon: Briefcase },
     { id: 3, label: 'المواد', icon: BookOpen },
-    { id: 4, label: 'الوثائق', icon: FileText },
+    { id: 4, label: 'الهوية', icon: FileText },
     { id: 5, label: 'المراجعة', icon: CheckCircle },
 ];
 
@@ -25,8 +25,9 @@ interface StepProgressIndicatorProps {
 export function StepProgressIndicator({ currentStep, className }: StepProgressIndicatorProps) {
     return (
         <div className={cn("w-full py-4", className)} dir="rtl">
-            <div className="flex items-center justify-center gap-0 max-w-2xl mx-auto px-4">
-                {STEPS.map((step, index) => {
+            <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center justify-center gap-0 max-w-2xl mx-auto px-4">
+                    {STEPS.map((step, index) => {
                     const isCompleted = currentStep > step.id;
                     const isCurrent = currentStep === step.id;
                     const isUpcoming = currentStep < step.id;
@@ -74,6 +75,14 @@ export function StepProgressIndicator({ currentStep, className }: StepProgressIn
                         </div>
                     );
                 })}
+                </div>
+
+                {/* Step Counter */}
+                {currentStep > 0 && currentStep <= STEPS.length && (
+                    <div className="text-center text-xs text-gray-500">
+                        <span>الخطوة {currentStep} من {STEPS.length}</span>
+                    </div>
+                )}
             </div>
         </div>
     );

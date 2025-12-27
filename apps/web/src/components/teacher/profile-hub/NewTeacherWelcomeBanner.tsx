@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-    PartyPopper,
-    ArrowLeft,
+    Sparkles,
     Calendar,
     CreditCard,
     Settings,
     CheckCircle,
-    Circle,
-    ChevronRight
+    X,
+    ChevronLeft
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -18,7 +17,6 @@ import { cn } from '@/lib/utils';
 interface NextStep {
     id: string;
     title: string;
-    description: string;
     href: string;
     icon: React.ElementType;
     isComplete: boolean;
@@ -50,35 +48,26 @@ export function NewTeacherWelcomeBanner({
     onDismiss,
 }: NewTeacherWelcomeBannerProps) {
     const [isVisible, setIsVisible] = useState(true);
-    const [showConfetti, setShowConfetti] = useState(true);
-
-    // Hide confetti after 3 seconds
-    useEffect(() => {
-        const timer = setTimeout(() => setShowConfetti(false), 3000);
-        return () => clearTimeout(timer);
-    }, []);
+    const [isExpanded, setIsExpanded] = useState(true); // Show steps by default
 
     const nextSteps: NextStep[] = [
         {
             id: 'availability',
-            title: 'حدد أوقات التدريس',
-            description: 'اختر الأيام والأوقات التي تناسبك للتدريس',
+            title: 'أوقات التدريس',
             href: '/teacher/availability',
             icon: Calendar,
             isComplete: hasAvailability,
         },
         {
             id: 'bank',
-            title: 'أضف بيانات الدفع',
-            description: 'لتتمكن من استلام أرباحك',
+            title: 'بيانات الدفع',
             href: '/teacher/wallet',
             icon: CreditCard,
             isComplete: hasBankInfo,
         },
         {
             id: 'meeting',
-            title: 'أضف رابط الاجتماع',
-            description: 'رابط Google Meet أو Zoom للحصص',
+            title: 'رابط الاجتماع',
             href: '/teacher/profile-hub?section=settings',
             icon: Settings,
             isComplete: hasMeetingLink,
@@ -87,6 +76,7 @@ export function NewTeacherWelcomeBanner({
 
     const completedCount = nextSteps.filter(s => s.isComplete).length;
     const allComplete = completedCount === nextSteps.length;
+    const incompleteSteps = nextSteps.filter(s => !s.isComplete);
 
     const handleDismiss = () => {
         setIsVisible(false);
@@ -96,140 +86,102 @@ export function NewTeacherWelcomeBanner({
     if (!isVisible) return null;
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 via-green-600 to-emerald-700 text-white p-6 md:p-8 shadow-lg">
-            {/* Confetti Animation */}
-            {showConfetti && (
-                <div className="absolute inset-0 pointer-events-none">
-                    <div className="confetti-container">
-                        {[...Array(20)].map((_, i) => (
-                            <div
-                                key={i}
-                                className="confetti"
-                                style={{
-                                    left: `${Math.random() * 100}%`,
-                                    animationDelay: `${Math.random() * 2}s`,
-                                    backgroundColor: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A'][i % 5],
-                                }}
-                            />
-                        ))}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            {/* Main Banner - Compact */}
+            <div className="px-4 py-3 flex items-center justify-between gap-4">
+                {/* Left: Icon + Message */}
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-5 h-5 text-primary" />
                     </div>
-                </div>
-            )}
-
-            {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-                        <PartyPopper className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold mb-1">
+                    <div className="min-w-0">
+                        <p className="font-bold text-gray-900 truncate">
                             🎉 مبروك {displayName}!
-                        </h2>
-                        <p className="text-green-100">
-                            تم قبول طلبك! أنت الآن معلم/ة معتمد/ة في سِدرة
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                            تم قبول طلبك - أكمل الخطوات المتبقية للبدء
                         </p>
                     </div>
                 </div>
-                {allComplete && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDismiss}
-                        className="text-white/70 hover:text-white hover:bg-white/10"
-                    >
-                        إغلاق
-                    </Button>
-                )}
-            </div>
 
-            {/* Next Steps */}
-            <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                <h3 className="font-bold mb-4 flex items-center gap-2">
-                    <span>الخطوات التالية</span>
-                    <span className="text-sm font-normal text-green-200">
-                        ({completedCount}/{nextSteps.length} مكتمل)
-                    </span>
-                </h3>
-
-                <div className="space-y-3">
-                    {nextSteps.map((step, index) => {
-                        const Icon = step.icon;
-                        return (
-                            <Link
+                {/* Right: Progress + Actions */}
+                <div className="flex items-center gap-3 flex-shrink-0">
+                    {/* Progress Pills */}
+                    <div className="hidden sm:flex items-center gap-1">
+                        {nextSteps.map((step) => (
+                            <div
                                 key={step.id}
-                                href={step.href}
                                 className={cn(
-                                    "flex items-center gap-4 p-3 rounded-lg transition-all",
-                                    step.isComplete
-                                        ? "bg-white/5 opacity-70"
-                                        : "bg-white/15 hover:bg-white/20"
+                                    "w-2 h-2 rounded-full transition-colors",
+                                    step.isComplete ? "bg-green-500" : "bg-gray-200"
                                 )}
-                            >
-                                <div className={cn(
-                                    "w-10 h-10 rounded-full flex items-center justify-center",
-                                    step.isComplete ? "bg-green-400" : "bg-white/20"
-                                )}>
-                                    {step.isComplete ? (
-                                        <CheckCircle className="w-5 h-5 text-white" />
-                                    ) : (
-                                        <Icon className="w-5 h-5" />
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <p className={cn(
-                                        "font-medium",
-                                        step.isComplete && "line-through opacity-70"
-                                    )}>
-                                        {step.title}
-                                    </p>
-                                    <p className="text-sm text-green-200">{step.description}</p>
-                                </div>
-                                {!step.isComplete && (
-                                    <ChevronRight className="w-5 h-5 text-green-200" />
-                                )}
-                            </Link>
-                        );
-                    })}
+                                title={step.title}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Expand/Collapse Button */}
+                    {!allComplete && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="gap-1 text-primary border-primary/30 hover:bg-primary/5"
+                        >
+                            <span className="hidden sm:inline">
+                                {completedCount}/{nextSteps.length} مكتمل
+                            </span>
+                            <ChevronLeft className={cn(
+                                "w-4 h-4 transition-transform",
+                                isExpanded && "rotate-90"
+                            )} />
+                        </Button>
+                    )}
+
+                    {/* Dismiss Button */}
+                    <button
+                        onClick={handleDismiss}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        aria-label="إغلاق"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
 
-            {/* CTA */}
-            {!allComplete && (
-                <div className="mt-6 text-center">
-                    <p className="text-green-200 text-sm mb-3">
-                        أكمل هذه الخطوات لتبدأ في استقبال الحجوزات
-                    </p>
+            {/* Expanded Steps */}
+            {isExpanded && !allComplete && (
+                <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
+                    <div className="flex flex-wrap gap-2">
+                        {incompleteSteps.map((step) => {
+                            const Icon = step.icon;
+                            return (
+                                <Link
+                                    key={step.id}
+                                    href={step.href}
+                                    className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-primary hover:shadow-sm transition-all group"
+                                >
+                                    <Icon className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
+                                    <span className="text-sm font-medium text-gray-700 group-hover:text-primary transition-colors">
+                                        {step.title}
+                                    </span>
+                                    <ChevronLeft className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors" />
+                                </Link>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 
-            {/* Confetti CSS */}
-            <style jsx>{`
-                .confetti-container {
-                    position: absolute;
-                    width: 100%;
-                    height: 100%;
-                    overflow: hidden;
-                }
-                .confetti {
-                    position: absolute;
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 2px;
-                    animation: confetti-fall 3s ease-in-out forwards;
-                    opacity: 0;
-                }
-                @keyframes confetti-fall {
-                    0% {
-                        transform: translateY(-100%) rotate(0deg);
-                        opacity: 1;
-                    }
-                    100% {
-                        transform: translateY(100vh) rotate(720deg);
-                        opacity: 0;
-                    }
-                }
-            `}</style>
+            {/* All Complete State */}
+            {allComplete && (
+                <div className="border-t border-gray-100 px-4 py-2 bg-green-50/50">
+                    <div className="flex items-center gap-2 text-green-700 text-sm">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>أنت جاهز لاستقبال الحجوزات!</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

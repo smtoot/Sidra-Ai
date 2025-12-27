@@ -5,33 +5,60 @@ import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@sidra/shared';
 import Link from 'next/link';
 
-// Common country codes for MENA region
+// Country codes - MENA region first (Sudan priority), then international
 const COUNTRY_CODES = [
+    // Primary - Sudan, Egypt, Saudi Arabia
+    { code: '+249', country: 'السودان', flag: '🇸🇩' },
+    { code: '+20', country: 'مصر', flag: '🇪🇬' },
     { code: '+966', country: 'السعودية', flag: '🇸🇦' },
+    // Gulf Countries
     { code: '+971', country: 'الإمارات', flag: '🇦🇪' },
     { code: '+965', country: 'الكويت', flag: '🇰🇼' },
     { code: '+973', country: 'البحرين', flag: '🇧🇭' },
     { code: '+968', country: 'عُمان', flag: '🇴🇲' },
     { code: '+974', country: 'قطر', flag: '🇶🇦' },
-    { code: '+20', country: 'مصر', flag: '🇪🇬' },
+    // Levant
     { code: '+962', country: 'الأردن', flag: '🇯🇴' },
     { code: '+961', country: 'لبنان', flag: '🇱🇧' },
     { code: '+970', country: 'فلسطين', flag: '🇵🇸' },
+    { code: '+963', country: 'سوريا', flag: '🇸🇾' },
+    { code: '+964', country: 'العراق', flag: '🇮🇶' },
+    // North Africa
     { code: '+212', country: 'المغرب', flag: '🇲🇦' },
     { code: '+216', country: 'تونس', flag: '🇹🇳' },
     { code: '+213', country: 'الجزائر', flag: '🇩🇿' },
+    { code: '+218', country: 'ليبيا', flag: '🇱🇾' },
+    // Other Arab
     { code: '+967', country: 'اليمن', flag: '🇾🇪' },
-    { code: '+964', country: 'العراق', flag: '🇮🇶' },
-    { code: '+963', country: 'سوريا', flag: '🇸🇾' },
+    { code: '+222', country: 'موريتانيا', flag: '🇲🇷' },
+    { code: '+252', country: 'الصومال', flag: '🇸🇴' },
+    { code: '+253', country: 'جيبوتي', flag: '🇩🇯' },
+    { code: '+269', country: 'جزر القمر', flag: '🇰🇲' },
+    // International - Common
+    { code: '+1', country: 'الولايات المتحدة', flag: '🇺🇸' },
+    { code: '+44', country: 'المملكة المتحدة', flag: '🇬🇧' },
+    { code: '+33', country: 'فرنسا', flag: '🇫🇷' },
+    { code: '+49', country: 'ألمانيا', flag: '🇩🇪' },
+    { code: '+90', country: 'تركيا', flag: '🇹🇷' },
+    { code: '+91', country: 'الهند', flag: '🇮🇳' },
+    { code: '+92', country: 'باكستان', flag: '🇵🇰' },
+    { code: '+60', country: 'ماليزيا', flag: '🇲🇾' },
+    { code: '+62', country: 'إندونيسيا', flag: '🇮🇩' },
+    { code: '+234', country: 'نيجيريا', flag: '🇳🇬' },
+    { code: '+27', country: 'جنوب أفريقيا', flag: '🇿🇦' },
+    { code: '+55', country: 'البرازيل', flag: '🇧🇷' },
+    { code: '+61', country: 'أستراليا', flag: '🇦🇺' },
+    { code: '+86', country: 'الصين', flag: '🇨🇳' },
 ];
 
 export default function RegisterPage() {
     const { register } = useAuth();
     const [email, setEmail] = useState('');
-    const [countryCode, setCountryCode] = useState('+966');
+    const [countryCode, setCountryCode] = useState('+249'); // Default to Sudan
     const [phoneNumber, setPhoneNumber] = useState('');
     const [password, setPassword] = useState('');
     const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [role, setRole] = useState<string>('PARENT');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -43,9 +70,15 @@ export default function RegisterPage() {
         e.preventDefault();
         setError('');
 
-        // Validate name for all roles
+        // Validate first name
         if (!firstName.trim()) {
-            setError('الاسم مطلوب');
+            setError('الاسم الأول مطلوب');
+            return;
+        }
+
+        // Validate last name
+        if (!lastName.trim()) {
+            setError('اسم العائلة مطلوب');
             return;
         }
 
@@ -65,7 +98,8 @@ export default function RegisterPage() {
                 phoneNumber: fullPhoneNumber,
                 password,
                 role: role as any,
-                firstName: firstName.trim()
+                firstName: firstName.trim(),
+                lastName: lastName.trim()
             });
         } catch (err: any) {
             setError(err.response?.data?.message || 'فشل التسجيل. حاول مرة أخرى.');
@@ -130,22 +164,36 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
-                    {/* Name Field - Required for ALL roles */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {isTeacher ? 'الاسم الكامل' : 'الاسم الأول'} <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            required
-                            placeholder={isTeacher ? 'أدخل اسمك الكامل' : 'أدخل اسمك الأول'}
-                            className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                        />
-                        {isTeacher && (
-                            <p className="mt-1 text-xs text-gray-500">سيظهر هذا الاسم في ملفك الشخصي</p>
-                        )}
+                    {/* Name Fields - firstName + lastName */}
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* First Name */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                الاسم الأول <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="محمد"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={firstName}
+                                onChange={(e) => setFirstName(e.target.value)}
+                            />
+                        </div>
+                        {/* Last Name */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                اسم العائلة <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="أحمد"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={lastName}
+                                onChange={(e) => setLastName(e.target.value)}
+                            />
+                        </div>
                     </div>
 
                     {/* Phone Number with Country Code */}
@@ -154,11 +202,22 @@ export default function RegisterPage() {
                             رقم الجوال <span className="text-red-500">*</span>
                         </label>
                         <div className="mt-1 flex gap-2">
-                            {/* Country Code Selector */}
+                            {/* Phone Number Input - First in DOM = Right side in RTL */}
+                            <input
+                                type="tel"
+                                required
+                                placeholder="9XXXXXXXX"
+                                className="flex-1 rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                dir="ltr"
+                            />
+                            {/* Country Code Selector - Second in DOM = Left side in RTL */}
                             <select
                                 value={countryCode}
                                 onChange={(e) => setCountryCode(e.target.value)}
                                 className="w-[140px] rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
+                                dir="ltr"
                             >
                                 {COUNTRY_CODES.map((c) => (
                                     <option key={c.code} value={c.code}>
@@ -166,16 +225,6 @@ export default function RegisterPage() {
                                     </option>
                                 ))}
                             </select>
-                            {/* Phone Number Input */}
-                            <input
-                                type="tel"
-                                required
-                                placeholder="5XXXXXXXX"
-                                className="flex-1 rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                                dir="ltr"
-                            />
                         </div>
                     </div>
 

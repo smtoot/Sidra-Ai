@@ -28,6 +28,7 @@ export default function AdminSettingsPage() {
     const [minHoursBeforeSession, setMinHoursBeforeSession] = useState('2');
     const [maxPricePerHour, setMaxPricePerHour] = useState('50000');
     const [sessionDuration, setSessionDuration] = useState('60');
+    const [meetingLinkAccessMinutes, setMeetingLinkAccessMinutes] = useState('15');
 
     useEffect(() => {
         loadSettings();
@@ -43,6 +44,7 @@ export default function AdminSettingsPage() {
             setMinHoursBeforeSession((data.minHoursBeforeSession || 2).toString());
             setMaxPricePerHour((data.maxPricePerHour || 50000).toString());
             setSessionDuration((data.defaultSessionDurationMinutes || 60).toString());
+            setMeetingLinkAccessMinutes((data.meetingLinkAccessMinutesBefore || 15).toString());
         } catch (error) {
             console.error(error);
             toast.error('فشل تحميل الإعدادات');
@@ -60,6 +62,7 @@ export default function AdminSettingsPage() {
         const minBuffer = Number(minHoursBeforeSession);
         const maxPrice = Number(maxPricePerHour);
         const duration = Number(sessionDuration);
+        const linkAccessMinutes = Number(meetingLinkAccessMinutes);
 
         if (isNaN(fee) || fee < 0 || fee > 100) {
             toast.error('نسبة العمولة يجب أن تكون بين 0 و 100');
@@ -81,13 +84,18 @@ export default function AdminSettingsPage() {
             return;
         }
 
-        if (isNaN(maxPrice) || maxPrice < 1) {
-            toast.error('الحد الأقصى للسعر يجب أن يكون 1 جنيه على الأقل');
+        if (isNaN(maxPrice) || maxPrice < 100) {
+            toast.error('الحد الأقصى للسعر يجب أن يكون 100 جنيه على الأقل');
             return;
         }
 
         if (isNaN(duration) || duration < 15 || duration > 240) {
             toast.error('مدة الحصة يجب أن تكون بين 15 و 240 دقيقة');
+            return;
+        }
+
+        if (isNaN(linkAccessMinutes) || linkAccessMinutes < 5 || linkAccessMinutes > 60) {
+            toast.error('وقت الوصول لرابط الاجتماع يجب أن يكون بين 5 و 60 دقيقة');
             return;
         }
 
@@ -101,7 +109,8 @@ export default function AdminSettingsPage() {
                 packagesEnabled: settings.packagesEnabled,
                 demosEnabled: settings.demosEnabled,
                 maxPricePerHour: maxPrice,
-                defaultSessionDurationMinutes: duration
+                defaultSessionDurationMinutes: duration,
+                meetingLinkAccessMinutesBefore: linkAccessMinutes
             });
             toast.success('تم تحديث الإعدادات بنجاح');
             loadSettings(); // Reload to confirm
@@ -258,7 +267,7 @@ export default function AdminSettingsPage() {
                             <div className="relative w-full md:w-1/3">
                                 <Input
                                     type="number"
-                                    min="1"
+                                    min="100"
                                     step="100"
                                     value={maxPricePerHour}
                                     onChange={(e) => setMaxPricePerHour(e.target.value)}
@@ -291,6 +300,35 @@ export default function AdminSettingsPage() {
                                     step="15"
                                     value={sessionDuration}
                                     onChange={(e) => setSessionDuration(e.target.value)}
+                                    className="pl-16"
+                                />
+                                <span className="absolute left-3 top-2 text-gray-400 text-sm">دقيقة</span>
+                            </div>
+                        </div>
+
+                        <hr className="border-gray-100" />
+
+                        {/* Meeting Link Access Time */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">وقت الوصول لرابط الاجتماع</h3>
+                                    <p className="text-sm text-text-subtle mt-1">
+                                        عدد الدقائق قبل بداية الحصة التي يمكن للمعلم فيها الوصول لرابط الاجتماع والانضمام للحصة.
+                                    </p>
+                                </div>
+                                <div className="bg-gray-50 px-3 py-1 rounded text-sm font-mono">
+                                    الحالية: {settings.meetingLinkAccessMinutesBefore || 15} دقيقة
+                                </div>
+                            </div>
+                            <div className="relative w-full md:w-1/3">
+                                <Input
+                                    type="number"
+                                    min="5"
+                                    max="60"
+                                    step="5"
+                                    value={meetingLinkAccessMinutes}
+                                    onChange={(e) => setMeetingLinkAccessMinutes(e.target.value)}
                                     className="pl-16"
                                 />
                                 <span className="absolute left-3 top-2 text-gray-400 text-sm">دقيقة</span>

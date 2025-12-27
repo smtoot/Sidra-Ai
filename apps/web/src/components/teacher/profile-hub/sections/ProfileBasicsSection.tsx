@@ -225,8 +225,8 @@ export function ProfileBasicsSection({
                 value={bio}
                 onChange={(value) => onUpdate({ bio: value })}
                 disabled={isReadOnly}
-                minLength={10}
-                useWordCount={true}
+                minLength={80}
+                useWordCount={false}
             />
         </div>
     );

@@ -253,9 +253,9 @@ export default function TeacherPackagesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
                 <div className="max-w-6xl mx-auto">
-                    <Card>
+                    <Card className="border-none shadow-md">
                         <CardContent className="p-12 text-center">
                             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary-600" />
                             <p className="text-gray-500">جاري التحميل...</p>
@@ -267,67 +267,63 @@ export default function TeacherPackagesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
-                <header>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-3">
-                        <Package className="w-8 h-8 text-primary-600" />
+                <header className="mb-2">
+                    <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1 flex items-center gap-3">
                         باقات الطلاب
                     </h1>
-                    <p className="text-sm md:text-base text-gray-600 mt-2">متابعة الباقات المشتراة وجلسات الطلاب</p>
+                    <p className="text-gray-600 flex items-center gap-2">
+                        <Package className="w-5 h-5" />
+                        <span>متابعة الباقات المشتراة وجلسات الطلاب</span>
+                    </p>
                 </header>
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Active Packages */}
-                    <Card className="border-l-4 border-l-primary-600">
-                        <CardContent className="p-5">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-                                    <Package className="w-6 h-6 text-primary-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">باقات نشطة</p>
-                                    <p className="text-3xl font-bold text-gray-900">{activeCount}</p>
+                    <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 shadow-lg">
+                                    <Package className="w-6 h-6 text-white" />
                                 </div>
                             </div>
+                            <div className="text-sm text-gray-600 mb-1">باقات نشطة</div>
+                            <div className="text-3xl font-bold text-gray-900">{activeCount}</div>
                         </CardContent>
                     </Card>
 
                     {/* Completed Packages */}
-                    <Card className="border-l-4 border-l-success-600">
-                        <CardContent className="p-5">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-success-100 rounded-xl flex items-center justify-center">
-                                    <CheckCircle className="w-6 h-6 text-success-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">باقات مكتملة</p>
-                                    <p className="text-3xl font-bold text-gray-900">{completedCount}</p>
+                    <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 shadow-lg">
+                                    <CheckCircle className="w-6 h-6 text-white" />
                                 </div>
                             </div>
+                            <div className="text-sm text-gray-600 mb-1">باقات مكتملة</div>
+                            <div className="text-3xl font-bold text-gray-900">{completedCount}</div>
                         </CardContent>
                     </Card>
 
                     {/* Remaining Sessions */}
-                    <Card className="border-l-4 border-l-warning-600">
-                        <CardContent className="p-5">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-warning-100 rounded-xl flex items-center justify-center">
-                                    <Clock className="w-6 h-6 text-warning-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">حصص متبقية</p>
-                                    <p className="text-3xl font-bold text-gray-900">{totalRemainingSessions}</p>
+                    <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+                                    <BookOpen className="w-6 h-6 text-white" />
                                 </div>
                             </div>
+                            <div className="text-sm text-gray-600 mb-1">حصص متبقية</div>
+                            <div className="text-3xl font-bold text-gray-900">{totalRemainingSessions}</div>
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* Filter Tabs */}
-                <Card>
+                <Card className="border-none shadow-md">
                     <CardContent className="p-4">
                         <div className="flex gap-2 overflow-x-auto">
                             {[
@@ -343,10 +339,10 @@ export default function TeacherPackagesPage() {
                                         setCurrentPage(1); // Reset to page 1
                                     }}
                                     className={cn(
-                                        "px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2",
+                                        "px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all flex items-center gap-2",
                                         statusFilter === tab.key
-                                            ? "bg-primary-600 text-white shadow-md"
-                                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                            ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg"
+                                            : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow-sm"
                                     )}
                                 >
                                     {tab.label}
@@ -364,12 +360,12 @@ export default function TeacherPackagesPage() {
 
                 {/* Packages List */}
                 {filteredPackages.length === 0 ? (
-                    <Card className="border-dashed border-2">
+                    <Card className="border-2 border-dashed border-gray-200">
                         <CardContent className="p-12 text-center">
-                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Package className="w-10 h-10 text-gray-300" />
+                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Package className="w-10 h-10 text-gray-400" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-700 mb-2">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
                                 {statusFilter === 'ALL' ? 'لا توجد باقات' : `لا توجد باقات ${statusFilter === 'ACTIVE' ? 'نشطة' : statusFilter === 'COMPLETED' ? 'مكتملة' : 'منتهية'}`}
                             </h3>
                             <p className="text-gray-500">

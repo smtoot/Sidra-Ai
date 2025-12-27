@@ -147,9 +147,15 @@ export default function AdminContentPage() {
                     break;
                 case 'SUBJECTS':
                     if (editingItem) {
-                        await adminApi.updateSubject(editingItem.id, formData);
+                        await adminApi.updateSubject(editingItem.id, {
+                            nameAr: formData.nameAr,
+                            nameEn: formData.nameEn
+                        });
                     } else {
-                        await adminApi.createSubject(formData);
+                        await adminApi.createSubject({
+                            nameAr: formData.nameAr,
+                            nameEn: formData.nameEn
+                        });
                     }
                     break;
             }
@@ -399,15 +405,15 @@ export default function AdminContentPage() {
                     />
                 </div>
 
-                {/* Code field for Grades */}
-                {activeTab === 'GRADES' && (
+                {/* Code field for Curricula and Grades */}
+                {(activeTab === 'CURRICULA' || activeTab === 'GRADES') && (
                     <div>
-                        <label className="block text-sm font-medium mb-1">الرمز (مثل G1, G2)</label>
+                        <label className="block text-sm font-medium mb-1">الرمز {activeTab === 'GRADES' ? '(مثل G1, G2)' : '(مثل NAT, IB)'}</label>
                         <Input
                             value={formData.code}
                             onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
                             required
-                            placeholder="G1"
+                            placeholder={activeTab === 'GRADES' ? "G1" : "NAT"}
                             dir="ltr"
                             className="font-mono"
                         />

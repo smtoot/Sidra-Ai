@@ -19,7 +19,12 @@ async function bootstrap() {
   }));
 
   // SECURITY: Restrict CORS to allowed origins only
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
+  // Default includes common Next.js dev ports (3000, 3001, 3002)
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+  ];
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, Postman, server-to-server)

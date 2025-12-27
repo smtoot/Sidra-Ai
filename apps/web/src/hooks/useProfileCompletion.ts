@@ -25,6 +25,10 @@ interface ProfileData {
     dateOfBirth?: string;
     teachingStyle?: string;
     teachingTags?: any[];
+    // ID Verification fields
+    idType?: string;
+    idNumber?: string;
+    idImageUrl?: string;
 }
 
 interface CompletionItem {
@@ -117,7 +121,8 @@ export function useProfileCompletion(
                 id: 'documents',
                 nameAr: 'تأكيد الهوية',
                 nameEn: 'Identity Verification',
-                isComplete: (p.documents?.length || 0) > 0,
+                // ID verification is complete if idType, idNumber, and idImageUrl are all provided
+                isComplete: Boolean(p.idType && p.idNumber && p.idImageUrl),
                 isLocked: false,
                 weight: 15,
             },
@@ -132,14 +137,15 @@ export function useProfileCompletion(
                 nameEn: 'Availability',
                 isComplete: isApproved && (p.availability?.length || 0) > 0,
                 isLocked: !isApproved,
-                weight: 5,
+                weight: 10,  // Increased from 5% to 10%
             },
             {
-                id: 'settings',
-                nameAr: 'إعدادات الحساب',
-                nameEn: 'Account Settings',
-                // Meeting link is stored as encryptedMeetingLink in database
-                isComplete: isApproved && Boolean(p.meetingLink || p.encryptedMeetingLink),
+                id: 'policies',
+                nameAr: 'خيارات التدريس',
+                nameEn: 'Teaching Options',
+                // Teaching options section is considered complete when unlocked (after approval)
+                // Teachers can configure demo settings, packages - these are preferences, not legal policies
+                isComplete: isApproved,
                 isLocked: !isApproved,
                 weight: 5,
             },

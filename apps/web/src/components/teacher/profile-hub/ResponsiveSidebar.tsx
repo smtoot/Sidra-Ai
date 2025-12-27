@@ -17,6 +17,7 @@ interface ResponsiveSidebarProps {
     items: SidebarItem[];
     activeSection: string;
     onSectionClick: (id: string) => void;
+    showPercentage?: boolean;
 }
 
 /**
@@ -30,6 +31,7 @@ export function ResponsiveSidebar({
     items,
     activeSection,
     onSectionClick,
+    showPercentage = true,
 }: ResponsiveSidebarProps) {
     const breakpoint = useBreakpoint();
 
@@ -41,6 +43,7 @@ export function ResponsiveSidebar({
                 items={items}
                 activeSection={activeSection}
                 onSectionClick={onSectionClick}
+                showPercentage={showPercentage}
             />
         );
     }
@@ -53,6 +56,7 @@ export function ResponsiveSidebar({
                 items={items}
                 activeSection={activeSection}
                 onSectionClick={onSectionClick}
+                showPercentage={showPercentage}
             />
         );
     }
@@ -64,6 +68,7 @@ export function ResponsiveSidebar({
             items={items}
             activeSection={activeSection}
             onSectionClick={onSectionClick}
+            showPercentage={showPercentage}
         />
     );
 }

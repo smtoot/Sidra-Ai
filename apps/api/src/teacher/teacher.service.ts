@@ -25,6 +25,7 @@ export class TeacherService {
         subjects: { include: { subject: true, curriculum: true } },
         availability: true,
         documents: true,
+        user: true, // Include User for firstName/lastName
       },
     });
 
@@ -32,7 +33,22 @@ export class TeacherService {
       throw new NotFoundException('Teacher profile not found');
     }
 
-    return profile;
+    // P1 SECURITY FIX: Decrypt meeting link before returning to frontend
+    // Meeting links are stored encrypted for security, but teachers need to see/edit them
+    let decryptedMeetingLink: string | null = null;
+    if (profile.encryptedMeetingLink) {
+      try {
+        decryptedMeetingLink = await EncryptionUtil.decrypt(profile.encryptedMeetingLink);
+      } catch (error) {
+        // If decryption fails, log error but don't break the profile fetch
+        console.error('Failed to decrypt meeting link for teacher:', userId, error);
+      }
+    }
+
+    return {
+      ...profile,
+      meetingLink: decryptedMeetingLink, // Add decrypted link for frontend use
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateTeacherProfileDto) {
@@ -98,10 +114,14 @@ export class TeacherService {
       }
     }
 
+    // Note: firstName/lastName are managed separately through user profile
+    // They are not part of teacher onboarding DTO anymore
+
     return this.prisma.teacherProfile.update({
       where: { userId },
       data: {
         displayName: dto.displayName,
+        slug: dto.slug, // Update slug
         fullName: dto.fullName,
         bio: dto.bio,
         yearsOfExperience: dto.yearsOfExperience,
@@ -123,6 +143,11 @@ export class TeacherService {
         // Mark onboarding as complete if basic info is present (simplification for MVP)
         // hasCompletedOnboarding: true,
       },
+    }).catch((error) => {
+      if (error.code === 'P2002' && error.meta?.target?.includes('slug')) {
+        throw new BadRequestException('عذراً، هذا الرابط مستخدم بالفعل. يرجى اختيار رابط آخر.');
+      }
+      throw error;
     });
   }
 
@@ -572,7 +597,10 @@ export class TeacherService {
     return {
       profile: {
         id: profile.id,
+        slug: profile.slug, // Include slug
         displayName: profile.displayName || 'معلم',
+        firstName: profile.user.firstName, // Added for dashboard greeting
+        lastName: profile.user.lastName,   // Added just in case
         photo: profile.profilePhotoUrl || null
       },
       counts: {
@@ -659,6 +687,31 @@ export class TeacherService {
    * Submit profile for admin review
    * Allowed transitions: DRAFT → SUBMITTED, CHANGES_REQUESTED → SUBMITTED
    */
+  /**
+   * Accept Terms & Conditions
+   * CRITICAL: Must be called before submitForReview
+   */
+  async acceptTerms(userId: string, termsVersion: string) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    return this.prisma.teacherProfile.update({
+      where: { userId },
+      data: {
+        termsAcceptedAt: new Date(),
+        termsVersion: termsVersion,
+      },
+      select: {
+        termsAcceptedAt: true,
+        termsVersion: true,
+      }
+    });
+  }
+
   async submitForReview(userId: string) {
     const profile = await this.prisma.teacherProfile.findUnique({
       where: { userId },
@@ -669,6 +722,11 @@ export class TeacherService {
         bio: true,
         education: true,
         yearsOfExperience: true,
+        gender: true,
+        idType: true,
+        idNumber: true,
+        idImageUrl: true,
+        termsAcceptedAt: true,
         documents: true,
       }
     });
@@ -683,12 +741,25 @@ export class TeacherService {
       );
     }
 
+    // CRITICAL: Validate Terms & Conditions acceptance
+    if (!profile.termsAcceptedAt) {
+      throw new BadRequestException('يجب الموافقة على الشروط والأحكام قبل الإرسال');
+    }
+
     // Validate required fields before submission
     if (!profile.displayName) {
       throw new BadRequestException('يرجى إضافة الاسم الظاهر قبل الإرسال');
     }
     if (!profile.bio) {
       throw new BadRequestException('يرجى إضافة نبذة تعريفية قبل الإرسال');
+    }
+    if (!profile.gender) {
+      throw new BadRequestException('يرجى تحديد الجنس قبل الإرسال');
+    }
+
+    // CRITICAL: Validate ID Verification (MANDATORY)
+    if (!profile.idType || !profile.idNumber || !profile.idImageUrl) {
+      throw new BadRequestException('تأكيد الهوية مطلوب. يرجى إكمال جميع حقول الهوية قبل الإرسال');
     }
 
     return this.prisma.teacherProfile.update({

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useOnboarding } from '../OnboardingContext';
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Lightbulb } from 'lucide-react';
 import { toast } from 'sonner';
 import { BioField, ExperienceFields, CertificatesSection } from '@/components/teacher/shared';
 
@@ -15,13 +15,27 @@ export function ExperienceStep() {
     const { data, updateData, setCurrentStep, saveCurrentStep, saving } = useOnboarding();
 
     const handleNext = async () => {
-        if (data.yearsOfExperience < 0) {
-            toast.error('الرجاء إدخال سنوات خبرة صالحة');
+        // Validate years of experience
+        if (data.yearsOfExperience === undefined || data.yearsOfExperience === null) {
+            toast.error('الرجاء إدخال سنوات الخبرة');
             return;
         }
+
+        // Validate education
+        if (!data.education?.trim()) {
+            toast.error('الرجاء اختيار المؤهل التعليمي');
+            return;
+        }
+
+        // Validate bio (minimum 50 characters, recommended 80)
         if (!data.bio.trim() || data.bio.length < 50) {
             toast.error('الرجاء كتابة نبذة تعريفية لا تقل عن 50 حرف');
             return;
+        }
+
+        // Soft warning for bio < 80 characters (but allow submission)
+        if (data.bio.length < 80) {
+            toast.warning('ننصح بكتابة نبذة أطول (80 حرف على الأقل) لزيادة فرص الحجز');
         }
 
         try {
@@ -40,6 +54,21 @@ export function ExperienceStep() {
                 <p className="text-text-subtle">أخبرنا عن خبرتك ومؤهلاتك في مجال التدريس</p>
             </div>
 
+            {/* Tips Banner */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                    <Lightbulb className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1 text-sm text-blue-800">
+                        <p className="font-medium">نصائح لكتابة نبذة جذابة:</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+                            <li>اذكر تخصصك وخبرتك بوضوح</li>
+                            <li>أضف إنجازاتك المميزة (مثل: نسبة نجاح طلابك)</li>
+                            <li>وضّح أسلوبك في التدريس وما يميزك</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-6">
                 {/* Experience Fields - Using shared component */}
                 <ExperienceFields
@@ -52,7 +81,7 @@ export function ExperienceStep() {
                 <BioField
                     value={data.bio}
                     onChange={(bio) => updateData({ bio })}
-                    minLength={50}
+                    minLength={80}
                     useWordCount={false}
                 />
 

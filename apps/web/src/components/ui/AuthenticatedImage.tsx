@@ -56,16 +56,39 @@ export function AuthenticatedImage({
             setLoading(true);
             setError(null);
 
+            // Check if token exists before making authenticated request
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.warn('AuthenticatedImage: No auth token found, user might not be logged in');
+                setError('يرجى تسجيل الدخول');
+                setLoading(false);
+                return;
+            }
+
             try {
-                const response = await api.get(`/upload/file?key=${encodeURIComponent(fileKey)}`, {
+                const response = await api.get(`/storage/file?key=${encodeURIComponent(fileKey)}`, {
                     responseType: 'blob',
                 });
 
                 const url = URL.createObjectURL(response.data);
                 setBlobUrl(url);
             } catch (err: any) {
-                console.error('Failed to load image:', err);
-                setError(err?.response?.status === 401 ? 'غير مصرح' : 'فشل تحميل الصورة');
+                console.error('Failed to load image:', {
+                    status: err?.response?.status,
+                    message: err?.message,
+                    fileKey,
+                });
+
+                // Provide specific error messages
+                if (err?.response?.status === 401) {
+                    setError('غير مصرح - يرجى تسجيل الدخول');
+                } else if (err?.response?.status === 403) {
+                    setError('غير مسموح بالوصول');
+                } else if (err?.response?.status === 404 || err?.response?.status === 400) {
+                    setError('الملف غير موجود');
+                } else {
+                    setError('فشل تحميل الصورة');
+                }
             } finally {
                 setLoading(false);
             }

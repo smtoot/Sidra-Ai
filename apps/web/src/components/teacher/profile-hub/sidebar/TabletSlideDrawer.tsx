@@ -16,6 +16,7 @@ interface TabletSlideDrawerProps {
     items: SidebarItem[];
     activeSection: string;
     onSectionClick: (id: string) => void;
+    showPercentage?: boolean;
 }
 
 export function TabletSlideDrawer({
@@ -23,6 +24,7 @@ export function TabletSlideDrawer({
     items,
     activeSection,
     onSectionClick,
+    showPercentage = true,
 }: TabletSlideDrawerProps) {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -51,10 +53,12 @@ export function TabletSlideDrawer({
                 aria-label="فتح القائمة"
             >
                 <Menu className="w-5 h-5" />
-                {/* Progress badge */}
-                <span className="absolute -top-1 -left-1 w-6 h-6 bg-green-500 rounded-full text-xs font-bold flex items-center justify-center">
-                    {percentage}
-                </span>
+                {/* Progress badge - Hidden before approval */}
+                {showPercentage && (
+                    <span className="absolute -top-1 -left-1 w-6 h-6 bg-green-500 rounded-full text-xs font-bold flex items-center justify-center">
+                        {percentage}
+                    </span>
+                )}
             </button>
 
             {/* Overlay */}
@@ -85,44 +89,46 @@ export function TabletSlideDrawer({
                 </div>
 
                 <div className="p-6 space-y-6 overflow-y-auto h-[calc(100%-64px)]">
-                    {/* Progress Indicator */}
-                    <div className="flex flex-col items-center text-center space-y-2">
-                        <div className="relative w-20 h-20">
-                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="42"
-                                    stroke="#e5e7eb"
-                                    strokeWidth="8"
-                                    fill="none"
-                                />
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="42"
-                                    stroke="url(#progressGradientTablet)"
-                                    strokeWidth="8"
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${percentage * 2.64} 264`}
-                                    className="transition-all duration-500 ease-out"
-                                />
-                                <defs>
-                                    <linearGradient id="progressGradientTablet" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#10b981" />
-                                        <stop offset="100%" stopColor="#34d399" />
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-xl font-bold text-gray-900">{percentage}%</span>
+                    {/* Progress Indicator - Hidden before approval */}
+                    {showPercentage && (
+                        <div className="flex flex-col items-center text-center space-y-2">
+                            <div className="relative w-20 h-20">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle
+                                        cx="50"
+                                        cy="50"
+                                        r="42"
+                                        stroke="#e5e7eb"
+                                        strokeWidth="8"
+                                        fill="none"
+                                    />
+                                    <circle
+                                        cx="50"
+                                        cy="50"
+                                        r="42"
+                                        stroke="url(#progressGradientTablet)"
+                                        strokeWidth="8"
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeDasharray={`${percentage * 2.64} 264`}
+                                        className="transition-all duration-500 ease-out"
+                                    />
+                                    <defs>
+                                        <linearGradient id="progressGradientTablet" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stopColor="#10b981" />
+                                            <stop offset="100%" stopColor="#34d399" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-xl font-bold text-gray-900">{percentage}%</span>
+                                </div>
                             </div>
+                            <p className="font-bold text-primary text-sm">
+                                {percentage === 100 ? '🎉 ملفك مكتمل!' : 'أكمل ملفك، ضاعف فرصك!'}
+                            </p>
                         </div>
-                        <p className="font-bold text-primary text-sm">
-                            {percentage === 100 ? '🎉 ملفك مكتمل!' : 'أكمل ملفك، ضاعف فرصك!'}
-                        </p>
-                    </div>
+                    )}
 
                     {/* Section List */}
                     <div className="space-y-2">

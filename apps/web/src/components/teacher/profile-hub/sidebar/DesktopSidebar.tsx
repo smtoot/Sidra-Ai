@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Lock, ChevronLeft, ChevronRight, User, GraduationCap, BookOpen, Clock, FileCheck, Wallet, Settings } from 'lucide-react';
+import { Check, Lock, ChevronLeft, ChevronRight, User, GraduationCap, BookOpen, Clock, FileCheck, Wallet, Settings, Sparkles } from 'lucide-react';
 
 interface SidebarItem {
     id: string;
@@ -16,6 +16,7 @@ interface DesktopSidebarProps {
     items: SidebarItem[];
     activeSection: string;
     onSectionClick: (id: string) => void;
+    showPercentage?: boolean;
 }
 
 // Icon mapping for each section
@@ -23,11 +24,12 @@ const sectionIcons: Record<string, any> = {
     'profile': User,
     'personal-info': User,  // Personal info section
     'qualifications': GraduationCap,
+    'teaching-approach': Sparkles,  // Teaching approach section
     'subjects': BookOpen,
     'documents': FileCheck,
     'availability': Clock,
     'bank': Wallet,
-    'settings': Settings,
+    'policies': Settings,  // Teaching policies (renamed from 'settings')
 };
 
 export function DesktopSidebar({
@@ -35,6 +37,7 @@ export function DesktopSidebar({
     items,
     activeSection,
     onSectionClick,
+    showPercentage = true,
 }: DesktopSidebarProps) {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -45,63 +48,65 @@ export function DesktopSidebar({
                 isCollapsed ? "w-[72px] p-2" : "w-72 p-6"
             )}
         >
-            {/* Progress Indicator */}
-            <div className={cn(
-                "flex flex-col items-center text-center transition-all",
-                isCollapsed ? "space-y-1 pt-2" : "space-y-2 pt-8"
-            )}>
+            {/* Progress Indicator - Hidden before approval */}
+            {showPercentage && (
                 <div className={cn(
-                    "relative transition-all duration-300",
-                    isCollapsed ? "w-14 h-14" : "w-24 h-24"
+                    "flex flex-col items-center text-center transition-all",
+                    isCollapsed ? "space-y-1 pt-2" : "space-y-2 pt-8"
                 )}>
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="42"
-                            stroke="#e5e7eb"
-                            strokeWidth={isCollapsed ? 10 : 8}
-                            fill="none"
-                        />
-                        <circle
-                            cx="50"
-                            cy="50"
-                            r="42"
-                            stroke="url(#progressGradientDesktop)"
-                            strokeWidth={isCollapsed ? 10 : 8}
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeDasharray={`${percentage * 2.64} 264`}
-                            className="transition-all duration-500 ease-out"
-                        />
-                        <defs>
-                            <linearGradient id="progressGradientDesktop" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#10b981" />
-                                <stop offset="100%" stopColor="#34d399" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={cn(
-                            "font-bold text-gray-900 whitespace-nowrap",
-                            isCollapsed ? "text-[11px]" : "text-2xl"
-                        )}>
-                            {percentage}%
-                        </span>
+                    <div className={cn(
+                        "relative transition-all duration-300",
+                        isCollapsed ? "w-14 h-14" : "w-24 h-24"
+                    )}>
+                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                stroke="#e5e7eb"
+                                strokeWidth={isCollapsed ? 10 : 8}
+                                fill="none"
+                            />
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                stroke="url(#progressGradientDesktop)"
+                                strokeWidth={isCollapsed ? 10 : 8}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeDasharray={`${percentage * 2.64} 264`}
+                                className="transition-all duration-500 ease-out"
+                            />
+                            <defs>
+                                <linearGradient id="progressGradientDesktop" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor="#10b981" />
+                                    <stop offset="100%" stopColor="#34d399" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <span className={cn(
+                                "font-bold text-gray-900 whitespace-nowrap",
+                                isCollapsed ? "text-[11px]" : "text-2xl"
+                            )}>
+                                {percentage}%
+                            </span>
+                        </div>
                     </div>
-                </div>
 
-                {!isCollapsed && (
-                    <div className="space-y-1">
-                        <p className="font-bold text-primary text-sm">
-                            {percentage === 100 ? '🎉 ملفك مكتمل!' : 'أكمل ملفك، ضاعف فرصك!'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                            {percentage === 100 ? 'أنت جاهز للتدريس' : 'اكتمال الملف الشخصي'}
-                        </p>
-                    </div>
-                )}
-            </div>
+                    {!isCollapsed && (
+                        <div className="space-y-1">
+                            <p className="font-bold text-primary text-sm">
+                                {percentage === 100 ? '🎉 ملفك مكتمل!' : 'أكمل ملفك، ضاعف فرصك!'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                {percentage === 100 ? 'أنت جاهز للتدريس' : 'اكتمال الملف الشخصي'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Collapse Toggle Button - Below progress */}
             <button

@@ -52,6 +52,34 @@ export default function SessionDetailPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [cancelling, setCancelling] = useState(false);
 
+    // Helper to map booking status to badge variant
+    const getStatusVariant = (status: BookingStatus): 'success' | 'warning' | 'error' | 'info' => {
+        if (status === 'COMPLETED' || status === 'SCHEDULED') return 'success';
+        if (status === 'PENDING_TEACHER_APPROVAL' || status === 'WAITING_FOR_PAYMENT' || status === 'PAYMENT_REVIEW') return 'warning';
+        if (status.includes('CANCELLED') || status === 'REJECTED_BY_TEACHER' || status === 'EXPIRED') return 'error';
+        return 'info';
+    };
+
+    const getStatusLabel = (status: BookingStatus): string => {
+        const statusLabels: Record<BookingStatus, string> = {
+            'PENDING_TEACHER_APPROVAL': 'في انتظار موافقة المعلم',
+            'WAITING_FOR_PAYMENT': 'في انتظار الدفع',
+            'PAYMENT_REVIEW': 'مراجعة الدفع',
+            'SCHEDULED': 'مجدولة',
+            'COMPLETED': 'مكتملة',
+            'PENDING_CONFIRMATION': 'في انتظار التأكيد',
+            'REJECTED_BY_TEACHER': 'مرفوضة من المعلم',
+            'CANCELLED_BY_PARENT': 'ملغاة من ولي الأمر',
+            'CANCELLED_BY_TEACHER': 'ملغاة من المعلم',
+            'CANCELLED_BY_ADMIN': 'ملغاة من الإدارة',
+            'EXPIRED': 'منتهية',
+            'DISPUTED': 'متنازع عليها',
+            'REFUNDED': 'مستردة',
+            'PARTIALLY_REFUNDED': 'استرداد جزئي'
+        };
+        return statusLabels[status] || status;
+    };
+
     useEffect(() => {
         loadSession();
     }, [sessionId]);
@@ -129,7 +157,9 @@ export default function SessionDetailPage() {
         }
     };
 
-    const canComplete = session?.status === 'SCHEDULED';
+    // Can only complete AFTER session ends
+    const sessionHasEnded = session ? new Date() > new Date(session.endTime) : false;
+    const canComplete = session?.status === 'SCHEDULED' && sessionHasEnded;
     const canCancel = session?.status === 'SCHEDULED' || session?.status === 'PENDING_TEACHER_APPROVAL';
     const isCompleted = session?.status === 'COMPLETED' || session?.status === 'PENDING_CONFIRMATION';
 
@@ -188,18 +218,20 @@ export default function SessionDetailPage() {
                                         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                                             {session.child?.name || session.studentUser?.displayName || 'طالب'}
                                         </h1>
-                                        <StatusBadge status={session.status} />
+                                        <StatusBadge variant={getStatusVariant(session.status)}>
+                                            {getStatusLabel(session.status)}
+                                        </StatusBadge>
                                     </div>
                                     <div className="flex items-center gap-2 text-gray-600">
                                         <BookOpen className="w-5 h-5" />
                                         <span className="text-lg">{session.subject?.nameAr || 'مادة دراسية'}</span>
                                     </div>
                                     {/* Package/Demo indicator */}
-                                    {session.packageBooking?.package?.sessionCount && session.packageBooking.package.sessionCount > 1 && (
+                                    {session.pendingTierSessionCount && session.pendingTierSessionCount > 1 && (
                                         <div className="flex items-center gap-1 mt-2">
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
                                                 <Package className="w-3 h-3" />
-                                                باقة {session.packageBooking.package.sessionCount} حصص
+                                                باقة {session.pendingTierSessionCount} حصص
                                             </span>
                                         </div>
                                     )}
@@ -434,6 +466,38 @@ export default function SessionDetailPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Rebook Encouragement (only for COMPLETED sessions) */}
+                    {session.status === 'COMPLETED' && (
+                        <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+                            <CardContent className="p-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-6 h-6 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-blue-900 mb-2">
+                                            حصة ناجحة! 🎉
+                                        </h3>
+                                        <p className="text-sm text-blue-700 mb-3">
+                                            تم إكمال الحصة بنجاح! بناء علاقة طويلة الأمد مع الطلاب عبر المنصة يزيد من فرص الحجوزات المتكررة ونجاحك كمعلم.
+                                        </p>
+                                        <div className="flex flex-wrap gap-2 text-xs text-blue-600">
+                                            <span className="flex items-center gap-1 bg-blue-100 px-3 py-1.5 rounded-full">
+                                                ✅ استمرارية التعلم
+                                            </span>
+                                            <span className="flex items-center gap-1 bg-blue-100 px-3 py-1.5 rounded-full">
+                                                💰 دخل منتظم
+                                            </span>
+                                            <span className="flex items-center gap-1 bg-blue-100 px-3 py-1.5 rounded-full">
+                                                ⭐ تقييمات أفضل
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </main>
 
                 {/* Cancel Modal */}

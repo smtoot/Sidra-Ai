@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubjectDto, SearchTeachersDto, DayOfWeek } from '@sidra/shared';
 import { format } from 'date-fns';
@@ -289,7 +289,7 @@ export class MarketplaceService {
         // Include demo settings
         demoSettings: true,
         studentPackages: {
-          select: { id: true, tierId: true } as any
+          select: { id: true }
         }
       }
     });
@@ -298,83 +298,90 @@ export class MarketplaceService {
       throw new NotFoundException('Teacher not found');
     }
 
-    // Get completed sessions count
-    const completedSessions = await this.prisma.booking.count({
-      where: {
-        teacherId: teacher.id,
-        status: 'COMPLETED' as any
-      }
-    });
+    try {
 
-    // Get global system settings
-    const systemSettings = await this.prisma.systemSettings.findUnique({
-      where: { id: 'default' }
-    });
+      // Get completed sessions count
+      const completedSessions = await this.prisma.booking.count({
+        where: {
+          teacherId: teacher.id,
+          status: 'COMPLETED' as any
+        }
+      });
 
-    // Get teacher demo settings
-    const teacherDemoSettings = await this.prisma.teacherDemoSettings.findUnique({
-      where: { teacherId: teacher.id }
-    });
+      // Get global system settings
+      const systemSettings = await this.prisma.systemSettings.findUnique({
+        where: { id: 'default' }
+      });
 
-    // Get active package tiers
-    const packageTiers = await this.prisma.packageTier.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: 'asc' }
-    });
+      // Get teacher demo settings
+      const teacherDemoSettings = await this.prisma.teacherDemoSettings.findUnique({
+        where: { teacherId: teacher.id }
+      });
 
-    return {
-      id: teacher.id,
-      userId: teacher.userId,
-      displayName: teacher.displayName,
-      profilePhotoUrl: teacher.profilePhotoUrl,
-      introVideoUrl: teacher.introVideoUrl,
-      bio: teacher.bio,
-      education: teacher.education,
-      yearsOfExperience: teacher.yearsOfExperience,
-      gender: teacher.gender,
-      averageRating: teacher.averageRating,
-      totalReviews: teacher.totalReviews,
-      totalSessions: completedSessions,
-      timezone: teacher.timezone,
-      globalSettings: {
-        packagesEnabled: systemSettings?.packagesEnabled ?? true,
-        demosEnabled: systemSettings?.demosEnabled ?? true,
-      },
-      teacherSettings: {
-        demoEnabled: teacherDemoSettings?.demoEnabled ?? false,
-      },
-      packageTiers: packageTiers.map(t => ({
-        id: t.id,
-        sessionCount: t.sessionCount,
-        discountPercent: Number(t.discountPercent),
-      })),
-      subjects: (teacher as any).subjects.map((s: any) => ({
-        id: s.id,
-        pricePerHour: s.pricePerHour.toString(),
-        // Map structured grades to simplified codes/names for frontend
-        grades: s.grades.map((g: any) => ({
-          id: g.gradeLevel.id,
-          nameAr: g.gradeLevel.nameAr,
-          nameEn: g.gradeLevel.nameEn,
-          code: g.gradeLevel.code,
-          stageNameAr: g.gradeLevel.stage.nameAr,
-          stageNameEn: g.gradeLevel.stage.nameEn
+      // Get active package tiers
+      const packageTiers = await this.prisma.packageTier.findMany({
+        where: { isActive: true },
+        orderBy: { displayOrder: 'asc' }
+      });
+
+      return {
+        id: teacher.id,
+        userId: teacher.userId,
+        displayName: teacher.displayName,
+        profilePhotoUrl: teacher.profilePhotoUrl,
+        introVideoUrl: teacher.introVideoUrl,
+        bio: teacher.bio,
+        education: teacher.education,
+        yearsOfExperience: teacher.yearsOfExperience,
+        gender: teacher.gender,
+        averageRating: teacher.averageRating,
+        totalReviews: teacher.totalReviews,
+        totalSessions: completedSessions,
+        timezone: teacher.timezone,
+        globalSettings: {
+          packagesEnabled: systemSettings?.packagesEnabled ?? true,
+          demosEnabled: systemSettings?.demosEnabled ?? true,
+        },
+        teacherSettings: {
+          demoEnabled: teacherDemoSettings?.demoEnabled ?? false,
+        },
+        packageTiers: packageTiers.map(t => ({
+          id: t.id,
+          sessionCount: t.sessionCount,
+          discountPercent: Number(t.discountPercent),
         })),
-        gradeLevels: s.grades.map((g: any) => g.gradeLevel.code),
-        subject: s.subject,
-        curriculum: s.curriculum
-      })),
+        subjects: (teacher as any).subjects.map((s: any) => ({
+          id: s.id,
+          pricePerHour: s.pricePerHour ? s.pricePerHour.toString() : '0',
+          // Map structured grades to simplified codes/names for frontend
+          grades: s.grades?.map((g: any) => ({
+            id: g.gradeLevel?.id,
+            nameAr: g.gradeLevel?.nameAr,
+            nameEn: g.gradeLevel?.nameEn,
+            code: g.gradeLevel?.code,
+            stageNameAr: g.gradeLevel?.stage?.nameAr,
+            stageNameEn: g.gradeLevel?.stage?.nameEn
+          })) || [],
+          gradeLevels: s.grades?.map((g: any) => g.gradeLevel?.code) || [],
+          subject: s.subject,
+          curriculum: s.curriculum
+        })),
 
-      availability: (teacher as any).availability,
-      applicationStatus: teacher.applicationStatus, // Verified Badge Source
-      teachingApproach: ((teacher as any).teachingStyle || ((teacher as any).teachingTags && (teacher as any).teachingTags.length > 0)) ? {
-        text: (teacher as any).teachingStyle,
-        tags: (teacher as any).teachingTags?.map((tt: any) => ({
-          id: tt.tag?.id,
-          labelAr: tt.tag?.labelAr
-        })) || []
-      } : null
-    };
+        availability: (teacher as any).availability,
+        applicationStatus: teacher.applicationStatus, // Verified Badge Source
+        teachingApproach: ((teacher as any).teachingStyle || ((teacher as any).teachingTags && (teacher as any).teachingTags.length > 0)) ? {
+          text: (teacher as any).teachingStyle,
+          tags: (teacher as any).teachingTags?.map((tt: any) => ({
+            id: tt.tag?.id,
+            labelAr: tt.tag?.labelAr
+          })) || []
+        } : null
+      };
+
+    } catch (error) {
+      console.error('CRITICAL ERROR in getTeacherPublicProfile mapping:', error);
+      throw new InternalServerErrorException(`Public Profile Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   // --- Teacher Availability (Public) ---

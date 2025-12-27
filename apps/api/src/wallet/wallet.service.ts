@@ -24,6 +24,9 @@ export class WalletService {
         private readableIdService: ReadableIdService
     ) { }
 
+    // Circular dependency fix: Use forwardRef or inject dynamically
+    // We'll add the auto-payment logic without circular dependency by using Prisma directly
+
     async getBalance(userId: string, tx?: Prisma.TransactionClient) {
         const prisma = tx || this.prisma;
         let wallet = await prisma.wallet.findUnique({
@@ -304,6 +307,82 @@ export class WalletService {
                             adminNote: `Deposit ${transaction.id} approved and credited to balance`
                         }
                     });
+
+                    // AUTOMATIC PAYMENT: Check for pending bookings awaiting payment
+                    const userId = transaction.wallet.userId;
+                    const updatedWallet = await tx.wallet.findUnique({ where: { userId } });
+
+                    if (!updatedWallet) {
+                        this.logger.error(`Wallet not found for user ${userId} after deposit approval`);
+                        return updatedTx;
+                    }
+
+                    // Find all bookings in WAITING_FOR_PAYMENT status for this user
+                    const pendingBookings = await tx.booking.findMany({
+                        where: {
+                            bookedByUserId: userId,
+                            status: 'WAITING_FOR_PAYMENT'
+                        },
+                        orderBy: { createdAt: 'asc' } // Process oldest first
+                    });
+
+                    this.logger.log(`Deposit approved for user ${userId}. Found ${pendingBookings.length} pending bookings.`);
+
+                    // Track current balance for iteration
+                    let currentAvailableBalance = Number(updatedWallet.balance);
+
+                    // Attempt to auto-pay each pending booking
+                    for (const booking of pendingBookings) {
+                        const price = Number(booking.price);
+
+                        if (currentAvailableBalance >= price) {
+                            this.logger.log(`Auto-paying booking ${booking.id} (price: ${price} SDG)`);
+
+                            try {
+                                // Lock funds for booking (same logic as payForBooking)
+                                await this.lockFundsForBooking(userId, booking.id, price, tx);
+
+                                // Update booking status
+                                await tx.booking.update({
+                                    where: { id: booking.id, status: 'WAITING_FOR_PAYMENT' },
+                                    data: { status: 'SCHEDULED', paymentDeadline: null }
+                                });
+
+                                // Update available balance for next iteration
+                                currentAvailableBalance -= price;
+
+                                this.logger.log(`Successfully auto-paid booking ${booking.id}`);
+
+                                // Notify parent/student - payment successful
+                                await this.notificationService.notifyUser({
+                                    userId: userId,
+                                    title: 'تم الدفع تلقائياً',
+                                    message: `تم خصم مبلغ ${price} SDG من محفظتك تلقائياً لتأكيد حجزك.`,
+                                    type: 'PAYMENT_SUCCESS',
+                                    link: '/parent/bookings',
+                                    dedupeKey: `AUTO_PAYMENT:${booking.id}:${userId}`,
+                                    metadata: { bookingId: booking.id }
+                                });
+
+                                // Notify teacher - booking confirmed
+                                await this.notificationService.notifyUser({
+                                    userId: booking.teacherId,
+                                    title: 'حجز جديد مؤكد',
+                                    message: 'تم تأكيد حجز جديد.',
+                                    type: 'PAYMENT_SUCCESS',
+                                    link: '/teacher/sessions',
+                                    dedupeKey: `AUTO_PAYMENT:${booking.id}:${booking.teacherId}`,
+                                    metadata: { bookingId: booking.id }
+                                });
+                            } catch (error: any) {
+                                this.logger.error(`Failed to auto-pay booking ${booking.id}: ${error.message}`);
+                                // Continue to next booking - don't fail the deposit approval
+                            }
+                        } else {
+                            this.logger.log(`Insufficient balance for booking ${booking.id}. Required: ${price}, Available: ${currentAvailableBalance}`);
+                            break; // Stop processing - not enough balance for this booking
+                        }
+                    }
                 }
             }
 

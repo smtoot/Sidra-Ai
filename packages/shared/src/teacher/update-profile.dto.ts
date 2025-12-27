@@ -1,4 +1,6 @@
+
 import { IsString, IsOptional, IsEnum, IsInt, Min, Matches, IsDateString } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export enum Gender {
     MALE = 'MALE',
@@ -24,7 +26,25 @@ export class UpdateTeacherProfileDto {
     @IsString()
     @IsOptional()
     @IsString()
+    @IsOptional()
+    @IsString()
     displayName?: string;
+
+    @IsOptional()
+    @IsString()
+    @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+        message: 'يجب أن يحتوي الرابط على أحرف إنجليزية وأرقام وعلامات - فقط، ولا يبدأ أو ينتهي بـ -'
+    })
+    @Transform(({ value }) => value === '' ? undefined : value)
+    slug?: string;
+
+    @IsOptional()
+    @IsString()
+    firstName?: string;
+
+    @IsOptional()
+    @IsString()
+    lastName?: string;
 
     @IsOptional()
     @IsString()

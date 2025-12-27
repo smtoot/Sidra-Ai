@@ -46,8 +46,10 @@ export default function TeacherApplicationsPage() {
     const [showChangesModal, setShowChangesModal] = useState(false);
     const [showInterviewModal, setShowInterviewModal] = useState(false);
     const [reason, setReason] = useState('');
-    const [interviewDate, setInterviewDate] = useState('');
-    const [interviewLink, setInterviewLink] = useState('');
+    const [interviewSlots, setInterviewSlots] = useState<{dateTime: string; meetingLink: string}[]>([
+        { dateTime: '', meetingLink: '' },
+        { dateTime: '', meetingLink: '' }
+    ]);
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
@@ -118,13 +120,24 @@ export default function TeacherApplicationsPage() {
         }
     };
 
-    const handleRequestInterview = async (id: string) => {
+    const handleProposeInterviewSlots = async () => {
+        // Validate that at least 2 slots are filled
+        const validSlots = interviewSlots.filter(slot => slot.dateTime && slot.meetingLink);
+        if (validSlots.length < 2) {
+            toast.error('يجب تقديم خيارين على الأقل للمعلم');
+            return;
+        }
+
         setProcessing(true);
         try {
-            await adminApi.requestInterview(id);
-            toast.success('تم طلب مقابلة');
+            await adminApi.proposeInterviewSlots(selectedApp.id, validSlots);
+            toast.success('تم إرسال خيارات المقابلة للمعلم ✅');
+            setShowInterviewModal(false);
+            setInterviewSlots([
+                { dateTime: '', meetingLink: '' },
+                { dateTime: '', meetingLink: '' }
+            ]);
             loadApplications();
-            setShowDetailModal(false);
         } catch (error: any) {
             toast.error(error?.response?.data?.message || 'فشلت العملية');
         } finally {
@@ -132,24 +145,22 @@ export default function TeacherApplicationsPage() {
         }
     };
 
-    const handleScheduleInterview = async () => {
-        if (!interviewDate || !interviewLink) {
-            toast.error('يجب تحديد الموعد والرابط');
-            return;
+    const addInterviewSlot = () => {
+        if (interviewSlots.length < 5) {
+            setInterviewSlots([...interviewSlots, { dateTime: '', meetingLink: '' }]);
         }
-        setProcessing(true);
-        try {
-            await adminApi.scheduleInterview(selectedApp.id, interviewDate, interviewLink);
-            toast.success('تم جدولة المقابلة ✅');
-            setShowInterviewModal(false);
-            setInterviewDate('');
-            setInterviewLink('');
-            loadApplications();
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || 'فشلت العملية');
-        } finally {
-            setProcessing(false);
+    };
+
+    const removeInterviewSlot = (index: number) => {
+        if (interviewSlots.length > 2) {
+            setInterviewSlots(interviewSlots.filter((_, i) => i !== index));
         }
+    };
+
+    const updateInterviewSlot = (index: number, field: 'dateTime' | 'meetingLink', value: string) => {
+        const updated = [...interviewSlots];
+        updated[index][field] = value;
+        setInterviewSlots(updated);
     };
 
     const handleViewDocument = async (fileKey: string, fileName: string) => {
@@ -160,7 +171,7 @@ export default function TeacherApplicationsPage() {
                 return;
             }
 
-            const response = await api.get('/upload/file', {
+            const response = await api.get('/storage/file', {
                 params: { key: fileKey },
                 responseType: 'blob',
                 headers: { Authorization: `Bearer ${token}` }
@@ -536,8 +547,10 @@ export default function TeacherApplicationsPage() {
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        onClick={() => handleRequestInterview(selectedApp.id)}
-                                        disabled={processing}
+                                        onClick={() => {
+                                            setShowDetailModal(false);
+                                            setShowInterviewModal(true);
+                                        }}
                                     >
                                         <Phone className="w-5 h-5 ml-2" />
                                         طلب مقابلة
@@ -648,40 +661,75 @@ export default function TeacherApplicationsPage() {
                 </div>
             )}
 
-            {/* Schedule Interview Modal */}
+            {/* Propose Interview Slots Modal */}
             {showInterviewModal && selectedApp && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <Card className="max-w-md w-full">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowInterviewModal(false)}>
+                    <Card className="max-w-2xl w-full my-8" onClick={(e) => e.stopPropagation()}>
                         <CardHeader>
-                            <CardTitle>جدولة مقابلة</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                <Calendar className="w-5 h-5" />
+                                اقتراح مواعيد للمقابلة
+                            </CardTitle>
+                            <p className="text-sm text-gray-600 mt-2">
+                                قدم خيارين على الأقل (حتى 5 خيارات) ليختار المعلم الوقت المناسب له
+                            </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">موعد المقابلة</label>
-                                <Input
-                                    type="datetime-local"
-                                    value={interviewDate}
-                                    onChange={(e) => setInterviewDate(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">رابط الاجتماع</label>
-                                <Input
-                                    type="url"
-                                    value={interviewLink}
-                                    onChange={(e) => setInterviewLink(e.target.value)}
-                                    placeholder="https://meet.google.com/..."
-                                    dir="ltr"
-                                />
-                            </div>
-                            <div className="flex gap-2 justify-end">
+                            {interviewSlots.map((slot, index) => (
+                                <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h4 className="font-semibold text-gray-900">الخيار {index + 1}</h4>
+                                        {interviewSlots.length > 2 && (
+                                            <button
+                                                onClick={() => removeInterviewSlot(index)}
+                                                className="text-red-600 hover:text-red-800 text-sm"
+                                            >
+                                                <XCircle className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">التاريخ والوقت</label>
+                                            <Input
+                                                type="datetime-local"
+                                                value={slot.dateTime}
+                                                onChange={(e) => updateInterviewSlot(index, 'dateTime', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">رابط الاجتماع</label>
+                                            <Input
+                                                type="url"
+                                                value={slot.meetingLink}
+                                                onChange={(e) => updateInterviewSlot(index, 'meetingLink', e.target.value)}
+                                                placeholder="https://meet.google.com/..."
+                                                dir="ltr"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {interviewSlots.length < 5 && (
+                                <Button
+                                    variant="outline"
+                                    onClick={addInterviewSlot}
+                                    className="w-full border-dashed"
+                                >
+                                    <Calendar className="w-4 h-4 ml-2" />
+                                    إضافة خيار آخر
+                                </Button>
+                            )}
+
+                            <div className="flex gap-2 justify-end pt-4 border-t relative z-10">
                                 <Button variant="outline" onClick={() => setShowInterviewModal(false)}>
                                     إلغاء
                                 </Button>
-                                <Button onClick={handleScheduleInterview} disabled={processing}>
+                                <Button onClick={handleProposeInterviewSlots} disabled={processing} className="relative z-10">
                                     {processing && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
                                     <Calendar className="w-4 h-4 ml-2" />
-                                    تأكيد الموعد
+                                    إرسال الخيارات للمعلم
                                 </Button>
                             </div>
                         </CardContent>

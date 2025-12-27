@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { bookingApi, Booking, BookingStatus } from '@/lib/api/booking';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { bookingApi, Booking } from '@/lib/api/booking';
+import { Card, CardContent } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Video, Bell, Loader2, Eye, Link as LinkIcon, Save } from 'lucide-react';
+import { Calendar, CheckCircle, AlertCircle, Video, Bell, Loader2, Link as LinkIcon, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -12,18 +12,19 @@ import { toast } from 'sonner';
 import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard';
 import Link from 'next/link';
 import { BookingCard } from '@/components/teacher/BookingCard';
-import { teacherApi } from '@/lib/api/teacher';
+import { SessionCompletionModal } from '@/components/booking/SessionCompletionModal';
 
 const ITEMS_PER_PAGE = 10;
+// Default meeting link access time (minutes before session start)
+const DEFAULT_MEETING_LINK_ACCESS_MINUTES = 15;
 
 export default function TeacherSessionsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [completingId, setCompletingId] = useState<string | null>(null);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [selectedBookingForComplete, setSelectedBookingForComplete] = useState<Booking | null>(null);
-    const [showMeetingLinkInput, setShowMeetingLinkInput] = useState(false);
+    const [editingLinkForBooking, setEditingLinkForBooking] = useState<string | null>(null);
     const [meetingLinkInput, setMeetingLinkInput] = useState('');
     const [savingMeetingLink, setSavingMeetingLink] = useState(false);
 
@@ -63,25 +64,7 @@ export default function TeacherSessionsPage() {
         return bookings.filter(booking => booking.status === 'SCHEDULED' && !booking.meetingLink);
     }, [bookings]);
 
-    const handleCompleteSession = async () => {
-        if (!selectedBookingForComplete) return;
-
-        setCompletingId(selectedBookingForComplete.id);
-        try {
-            await bookingApi.completeSession(selectedBookingForComplete.id);
-            toast.success('تم إنهاء الحصة! سيتم تحويل الدفع خلال 48 ساعة بعد تأكيد الطالب ✅');
-            setConfirmModalOpen(false);
-            setSelectedBookingForComplete(null);
-            await loadSessions(true); // Silent refresh
-        } catch (error) {
-            console.error('Failed to complete session', error);
-            toast.error('حدث خطأ أثناء إنهاء الحصة');
-        } finally {
-            setCompletingId(null);
-        }
-    };
-
-    const handleSaveMeetingLink = async () => {
+    const handleSaveMeetingLink = async (bookingId: string) => {
         if (!meetingLinkInput.trim()) {
             toast.error('يرجى إدخال رابط الاجتماع');
             return;
@@ -97,14 +80,14 @@ export default function TeacherSessionsPage() {
 
         setSavingMeetingLink(true);
         try {
-            await teacherApi.updateProfile({ meetingLink: meetingLinkInput });
+            await bookingApi.updateMeetingLink(bookingId, meetingLinkInput);
             toast.success('تم حفظ رابط الاجتماع بنجاح! ✅');
-            setShowMeetingLinkInput(false);
+            setEditingLinkForBooking(null);
             setMeetingLinkInput('');
             await loadSessions(true); // Reload to get updated meeting links
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save meeting link', error);
-            toast.error('فشل حفظ رابط الاجتماع');
+            toast.error(error?.response?.data?.message || 'فشل حفظ رابط الاجتماع');
         } finally {
             setSavingMeetingLink(false);
         }
@@ -121,30 +104,32 @@ export default function TeacherSessionsPage() {
         const sessionEnd = new Date(booking.endTime);
         const now = new Date();
 
-        // Allow starting 15 min before until session end
-        const fifteenMinutesBefore = new Date(sessionStart.getTime() - 15 * 60 * 1000);
+        // Allow starting X min before (configurable) until session end
+        const minutesBefore = new Date(sessionStart.getTime() - DEFAULT_MEETING_LINK_ACCESS_MINUTES * 60 * 1000);
         const thirtyMinutesAfterEnd = new Date(sessionEnd.getTime() + 30 * 60 * 1000);
 
-        const canStart = now >= fifteenMinutesBefore && now <= thirtyMinutesAfterEnd;
+        const canStart = now >= minutesBefore && now <= thirtyMinutesAfterEnd;
         const sessionInProgress = now >= sessionStart && now <= sessionEnd;
         const sessionEnded = now > sessionEnd;
 
-        if (now < fifteenMinutesBefore) {
+        if (now < minutesBefore) {
             const diff = sessionStart.getTime() - now.getTime();
             const minutes = Math.floor(diff / 60000);
             const hours = Math.floor(minutes / 60);
             const days = Math.floor(hours / 24);
 
             if (days > 0) {
-                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة' };
+                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
             } else if (hours > 0) {
-                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة' };
+                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
             } else {
-                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة' };
+                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
             }
         } else if (sessionInProgress) {
-            return { canStart: true, canComplete: true, label: '🔴 بدء الاجتماع', sublabel: 'الحصة جارية' };
+            // FIXED: Cannot complete during session - only after it ends
+            return { canStart: true, canComplete: false, label: '🔴 بدء الاجتماع', sublabel: 'الحصة جارية' };
         } else if (sessionEnded) {
+            // Can complete only AFTER session ends
             return { canStart: false, canComplete: true, label: 'انتهت الحصة', sublabel: 'يرجى إنهاء الحصة لتحويل الأرباح' };
         } else {
             return { canStart: true, canComplete: false, label: 'بدء الاجتماع' };
@@ -153,87 +138,32 @@ export default function TeacherSessionsPage() {
 
     return (
         <TeacherApprovalGuard>
-            <div className="min-h-screen bg-gray-50 font-sans p-4 md:p-8" dir="rtl">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 font-sans p-4 md:p-8" dir="rtl">
                 <div className="max-w-6xl mx-auto space-y-6">
                     {/* Header */}
-                    <header>
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">حصصي</h1>
-                        <p className="text-sm md:text-base text-gray-600">الجدول الدراسي وجميع الحصص</p>
+                    <header className="mb-2">
+                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">حصصي</h1>
+                        <p className="text-gray-600 flex items-center gap-2">
+                            <Calendar className="w-5 h-5" />
+                            <span>الجدول الدراسي وجميع الحصص</span>
+                        </p>
                     </header>
 
                     {/* Missing Meeting Link Banner */}
                     {sessionsWithoutMeetingLink.length > 0 && (
-                        <Card className="border-red-200 bg-red-50">
+                        <Card className="border-none shadow-md bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-l-amber-500">
                             <CardContent className="p-5">
                                 <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <AlertCircle className="w-5 h-5 text-red-600" />
+                                    <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <AlertCircle className="w-5 h-5 text-amber-600" />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-bold text-red-800 mb-1">
-                                            ⚠️ رابط الاجتماع غير متوفر ({sessionsWithoutMeetingLink.length} حصة)
+                                        <h3 className="font-bold text-amber-900 mb-1">
+                                            حصص بدون رابط اجتماع ({sessionsWithoutMeetingLink.length})
                                         </h3>
-                                        <p className="text-sm text-red-700 mb-3">
-                                            لديك حصص مجدولة ولكن لم تقم بإضافة رابط الاجتماع بعد. أضف الرابط الآن لتتمكن من بدء الحصص.
+                                        <p className="text-sm text-amber-700">
+                                            أضف رابط الاجتماع لكل حصة أدناه. يمكنك إضافة روابط مختلفة لكل حصة حسب الحاجة.
                                         </p>
-
-                                        {!showMeetingLinkInput ? (
-                                            <Button
-                                                onClick={() => setShowMeetingLinkInput(true)}
-                                                size="sm"
-                                                className="bg-red-600 hover:bg-red-700 text-white gap-2"
-                                            >
-                                                <LinkIcon className="w-4 h-4" />
-                                                إضافة رابط الاجتماع الآن
-                                            </Button>
-                                        ) : (
-                                            <div className="bg-white rounded-lg p-4 border border-red-200">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    رابط الاجتماع (Google Meet, Zoom, Teams)
-                                                </label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        type="url"
-                                                        placeholder="https://meet.google.com/abc-defg-hij"
-                                                        value={meetingLinkInput}
-                                                        onChange={(e) => setMeetingLinkInput(e.target.value)}
-                                                        className="flex-1"
-                                                        dir="ltr"
-                                                        disabled={savingMeetingLink}
-                                                    />
-                                                    <Button
-                                                        onClick={handleSaveMeetingLink}
-                                                        disabled={savingMeetingLink || !meetingLinkInput.trim()}
-                                                        className="bg-green-600 hover:bg-green-700"
-                                                    >
-                                                        {savingMeetingLink ? (
-                                                            <>
-                                                                <Loader2 className="w-4 h-4 animate-spin ml-2" />
-                                                                جاري الحفظ...
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Save className="w-4 h-4 ml-2" />
-                                                                حفظ
-                                                            </>
-                                                        )}
-                                                    </Button>
-                                                    <Button
-                                                        onClick={() => {
-                                                            setShowMeetingLinkInput(false);
-                                                            setMeetingLinkInput('');
-                                                        }}
-                                                        variant="outline"
-                                                        disabled={savingMeetingLink}
-                                                    >
-                                                        إلغاء
-                                                    </Button>
-                                                </div>
-                                                <p className="text-xs text-gray-500 mt-2">
-                                                    💡 نصيحة: استخدم نفس رابط الاجتماع لجميع الحصص، أو يمكنك تغييره لاحقاً من الإعدادات
-                                                </p>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             </CardContent>
@@ -242,17 +172,17 @@ export default function TeacherSessionsPage() {
 
                     {/* Pending Completion Banner */}
                     {pendingCompletions.length > 0 && (
-                        <Card className="border-warning-200 bg-warning-50">
+                        <Card className="border-none shadow-md bg-gradient-to-br from-orange-50 to-red-50 border-l-4 border-l-orange-500">
                             <CardContent className="p-5">
                                 <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-warning-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <Bell className="w-5 h-5 text-warning-600" />
+                                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <Bell className="w-5 h-5 text-orange-600" />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-bold text-warning-800 mb-1">
+                                        <h3 className="font-bold text-orange-900 mb-1">
                                             لديك {pendingCompletions.length} حصة تحتاج إلى إنهاء
                                         </h3>
-                                        <p className="text-sm text-warning-700 mb-3">
+                                        <p className="text-sm text-orange-700 mb-3">
                                             يرجى تأكيد إنهاء الحصص السابقة لتحويل أرباحك إلى المحفظة
                                         </p>
                                         <div className="flex flex-wrap gap-2">
@@ -284,22 +214,22 @@ export default function TeacherSessionsPage() {
 
                     {/* Pending Payment Release Banner */}
                     {pendingPaymentRelease.length > 0 && (
-                        <Card className="border-success-200 bg-success-50">
+                        <Card className="border-none shadow-md bg-gradient-to-br from-emerald-50 to-green-50 border-l-4 border-l-emerald-500">
                             <CardContent className="p-5">
                                 <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-success-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-success-600" />
+                                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-emerald-600" />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-bold text-success-800 mb-1">
-                                            💰 {pendingPaymentRelease.length} حصة في انتظار تحويل الدفع
+                                        <h3 className="font-bold text-emerald-900 mb-1">
+                                            {pendingPaymentRelease.length} حصة في انتظار تحويل الدفع
                                         </h3>
-                                        <p className="text-sm text-success-700 mb-2">
+                                        <p className="text-sm text-emerald-700 mb-2">
                                             اكتملت الحصص بنجاح! سيتم تحويل الأرباح إلى محفظتك تلقائياً خلال 48 ساعة
                                         </p>
-                                        <div className="flex flex-wrap gap-2 text-xs text-success-700">
+                                        <div className="flex flex-wrap gap-2 text-xs text-emerald-700">
                                             {pendingPaymentRelease.slice(0, 5).map(booking => (
-                                                <span key={booking.id} className="bg-success-100 px-2 py-1 rounded-lg font-medium">
+                                                <span key={booking.id} className="bg-emerald-100 px-2 py-1 rounded-lg font-medium">
                                                     {new Date(booking.startTime).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })} - {booking.subject?.nameAr || 'مادة'}
                                                 </span>
                                             ))}
@@ -315,17 +245,19 @@ export default function TeacherSessionsPage() {
 
                     {/* Sessions List */}
                     {loading ? (
-                        <Card>
-                            <CardContent className="p-12 text-center text-gray-500">
+                        <Card className="border-none shadow-md">
+                            <CardContent className="p-12 text-center">
                                 <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary-600" />
-                                <p>جاري التحميل...</p>
+                                <p className="text-gray-500">جاري التحميل...</p>
                             </CardContent>
                         </Card>
                     ) : bookings.length === 0 ? (
-                        <Card className="border-dashed border-2">
+                        <Card className="border-2 border-dashed border-gray-200">
                             <CardContent className="p-12 text-center">
-                                <Calendar className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                                <h3 className="text-xl font-bold text-gray-700 mb-2">لا توجد حصص مجدولة</h3>
+                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Calendar className="w-8 h-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد حصص مجدولة</h3>
                                 <p className="text-gray-500 mb-4">عندما يتم حجز حصص جديدة ستظهر هنا</p>
                                 <Link href="/teacher/availability">
                                     <Button variant="outline">إدارة جدول المواعيد</Button>
@@ -355,14 +287,71 @@ export default function TeacherSessionsPage() {
                                                     endTime={booking.endTime}
                                                     price={booking.price}
                                                     status={booking.status}
-                                                    packageSessionCount={booking.packageBooking?.package?.sessionCount}
+                                                    packageSessionCount={booking.pendingTierSessionCount || undefined}
                                                     isDemo={booking.isDemo}
                                                     actionSlot={
                                                         booking.status === 'SCHEDULED' ? (() => {
                                                             const buttonState = getSessionButtonState(booking);
+                                                            const isEditingThis = editingLinkForBooking === booking.id;
+
                                                             return (
                                                                 <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                                                                    {/* Meeting Link Input (when missing and editing) */}
+                                                                    {!booking.meetingLink && isEditingThis && (
+                                                                        <div className="w-full bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                                                رابط الاجتماع
+                                                                            </label>
+                                                                            <div className="flex gap-2">
+                                                                                <Input
+                                                                                    type="url"
+                                                                                    placeholder="https://meet.google.com/..."
+                                                                                    value={meetingLinkInput}
+                                                                                    onChange={(e) => setMeetingLinkInput(e.target.value)}
+                                                                                    className="flex-1 text-sm"
+                                                                                    dir="ltr"
+                                                                                    disabled={savingMeetingLink}
+                                                                                    autoFocus
+                                                                                />
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={() => handleSaveMeetingLink(booking.id)}
+                                                                                    disabled={savingMeetingLink || !meetingLinkInput.trim()}
+                                                                                    className="bg-green-600 hover:bg-green-700"
+                                                                                >
+                                                                                    {savingMeetingLink ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    onClick={() => {
+                                                                                        setEditingLinkForBooking(null);
+                                                                                        setMeetingLinkInput('');
+                                                                                    }}
+                                                                                    disabled={savingMeetingLink}
+                                                                                >
+                                                                                    ✕
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
                                                                     <div className="flex flex-wrap items-center gap-2 justify-end">
+                                                                        {/* Add Meeting Link Button (when missing) */}
+                                                                        {!booking.meetingLink && !isEditingThis && (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                onClick={() => {
+                                                                                    setEditingLinkForBooking(booking.id);
+                                                                                    setMeetingLinkInput('');
+                                                                                }}
+                                                                                className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+                                                                            >
+                                                                                <LinkIcon className="w-3 h-3" />
+                                                                                إضافة رابط
+                                                                            </Button>
+                                                                        )}
+
                                                                         {/* Start Meeting Button */}
                                                                         <button
                                                                             className={cn(
@@ -376,11 +365,9 @@ export default function TeacherSessionsPage() {
                                                                             onClick={() => {
                                                                                 if (buttonState.canStart && booking.meetingLink) {
                                                                                     window.open(booking.meetingLink, '_blank');
-                                                                                } else if (buttonState.canStart && !booking.meetingLink) {
-                                                                                    toast.error('رابط الاجتماع غير متوفر. يرجى إضافة رابط الاجتماع في الإعدادات');
                                                                                 }
                                                                             }}
-                                                                            title={!booking.meetingLink ? 'يجب إضافة رابط الاجتماع في الإعدادات أولاً' : ''}
+                                                                            title={!booking.meetingLink ? 'يجب إضافة رابط الاجتماع أولاً' : ''}
                                                                         >
                                                                             <Video className="w-4 h-4" />
                                                                             {buttonState.label}
@@ -434,47 +421,19 @@ export default function TeacherSessionsPage() {
 
                 {/* Session Completion Modal */}
                 {confirmModalOpen && selectedBookingForComplete && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <Card className="max-w-md w-full">
-                            <CardContent className="p-6 text-center">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <CheckCircle className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h2 className="text-xl font-bold text-gray-900 mb-2">إنهاء الحصة</h2>
-                                <p className="text-sm text-gray-600 mb-6">
-                                    هل تأكدت من انتهاء الحصة التعليمية؟ سيتم إخطار الطالب للتأكيد وتحويل الأرباح إلى محفظتك.
-                                </p>
-
-                                <div className="flex gap-3">
-                                    <Button
-                                        onClick={handleCompleteSession}
-                                        disabled={completingId === selectedBookingForComplete.id}
-                                        className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
-                                    >
-                                        {completingId === selectedBookingForComplete.id ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                جاري الإنهاء...
-                                            </>
-                                        ) : (
-                                            'نعم، تم الإنهاء'
-                                        )}
-                                    </Button>
-                                    <Button
-                                        onClick={() => {
-                                            setConfirmModalOpen(false);
-                                            setSelectedBookingForComplete(null);
-                                        }}
-                                        disabled={completingId === selectedBookingForComplete.id}
-                                        variant="outline"
-                                        className="flex-1"
-                                    >
-                                        إلغاء
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <SessionCompletionModal
+                        isOpen={confirmModalOpen}
+                        onClose={() => {
+                            setConfirmModalOpen(false);
+                            setSelectedBookingForComplete(null);
+                        }}
+                        bookingId={selectedBookingForComplete.id}
+                        onSuccess={() => {
+                            loadSessions();
+                            setConfirmModalOpen(false);
+                            setSelectedBookingForComplete(null);
+                        }}
+                    />
                 )}
             </div>
         </TeacherApprovalGuard>
