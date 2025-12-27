@@ -24,6 +24,7 @@ export * from './src/teacher/availability.dto';
 export * from './src/teacher/exception.dto';
 export * from './src/teacher/propose-interview-slots.dto';
 export * from './src/teacher/accept-terms.dto';
+export * from './src/teacher/qualification.dto';
 
 // Utils
 export * from './src/utils/display-name.util';

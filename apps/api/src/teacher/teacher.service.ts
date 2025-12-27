@@ -4,7 +4,9 @@ import {
   UpdateTeacherProfileDto,
   CreateTeacherSubjectDto,
   CreateAvailabilityDto,
-  CreateExceptionDto
+  CreateExceptionDto,
+  CreateQualificationDto,
+  UpdateQualificationDto
 } from '@sidra/shared';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { WalletService } from '../wallet/wallet.service';
@@ -25,6 +27,7 @@ export class TeacherService {
         subjects: { include: { subject: true, curriculum: true } },
         availability: true,
         documents: true,
+        qualifications: true, // Include qualifications
         user: true, // Include User for firstName/lastName
       },
     });
@@ -247,6 +250,127 @@ export class TeacherService {
     if (!subject) throw new NotFoundException('Subject not found for this teacher');
 
     return this.prisma.teacherSubject.delete({ where: { id: subjectId } });
+  }
+
+  // ============ Qualifications Management ============
+
+  /**
+   * Get all qualifications for a teacher
+   */
+  async getQualifications(userId: string) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    return this.prisma.teacherQualification.findMany({
+      where: { teacherId: profile.id },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * Add a new qualification
+   * If teacher is already approved, adding/editing qualifications triggers re-verification
+   */
+  async addQualification(userId: string, dto: CreateQualificationDto) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true, applicationStatus: true }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Parse dates if provided
+    const startDate = dto.startDate ? new Date(dto.startDate) : null;
+    const endDate = dto.endDate ? new Date(dto.endDate) : null;
+
+    const qualification = await this.prisma.teacherQualification.create({
+      data: {
+        teacherId: profile.id,
+        degreeName: dto.degreeName,
+        institution: dto.institution,
+        fieldOfStudy: dto.fieldOfStudy,
+        status: dto.status,
+        startDate,
+        endDate,
+        graduationYear: dto.graduationYear,
+        certificateUrl: dto.certificateUrl,
+        verified: false, // Always start unverified
+      }
+    });
+
+    return qualification;
+  }
+
+  /**
+   * Update an existing qualification
+   * Updating triggers re-verification
+   */
+  async updateQualification(userId: string, qualificationId: string, dto: UpdateQualificationDto) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Verify ownership
+    const qualification = await this.prisma.teacherQualification.findFirst({
+      where: { id: qualificationId, teacherId: profile.id }
+    });
+
+    if (!qualification) throw new NotFoundException('Qualification not found');
+
+    // Parse dates if provided
+    const startDate = dto.startDate ? new Date(dto.startDate) : undefined;
+    const endDate = dto.endDate ? new Date(dto.endDate) : undefined;
+
+    // Update and unverify (triggers re-verification)
+    return this.prisma.teacherQualification.update({
+      where: { id: qualificationId },
+      data: {
+        degreeName: dto.degreeName,
+        institution: dto.institution,
+        fieldOfStudy: dto.fieldOfStudy,
+        status: dto.status,
+        startDate,
+        endDate,
+        graduationYear: dto.graduationYear,
+        certificateUrl: dto.certificateUrl,
+        verified: false, // Re-verification required
+        verifiedAt: null,
+        verifiedBy: null,
+        updatedAt: new Date(),
+      }
+    });
+  }
+
+  /**
+   * Delete a qualification
+   */
+  async deleteQualification(userId: string, qualificationId: string) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Verify ownership
+    const qualification = await this.prisma.teacherQualification.findFirst({
+      where: { id: qualificationId, teacherId: profile.id }
+    });
+
+    if (!qualification) throw new NotFoundException('Qualification not found');
+
+    await this.prisma.teacherQualification.delete({
+      where: { id: qualificationId }
+    });
+
+    return { success: true };
   }
 
   async setAvailability(userId: string, dto: CreateAvailabilityDto) {
@@ -720,7 +844,6 @@ export class TeacherService {
         applicationStatus: true,
         displayName: true,
         bio: true,
-        education: true,
         yearsOfExperience: true,
         gender: true,
         idType: true,
@@ -728,6 +851,8 @@ export class TeacherService {
         idImageUrl: true,
         termsAcceptedAt: true,
         documents: true,
+        qualifications: true, // Academic qualifications - MANDATORY
+        subjects: true, // Must have at least one subject
       }
     });
 
@@ -760,6 +885,22 @@ export class TeacherService {
     // CRITICAL: Validate ID Verification (MANDATORY)
     if (!profile.idType || !profile.idNumber || !profile.idImageUrl) {
       throw new BadRequestException('تأكيد الهوية مطلوب. يرجى إكمال جميع حقول الهوية قبل الإرسال');
+    }
+
+    // CRITICAL: Validate Academic Qualifications (MANDATORY - Single Source of Truth)
+    if (!profile.qualifications || profile.qualifications.length === 0) {
+      throw new BadRequestException('يجب إضافة مؤهل أكاديمي واحد على الأقل مع الشهادة قبل الإرسال');
+    }
+
+    // Validate all qualifications have certificates
+    const missingCertificates = profile.qualifications.filter(q => !q.certificateUrl);
+    if (missingCertificates.length > 0) {
+      throw new BadRequestException('جميع المؤهلات يجب أن تحتوي على شهادة مرفقة');
+    }
+
+    // Validate at least one subject
+    if (!profile.subjects || profile.subjects.length === 0) {
+      throw new BadRequestException('يجب إضافة مادة واحدة على الأقل للتدريس');
     }
 
     return this.prisma.teacherProfile.update({

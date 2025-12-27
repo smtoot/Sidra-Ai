@@ -127,7 +127,7 @@ export default function TeacherDashboardPage() {
                         value={counts.todaySessions}
                         icon={Calendar}
                         gradient="from-blue-500 to-blue-600"
-                        subtext="جلسات مجدولة"
+                        subtext="حصص مجدولة"
                     />
                     <StatCard
                         title="طلبات جديدة"

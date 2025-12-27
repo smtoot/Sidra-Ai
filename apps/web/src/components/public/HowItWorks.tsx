@@ -18,7 +18,7 @@ const STEPS = [
     {
         icon: Video,
         title: 'ابدأ التعلم',
-        description: 'انضم للجلسة عبر الإنترنت وتعلم مع أفضل المعلمين',
+        description: 'انضم للحصة عبر الإنترنت وتعلم مع أفضل المعلمين',
         color: 'from-purple-500 to-purple-600',
     },
 ];

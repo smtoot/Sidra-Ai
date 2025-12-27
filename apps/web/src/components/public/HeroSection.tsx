@@ -116,7 +116,7 @@ export function HeroSection() {
                         </div>
                         <div className="text-center">
                             <div className="text-3xl md:text-4xl font-bold text-primary">+1000</div>
-                            <div className="text-gray-500 text-sm">جلسة منجزة</div>
+                            <div className="text-gray-500 text-sm">حصة منجزة</div>
                         </div>
                     </div>
                 </div>

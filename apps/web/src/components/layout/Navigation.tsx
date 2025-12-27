@@ -39,7 +39,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'الرئيسية', href: '/teacher', icon: Home },
         { label: 'ملفي الشخصي', href: '/teacher/profile-hub', icon: User },
         { label: 'الطلبات المعلقة', href: '/teacher/requests', icon: FileText },
-        { label: 'جلساتي', href: '/teacher/sessions', icon: Calendar },
+        { label: 'حصصي', href: '/teacher/sessions', icon: Calendar },
         { label: 'باقات الطلاب', href: '/teacher/packages', icon: Package },
         { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign },
         { label: 'المواعيد', href: '/teacher/availability', icon: Clock },

@@ -6,6 +6,7 @@ import { UserRole } from '@sidra/shared';
 import { PackageService } from './package.service';
 import { DemoService } from './demo.service';
 import { IsBoolean, IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 // =====================================================
 // DTOs
@@ -48,17 +49,20 @@ class CreateTierDto {
 class UpdateTierDto {
     @IsOptional()
     @IsBoolean()
+    @Transform(({ value }) => value === 'true' || value === true)
     isActive?: boolean;
 
     @IsOptional()
     @IsNumber()
     @Min(0)
+    @Transform(({ value }) => value !== undefined ? Number(value) : undefined)
     displayOrder?: number;
 
     @IsOptional()
     @IsNumber()
     @Min(0)
     @Max(100)
+    @Transform(({ value }) => value !== undefined ? Number(value) : undefined)
     discountPercent?: number;
 }
 

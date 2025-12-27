@@ -275,7 +275,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                         // Demo
                                         if (teacher.globalSettings.demosEnabled && teacher.teacherSettings.demoEnabled) {
                                             options.push({
-                                                id: 'demo', type: 'DEMO', title: 'جلسة تجريبية',
+                                                id: 'demo', type: 'DEMO', title: 'حصة تجريبية',
                                                 description: 'مدة 15 دقيقة للتعارف وتحديد المستوى',
                                                 price: 0, badge: 'مجاناً'
                                             });
@@ -283,7 +283,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
 
                                         // Single
                                         options.push({
-                                            id: 'single', type: 'SINGLE', title: 'جلسة واحدة',
+                                            id: 'single', type: 'SINGLE', title: 'حصة واحدة',
                                             description: 'حصة كاملة لمدة 60 دقيقة',
                                             price: basePrice
                                         });
@@ -295,7 +295,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                                 const discountedPrice = Math.round(totalPrice * (1 - tier.discountPercent / 100));
                                                 options.push({
                                                     id: `package-${tier.id}`, type: 'PACKAGE',
-                                                    title: `باقة ${tier.sessionCount} جلسات`,
+                                                    title: `باقة ${tier.sessionCount} حصص`,
                                                     description: `توفير ${tier.discountPercent}% . متابعة شاملة`,
                                                     price: discountedPrice, originalPrice: totalPrice,
                                                     savings: `وفر ${(totalPrice - discountedPrice).toFixed(0)} SDG`,

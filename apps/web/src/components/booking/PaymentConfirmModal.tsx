@@ -109,7 +109,7 @@ export function PaymentConfirmModal({
                         {/* Payment Details */}
                         <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-600">سعر الجلسة:</span>
+                                <span className="text-gray-600">سعر الحصة:</span>
                                 <span className="text-lg font-bold text-primary font-sans">{price} ج.س</span>
                             </div>
                             <div className="flex justify-between items-center">

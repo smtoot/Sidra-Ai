@@ -255,7 +255,7 @@ export function CreateBookingModal({
                     <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
                         <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
                             <span className="material-symbols-outlined">event_note</span>
-                            حجز جلسة مع {teacherName}
+                            حجز حصة مع {teacherName}
                         </h2>
                         <button
                             onClick={onClose}
@@ -419,7 +419,7 @@ export function CreateBookingModal({
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">
-                                    مدة الجلسة: 60 دقيقة
+                                    مدة الحصة: 60 دقيقة
                                 </p>
                             </div>
                         )}

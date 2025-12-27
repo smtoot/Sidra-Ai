@@ -9,6 +9,8 @@ import {
   CreateTeacherSubjectDto,
   CreateAvailabilityDto,
   AcceptTermsDto,
+  CreateQualificationDto,
+  UpdateQualificationDto,
   UserRole
 } from '@sidra/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -54,6 +56,36 @@ export class TeacherController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
   removeSubject(@Request() req: any, @Param('id') id: string) {
     return this.teacherService.removeSubject(req.user.userId, id);
+  }
+
+  // ============ Qualifications Management ============
+
+  @Get('me/qualifications')
+  getQualifications(@Request() req: any) {
+    return this.teacherService.getQualifications(req.user.userId);
+  }
+
+  // SECURITY: Rate limit qualification additions to prevent spam
+  @Post('me/qualifications')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 qualifications per minute
+  addQualification(@Request() req: any, @Body() dto: CreateQualificationDto) {
+    return this.teacherService.addQualification(req.user.userId, dto);
+  }
+
+  @Patch('me/qualifications/:id')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 updates per minute
+  updateQualification(
+    @Request() req: any,
+    @Param('id') qualificationId: string,
+    @Body() dto: UpdateQualificationDto
+  ) {
+    return this.teacherService.updateQualification(req.user.userId, qualificationId, dto);
+  }
+
+  @Delete('me/qualifications/:id')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
+  removeQualification(@Request() req: any, @Param('id') qualificationId: string) {
+    return this.teacherService.deleteQualification(req.user.userId, qualificationId);
   }
 
   // SECURITY: Rate limit availability changes to prevent excessive updates

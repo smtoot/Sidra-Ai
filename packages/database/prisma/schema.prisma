@@ -89,7 +89,6 @@ model TeacherProfile {
   bio                    String?
   averageRating          Float                   @default(0)
   cancellationPolicy     CancellationPolicy      @default(FLEXIBLE)
-  education              String?
   encryptedMeetingLink   String?
   gender                 Gender?
   hasCompletedOnboarding Boolean                 @default(false) // @deprecated - use applicationStatus
@@ -146,6 +145,7 @@ model TeacherProfile {
 
   savedBy                SavedTeacher[]
   interviewTimeSlots     InterviewTimeSlot[]
+  qualifications         TeacherQualification[]
 
   @@map("teacher_profiles")
 }
@@ -161,6 +161,38 @@ model InterviewTimeSlot {
   teacherProfile  TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
 
   @@map("interview_time_slots")
+}
+
+model TeacherQualification {
+  id              String              @id @default(uuid())
+  teacherId       String
+  teacherProfile  TeacherProfile      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // Core qualification data
+  degreeName      String              // e.g., "Bachelor of Science in Mathematics"
+  institution     String              // e.g., "Cairo University"
+  fieldOfStudy    String?             // e.g., "Computer Science" (optional, can be part of degreeName)
+
+  // Status and dates
+  status          QualificationStatus @default(GRADUATED)
+  startDate       DateTime?
+  endDate         DateTime?
+  graduationYear  Int?                // Derived or explicit
+
+  // Certificate (REQUIRED)
+  certificateUrl  String              // S3 URL - REQUIRED for submission
+
+  // Verification
+  verified        Boolean             @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?             // Admin user ID
+  rejectionReason String?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([teacherId])
+  @@map("teacher_qualifications")
 }
 
 model StudentProfile {
@@ -514,6 +546,12 @@ enum UserRole {
 enum Gender {
   MALE
   FEMALE
+}
+
+enum QualificationStatus {
+  GRADUATED
+  IN_PROGRESS
+  NOT_COMPLETED
 }
 
 enum KYCStatus {

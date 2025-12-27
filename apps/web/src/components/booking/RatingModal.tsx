@@ -53,7 +53,7 @@ export function RatingModal({ isOpen, onClose, bookingId, teacherName, onSuccess
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden" dir="rtl">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-primary/10 to-secondary/10 px-6 py-4 flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-primary">تقييم الجلسة</h2>
+                    <h2 className="text-xl font-bold text-primary">تقييم الحصة</h2>
                     <button
                         onClick={onClose}
                         className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-white/50 transition"
@@ -104,7 +104,7 @@ export function RatingModal({ isOpen, onClose, bookingId, teacherName, onSuccess
                         <textarea
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
-                            placeholder="شاركنا رأيك في الجلسة..."
+                            placeholder="شاركنا رأيك في الحصة..."
                             className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                             rows={3}
                             maxLength={2000}

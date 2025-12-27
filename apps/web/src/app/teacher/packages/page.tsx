@@ -276,7 +276,7 @@ export default function TeacherPackagesPage() {
                     </h1>
                     <p className="text-gray-600 flex items-center gap-2">
                         <Package className="w-5 h-5" />
-                        <span>متابعة الباقات المشتراة وجلسات الطلاب</span>
+                        <span>متابعة الباقات المشتراة وحصص الطلاب</span>
                     </p>
                 </header>
 

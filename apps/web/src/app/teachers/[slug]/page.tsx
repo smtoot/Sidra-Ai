@@ -15,10 +15,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
         return {
             title: `${teacher.displayName || 'معلم سدرة'} | منصة سدرة`,
-            description: teacher.bio ? teacher.bio.substring(0, 160) : 'احجز جلسات تعليمية مع أفضل المعلمين على منصة سدرة',
+            description: teacher.bio ? teacher.bio.substring(0, 160) : 'احجز حصص تعليمية مع أفضل المعلمين على منصة سدرة',
             openGraph: {
                 title: `${teacher.displayName || 'معلم سدرة'} | منصة سدرة`,
-                description: teacher.bio ? teacher.bio.substring(0, 160) : 'احجز جلسات تعليمية مع أفضل المعلمين على منصة سدرة',
+                description: teacher.bio ? teacher.bio.substring(0, 160) : 'احجز حصص تعليمية مع أفضل المعلمين على منصة سدرة',
                 images: teacher.profilePhotoUrl ? [getFileUrl(teacher.profilePhotoUrl)] : [],
                 type: 'profile',
             },
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     } catch (error) {
         return {
             title: 'معلم سدرة | منصة سدرة',
-            description: 'احجز جلسات تعليمية مع أفضل المعلمين على منصة سدرة',
+            description: 'احجز حصص تعليمية مع أفضل المعلمين على منصة سدرة',
         };
     }
 }
