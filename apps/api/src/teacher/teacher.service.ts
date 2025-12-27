@@ -128,7 +128,7 @@ export class TeacherService {
         fullName: dto.fullName,
         bio: dto.bio,
         yearsOfExperience: dto.yearsOfExperience,
-        education: dto.education,
+        // REMOVED: education field - replaced by qualifications
         gender: dto.gender,
         timezone: dto.timezone,  // Save timezone
         profilePhotoUrl: dto.profilePhotoUrl,

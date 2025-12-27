@@ -100,7 +100,7 @@ export default function ProfileHubPage() {
                 bio: profile.bio,
                 profilePhotoUrl: profile.profilePhotoUrl,
                 introVideoUrl: profile.introVideoUrl,
-                education: profile.education,
+                // REMOVED: education field - qualifications managed separately
                 yearsOfExperience: Number(profile.yearsOfExperience) || 0,
                 gender: profile.gender || undefined,
 
@@ -264,7 +264,6 @@ export default function ProfileHubPage() {
                                 onSave={() => handleSaveSection('qualifications')}
                             >
                                 <QualificationsSection
-                                    education={profile?.education || ''}
                                     yearsOfExperience={profile?.yearsOfExperience || 0}
                                     gender={profile?.gender}
                                     isReadOnly={isReadOnly}

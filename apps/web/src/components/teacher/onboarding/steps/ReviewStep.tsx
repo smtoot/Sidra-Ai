@@ -228,7 +228,7 @@ export function ReviewStep() {
                     isComplete={experienceComplete}
                 >
                     <DetailRow label="سنوات الخبرة" value={`${data.yearsOfExperience} سنة`} />
-                    <DetailRow label="المؤهل العلمي" value={data.education} isEmpty={!data.education} />
+                    {/* NOTE: Academic qualifications are now managed separately via QualificationsManager */}
                     <div className="pt-2">
                         <p className="text-gray-500 text-sm mb-1">النبذة التعريفية:</p>
                         {data.bio ? (
@@ -238,22 +238,6 @@ export function ReviewStep() {
                         ) : (
                             <p className="text-amber-500 text-sm">لم تُضف نبذة تعريفية</p>
                         )}
-                    </div>
-                    {/* Certificates */}
-                    <div className="pt-2 border-t border-gray-100">
-                        <div className="flex items-center justify-between">
-                            <span className="text-gray-500 text-sm flex items-center gap-1">
-                                <Award className="w-4 h-4" />
-                                الشهادات والمؤهلات
-                            </span>
-                            <span className="text-sm font-medium">
-                                {certificates.length > 0 ? (
-                                    <span className="text-green-600">{certificates.length} شهادة</span>
-                                ) : (
-                                    <span className="text-gray-400">لا توجد (اختياري)</span>
-                                )}
-                            </span>
-                        </div>
                     </div>
                 </SectionCard>
 
@@ -353,10 +337,7 @@ export function ReviewStep() {
                                     {data.displayName || 'اسمك الظاهر'}
                                 </h4>
                                 <div className="flex items-center gap-4 text-sm text-gray-600">
-                                    <span className="flex items-center gap-1">
-                                        <GraduationCap className="w-4 h-4" />
-                                        {data.education || 'المؤهل العلمي'}
-                                    </span>
+                                    {/* NOTE: Education field removed - qualifications shown separately */}
                                     <span className="flex items-center gap-1">
                                         <Award className="w-4 h-4" />
                                         {data.yearsOfExperience} {data.yearsOfExperience === 1 ? 'سنة' : 'سنوات'} خبرة

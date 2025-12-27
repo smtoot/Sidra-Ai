@@ -331,7 +331,7 @@ export class MarketplaceService {
         profilePhotoUrl: teacher.profilePhotoUrl,
         introVideoUrl: teacher.introVideoUrl,
         bio: teacher.bio,
-        education: teacher.education,
+        // REMOVED: education field - replaced by qualifications
         yearsOfExperience: teacher.yearsOfExperience,
         gender: teacher.gender,
         averageRating: teacher.averageRating,

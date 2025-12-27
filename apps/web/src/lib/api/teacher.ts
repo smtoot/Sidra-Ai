@@ -3,7 +3,10 @@ import {
     UpdateTeacherProfileDto,
     CreateTeacherSubjectDto,
     CreateAvailabilityDto,
-    AcceptTermsDto
+    AcceptTermsDto,
+    CreateQualificationDto,
+    UpdateQualificationDto,
+    QualificationStatus
 } from '@sidra/shared';
 
 export type DocumentType = 'ID_CARD' | 'CERTIFICATE' | 'DEGREE' | 'OTHER';
@@ -38,6 +41,25 @@ export interface TeacherTeachingApproach {
     tagIds: string[]; // List of Tag IDs
 }
 
+export interface TeacherQualification {
+    id: string;
+    teacherId: string;
+    degreeName: string;
+    institution: string;
+    fieldOfStudy?: string;
+    status: QualificationStatus;
+    startDate?: string;
+    endDate?: string;
+    graduationYear?: number;
+    certificateUrl: string;
+    verified: boolean;
+    verifiedAt?: string;
+    verifiedBy?: string;
+    rejectionReason?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export const teacherApi = {
     getProfile: async () => {
         const response = await api.get('/teacher/me');
@@ -55,6 +77,25 @@ export const teacherApi = {
         const response = await api.delete(`/teacher/me/subjects/${id}`);
         return response.data;
     },
+
+    // --- Qualifications ---
+    getQualifications: async (): Promise<TeacherQualification[]> => {
+        const response = await api.get('/teacher/me/qualifications');
+        return response.data;
+    },
+    addQualification: async (data: CreateQualificationDto): Promise<TeacherQualification> => {
+        const response = await api.post('/teacher/me/qualifications', data);
+        return response.data;
+    },
+    updateQualification: async (id: string, data: UpdateQualificationDto): Promise<TeacherQualification> => {
+        const response = await api.patch(`/teacher/me/qualifications/${id}`, data);
+        return response.data;
+    },
+    removeQualification: async (id: string) => {
+        const response = await api.delete(`/teacher/me/qualifications/${id}`);
+        return response.data;
+    },
+
     addAvailability: async (data: CreateAvailabilityDto) => {
         const response = await api.post('/teacher/me/availability', data);
         return response.data;

@@ -16,8 +16,9 @@ export interface OnboardingData {
 
     // Step 2: Teaching Experience
     yearsOfExperience: number;
-    education: string;
     bio: string;
+    // NOTE: education field REMOVED - replaced by QualificationsManager component
+    // Qualifications are now managed separately via teacherApi.getQualifications()
 
     // Step 3: Subjects (managed separately via API)
     subjects: any[];
@@ -61,8 +62,8 @@ const defaultData: OnboardingData = {
     fullName: '',
     gender: null,
     yearsOfExperience: 0,
-    education: '',
     bio: '',
+    // education field REMOVED
     subjects: [],
     idType: null,
     idNumber: '',
@@ -102,8 +103,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                     fullName: profile.fullName || '',
                     gender: profile.gender as Gender || null,
                     yearsOfExperience: profile.yearsOfExperience || 0,
-                    education: profile.education || '',
                     bio: profile.bio || '',
+                    // education field REMOVED
                     subjects: profile.subjects || [],
                     idType: profile.idType || null,
                     idNumber: profile.idNumber || '',
@@ -145,7 +146,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 fullName: data.fullName,
                 bio: data.bio,
                 yearsOfExperience: Number(data.yearsOfExperience) || 0, // Ensure number
-                education: data.education,
+                // education field REMOVED - qualifications managed separately
                 gender: data.gender || undefined,
                 profilePhotoUrl: data.profilePhotoUrl || undefined,
                 introVideoUrl: data.introVideoUrl || undefined,
@@ -234,7 +235,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                         fullName: data.fullName || undefined,
                         bio: data.bio || undefined,
                         yearsOfExperience: data.yearsOfExperience || undefined,
-                        education: data.education || undefined,
+                        // education field REMOVED
                         gender: data.gender || undefined,
                         profilePhotoUrl: data.profilePhotoUrl || undefined,
                         introVideoUrl: data.introVideoUrl || undefined,

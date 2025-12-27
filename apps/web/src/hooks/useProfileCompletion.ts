@@ -8,7 +8,8 @@ interface ProfileData {
     bio?: string;
     profilePhotoUrl?: string;
     introVideoUrl?: string;
-    education?: string;
+    // REMOVED: education field - replaced by qualifications array
+    qualifications?: any[];  // Array of TeacherQualification objects
     yearsOfExperience?: number;
     gender?: string;
     subjects?: any[];
@@ -91,9 +92,10 @@ export function useProfileCompletion(
                 id: 'qualifications',
                 nameAr: 'المؤهلات والخبرات',
                 nameEn: 'Qualifications',
+                // UPDATED: Check for qualifications (at least 1) instead of education field
                 // yearsOfExperience can be 0, so check for undefined/null explicitly
                 isComplete: Boolean(
-                    p.education &&
+                    (p.qualifications?.length || 0) > 0 &&
                     p.yearsOfExperience !== undefined &&
                     p.yearsOfExperience !== null &&
                     p.gender

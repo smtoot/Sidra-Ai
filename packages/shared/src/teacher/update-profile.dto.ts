@@ -59,9 +59,8 @@ export class UpdateTeacherProfileDto {
     @Min(0)
     yearsOfExperience?: number;
 
-    @IsOptional()
-    @IsString()
-    education?: string;
+    // REMOVED: education field - replaced by TeacherQualification model
+    // Qualifications are now managed via separate API endpoints
 
     @IsOptional()
     @IsEnum(Gender)

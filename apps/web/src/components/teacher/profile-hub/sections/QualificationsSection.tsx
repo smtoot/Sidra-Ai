@@ -1,15 +1,16 @@
 'use client';
 
 import { Gender } from '@sidra/shared';
-import { ExperienceFields, GenderSelector, CertificatesSection } from '@/components/teacher/shared';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { GenderSelector, QualificationsManager } from '@/components/teacher/shared';
+import { Clock } from 'lucide-react';
 
 interface QualificationsSectionProps {
-    education: string;
     yearsOfExperience: number;
     gender?: Gender;
     isReadOnly?: boolean;
     onUpdate: (data: {
-        education?: string;
         yearsOfExperience?: number;
         gender?: Gender;
     }) => void;
@@ -17,11 +18,14 @@ interface QualificationsSectionProps {
 
 /**
  * Qualifications section for Profile Hub.
- * Uses shared ExperienceFields, GenderSelector, and CertificatesSection components
- * for consistency with Onboarding.
+ *
+ * IMPORTANT CHANGES:
+ * - REMOVED education field (replaced with QualificationsManager)
+ * - QualificationsManager is now the SINGLE SOURCE OF TRUTH for academic qualifications
+ * - Years of experience and gender remain as separate fields
+ * - Uses shared components for consistency with Onboarding
  */
 export function QualificationsSection({
-    education,
     yearsOfExperience,
     gender,
     isReadOnly = false,
@@ -29,13 +33,25 @@ export function QualificationsSection({
 }: QualificationsSectionProps) {
     return (
         <div className="space-y-6">
-            {/* Experience Fields - Using shared component */}
-            <ExperienceFields
-                yearsOfExperience={yearsOfExperience}
-                education={education}
-                onChange={(updates) => onUpdate(updates)}
-                disabled={isReadOnly}
-            />
+            {/* Years of Experience - Standalone field */}
+            <div className="space-y-2">
+                <Label className="text-base font-medium flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-primary" />
+                    سنوات الخبرة في التدريس
+                </Label>
+                <div className="flex items-center gap-3">
+                    <Input
+                        type="number"
+                        min={0}
+                        max={50}
+                        value={yearsOfExperience}
+                        onChange={(e) => onUpdate({ yearsOfExperience: Number(e.target.value) })}
+                        className="w-24 h-12 text-center text-lg font-bold"
+                        disabled={isReadOnly}
+                    />
+                    <span className="text-text-subtle">سنة</span>
+                </div>
+            </div>
 
             {/* Gender - Using shared component */}
             <GenderSelector
@@ -44,8 +60,13 @@ export function QualificationsSection({
                 disabled={isReadOnly}
             />
 
-            {/* Certificates Section - Same as in Onboarding */}
-            <CertificatesSection disabled={isReadOnly} />
+            {/* CRITICAL: Academic Qualifications - SINGLE SOURCE OF TRUTH */}
+            <div className="border-t pt-6">
+                <QualificationsManager
+                    disabled={isReadOnly}
+                    required={true}
+                />
+            </div>
         </div>
     );
 }

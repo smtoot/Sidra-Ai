@@ -40,7 +40,7 @@ export default function TeacherProfileWizard() {
     const [displayName, setDisplayName] = useState('');
     const [bio, setBio] = useState('');
     const [yearsOfExperience, setYearsOfExperience] = useState<number>(0);
-    const [education, setEducation] = useState('');
+    // REMOVED: education state
     const [gender, setGender] = useState<Gender | undefined>(undefined);
 
     // Step 2 State
@@ -79,7 +79,7 @@ export default function TeacherProfileWizard() {
                 setDisplayName(profile.displayName || '');
                 setBio(profile.bio || '');
                 setYearsOfExperience(profile.yearsOfExperience || 0);
-                setEducation(profile.education || '');
+                // REMOVED: education field
                 setGender(profile.gender as Gender);
                 setMySubjects(profile.subjects || []);
             }
@@ -97,7 +97,7 @@ export default function TeacherProfileWizard() {
                 displayName,
                 bio,
                 yearsOfExperience: Number(yearsOfExperience),
-                education,
+                // REMOVED: education field
                 gender
             });
             setStep(2);
@@ -247,15 +247,7 @@ export default function TeacherProfileWizard() {
                                     disabled={isReadOnly}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>المؤهل العلمي</Label>
-                                <Input
-                                    value={education}
-                                    onChange={(e) => setEducation(e.target.value)}
-                                    placeholder="مثال: بكالوريوس تربية - جامعة الخرطوم"
-                                    disabled={isReadOnly}
-                                />
-                            </div>
+                            {/* REMOVED: Education field - replaced by QualificationsManager */}
                         </div>
 
                         <div className="space-y-2">

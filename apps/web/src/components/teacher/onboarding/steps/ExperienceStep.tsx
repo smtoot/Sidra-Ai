@@ -1,18 +1,34 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useOnboarding } from '../OnboardingContext';
-import { ArrowLeft, ArrowRight, Loader2, Lightbulb } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Lightbulb, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { BioField, ExperienceFields, CertificatesSection } from '@/components/teacher/shared';
+import { BioField, QualificationsManager } from '@/components/teacher/shared';
+import { teacherApi, TeacherQualification } from '@/lib/api/teacher';
 
 /**
  * Onboarding Step 2: Teaching Experience & Qualifications
- * Uses shared components for consistency with Profile Hub.
- * Now includes Certificates section (moved from Documents step).
+ *
+ * IMPORTANT CHANGES:
+ * - REMOVED education dropdown (replaced with QualificationsManager)
+ * - QualificationsManager is now the SINGLE SOURCE OF TRUTH for academic qualifications
+ * - At least ONE qualification with certificate is REQUIRED before proceeding
+ * - yearsOfExperience remains as a separate field
  */
 export function ExperienceStep() {
     const { data, updateData, setCurrentStep, saveCurrentStep, saving } = useOnboarding();
+    const [qualifications, setQualifications] = useState<TeacherQualification[]>([]);
+
+    useEffect(() => {
+        // Load qualifications on mount
+        teacherApi.getQualifications()
+            .then(setQualifications)
+            .catch(console.error);
+    }, []);
 
     const handleNext = async () => {
         // Validate years of experience
@@ -21,9 +37,9 @@ export function ExperienceStep() {
             return;
         }
 
-        // Validate education
-        if (!data.education?.trim()) {
-            toast.error('الرجاء اختيار المؤهل التعليمي');
+        // CRITICAL: Validate qualifications (replaced education field)
+        if (qualifications.length === 0) {
+            toast.error('يجب إضافة مؤهل أكاديمي واحد على الأقل مع الشهادة');
             return;
         }
 
@@ -70,12 +86,24 @@ export function ExperienceStep() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-6">
-                {/* Experience Fields - Using shared component */}
-                <ExperienceFields
-                    yearsOfExperience={data.yearsOfExperience}
-                    education={data.education}
-                    onChange={(updates) => updateData(updates)}
-                />
+                {/* Years of Experience - Standalone field */}
+                <div className="space-y-2">
+                    <Label className="text-base font-medium flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-primary" />
+                        سنوات الخبرة في التدريس <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="flex items-center gap-3">
+                        <Input
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={data.yearsOfExperience}
+                            onChange={(e) => updateData({ yearsOfExperience: Number(e.target.value) })}
+                            className="w-24 h-12 text-center text-lg font-bold"
+                        />
+                        <span className="text-text-subtle">سنة</span>
+                    </div>
+                </div>
 
                 {/* Bio Field - Using shared component */}
                 <BioField
@@ -85,8 +113,13 @@ export function ExperienceStep() {
                     useWordCount={false}
                 />
 
-                {/* Certificates Section - Moved from Documents step */}
-                <CertificatesSection />
+                {/* CRITICAL: Academic Qualifications - SINGLE SOURCE OF TRUTH */}
+                <div className="border-t pt-6">
+                    <QualificationsManager
+                        onQualificationsChange={setQualifications}
+                        required={true}
+                    />
+                </div>
             </div>
 
             {/* Navigation */}

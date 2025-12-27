@@ -5,6 +5,7 @@ export { PhotoUploadField } from './PhotoUploadField';
 export { NameFields } from './NameFields';
 export { BioField } from './BioField';
 export { GenderSelector } from './GenderSelector';
-export { ExperienceFields } from './ExperienceFields';
+// REMOVED: ExperienceFields - replaced with standalone yearsOfExperience input + QualificationsManager
 export { IdVerificationSection } from './IdVerificationSection';
 export { CertificatesSection } from './CertificatesSection';
+export { QualificationsManager } from './QualificationsManager';
