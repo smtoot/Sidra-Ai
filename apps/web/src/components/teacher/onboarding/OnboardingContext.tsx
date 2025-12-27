@@ -156,12 +156,23 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             });
         } catch (error: any) {
             console.error('Failed to save step', error);
-            // Log validation details
+
+            // CRITICAL: Always show user-friendly error messages
             if (error.response?.data?.message) {
-                console.error('VALIDATION ERROR DETAILS:', error.response.data.message);
-                // Optionally show toast if available
-                // toast.error(`Validation Failed: ${Array.isArray(error.response.data.message) ? error.response.data.message.join(', ') : error.response.data.message}`);
+                const errorMessage = error.response.data.message;
+                console.error('VALIDATION ERROR DETAILS:', errorMessage);
+
+                // Show validation error to user
+                if (Array.isArray(errorMessage)) {
+                    toast.error(errorMessage.join(', ') || 'فشل حفظ البيانات. الرجاء التحقق من الحقول المطلوبة.');
+                } else {
+                    toast.error(errorMessage || 'فشل حفظ البيانات. الرجاء المحاولة مرة أخرى.');
+                }
+            } else {
+                // Network or unknown error
+                toast.error('فشل حفظ البيانات. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
             }
+
             throw error;
         } finally {
             setSaving(false);
@@ -175,8 +186,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             const status = await teacherApi.getApplicationStatus();
             updateData({ applicationStatus: status });
             setCurrentStep(6); // Go to status dashboard
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to submit for review', error);
+
+            // CRITICAL: Always show user-friendly error messages
+            if (error.response?.data?.message) {
+                const errorMessage = error.response.data.message;
+                toast.error(errorMessage || 'فشل إرسال الطلب. الرجاء التحقق من إكمال جميع الحقول المطلوبة.');
+            } else {
+                toast.error('فشل إرسال الطلب. تحقق من اتصال الإنترنت وحاول مرة أخرى.');
+            }
+
             throw error;
         } finally {
             setSaving(false);

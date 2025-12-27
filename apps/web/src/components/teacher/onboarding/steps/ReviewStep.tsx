@@ -152,8 +152,15 @@ export function ReviewStep() {
             // Submit for review
             await submitForReview();
             toast.success('تم إرسال طلبك بنجاح!');
-        } catch (error) {
-            toast.error('فشل إرسال الطلب');
+        } catch (error: any) {
+            console.error('Failed to submit application:', error);
+
+            // CRITICAL: Show detailed error message to user
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error('فشل إرسال الطلب. الرجاء التحقق من إكمال جميع الحقول المطلوبة.');
+            }
         }
     };
 
