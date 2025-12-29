@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { StorageService, UploadFolder } from '../storage/storage.service';
+import { validateMagicBytes, detectDangerousContent } from './file-validator';
 
 /**
  * UploadService - Handles file upload validation and delegates storage to StorageService.
@@ -56,8 +57,18 @@ export class UploadService {
         folder: UploadFolder,
         userId: string = 'anonymous'
     ): Promise<{ key: string; url: string }> {
-        // Validate file type
+        // Check for dangerous content first (executables, scripts, etc.)
+        const dangerousContent = detectDangerousContent(file.buffer);
+        if (dangerousContent) {
+            this.logger.warn(`Dangerous file upload blocked: ${dangerousContent}`);
+            throw new BadRequestException(`Dangerous file type detected: ${dangerousContent}`);
+        }
+
+        // Validate file type (MIME type allowlist)
         this.validateFileType(file);
+
+        // Validate magic bytes match claimed MIME type
+        validateMagicBytes(file.buffer, file.mimetype);
 
         // Validate file size
         this.validateFileSize(file);
