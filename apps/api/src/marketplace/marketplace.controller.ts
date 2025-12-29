@@ -195,6 +195,33 @@ export class MarketplaceController {
   }
 
   @Public()
+  @Get('teachers/:teacherId/availability-calendar')
+  getAvailabilityCalendar(
+    @Param('teacherId') teacherId: string,
+    @Query('month') month: string
+  ) {
+    return this.marketplaceService.getAvailabilityCalendar(teacherId, month);
+  }
+
+  @Public()
+  @Get('teachers/:teacherId/availability/check-recurring')
+  checkRecurringAvailability(
+    @Param('teacherId') teacherId: string,
+    @Query('weekday') weekday: string,
+    @Query('time') time: string,
+    @Query('sessionCount') sessionCount: string,
+    @Query('duration') duration: string
+  ) {
+    return this.marketplaceService.checkRecurringAvailability(
+      teacherId,
+      weekday,
+      time,
+      parseInt(sessionCount, 10),
+      parseInt(duration, 10)
+    );
+  }
+
+  @Public()
   @Get('teachers/:teacherId/ratings')
   getTeacherRatings(
     @Param('teacherId') teacherId: string,

@@ -76,6 +76,17 @@ export class BookingService {
             throw new NotFoundException('Teacher does not teach this subject');
         }
 
+        // VACATION MODE CHECK: Prevent bookings while teacher is on vacation
+        if (teacherSubject.teacherProfile.isOnVacation) {
+            const returnDate = teacherSubject.teacherProfile.vacationEndDate;
+            const returnDateStr = returnDate
+                ? ` حتى ${returnDate.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' })}`
+                : '';
+            throw new BadRequestException(
+                `المعلم في إجازة حالياً${returnDateStr}. يرجى المحاولة لاحقاً.`
+            );
+        }
+
         // Prevent self-booking
         if (teacherSubject.teacherProfile.userId === user.userId) {
             throw new ForbiddenException('لا يمكنك حجز حصة مع نفسك');
@@ -272,10 +283,10 @@ export class BookingService {
             // If bufferDeadline is in the past, it means we are already too close to the session.
             const paymentDeadline = windowDeadline < bufferDeadline ? windowDeadline : bufferDeadline;
 
-            // Check parent's wallet balance
+            // Check parent's wallet balance - use normalizeMoney for consistent comparison
             const parentWallet = await this.walletService.getBalance(booking.bookedByUserId);
-            const price = Number(booking.price);
-            const balance = Number(parentWallet.balance);
+            const price = normalizeMoney(booking.price);
+            const balance = normalizeMoney(parentWallet.balance);
 
             if (balance < price) {
                 // --- Insufficient Balance Flow ---
@@ -1064,8 +1075,8 @@ export class BookingService {
                 }
             });
 
-            // 3. Release Funds (Atomically inside TX)
-            const price = Number(booking.price);
+            // 3. Release Funds (Atomically inside TX) - use normalizeMoney for price
+            const price = normalizeMoney(booking.price);
             const commissionRate = Number(booking.commissionRate);
 
             await this.walletService.releaseFundsOnCompletion(
@@ -1103,7 +1114,7 @@ export class BookingService {
         }
 
         // Demo Complete
-        const isDemo = Number(bookingContext.price) === 0;
+        const isDemo = normalizeMoney(bookingContext.price) === 0;
         if (isDemo && bookingContext.studentUserId) {
             try {
                 await this.demoService.markDemoCompleted(bookingContext.studentUserId, bookingContext.teacherId);
@@ -1113,11 +1124,12 @@ export class BookingService {
             }
         }
 
-        // Notify teacher
+        // Notify teacher - use normalizeMoney for consistent calculation
+        const teacherEarnings = normalizeMoney(normalizeMoney(bookingContext.price) * (1 - Number(bookingContext.commissionRate)));
         await this.notificationService.notifyTeacherPaymentReleased({
             bookingId: updatedBooking.id,
             teacherId: bookingContext.teacherProfile.user.id,
-            amount: Number(bookingContext.price) * (1 - Number(bookingContext.commissionRate)),
+            amount: teacherEarnings,
             releaseType: 'CONFIRMED',
         });
 
@@ -1292,7 +1304,7 @@ export class BookingService {
 
     // Helper: Release payment to teacher wallet
     private async releasePaymentToTeacher(booking: any) {
-        const price = Number(booking.price);
+        const price = normalizeMoney(booking.price);
         const commissionRate = Number(booking.commissionRate);
 
         // Use the existing wallet method for proper escrow release
@@ -1883,6 +1895,25 @@ export class BookingService {
 
         this.logger.log(`📅 RESCHEDULE | bookingId=${bookingId} | by=${userRole} | from=${oldStartTime} to=${newStartTime}`);
 
+        // 🔴 HIGH PRIORITY - Gap #2 Fix: Notify teacher that student directly rescheduled
+        const formattedNewTime = formatInTimezone(newStartTime, booking.timezone || 'UTC', 'EEEE، d MMMM yyyy - h:mm a');
+        const formattedOldTime = formatInTimezone(oldStartTime, booking.timezone || 'UTC', 'EEEE، d MMMM yyyy - h:mm a');
+
+        await this.notificationService.notifyUser({
+            userId: booking.teacherId,
+            type: 'BOOKING_APPROVED', // Reuse existing type
+            title: 'تم تغيير موعد حصة',
+            message: `قام الطالب بتغيير موعد الحصة من ${formattedOldTime} إلى ${formattedNewTime}`,
+            link: '/teacher/sessions',
+            dedupeKey: `STUDENT_RESCHEDULED:${bookingId}:${booking.teacherId}`,
+            metadata: {
+                bookingId,
+                oldStartTime,
+                newStartTime,
+                rescheduledBy: userRole
+            }
+        });
+
         return {
             success: true,
             bookingId,
@@ -2101,6 +2132,23 @@ export class BookingService {
         });
 
         this.logger.log(`✅ RESCHEDULE_APPROVED | requestId=${requestId} | bookingId=${request.bookingId}`);
+
+        // 🔴 HIGH PRIORITY - Gap #1 Fix: Notify teacher that student approved reschedule
+        const formattedNewTime = formatInTimezone(newStartTime, request.booking.timezone || 'UTC', 'EEEE، d MMMM yyyy - h:mm a');
+
+        await this.notificationService.notifyUser({
+            userId: request.requestedById, // Teacher who requested reschedule
+            type: 'BOOKING_APPROVED', // Reuse existing type
+            title: 'تم الموافقة على طلب تغيير الموعد',
+            message: `وافق الطالب على طلب تغيير موعد الحصة إلى ${formattedNewTime}`,
+            link: '/teacher/sessions',
+            dedupeKey: `RESCHEDULE_APPROVED:${request.bookingId}:${request.requestedById}`,
+            metadata: {
+                bookingId: request.bookingId,
+                newStartTime,
+                newEndTime
+            }
+        });
 
         return {
             success: true,

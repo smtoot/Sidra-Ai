@@ -25,6 +25,13 @@ export * from './src/teacher/exception.dto';
 export * from './src/teacher/propose-interview-slots.dto';
 export * from './src/teacher/accept-terms.dto';
 export * from './src/teacher/qualification.dto';
+export * from './src/teacher/vacation-mode.dto';
+
+// Package (Smart Pack)
+export * from './src/package';
+
+// Support Ticket
+export * from './src/support-ticket';
 
 // Utils
 export * from './src/utils/display-name.util';
@@ -35,10 +42,14 @@ export * from './src/validators/password.validator';
 // Global enums
 export enum UserRole {
     PARENT = 'PARENT',
+    STUDENT = 'STUDENT',
     TEACHER = 'TEACHER',
+    SUPER_ADMIN = 'SUPER_ADMIN',
     ADMIN = 'ADMIN',
-    SUPPORT = 'SUPPORT',
-    STUDENT = 'STUDENT'
+    MODERATOR = 'MODERATOR',
+    CONTENT_ADMIN = 'CONTENT_ADMIN',
+    FINANCE = 'FINANCE',
+    SUPPORT = 'SUPPORT'
 }
 
 export enum ApplicationStatus {

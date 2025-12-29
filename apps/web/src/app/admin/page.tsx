@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ActionStrip } from '@/components/admin/dashboard/ActionStrip';
 import { OperationalSnapshot } from '@/components/admin/dashboard/OperationalSnapshot';
 import { ActivityFeed } from '@/components/admin/dashboard/ActivityFeed';
+import { FinancialAnalytics } from '@/components/admin/dashboard/FinancialAnalytics';
 
 export default function AdminDashboardPage() {
     const { user } = useAuth();
@@ -23,7 +24,10 @@ export default function AdminDashboardPage() {
                 {/* SECTION 1: URGENT ACTION STRIP */}
                 <ActionStrip />
 
-                {/* SECTION 2 & 3: Two-column layout for better space usage */}
+                {/* SECTION 2: Financial Analytics (Full Width) */}
+                <FinancialAnalytics />
+
+                {/* SECTION 3 & 4: Two-column layout for better space usage */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Operational Snapshot */}
                     <OperationalSnapshot />

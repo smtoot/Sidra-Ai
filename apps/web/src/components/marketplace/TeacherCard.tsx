@@ -1,6 +1,6 @@
 import { SearchResult } from '@/lib/api/search';
 import { Button } from '../ui/button';
-import { Star, GraduationCap, Briefcase, MapPin } from 'lucide-react';
+import { Star, GraduationCap, Briefcase, MapPin, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 interface TeacherCardProps {
@@ -33,10 +33,18 @@ export default function TeacherCard({ result, onBook }: TeacherCardProps) {
                             {teacherProfile.education || 'مؤهل غير محدد'}
                         </p>
                     </div>
-                    <div className="flex items-center gap-1 bg-sand/10 px-2 py-1 rounded text-accent text-sm font-bold">
-                        <Star className="w-4 h-4 fill-current" />
-                        <span>{teacherProfile.averageRating.toFixed(1)}</span>
-                        <span className="text-text-subtle font-normal">({teacherProfile.totalReviews})</span>
+                    <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1 bg-sand/10 px-2 py-1 rounded text-accent text-sm font-bold">
+                            <Star className="w-4 h-4 fill-current" />
+                            <span>{teacherProfile.averageRating.toFixed(1)}</span>
+                            <span className="text-text-subtle font-normal">({teacherProfile.totalReviews})</span>
+                        </div>
+                        {result.nextAvailableSlot && (
+                            <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+                                <Clock className="w-3 h-3" />
+                                <span className="font-semibold">{result.nextAvailableSlot.display}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 

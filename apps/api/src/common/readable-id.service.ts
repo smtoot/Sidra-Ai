@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-type IdType = 'BOOKING' | 'TRANSACTION' | 'PACKAGE' | 'WALLET';
+type IdType = 'BOOKING' | 'TRANSACTION' | 'PACKAGE' | 'WALLET' | 'TICKET';
 
 /**
  * Service for generating human-readable sequential IDs
@@ -44,6 +44,15 @@ export class ReadableIdService {
     async generateWalletId(): Promise<string> {
         const counter = await this.getNextCounter('WALLET', null);
         return `WAL-${this.padNumber(counter, 6)}`;
+    }
+
+    /**
+     * Generate a ticket ID: TKT-YYMM-NNNN
+     */
+    async generateTicketId(): Promise<string> {
+        const yearMonth = this.getCurrentYearMonth();
+        const counter = await this.getNextCounter('TICKET', yearMonth);
+        return `TKT-${yearMonth}-${this.padNumber(counter, 4)}`;
     }
 
     /**

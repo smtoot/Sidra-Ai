@@ -23,6 +23,7 @@ import { StorageModule } from './common/storage/storage.module';
 import { ConfigValidationService } from './common/config/config-validation.service';
 import { PackageModule } from './package/package.module';
 import { TeachingApproachModule } from './teaching-approach/teaching-approach.module';
+import { SupportTicketModule } from './support-ticket/support-ticket.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { TeachingApproachModule } from './teaching-approach/teaching-approach.mo
     PackageModule,
     TeachingApproachModule,
     FavoritesModule,
+    SupportTicketModule,
   ],
   controllers: [AppController],
   providers: [

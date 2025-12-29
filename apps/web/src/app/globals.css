@@ -396,3 +396,69 @@ a:hover {
   font-weight: bold;
   color: var(--color-primary);
 }
+
+/* ========================================
+   BOOKING CALENDAR AVAILABILITY INDICATORS
+   ======================================== */
+/* react-day-picker v9 structure */
+.booking-calendar .has-availability {
+  position: relative;
+}
+
+.booking-calendar .has-availability::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background-color: #10b981;
+  /* green-500 */
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Also support button child for backwards compatibility */
+.booking-calendar .has-availability button {
+  position: relative;
+}
+
+.booking-calendar .has-availability button::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background-color: #10b981;
+  border-radius: 50%;
+}
+
+.booking-calendar .fully-booked {
+  opacity: 0.4;
+}
+
+.booking-calendar .fully-booked button {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+/* ========================================
+   MOBILE SAFE AREA
+   ======================================== */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Selected date should have white dot instead of green */
+.booking-calendar .rdp-day_selected.has-availability::after,
+.booking-calendar .rdp-selected .has-availability::after {
+  background-color: white;
+}
+
+.booking-calendar .rdp-day_selected button::after {
+  background-color: white;
+}

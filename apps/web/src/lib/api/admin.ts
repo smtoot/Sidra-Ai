@@ -111,10 +111,20 @@ export const adminApi = {
         return response.data;
     },
 
+    getFinancialAnalytics: async () => {
+        const response = await api.get('/admin/analytics/financial');
+        return response.data;
+    },
+
     // Bookings
     getBookings: async (status?: string) => {
         const params = status && status !== 'ALL' ? `?status=${status}` : '';
         const response = await api.get(`/admin/bookings${params}`);
+        return response.data;
+    },
+
+    getBookingById: async (id: string) => {
+        const response = await api.get(`/bookings/${id}`);
         return response.data;
     },
 
@@ -178,6 +188,7 @@ export const adminApi = {
         defaultSessionDurationMinutes?: number;
         allowedSessionDurations?: number[];
         meetingLinkAccessMinutesBefore?: number;
+        maxVacationDays?: number;
     }) => {
         const response = await api.patch('/admin/settings', data);
         return response.data;
@@ -230,23 +241,82 @@ export const adminApi = {
 
     // =================== PACKAGES & DEMOS ===================
 
+    // Smart Pack Tier Management
     getPackageTiers: async () => {
-        const response = await api.get('/packages/admin/tiers');
+        const response = await api.get('/admin/package-tiers');
         return response.data;
     },
 
-    createPackageTier: async (data: { sessionCount: number; discountPercent: number; displayOrder: number }) => {
-        const response = await api.post('/packages/tiers', data);
+    getAllPackageTiers: async () => {
+        const response = await api.get('/admin/package-tiers/all');
         return response.data;
     },
 
-    updatePackageTier: async (id: string, data: { isActive?: boolean; displayOrder?: number; discountPercent?: number }) => {
-        const response = await api.patch(`/packages/tiers/${id}`, data);
+    getPackageTierById: async (id: string) => {
+        const response = await api.get(`/admin/package-tiers/${id}`);
+        return response.data;
+    },
+
+    createPackageTier: async (data: {
+        sessionCount: number;
+        discountPercent: number;
+        recurringRatio: number;
+        floatingRatio: number;
+        rescheduleLimit: number;
+        durationWeeks: number;
+        gracePeriodDays: number;
+        nameAr?: string;
+        nameEn?: string;
+        descriptionAr?: string;
+        descriptionEn?: string;
+        isFeatured?: boolean;
+        badge?: string;
+        displayOrder?: number;
+    }) => {
+        const response = await api.post('/admin/package-tiers', data);
+        return response.data;
+    },
+
+    updatePackageTier: async (id: string, data: {
+        sessionCount?: number;
+        discountPercent?: number;
+        recurringRatio?: number;
+        floatingRatio?: number;
+        rescheduleLimit?: number;
+        durationWeeks?: number;
+        gracePeriodDays?: number;
+        nameAr?: string;
+        nameEn?: string;
+        descriptionAr?: string;
+        descriptionEn?: string;
+        isFeatured?: boolean;
+        badge?: string;
+        displayOrder?: number;
+        isActive?: boolean;
+    }) => {
+        const response = await api.patch(`/admin/package-tiers/${id}`, data);
         return response.data;
     },
 
     deletePackageTier: async (id: string) => {
-        const response = await api.delete(`/packages/tiers/${id}`);
+        const response = await api.delete(`/admin/package-tiers/${id}`);
+        return response.data;
+    },
+
+    getPackageStats: async () => {
+        const response = await api.get('/admin/package-stats');
+        return response.data;
+    },
+
+    // Student Packages (Purchased Packages)
+    getStudentPackages: async (status?: string) => {
+        const params = status && status !== 'ALL' ? `?status=${status}` : '';
+        const response = await api.get(`/admin/student-packages${params}`);
+        return response.data;
+    },
+
+    getStudentPackageById: async (id: string) => {
+        const response = await api.get(`/admin/student-packages/${id}`);
         return response.data;
     },
 
@@ -279,6 +349,50 @@ export const adminApi = {
 
     deleteTeachingTag: async (id: string) => {
         const response = await api.delete(`/admin/tags/${id}`);
+        return response.data;
+    },
+
+    // --- Team Management ---
+    getTeamConfig: async () => {
+        const response = await api.get('/admin/team/config');
+        return response.data;
+    },
+
+    getTeamMembers: async () => {
+        const response = await api.get('/admin/team');
+        return response.data;
+    },
+
+    getTeamMember: async (id: string) => {
+        const response = await api.get(`/admin/team/${id}`);
+        return response.data;
+    },
+
+    createTeamMember: async (data: {
+        email: string;
+        phoneNumber: string;
+        password: string;
+        role: string;
+        firstName?: string;
+        lastName?: string;
+        permissionOverrides?: { add?: string[]; remove?: string[] };
+    }) => {
+        const response = await api.post('/admin/team', data);
+        return response.data;
+    },
+
+    updateTeamMemberPermissions: async (id: string, overrides: { add?: string[]; remove?: string[] }) => {
+        const response = await api.patch(`/admin/team/${id}/permissions`, overrides);
+        return response.data;
+    },
+
+    deactivateTeamMember: async (id: string) => {
+        const response = await api.delete(`/admin/team/${id}`);
+        return response.data;
+    },
+
+    getMyPermissions: async () => {
+        const response = await api.get('/admin/team/me/permissions');
         return response.data;
     }
 };

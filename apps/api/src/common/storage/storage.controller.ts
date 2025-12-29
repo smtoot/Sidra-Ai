@@ -82,22 +82,68 @@ export class StorageController {
             this.storageService.validateFile(file.buffer, file.mimetype);
 
             // Generate upload target
-            const { fileKey, absolutePath } = this.storageService.generateUploadTarget(
+            const { fileKey } = this.storageService.generateUploadTarget(
                 file.originalname,
                 folder as UploadFolder,
                 userId,
             );
 
-            // Save file
-            await this.storageService.saveFile(file.buffer, absolutePath);
+            // Save file (pass content type for R2)
+            await this.storageService.saveFile(file.buffer, fileKey, file.mimetype);
+
+            // Get URL for the uploaded file
+            const url = await this.storageService.getFileUrl(fileKey);
 
             return {
                 fileKey,
+                url,
                 message: 'File uploaded successfully',
             };
         } catch (error: any) {
             throw new BadRequestException(error.message || 'File upload failed');
         }
+    }
+
+    /**
+     * Get URL for a file.
+     *
+     * GET /storage/url?key=...
+     * Returns a URL (signed for private files, direct for public files)
+     */
+    @Get('url')
+    async getFileUrl(
+        @Query('key') fileKey: string,
+        @Req() req: Request,
+    ) {
+        if (!fileKey) {
+            throw new BadRequestException('File key is required');
+        }
+
+        const userId = (req.user as any)?.userId;
+        const userRole = (req.user as any)?.role;
+
+        // Public folders - accessible without ownership check
+        const folder = fileKey.split('/')[0];
+        const isPublicFile = this.storageService.isPublicFolder(folder);
+
+        if (!isPublicFile) {
+            // Validate ownership or admin access for private files
+            const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
+            const isOwner = fileOwnerId === userId;
+            const isAdmin = userRole === 'ADMIN';
+
+            if (!isOwner && !isAdmin) {
+                throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
+            }
+        }
+
+        const exists = await this.storageService.fileExists(fileKey);
+        if (!exists) {
+            throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+        }
+
+        const url = await this.storageService.getFileUrl(fileKey);
+        return { url };
     }
 
     /**

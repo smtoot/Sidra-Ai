@@ -22,6 +22,11 @@ export class RolesGuard implements CanActivate {
             return false;
         }
 
+        // SUPER_ADMIN bypass: has access to all role-protected endpoints
+        if (String(user.role).trim() === 'SUPER_ADMIN') {
+            return true;
+        }
+
         const hasRole = requiredRoles.some((role) => String(user.role).trim() === String(role).trim());
 
         if (!hasRole) {
@@ -31,3 +36,4 @@ export class RolesGuard implements CanActivate {
         return hasRole;
     }
 }
+

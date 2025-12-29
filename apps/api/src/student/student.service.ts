@@ -55,6 +55,7 @@ export class StudentService {
         country?: string;
         firstName?: string;
         lastName?: string;
+        profilePhotoUrl?: string;
     }) {
         // Update user fields (firstName, lastName)
         if (data.firstName !== undefined || data.lastName !== undefined) {
@@ -76,6 +77,7 @@ export class StudentService {
                 whatsappNumber: data.whatsappNumber,
                 city: data.city,
                 country: data.country,
+                profilePhotoUrl: data.profilePhotoUrl,
             },
             include: { user: true }
         });

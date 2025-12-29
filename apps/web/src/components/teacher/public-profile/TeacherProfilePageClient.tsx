@@ -28,7 +28,10 @@ export default function TeacherProfilePageClient({ slug }: TeacherProfilePageCli
         if (user?.role === 'TEACHER') {
             teacherApi.getProfile()
                 .then(profile => setCurrentTeacherId(profile.id))
-                .catch(err => console.error('Failed to get own profile', err));
+                .catch(err => {
+                    // Silently fail - this is just for ownership verification
+                    console.error('Failed to get own profile', err);
+                });
         }
     }, [user]);
 

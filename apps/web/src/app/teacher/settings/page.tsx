@@ -3,9 +3,11 @@
 import { Settings, Lock } from 'lucide-react';
 import { useTeacherApplicationStatus } from '@/hooks/useTeacherApplicationStatus';
 import { DemoSettings } from '@/components/teacher/settings/DemoSettings';
+import { PackageSettings } from '@/components/teacher/settings/PackageSettings';
 import { TimezoneSettings } from '@/components/teacher/settings/TimezoneSettings';
 import { SlugSettings } from '@/components/teacher/settings/SlugSettings';
 import { CancellationPolicySettings } from '@/components/teacher/settings/CancellationPolicySettings';
+import { VacationModeSettings } from '@/components/teacher/settings/VacationModeSettings';
 
 export default function TeacherSettingsPage() {
     const { isApproved, loading: loadingStatus } = useTeacherApplicationStatus();
@@ -36,7 +38,9 @@ export default function TeacherSettingsPage() {
 
             {/* Settings Components */}
             <div className="space-y-6">
+                <VacationModeSettings isReadOnly={isReadOnly} />
                 <DemoSettings isReadOnly={isReadOnly} />
+                <PackageSettings isReadOnly={isReadOnly} />
                 <TimezoneSettings isReadOnly={isReadOnly} />
                 <SlugSettings isReadOnly={isReadOnly} />
                 <CancellationPolicySettings isReadOnly={isReadOnly} />

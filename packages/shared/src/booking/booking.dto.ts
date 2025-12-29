@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsUUID, IsNumber, Min, Max, IsOptional, MaxLength, IsBoolean } from 'class-validator';
+import { IsString, IsDateString, IsUUID, IsNumber, Min, Max, IsOptional, MaxLength, IsBoolean, IsIn, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateBookingDto {
@@ -52,6 +52,24 @@ export class CreateBookingDto {
     @IsBoolean()
     @IsOptional()
     isDemo?: boolean; // If this is a demo session
+
+    // =====================================================
+    // SMART PACK RECURRING PATTERN (for new package purchases with tierId)
+    // =====================================================
+
+    @IsString()
+    @IsOptional()
+    @IsIn(['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'], {
+        message: 'Weekday must be a valid day (SUNDAY-SATURDAY)'
+    })
+    recurringWeekday?: string; // Day of week for recurring sessions (e.g., "TUESDAY")
+
+    @IsString()
+    @IsOptional()
+    @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+        message: 'Time must be in HH:mm format (e.g., 17:00)'
+    })
+    recurringTime?: string; // Time for recurring sessions in HH:mm format (e.g., "17:00")
 }
 
 export class UpdateBookingStatusDto {

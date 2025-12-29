@@ -76,13 +76,10 @@ export function ActionStrip() {
                     adminApi.getPendingTeachers()
                 ]);
 
-                // @ts-ignore
                 const pendingDeposits = depositsRes.data?.length || 0;
                 const pendingWithdrawals = withdrawalsStats.pendingPayouts?.count || 0;
-                // @ts-ignore
-                const openDisputes = disputesRes.length || 0;
-                // @ts-ignore
-                const pendingTeachers = teachersRes.length || 0;
+                const openDisputes = Array.isArray(disputesRes) ? disputesRes.length : 0;
+                const pendingTeachers = Array.isArray(teachersRes) ? teachersRes.length : 0;
 
                 setCounts({
                     deposits: pendingDeposits,

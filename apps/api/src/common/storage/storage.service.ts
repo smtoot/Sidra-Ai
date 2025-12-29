@@ -1,42 +1,52 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
+import { R2StorageProvider } from './r2-storage.provider';
 
 /**
- * Storage provider interface for future extensibility (S3, GCS, etc.)
- * Currently only local filesystem is implemented.
+ * Storage provider interface for extensibility (R2, S3, GCS, local filesystem)
  */
 export interface StorageProvider {
-    save(buffer: Buffer, absolutePath: string): Promise<void>;
-    getStream(absolutePath: string): Readable;
-    delete(absolutePath: string): Promise<void>;
-    exists(absolutePath: string): Promise<boolean>;
+    save(buffer: Buffer, fileKey: string, contentType?: string): Promise<void>;
+    getStream(fileKey: string): Readable;
+    delete(fileKey: string): Promise<void>;
+    exists(fileKey: string): Promise<boolean>;
 }
 
 /**
  * Local filesystem storage provider.
  * Files are stored under UPLOAD_LOCAL_PATH environment variable.
+ * Used as fallback when cloud storage is not configured.
  */
 @Injectable()
 export class LocalStorageProvider implements StorageProvider {
     private readonly logger = new Logger(LocalStorageProvider.name);
+    private readonly basePath: string;
 
-    async save(buffer: Buffer, absolutePath: string): Promise<void> {
+    constructor(basePath: string) {
+        this.basePath = basePath;
+    }
+
+    async save(buffer: Buffer, fileKey: string, _contentType?: string): Promise<void> {
+        const absolutePath = path.join(this.basePath, fileKey);
         const dir = path.dirname(absolutePath);
         await fs.promises.mkdir(dir, { recursive: true });
         await fs.promises.writeFile(absolutePath, buffer);
-        this.logger.log(`File saved: ${absolutePath}`);
+        this.logger.log(`File saved locally: ${fileKey}`);
     }
 
-    getStream(absolutePath: string): Readable {
+    getStream(fileKey: string): Readable {
+        const absolutePath = path.join(this.basePath, fileKey);
         return fs.createReadStream(absolutePath);
     }
 
-    async delete(absolutePath: string): Promise<void> {
+    async delete(fileKey: string): Promise<void> {
+        const absolutePath = path.join(this.basePath, fileKey);
         try {
             await fs.promises.unlink(absolutePath);
-            this.logger.log(`File deleted: ${absolutePath}`);
+            this.logger.log(`File deleted: ${fileKey}`);
         } catch (err: any) {
             if (err.code !== 'ENOENT') {
                 throw err;
@@ -45,7 +55,8 @@ export class LocalStorageProvider implements StorageProvider {
         }
     }
 
-    async exists(absolutePath: string): Promise<boolean> {
+    async exists(fileKey: string): Promise<boolean> {
+        const absolutePath = path.join(this.basePath, fileKey);
         try {
             await fs.promises.access(absolutePath, fs.constants.F_OK);
             return true;
@@ -89,28 +100,61 @@ const ALLOWED_MIME_TYPES = [
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /**
+ * Storage type enum for provider selection
+ */
+export type StorageType = 'r2' | 'local';
+
+/**
  * StorageService - Abstract storage layer for file uploads.
- * 
+ *
  * Design decisions:
  * - fileKey is the unique identifier stored in DB (e.g., "deposits/user123/1702900000000-receipt.jpg")
- * - Actual file path is derived from fileKey + base path
- * - Provider pattern allows easy switch to S3 in future
- * - Files are NOT publicly accessible; all access goes through authenticated endpoints
+ * - Provider priority: R2 (Cloudflare) → Local filesystem
+ * - Public folders (profile-photos, intro-videos) can be accessed directly via CDN
+ * - Private folders require signed URLs or authenticated endpoints
  */
 @Injectable()
 export class StorageService {
     private readonly logger = new Logger(StorageService.name);
     private readonly basePath: string;
     private readonly provider: StorageProvider;
+    private readonly r2Provider?: R2StorageProvider;
+    private readonly storageType: StorageType;
 
-    constructor() {
+    // Folders that should be publicly accessible
+    private readonly PUBLIC_FOLDERS = ['profile-photos', 'intro-videos'];
+
+    constructor(private configService: ConfigService) {
         // Default to ./uploads in project root if not set
-        this.basePath = process.env.UPLOAD_LOCAL_PATH || path.join(process.cwd(), 'uploads');
-        this.provider = new LocalStorageProvider();
+        this.basePath = this.configService.get<string>('UPLOAD_LOCAL_PATH') || path.join(process.cwd(), 'uploads');
 
-        // Ensure base directory exists
-        fs.mkdirSync(this.basePath, { recursive: true });
-        this.logger.log(`Storage initialized at: ${this.basePath}`);
+        // Check for R2 configuration
+        const r2AccountId = this.configService.get<string>('R2_ACCOUNT_ID');
+        const r2AccessKeyId = this.configService.get<string>('R2_ACCESS_KEY_ID');
+        const r2SecretAccessKey = this.configService.get<string>('R2_SECRET_ACCESS_KEY');
+        const r2BucketName = this.configService.get<string>('R2_BUCKET_NAME');
+        const r2PublicUrl = this.configService.get<string>('R2_PUBLIC_URL');
+
+        if (r2AccountId && r2AccessKeyId && r2SecretAccessKey && r2BucketName) {
+            // Use Cloudflare R2
+            this.r2Provider = new R2StorageProvider({
+                accountId: r2AccountId,
+                accessKeyId: r2AccessKeyId,
+                secretAccessKey: r2SecretAccessKey,
+                bucketName: r2BucketName,
+                publicUrl: r2PublicUrl,
+            });
+            this.provider = this.r2Provider;
+            this.storageType = 'r2';
+            this.logger.log(`Storage initialized with Cloudflare R2 (bucket: ${r2BucketName})`);
+        } else {
+            // Fallback to local storage
+            this.provider = new LocalStorageProvider(this.basePath);
+            this.storageType = 'local';
+            fs.mkdirSync(this.basePath, { recursive: true });
+            this.logger.warn('R2 not configured - using local file storage');
+            this.logger.log(`Local storage initialized at: ${this.basePath}`);
+        }
     }
 
     /**
@@ -124,7 +168,8 @@ export class StorageService {
     ): UploadTarget {
         const sanitizedName = this.sanitizeFileName(originalFileName);
         const timestamp = Date.now();
-        const fileKey = `${folder}/${userId}/${timestamp}-${sanitizedName}`;
+        const randomString = Math.random().toString(36).substring(7);
+        const fileKey = `${folder}/${userId}/${timestamp}-${randomString}-${sanitizedName}`;
         const absolutePath = path.join(this.basePath, fileKey);
 
         return { fileKey, absolutePath };
@@ -146,33 +191,91 @@ export class StorageService {
 
     /**
      * Save file buffer to storage.
+     * @param buffer - File content
+     * @param fileKey - The storage key for the file
+     * @param contentType - MIME type of the file
      */
-    async saveFile(buffer: Buffer, absolutePath: string): Promise<void> {
-        await this.provider.save(buffer, absolutePath);
+    async saveFile(buffer: Buffer, fileKey: string, contentType?: string): Promise<void> {
+        const normalizedKey = this.normalizeFileKey(fileKey);
+        await this.provider.save(buffer, normalizedKey, contentType);
     }
 
     /**
      * Get readable stream for a file by its key.
      */
     getFileStream(fileKey: string): Readable {
-        const absolutePath = this.getAbsolutePath(fileKey);
-        return this.provider.getStream(absolutePath);
+        const normalizedKey = this.normalizeFileKey(fileKey);
+        return this.provider.getStream(normalizedKey);
     }
 
     /**
      * Delete a file by its key.
      */
     async deleteFile(fileKey: string): Promise<void> {
-        const absolutePath = this.getAbsolutePath(fileKey);
-        await this.provider.delete(absolutePath);
+        const normalizedKey = this.normalizeFileKey(fileKey);
+        await this.provider.delete(normalizedKey);
     }
 
     /**
      * Check if a file exists by its key.
      */
     async fileExists(fileKey: string): Promise<boolean> {
-        const absolutePath = this.getAbsolutePath(fileKey);
-        return this.provider.exists(absolutePath);
+        const normalizedKey = this.normalizeFileKey(fileKey);
+        return this.provider.exists(normalizedKey);
+    }
+
+    /**
+     * Get URL for accessing a file.
+     * - For R2 public folders: returns direct CDN URL
+     * - For R2 private folders: returns signed URL
+     * - For local storage: returns API endpoint path
+     *
+     * @param fileKey - The storage key of the file
+     * @param expiresIn - Expiration time in seconds for signed URLs (default: 1 hour)
+     */
+    async getFileUrl(fileKey: string, expiresIn: number = 3600): Promise<string> {
+        if (this.r2Provider) {
+            return this.r2Provider.getUrl(fileKey, expiresIn);
+        }
+
+        // For local storage, return the API endpoint
+        return `/storage/file?key=${encodeURIComponent(fileKey)}`;
+    }
+
+    /**
+     * Get a presigned URL for direct upload from frontend (R2 only).
+     * For local storage, returns null - use the standard upload endpoint instead.
+     *
+     * @param fileKey - The storage key for the file
+     * @param contentType - MIME type of the file
+     * @param expiresIn - Expiration time in seconds (default: 1 hour)
+     */
+    async getUploadUrl(fileKey: string, contentType: string, expiresIn: number = 3600): Promise<string | null> {
+        if (this.r2Provider) {
+            return this.r2Provider.getUploadUrl(fileKey, contentType, expiresIn);
+        }
+        return null;
+    }
+
+    /**
+     * Check if using cloud storage (R2)
+     */
+    isCloudStorage(): boolean {
+        return this.storageType === 'r2';
+    }
+
+    /**
+     * Get the current storage type
+     */
+    getStorageType(): StorageType {
+        return this.storageType;
+    }
+
+    /**
+     * Check if a folder is publicly accessible
+     */
+    isPublicFolder(folder: string): boolean {
+        return this.PUBLIC_FOLDERS.includes(folder);
     }
 
     /**
@@ -188,12 +291,10 @@ export class StorageService {
     }
 
     /**
-     * Get absolute path from file key.
+     * Normalize file key to prevent path traversal attacks
      */
-    private getAbsolutePath(fileKey: string): string {
-        // Prevent path traversal attacks
-        const normalizedKey = path.normalize(fileKey).replace(/^(\.\.(\/|\\|$))+/, '');
-        return path.join(this.basePath, normalizedKey);
+    private normalizeFileKey(fileKey: string): string {
+        return path.normalize(fileKey).replace(/^(\.\.(\/|\\|$))+/, '');
     }
 
     /**

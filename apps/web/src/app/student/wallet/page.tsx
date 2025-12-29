@@ -52,6 +52,11 @@ export default function StudentWalletPage() {
         }
     };
 
+    // Format currency with thousands separator
+    const formatCurrency = (amount: string | number) => {
+        return `${Number(amount).toLocaleString()} SDG`;
+    };
+
     return (
         <div className="min-h-screen bg-background font-tajawal rtl p-8">
             <div className="max-w-4xl mx-auto space-y-8">
@@ -66,10 +71,10 @@ export default function StudentWalletPage() {
                 <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-r-4 border-r-primary-600">
                     <div className="space-y-2 text-center md:text-right">
                         <p className="text-gray-500 text-sm">الرصيد المتاح</p>
-                        <h2 className="text-5xl font-bold text-primary-700">{wallet?.balance || '0'} <span className="text-2xl font-normal text-gray-500">SDG</span></h2>
+                        <h2 className="text-5xl font-bold text-primary-700">{Number(wallet?.balance || 0).toLocaleString()} <span className="text-2xl font-normal text-gray-500">SDG</span></h2>
                         {Number(wallet?.pendingBalance) > 0 && (
                             <p className="text-warning-700 text-sm bg-warning-50 px-3 py-1 rounded-full inline-block mt-2">
-                                معلق: {wallet?.pendingBalance} SDG
+                                معلق: {formatCurrency(wallet?.pendingBalance || 0)}
                             </p>
                         )}
                     </div>
@@ -117,7 +122,7 @@ export default function StudentWalletPage() {
                                             "font-bold",
                                             tx.type === 'DEPOSIT' || tx.type === 'REFUND' ? "text-green-600" : "text-orange-600"
                                         )}>
-                                            {tx.type === 'DEPOSIT' || tx.type === 'REFUND' ? '+' : '-'}{tx.amount} SDG
+                                            {tx.type === 'DEPOSIT' || tx.type === 'REFUND' ? '+' : '-'}{Number(tx.amount).toLocaleString()} SDG
                                         </p>
                                         <div className="mt-1">{getStatusBadge(tx.status)}</div>
                                     </div>

@@ -68,7 +68,7 @@ export class WalletService {
         const wallet = await this.getBalance(userId);
 
         const readableId = await this.readableIdService.generate('TRANSACTION');
-        return this.prisma.transaction.create({
+        const transaction = await this.prisma.transaction.create({
             data: {
                 readableId,
                 walletId: wallet.id,
@@ -78,6 +78,27 @@ export class WalletService {
                 referenceImage: dto.referenceImage
             }
         });
+
+        // 🟡 MEDIUM PRIORITY - Gap #6 Fix: Notify parent that deposit is pending admin approval
+        try {
+            await this.notificationService.notifyUser({
+                userId,
+                title: 'تم استلام طلب الإيداع',
+                message: `تم استلام طلب إيداع مبلغ ${dto.amount} SDG. سيتم مراجعة الطلب من قبل الإدارة وإضافة المبلغ إلى رصيدك بعد التأكيد.`,
+                type: 'PAYMENT_SUCCESS',
+                link: '/parent/wallet',
+                dedupeKey: `DEPOSIT_SUBMITTED:${transaction.id}`,
+                metadata: {
+                    transactionId: transaction.id,
+                    amount: dto.amount
+                }
+            });
+        } catch (error) {
+            // Log error but don't fail the deposit
+            console.error('Failed to send deposit submitted notification:', error);
+        }
+
+        return transaction;
     }
 
     // --- Admin ---
@@ -289,7 +310,23 @@ export class WalletService {
             }
             // Logic for Deposit:
             else if (transaction.type === TransactionType.DEPOSIT) {
-                if (dto.status === TransactionStatus.APPROVED && transaction.status === TransactionStatus.PENDING) {
+                // 🔴 HIGH PRIORITY - Gap #8 Fix: Notify parent if deposit rejected
+                if (dto.status === TransactionStatus.REJECTED && transaction.status === TransactionStatus.PENDING) {
+                    await this.notificationService.notifyUser({
+                        userId: transaction.wallet.userId,
+                        title: 'تم رفض طلب الإيداع',
+                        message: `تم رفض طلب إيداع مبلغ ${transaction.amount} SDG. السبب: ${dto.adminNote || 'لم يتم تحديد السبب'}`,
+                        type: 'PAYMENT_RELEASED', // Reuse existing type or could use SYSTEM_ALERT
+                        link: '/parent/wallet',
+                        dedupeKey: `DEPOSIT_REJECTED:${transaction.id}`,
+                        metadata: {
+                            transactionId: transaction.id,
+                            amount: transaction.amount,
+                            reason: dto.adminNote
+                        }
+                    });
+                }
+                else if (dto.status === TransactionStatus.APPROVED && transaction.status === TransactionStatus.PENDING) {
                     await tx.wallet.update({
                         where: { id: transaction.walletId },
                         data: {
@@ -305,6 +342,20 @@ export class WalletService {
                             type: 'DEPOSIT_APPROVED',
                             status: 'APPROVED',
                             adminNote: `Deposit ${transaction.id} approved and credited to balance`
+                        }
+                    });
+
+                    // 🟡 MEDIUM PRIORITY - Gap #7 Fix: Notify parent that deposit was approved
+                    await this.notificationService.notifyUser({
+                        userId: transaction.wallet.userId,
+                        title: 'تم إضافة الرصيد',
+                        message: `تم قبول طلب الإيداع وإضافة مبلغ ${transaction.amount} SDG إلى رصيدك.`,
+                        type: 'PAYMENT_SUCCESS',
+                        link: '/parent/wallet',
+                        dedupeKey: `DEPOSIT_APPROVED:${transaction.id}`,
+                        metadata: {
+                            transactionId: transaction.id,
+                            amount: transaction.amount
                         }
                     });
 
@@ -328,12 +379,12 @@ export class WalletService {
 
                     this.logger.log(`Deposit approved for user ${userId}. Found ${pendingBookings.length} pending bookings.`);
 
-                    // Track current balance for iteration
-                    let currentAvailableBalance = Number(updatedWallet.balance);
+                    // Track current balance for iteration - CRITICAL FIX: Use normalizeMoney
+                    let currentAvailableBalance = normalizeMoney(updatedWallet.balance);
 
                     // Attempt to auto-pay each pending booking
                     for (const booking of pendingBookings) {
-                        const price = Number(booking.price);
+                        const price = normalizeMoney(booking.price);
 
                         if (currentAvailableBalance >= price) {
                             this.logger.log(`Auto-paying booking ${booking.id} (price: ${price} SDG)`);
@@ -409,7 +460,7 @@ export class WalletService {
         // Making getBalance accept tx is safer.
         const wallet = await this.getBalance(parentUserId, prisma);
 
-        if (Number(wallet.balance) < normalizedAmount) {
+        if (normalizeMoney(wallet.balance) < normalizedAmount) {
             throw new BadRequestException('Insufficient balance');
         }
 
@@ -703,9 +754,10 @@ export class WalletService {
     async requestWithdrawal(userId: string, dto: WithdrawalRequestDto) {
         const wallet = await this.getBalance(userId);
         const { amount } = dto;
+        const normalizedAmount = normalizeMoney(amount);
 
-        // 1. Validate Amount
-        if (Number(wallet.balance) < amount) {
+        // 1. Validate Amount - use normalizeMoney for consistent comparison
+        if (normalizeMoney(wallet.balance) < normalizedAmount) {
             throw new BadRequestException('Insufficient available balance');
         }
 

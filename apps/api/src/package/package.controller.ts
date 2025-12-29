@@ -2,7 +2,16 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, Patch, Delet
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '@sidra/shared';
+import { Public } from '../auth/public.decorator';
+import {
+    UserRole,
+    PurchaseSmartPackDto,
+    CheckRecurringAvailabilityDto,
+    BookFloatingSessionDto,
+    RescheduleSessionDto,
+    CreatePackageTierDto,
+    UpdatePackageTierDto
+} from '@sidra/shared';
 import { PackageService } from './package.service';
 import { DemoService } from './demo.service';
 import { IsBoolean, IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
@@ -31,47 +40,13 @@ class UpdateDemoSettingsDto {
     demoEnabled: boolean;
 }
 
-class CreateTierDto {
-    @IsNumber()
-    @Min(1)
-    sessionCount: number;
-
-    @IsNumber()
-    @Min(0)
-    @Max(100)
-    discountPercent: number;
-
-    @IsNumber()
-    @Min(0)
-    displayOrder: number;
-}
-
-class UpdateTierDto {
-    @IsOptional()
-    @IsBoolean()
-    @Transform(({ value }) => value === 'true' || value === true)
-    isActive?: boolean;
-
-    @IsOptional()
-    @IsNumber()
-    @Min(0)
-    @Transform(({ value }) => value !== undefined ? Number(value) : undefined)
-    displayOrder?: number;
-
-    @IsOptional()
-    @IsNumber()
-    @Min(0)
-    @Max(100)
-    @Transform(({ value }) => value !== undefined ? Number(value) : undefined)
-    discountPercent?: number;
-}
+// Local DTOs removed - using shared DTOs from @sidra/shared instead
 
 // =====================================================
 // CONTROLLER
 // =====================================================
 
 @Controller('packages')
-@UseGuards(JwtAuthGuard)
 export class PackageController {
     constructor(
         private packageService: PackageService,
@@ -83,27 +58,28 @@ export class PackageController {
     // =====================================================
 
     @Get('admin/stats')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async getAdminStats() {
         return this.packageService.getAdminStats();
     }
 
     @Get('admin/demo-sessions')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async getAdminDemoSessions() {
         return this.demoService.getAllDemoSessions();
     }
 
     @Post('tiers')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
-    async createTier(@Body() dto: CreateTierDto) {
+    async createTier(@Body() dto: CreatePackageTierDto) {
         return this.packageService.createTier(dto);
     }
 
     @Get('tiers')
+    @Public() // SECURITY: Public endpoint - guests can see available package tiers
     async getTiers(@Query('all') all?: boolean) {
         // Public endpoint returns active only. Admin might need all?
         // For now public calls simple getActiveTiers.
@@ -116,21 +92,21 @@ export class PackageController {
 
     // Admin specific get all tiers
     @Get('admin/tiers')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async getAllTiers() {
         return this.packageService.getAllTiers();
     }
 
     @Patch('tiers/:id')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
-    async updateTier(@Param('id') id: string, @Body() dto: UpdateTierDto) {
+    async updateTier(@Param('id') id: string, @Body() dto: UpdatePackageTierDto) {
         return this.packageService.updateTier(id, dto);
     }
 
     @Delete('tiers/:id') // Using Delete for soft-delete/deactivate
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     async deleteTier(@Param('id') id: string) {
         return this.packageService.deleteTier(id);
@@ -141,7 +117,7 @@ export class PackageController {
     // =====================================================
 
     @Post('purchase')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.PARENT, UserRole.STUDENT)
     async purchasePackage(@Req() req: any, @Body() dto: PurchasePackageDto) {
         const payerId = req.user.userId;
@@ -162,7 +138,7 @@ export class PackageController {
     // =====================================================
 
     @Get('my')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.PARENT, UserRole.STUDENT)
     async getMyPackages(@Req() req: any) {
         // Get packages where user is either payer or student
@@ -175,7 +151,7 @@ export class PackageController {
     // =====================================================
 
     @Get('teacher')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.TEACHER)
     async getTeacherPackages(@Req() req: any) {
         const teacherProfile = await this.getTeacherProfile(req.user.userId);
@@ -187,7 +163,7 @@ export class PackageController {
     // =====================================================
 
     @Get('teacher/tiers')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.TEACHER)
     async getTeacherTiers() {
         // Returns all available tier options (session counts and discounts)
@@ -199,7 +175,7 @@ export class PackageController {
     // =====================================================
 
     @Patch('teacher/tiers/:tierId')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.TEACHER)
     async updateTeacherTierStatus(
         @Req() req: any,
@@ -216,7 +192,7 @@ export class PackageController {
     }
 
     @Get(':id')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN, UserRole.TEACHER)
     async getPackageById(@Param('id') id: string) {
         return this.packageService.getPackageById(id);
@@ -227,7 +203,7 @@ export class PackageController {
     // =====================================================
 
     @Post(':id/schedule-session')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.PARENT, UserRole.STUDENT)
     async scheduleSession(
         @Req() req: any,
@@ -251,7 +227,7 @@ export class PackageController {
     // =====================================================
 
     @Post(':id/cancel')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.PARENT, UserRole.STUDENT)
     async cancelPackage(@Req() req: any, @Param('id') id: string) {
         const idempotencyKey = `CANCEL_${id}_${Date.now()}`;
@@ -264,6 +240,7 @@ export class PackageController {
     // =====================================================
 
     @Get('demo/check/:teacherId')
+    @UseGuards(JwtAuthGuard)
     async checkDemoEligibility(@Req() req: any, @Param('teacherId') teacherId: string) {
         const studentId = req.user.userId;
         return this.demoService.canBookDemo(studentId, teacherId);
@@ -274,6 +251,7 @@ export class PackageController {
     // =====================================================
 
     @Get('demo/teacher/:teacherId')
+    @Public() // SECURITY: Public endpoint - guests can check if teacher offers demos
     async isTeacherDemoEnabled(@Param('teacherId') teacherId: string) {
         const enabled = await this.demoService.isTeacherDemoEnabled(teacherId);
         return { demoEnabled: enabled };
@@ -284,7 +262,7 @@ export class PackageController {
     // =====================================================
 
     @Post('demo/settings')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.TEACHER)
     async updateDemoSettings(@Req() req: any, @Body() dto: UpdateDemoSettingsDto) {
         const teacherProfile = await this.getTeacherProfile(req.user.userId);
@@ -292,14 +270,68 @@ export class PackageController {
     }
 
     @Get('demo/settings')
-    @UseGuards(RolesGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.TEACHER)
     async getDemoSettings(@Req() req: any) {
         const teacherProfile = await this.getTeacherProfile(req.user.userId);
         return this.demoService.getDemoSettings(teacherProfile.id);
     }
 
+    // =====================================================
+    // SMART PACK: Purchase with Recurring Pattern
+    // =====================================================
 
+    @Post('smart-pack/purchase')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.STUDENT)
+    async purchaseSmartPack(@Req() req: any, @Body() dto: PurchaseSmartPackDto) {
+        // Student is both payer and beneficiary for Smart Packs
+        return this.packageService.purchaseSmartPackage({
+            ...dto,
+            studentId: req.user.userId
+        });
+    }
+
+    // =====================================================
+    // SMART PACK: Check Recurring Availability
+    // =====================================================
+
+    @Post('smart-pack/check-availability')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.STUDENT)
+    async checkRecurringAvailability(@Body() dto: CheckRecurringAvailabilityDto) {
+        return this.packageService.checkRecurringAvailability(dto);
+    }
+
+    // =====================================================
+    // SMART PACK: Book Floating Session
+    // =====================================================
+
+    @Post('smart-pack/:packageId/book-floating')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.STUDENT)
+    async bookFloatingSession(
+        @Req() req: any,
+        @Param('packageId') packageId: string,
+        @Body() dto: BookFloatingSessionDto
+    ) {
+        return this.packageService.bookFloatingSession(packageId, req.user.userId, dto);
+    }
+
+    // =====================================================
+    // SMART PACK: Reschedule Package Session
+    // =====================================================
+
+    @Patch('smart-pack/bookings/:bookingId/reschedule')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.STUDENT)
+    async reschedulePackageSession(
+        @Req() req: any,
+        @Param('bookingId') bookingId: string,
+        @Body() dto: RescheduleSessionDto
+    ) {
+        return this.packageService.reschedulePackageSession(bookingId, req.user.userId, dto);
+    }
 
     // Helper to get teacher profile ID from user ID
     private async getTeacherProfile(userId: string) {

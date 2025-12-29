@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/api/admin';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,9 +8,10 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
 import { SessionDetailsCard } from '@/components/booking/SessionDetailsCard';
-import { Calendar, Clock, User, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, User, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import Link from 'next/link';
 
 interface Booking {
     id: string;
@@ -46,9 +47,14 @@ const STATUS_OPTIONS = [
     { value: 'WAITING_FOR_PAYMENT', label: 'في انتظار الدفع' },
     { value: 'PAYMENT_REVIEW', label: 'مراجعة الدفع' },
     { value: 'SCHEDULED', label: 'مجدولة' },
+    { value: 'PENDING_CONFIRMATION', label: 'بانتظار التأكيد' },
     { value: 'COMPLETED', label: 'مكتملة' },
+    { value: 'DISPUTED', label: 'تحت المراجعة' },
+    { value: 'REFUNDED', label: 'مستردة' },
+    { value: 'PARTIALLY_REFUNDED', label: 'استرداد جزئي' },
     { value: 'REJECTED_BY_TEACHER', label: 'مرفوضة' },
     { value: 'CANCELLED_BY_PARENT', label: 'ملغاة من الوالد' },
+    { value: 'CANCELLED_BY_TEACHER', label: 'ملغاة من المعلم' },
     { value: 'CANCELLED_BY_ADMIN', label: 'ملغاة من الإدارة' },
     { value: 'EXPIRED', label: 'منتهية' },
 ];
@@ -77,8 +83,9 @@ export default function AdminBookingsPage() {
 
     const getStatusVariant = (status: string): 'success' | 'warning' | 'error' | 'info' => {
         if (status === 'COMPLETED' || status === 'SCHEDULED') return 'success';
-        if (status === 'PENDING_TEACHER_APPROVAL' || status === 'WAITING_FOR_PAYMENT' || status === 'PAYMENT_REVIEW') return 'warning';
-        if (status.includes('CANCELLED') || status === 'REJECTED_BY_TEACHER' || status === 'EXPIRED') return 'error';
+        if (status === 'PENDING_TEACHER_APPROVAL' || status === 'WAITING_FOR_PAYMENT' || status === 'PAYMENT_REVIEW' || status === 'PENDING_CONFIRMATION') return 'warning';
+        if (status.includes('CANCELLED') || status === 'REJECTED_BY_TEACHER' || status === 'EXPIRED' || status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') return 'error';
+        if (status === 'DISPUTED') return 'warning';
         return 'info';
     };
 
@@ -152,6 +159,7 @@ export default function AdminBookingsPage() {
                                     <TableHead>الوقت</TableHead>
                                     <TableHead>السعر</TableHead>
                                     <TableHead>الحالة</TableHead>
+                                    <TableHead>الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -160,7 +168,7 @@ export default function AdminBookingsPage() {
                                     const hasCompletionData = booking.status === 'COMPLETED' || booking.status === 'PENDING_CONFIRMATION';
 
                                     return (
-                                        <>
+                                        <React.Fragment key={booking.id}>
                                             <TableRow
                                                 key={booking.id}
                                                 className={hasCompletionData ? 'cursor-pointer hover:bg-blue-50' : ''}
@@ -225,12 +233,20 @@ export default function AdminBookingsPage() {
                                                         {getStatusLabel(booking.status)}
                                                     </StatusBadge>
                                                 </TableCell>
+                                                <TableCell>
+                                                    <Link href={`/admin/bookings/${booking.id}`}>
+                                                        <button className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors">
+                                                            <ExternalLink className="w-4 h-4" />
+                                                            <span>التفاصيل</span>
+                                                        </button>
+                                                    </Link>
+                                                </TableCell>
                                             </TableRow>
 
                                             {/* Expanded Details Row */}
                                             {isExpanded && hasCompletionData && (
                                                 <TableRow key={`${booking.id}-details`}>
-                                                    <TableCell colSpan={6} className="bg-blue-50/50 p-6">
+                                                    <TableCell colSpan={7} className="bg-blue-50/50 p-6">
                                                         <SessionDetailsCard
                                                             booking={booking}
                                                             showProof={true} // Admins can see proof
@@ -239,7 +255,7 @@ export default function AdminBookingsPage() {
                                                     </TableCell>
                                                 </TableRow>
                                             )}
-                                        </>
+                                        </React.Fragment>
                                     );
                                 })}
                             </TableBody>

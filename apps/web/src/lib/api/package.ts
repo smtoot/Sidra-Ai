@@ -8,6 +8,17 @@ export interface PackageTier {
     id: string;
     sessionCount: number;
     discountPercent: number;
+    recurringRatio: number;
+    floatingRatio: number;
+    rescheduleLimit: number;
+    durationWeeks: number;
+    gracePeriodDays: number;
+    nameAr?: string;
+    nameEn?: string;
+    descriptionAr?: string;
+    descriptionEn?: string;
+    isFeatured: boolean;
+    badge?: string;
     displayOrder: number;
     isActive: boolean;
 }
@@ -125,5 +136,61 @@ export const packageApi = {
             pkg.status === 'ACTIVE' &&
             pkg.sessionsUsed < pkg.sessionCount
         ) || null;
+    },
+
+    // =====================================================
+    // SMART PACK APIs
+    // =====================================================
+
+    // Purchase Smart Pack with recurring pattern
+    purchaseSmartPack: async (data: {
+        teacherId: string;
+        subjectId: string;
+        tierId: string;
+        recurringPattern: {
+            dayOfWeek: number; // 0 = Sunday, 1 = Monday, etc.
+            startTime: string; // "HH:mm" format
+            endTime: string;   // "HH:mm" format
+            timezone: string;
+        };
+        firstSessionDate: string; // ISO string
+    }): Promise<StudentPackage> => {
+        const response = await api.post('/packages/smart-pack/purchase', data);
+        return response.data;
+    },
+
+    // Check recurring availability
+    checkRecurringAvailability: async (data: {
+        teacherId: string;
+        subjectId: string;
+        tierId: string;
+        dayOfWeek: number;
+        startTime: string;
+        endTime: string;
+        timezone: string;
+        firstSessionDate: string;
+    }): Promise<{ available: boolean; conflicts?: any[] }> => {
+        const response = await api.post('/packages/smart-pack/check-availability', data);
+        return response.data;
+    },
+
+    // Book floating session
+    bookFloatingSession: async (packageId: string, data: {
+        startTime: string; // ISO string
+        endTime: string;   // ISO string
+        timezone: string;
+    }): Promise<any> => {
+        const response = await api.post(`/packages/smart-pack/${packageId}/book-floating`, data);
+        return response.data;
+    },
+
+    // Reschedule package session
+    reschedulePackageSession: async (bookingId: string, data: {
+        newStartTime: string; // ISO string
+        newEndTime: string;   // ISO string
+        timezone: string;
+    }): Promise<any> => {
+        const response = await api.patch(`/packages/smart-pack/bookings/${bookingId}/reschedule`, data);
+        return response.data;
     }
 };

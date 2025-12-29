@@ -92,6 +92,16 @@ export default function AdminTransactionsPage() {
         return labels[type] || type;
     };
 
+    const getStatusLabel = (status: TransactionStatus): string => {
+        const labels: Record<TransactionStatus, string> = {
+            'PENDING': 'قيد الانتظار',
+            'APPROVED': 'موافق عليه',
+            'REJECTED': 'مرفوض',
+            'PAID': 'مدفوع',
+        };
+        return labels[status] || status;
+    };
+
     return (
         <div className="min-h-screen bg-background font-sans rtl p-6">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -218,11 +228,11 @@ export default function AdminTransactionsPage() {
                                             </StatusBadge>
                                         </TableCell>
                                         <TableCell className="font-bold font-mono tabular-nums text-gray-900">
-                                            {tx.amount} SDG
+                                            {Number(tx.amount).toLocaleString()} SDG
                                         </TableCell>
                                         <TableCell>
                                             <StatusBadge variant={getStatusVariant(tx.status)}>
-                                                {tx.status}
+                                                {getStatusLabel(tx.status)}
                                             </StatusBadge>
                                         </TableCell>
                                         <TableCell className="max-w-xs truncate text-sm text-gray-600" title={tx.adminNote}>

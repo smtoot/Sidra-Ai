@@ -365,7 +365,7 @@ export default function TeacherApplicationsPage() {
                                 <CardContent className="p-6">
                                     <div className="flex items-start gap-6">
                                         <Avatar
-                                            src={selectedApp.profilePhotoUrl}
+                                            src={selectedApp.profilePhotoUrl ? getFileUrl(selectedApp.profilePhotoUrl) : undefined}
                                             fallback={selectedApp.displayName || 'T'}
                                             size="xl"
                                         />

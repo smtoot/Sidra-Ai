@@ -1,251 +1,306 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/api/admin';
+import { Card } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Avatar } from '@/components/ui/avatar';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
-import { Package, Plus, Edit2, Trash2, Check, X, Save } from 'lucide-react';
+import { Package, Calendar, Clock, User, Loader2, ExternalLink, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
+import Link from 'next/link';
 
-interface PackageTier {
+interface StudentPackage {
     id: string;
-    sessionCount: number;
+    readableId: string;
+    status: string;
+    totalSessions: number;
+    usedSessions: number;
+    remainingSessions: number;
+    totalPrice: string;
     discountPercent: number;
-    displayOrder: number;
-    isActive: boolean;
+    startDate: string;
+    expiryDate: string;
+    createdAt: string;
+
+    payer?: {
+        id: string;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+    };
+
+    student?: {
+        id: string;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+    };
+
+    teacher?: {
+        id: string;
+        displayName?: string;
+        user?: {
+            email: string;
+        };
+    };
+
+    packageTier?: {
+        sessionCount: number;
+        discountPercent: number;
+        nameAr?: string;
+        nameEn?: string;
+    };
 }
 
+const STATUS_OPTIONS = [
+    { value: 'ALL', label: 'الكل' },
+    { value: 'ACTIVE', label: 'نشطة' },
+    { value: 'EXPIRED', label: 'منتهية' },
+    { value: 'COMPLETED', label: 'مكتملة' },
+    { value: 'REFUNDED', label: 'مستردة' },
+    { value: 'CANCELLED', label: 'ملغاة' },
+];
+
 export default function AdminPackagesPage() {
-    const [tiers, setTiers] = useState<PackageTier[]>([]);
+    const [packages, setPackages] = useState<StudentPackage[]>([]);
     const [loading, setLoading] = useState(true);
-    const [editingTier, setEditingTier] = useState<PackageTier | null>(null);
-    const [isCreating, setIsCreating] = useState(false);
-    const [formData, setFormData] = useState({
-        sessionCount: 0,
-        discountPercent: 0,
-        displayOrder: 0
-    });
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
-    useEffect(() => {
-        loadTiers();
-    }, []);
-
-    const loadTiers = async () => {
+    const loadPackages = async () => {
         setLoading(true);
         try {
-            const data = await adminApi.getPackageTiers();
-            setTiers(data);
+            const data = await adminApi.getStudentPackages(statusFilter);
+            setPackages(data);
         } catch (error) {
-            console.error(error);
-            toast.error('فشل تحميل باقات الحصص');
+            console.error('Failed to load packages', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            await adminApi.createPackageTier(formData);
-            toast.success('تمت إضافة الباقة بنجاح');
-            setIsCreating(false);
-            setFormData({ sessionCount: 0, discountPercent: 0, displayOrder: 0 });
-            loadTiers();
-        } catch (error) {
-            console.error(error);
-            toast.error('فشل إضافة الباقة');
-        }
+    useEffect(() => {
+        loadPackages();
+    }, [statusFilter]);
+
+    const getStatusVariant = (status: string): 'success' | 'warning' | 'error' | 'info' => {
+        if (status === 'ACTIVE') return 'success';
+        if (status === 'EXPIRED' || status === 'CANCELLED') return 'error';
+        if (status === 'COMPLETED') return 'info';
+        if (status === 'REFUNDED') return 'warning';
+        return 'info';
     };
 
-    const handleUpdate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingTier) return;
-        try {
-            await adminApi.updatePackageTier(editingTier.id, {
-                displayOrder: formData.displayOrder,
-                discountPercent: formData.discountPercent
-            });
-            toast.success('تم تحديث الباقة بنجاح');
-            setEditingTier(null);
-            loadTiers();
-        } catch (error) {
-            console.error(error);
-            toast.error('فشل تحديث الباقة');
-        }
+    const getStatusLabel = (status: string): string => {
+        const option = STATUS_OPTIONS.find(opt => opt.value === status);
+        return option?.label || status;
     };
 
-    const toggleStatus = async (tier: PackageTier) => {
-        try {
-            await adminApi.updatePackageTier(tier.id, { isActive: !tier.isActive });
-            toast.success(tier.isActive ? 'تم إيقاف الباقة' : 'تم تفعيل الباقة');
-            loadTiers();
-        } catch (error) {
-            console.error(error);
-            toast.error('فشل تغيير حالة الباقة');
-        }
+    const getProgressColor = (used: number, total: number): string => {
+        const percentage = (used / total) * 100;
+        if (percentage >= 80) return 'bg-red-500';
+        if (percentage >= 50) return 'bg-yellow-500';
+        return 'bg-green-500';
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('هل أنت متأكد من حذف هذه الباقة؟')) return;
-        try {
-            await adminApi.deletePackageTier(id);
-            toast.success('تم حذف الباقة');
-            loadTiers();
-        } catch (error) {
-            console.error(error);
-            toast.error('فشل حذف الباقة');
+    const getFullName = (user: any): string => {
+        if (user?.firstName || user?.lastName) {
+            return `${user.firstName || ''} ${user.lastName || ''}`.trim();
         }
+        return user?.email || '-';
     };
-
-    if (loading && tiers.length === 0) return <div className="p-8 text-center text-text-subtle">جاري التحميل...</div>;
 
     return (
-        <div className="min-h-screen bg-background font-tajawal rtl p-8">
-            <div className="max-w-5xl mx-auto space-y-8">
-                <header className="flex justify-between items-center">
+        <div className="min-h-screen bg-background font-sans rtl p-6">
+            <div className="max-w-7xl mx-auto space-y-6">
+                {/* Header */}
+                <header className="flex items-center justify-between">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <Package className="w-8 h-8 text-primary" />
-                            <h1 className="text-3xl font-bold text-primary">إدارة باقات الحصص</h1>
+                            <Package className="w-6 h-6 text-primary" />
+                            <h1 className="text-2xl font-bold text-gray-900">إدارة الباقات المباعة</h1>
                         </div>
-                        <p className="text-text-subtle">تعديل وإضافة باقات الخصم للطلاب</p>
+                        <p className="text-sm text-gray-600">عرض وإدارة جميع باقات الطلاب النشطة والمنتهية</p>
                     </div>
-                    <Button onClick={() => setIsCreating(true)} className="bg-primary text-white">
-                        <Plus className="w-4 h-4 ml-2" />
-                        إضافة باقة جديدة
-                    </Button>
+
+                    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        {STATUS_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </Select>
                 </header>
 
-                {/* Create/Edit Form Overlay */}
-                {(isCreating || editingTier) && (
-                    <div className="bg-surface rounded-xl border border-primary/20 shadow-lg p-6 mb-8 bg-primary/5 animate-in fade-in slide-in-from-top-4">
-                        <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                            {isCreating ? <Plus className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-                            {isCreating ? 'إضافة باقة جديدة' : 'تعديل الباقة'}
-                        </h3>
-                        <form onSubmit={isCreating ? handleCreate : handleUpdate} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">عدد الحصص</label>
-                                <Input
-                                    type="number"
-                                    disabled={!!editingTier}
-                                    value={isCreating ? formData.sessionCount : editingTier?.sessionCount}
-                                    onChange={(e) => setFormData({ ...formData, sessionCount: Number(e.target.value) })}
-                                    className="bg-white"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">نسبة الخصم (%)</label>
-                                <Input
-                                    type="number"
-                                    step="0.1"
-                                    value={formData.discountPercent}
-                                    onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
-                                    className="bg-white"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">الترتيب</label>
-                                <Input
-                                    type="number"
-                                    value={formData.displayOrder}
-                                    onChange={(e) => setFormData({ ...formData, displayOrder: Number(e.target.value) })}
-                                    className="bg-white"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <Button type="submit" className="bg-primary text-white flex-1">
-                                    {isCreating ? 'إضافة' : 'حفظ'}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setIsCreating(false);
-                                        setEditingTier(null);
-                                    }}
-                                >
-                                    إلغاء
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {/* Tiers List */}
-                <div className="bg-surface rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-100 text-right">
-                            <tr>
-                                <th className="p-4 text-sm font-medium text-text-subtle">الترتيب</th>
-                                <th className="p-4 text-sm font-medium text-text-subtle">عدد الحصص</th>
-                                <th className="p-4 text-sm font-medium text-text-subtle">نسبة الخصم</th>
-                                <th className="p-4 text-sm font-medium text-text-subtle">الحالة</th>
-                                <th className="p-4 text-sm font-medium text-text-subtle text-left">الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {tiers.map((tier) => (
-                                <tr key={tier.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="p-4 font-mono text-gray-500">#{tier.displayOrder}</td>
-                                    <td className="p-4">
-                                        <div className="font-bold text-lg">{tier.sessionCount} حصص</div>
-                                    </td>
-                                    <td className="p-4">
-                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-bold">
-                                            %{tier.discountPercent} خصم
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
-                                        <button
-                                            onClick={() => toggleStatus(tier)}
-                                            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${tier.isActive
-                                                ? 'bg-success/10 text-success hover:bg-success/20'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                }`}
-                                        >
-                                            {tier.isActive ? 'نشطة' : 'متوقفة'}
-                                        </button>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex justify-start gap-2 rtl:flex-row-reverse">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                onClick={() => {
-                                                    setEditingTier(tier);
-                                                    setFormData({
-                                                        sessionCount: tier.sessionCount,
-                                                        discountPercent: tier.discountPercent,
-                                                        displayOrder: tier.displayOrder
-                                                    });
-                                                }}
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                onClick={() => handleDelete(tier.id)}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {tiers.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="p-12 text-center text-text-subtle">
-                                        لا توجد باقات مضافة حالياً
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                {/* Stats */}
+                <div className="grid grid-cols-5 gap-4">
+                    <Card hover="lift" padding="md">
+                        <div className="text-2xl font-bold font-mono text-gray-900">
+                            {packages.length}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">إجمالي الباقات</div>
+                    </Card>
+                    <Card hover="lift" padding="md">
+                        <div className="text-2xl font-bold font-mono text-green-600">
+                            {packages.filter(p => p.status === 'ACTIVE').length}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">نشطة</div>
+                    </Card>
+                    <Card hover="lift" padding="md">
+                        <div className="text-2xl font-bold font-mono text-blue-600">
+                            {packages.filter(p => p.status === 'COMPLETED').length}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">مكتملة</div>
+                    </Card>
+                    <Card hover="lift" padding="md">
+                        <div className="text-2xl font-bold font-mono text-red-600">
+                            {packages.filter(p => p.status === 'EXPIRED').length}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">منتهية</div>
+                    </Card>
+                    <Card hover="lift" padding="md">
+                        <div className="text-2xl font-bold font-mono text-primary">
+                            {packages.reduce((sum, p) => sum + parseFloat(p.totalPrice || '0'), 0).toFixed(2)} SDG
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">إجمالي القيمة</div>
+                    </Card>
                 </div>
+
+                {/* Packages Table */}
+                <Card padding="none">
+                    {loading ? (
+                        <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            جاري التحميل...
+                        </div>
+                    ) : packages.length === 0 ? (
+                        <div className="py-12 text-center text-gray-500">
+                            <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p>لا توجد باقات</p>
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow hover={false}>
+                                    <TableHead>رقم الباقة</TableHead>
+                                    <TableHead>الطالب</TableHead>
+                                    <TableHead>المعلم</TableHead>
+                                    <TableHead>الباقة</TableHead>
+                                    <TableHead>الجلسات</TableHead>
+                                    <TableHead>الانتهاء</TableHead>
+                                    <TableHead>القيمة</TableHead>
+                                    <TableHead>الحالة</TableHead>
+                                    <TableHead>الإجراءات</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {packages.map(pkg => (
+                                    <TableRow key={pkg.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Package className="w-4 h-4 text-primary" />
+                                                <span className="font-mono font-semibold text-gray-900">
+                                                    {pkg.readableId}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Avatar
+                                                    fallback={getFullName(pkg.student)}
+                                                    size="sm"
+                                                />
+                                                <div>
+                                                    <p className="font-medium text-sm text-gray-900">
+                                                        {getFullName(pkg.student)}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">{pkg.student?.email}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Avatar
+                                                    fallback={pkg.teacher?.displayName || pkg.teacher?.user?.email || 'T'}
+                                                    size="sm"
+                                                />
+                                                <div>
+                                                    <p className="font-medium text-sm text-gray-900">
+                                                        {pkg.teacher?.displayName || '-'}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">{pkg.teacher?.user?.email}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div>
+                                                <p className="font-medium text-gray-900">
+                                                    {pkg.packageTier?.nameAr || `${pkg.totalSessions} حصة`}
+                                                </p>
+                                                {pkg.discountPercent > 0 && (
+                                                    <p className="text-xs text-green-600">
+                                                        خصم {pkg.discountPercent}%
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-mono text-gray-900">
+                                                        {pkg.usedSessions} / {pkg.totalSessions}
+                                                    </span>
+                                                    {pkg.remainingSessions === 0 ? (
+                                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                                    ) : pkg.remainingSessions <= 2 ? (
+                                                        <AlertCircle className="w-4 h-4 text-orange-600" />
+                                                    ) : null}
+                                                </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                                    <div
+                                                        className={`h-1.5 rounded-full transition-all ${getProgressColor(pkg.usedSessions, pkg.totalSessions)}`}
+                                                        style={{ width: `${(pkg.usedSessions / pkg.totalSessions) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="text-sm">
+                                                <p className="text-gray-900">
+                                                    {format(new Date(pkg.expiryDate), 'dd MMM yyyy', { locale: ar })}
+                                                </p>
+                                                {new Date(pkg.expiryDate) < new Date() ? (
+                                                    <p className="text-xs text-red-600">منتهية</p>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500">
+                                                        {Math.ceil((new Date(pkg.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} يوم متبقي
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-mono font-bold text-primary">
+                                            {pkg.totalPrice} SDG
+                                        </TableCell>
+                                        <TableCell>
+                                            <StatusBadge variant={getStatusVariant(pkg.status)}>
+                                                {getStatusLabel(pkg.status)}
+                                            </StatusBadge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link href={`/admin/packages/${pkg.id}`}>
+                                                <button className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors">
+                                                    <ExternalLink className="w-4 h-4" />
+                                                    <span>التفاصيل</span>
+                                                </button>
+                                            </Link>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </Card>
             </div>
         </div>
     );

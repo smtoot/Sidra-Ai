@@ -35,6 +35,11 @@ export interface SearchResult {
         nameAr: string;
         nameEn: string;
     };
+    nextAvailableSlot?: {
+        date: string;
+        time: string;
+        display: string;
+    } | null;
 }
 
 export const searchApi = {

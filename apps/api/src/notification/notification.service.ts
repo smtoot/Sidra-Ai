@@ -17,7 +17,9 @@ type NotificationType =
     | 'DISPUTE_UPDATE'
     | 'SYSTEM_ALERT'
     | 'URGENT'           // FIX: Added missing type
-    | 'ADMIN_ALERT';     // FIX: Added missing type
+    | 'ADMIN_ALERT'      // FIX: Added missing type
+    | 'SESSION_REMINDER' // Phase 1: Session start reminders (1 hour before)
+    | 'ACCOUNT_UPDATE';  // Phase 1: Teacher application status, profile changes
 
 const NotificationStatus = {
     READ: 'READ',

@@ -49,17 +49,9 @@ export class UploadController {
             throw new BadRequestException('File key is required');
         }
 
-        const result = await this.uploadService.getFile(key);
-
-        if (typeof result === 'string') {
-            // S3 signed URL - redirect
-            return res.redirect(result);
-        } else {
-            // Local file - stream it
-            res.setHeader('Content-Type', result.contentType);
-            res.setHeader('Cache-Control', 'public, max-age=3600');
-            return res.send(result.buffer);
-        }
+        // Get the file URL and redirect to it
+        const url = await this.uploadService.getFileUrl(key);
+        return res.redirect(url);
     }
 }
 

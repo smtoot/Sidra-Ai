@@ -308,13 +308,13 @@ export default function AdminUserDetailPage() {
                                             <div>
                                                 <div className="text-xs text-gray-500 mb-1">الرصيد المتاح</div>
                                                 <div className="font-bold text-lg font-mono">
-                                                    {wallet.balance || 0} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
+                                                    {Number(wallet.balance || 0).toLocaleString()} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
                                                 </div>
                                             </div>
                                             <div>
                                                 <div className="text-xs text-gray-500 mb-1">الرصيد المحجوز</div>
                                                 <div className="font-bold text-lg font-mono text-warning-600">
-                                                    {wallet.lockedBalance || wallet.pendingBalance || 0} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
+                                                    {Number(wallet.pendingBalance || 0).toLocaleString()} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -462,7 +462,7 @@ export default function AdminUserDetailPage() {
                                         <span className="text-sm text-gray-600">إجمالي الرصيد</span>
                                     </div>
                                     <div className="text-3xl font-bold font-mono text-gray-900">
-                                        {((wallet.balance || 0) + (wallet.lockedBalance || wallet.pendingBalance || 0)).toLocaleString()}
+                                        {(Number(wallet.balance || 0) + Number(wallet.pendingBalance || 0)).toLocaleString()}
                                         <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
                                     </div>
                                 </Card>
@@ -475,7 +475,7 @@ export default function AdminUserDetailPage() {
                                         <span className="text-sm text-gray-600">الرصيد المحجوز</span>
                                     </div>
                                     <div className="text-3xl font-bold font-mono text-gray-900">
-                                        {(wallet.lockedBalance || wallet.pendingBalance || 0).toLocaleString()}
+                                        {Number(wallet.pendingBalance || 0).toLocaleString()}
                                         <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
                                     </div>
                                 </Card>
@@ -488,7 +488,7 @@ export default function AdminUserDetailPage() {
                                         <span className="text-sm text-gray-600">الرصيد المتاح</span>
                                     </div>
                                     <div className="text-3xl font-bold font-mono text-gray-900">
-                                        {(wallet.balance || 0).toLocaleString()}
+                                        {Number(wallet.balance || 0).toLocaleString()}
                                         <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
                                     </div>
                                 </Card>

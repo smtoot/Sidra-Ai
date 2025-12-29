@@ -3,6 +3,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
+import { normalizeMoney } from '../utils/money';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
@@ -60,6 +61,107 @@ export class AdminService {
                 totalVolume: totalRevenue._sum.amount || 0
             },
             recentUsers
+        };
+    }
+
+    /**
+     * Get financial analytics for the admin dashboard
+     * Returns revenue, platform fees, completed bookings, and growth metrics
+     */
+    async getFinancialAnalytics() {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+        // Current period (last 30 days)
+        const [
+            currentCompletedBookings,
+            currentRevenueResult,
+            currentPlatformFeesResult
+        ] = await Promise.all([
+            // Completed bookings in the last 30 days
+            this.prisma.booking.findMany({
+                where: {
+                    status: 'COMPLETED',
+                    paymentReleasedAt: { gte: thirtyDaysAgo }
+                },
+                select: { price: true, commissionRate: true }
+            }),
+            // Total revenue from completed bookings (sum of prices)
+            this.prisma.booking.aggregate({
+                where: {
+                    status: 'COMPLETED',
+                    paymentReleasedAt: { gte: thirtyDaysAgo }
+                },
+                _sum: { price: true }
+            }),
+            // Platform fees (commission) from payment releases
+            this.prisma.transaction.aggregate({
+                where: {
+                    type: 'PAYMENT_RELEASE',
+                    status: 'APPROVED',
+                    createdAt: { gte: thirtyDaysAgo }
+                },
+                _sum: { amount: true }
+            })
+        ]);
+
+        // Previous period (30-60 days ago) for growth comparison
+        const [
+            previousCompletedBookings,
+            previousRevenueResult
+        ] = await Promise.all([
+            this.prisma.booking.count({
+                where: {
+                    status: 'COMPLETED',
+                    paymentReleasedAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo }
+                }
+            }),
+            this.prisma.booking.aggregate({
+                where: {
+                    status: 'COMPLETED',
+                    paymentReleasedAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo }
+                },
+                _sum: { price: true }
+            })
+        ]);
+
+        // Calculate totals - use normalizeMoney to prevent floating-point errors
+        const totalRevenue = normalizeMoney(currentRevenueResult._sum.price || 0);
+        const completedBookingsCount = currentCompletedBookings.length;
+
+        // Calculate platform fees from the bookings (price * commissionRate)
+        // CRITICAL FIX: Normalize each fee before accumulating to prevent floating-point drift
+        let platformFees = 0;
+        for (const booking of currentCompletedBookings) {
+            const price = normalizeMoney(booking.price || 0);
+            const rate = Number(booking.commissionRate || 0.15); // Default 15% if not set
+            const fee = normalizeMoney(price * rate);
+            platformFees += fee;
+        }
+
+        // Calculate averages
+        const averageBookingValue = completedBookingsCount > 0
+            ? Math.round(totalRevenue / completedBookingsCount)
+            : 0;
+
+        // Calculate growth percentages
+        const previousRevenue = normalizeMoney(previousRevenueResult._sum.price || 0);
+        const revenueGrowth = previousRevenue > 0
+            ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
+            : (totalRevenue > 0 ? 100 : 0);
+
+        const bookingsGrowth = previousCompletedBookings > 0
+            ? ((completedBookingsCount - previousCompletedBookings) / previousCompletedBookings) * 100
+            : (completedBookingsCount > 0 ? 100 : 0);
+
+        return {
+            totalRevenue: Math.round(totalRevenue),
+            platformFees: Math.round(platformFees),
+            completedBookings: completedBookingsCount,
+            averageBookingValue,
+            revenueGrowth: Math.round(revenueGrowth * 10) / 10, // Round to 1 decimal
+            bookingsGrowth: Math.round(bookingsGrowth * 10) / 10
         };
     }
 
@@ -196,7 +298,8 @@ export class AdminService {
             }
 
             const booking = dispute.booking;
-            const lockedAmountGross = Number(booking.price);
+            // CRITICAL FIX: Use normalizeMoney for all financial calculations
+            const lockedAmountGross = normalizeMoney(booking.price);
             const commissionRate = Number(booking.commissionRate);
             const parentUserId = booking.bookedByUserId;
             const teacherUserId = booking.teacherProfile.userId;
@@ -215,7 +318,7 @@ export class AdminService {
                     disputeStatus = resolutionType === 'DISMISSED' ? 'DISMISSED' : 'RESOLVED_TEACHER_WINS';
                     bookingStatus = 'COMPLETED';
                     studentRefundGross = 0;
-                    platformCommission = lockedAmountGross * commissionRate;
+                    platformCommission = normalizeMoney(lockedAmountGross * commissionRate);
                     teacherPayoutNet = lockedAmountGross - platformCommission;
                     break;
 
@@ -236,12 +339,12 @@ export class AdminService {
                     disputeStatus = 'RESOLVED_SPLIT';
                     bookingStatus = 'PARTIALLY_REFUNDED';
 
-                    // Student gets GROSS refund of their portion
-                    studentRefundGross = lockedAmountGross * (splitPercentage / 100);
+                    // Student gets GROSS refund of their portion - normalize to prevent floating-point errors
+                    studentRefundGross = normalizeMoney(lockedAmountGross * (splitPercentage / 100));
 
                     // Teacher's portion calculation
                     const teacherGrossPortion = lockedAmountGross - studentRefundGross;
-                    platformCommission = teacherGrossPortion * commissionRate;
+                    platformCommission = normalizeMoney(teacherGrossPortion * commissionRate);
                     teacherPayoutNet = teacherGrossPortion - platformCommission;
                     break;
 
@@ -428,17 +531,46 @@ export class AdminService {
      */
     async markDisputeUnderReview(disputeId: string) {
         const dispute = await this.prisma.dispute.findUnique({
-            where: { id: disputeId }
+            where: { id: disputeId },
+            include: {
+                booking: {
+                    select: {
+                        readableId: true,
+                        bookedByUserId: true
+                    }
+                }
+            }
         });
 
         if (!dispute) {
             throw new NotFoundException('Dispute not found');
         }
 
-        return this.prisma.dispute.update({
+        const updatedDispute = await this.prisma.dispute.update({
             where: { id: disputeId },
             data: { status: 'UNDER_REVIEW' }
         });
+
+        // 🟡 MEDIUM PRIORITY - Gap #11 Fix: Notify parent that dispute is under admin review
+        try {
+            await this.notificationService.notifyUser({
+                userId: dispute.booking.bookedByUserId,
+                type: 'DISPUTE_UPDATE',
+                title: 'النزاع قيد المراجعة',
+                message: `يقوم فريق الإدارة بمراجعة النزاع المتعلق بالحصة ${dispute.booking.readableId}. سيتم إعلامك بالقرار قريباً.`,
+                link: `/parent/bookings/${dispute.bookingId}`,
+                dedupeKey: `DISPUTE_UNDER_REVIEW:${disputeId}`,
+                metadata: {
+                    disputeId,
+                    bookingId: dispute.bookingId
+                }
+            });
+        } catch (error) {
+            // Log error but don't fail the status update
+            console.error('Failed to send dispute under review notification:', error);
+        }
+
+        return updatedDispute;
     }
 
     // =================== TEACHER APPLICATION MANAGEMENT ===================
@@ -516,7 +648,7 @@ export class AdminService {
             );
         }
 
-        return this.prisma.$transaction([
+        const result = await this.prisma.$transaction([
             this.prisma.teacherProfile.update({
                 where: { id: profileId },
                 data: {
@@ -532,6 +664,22 @@ export class AdminService {
                 data: { isVerified: true }
             })
         ]);
+
+        // 🔴 HIGH PRIORITY - Gap #5 Fix: Notify teacher of approval
+        await this.notificationService.notifyUser({
+            userId: profile.userId,
+            type: 'ACCOUNT_UPDATE',
+            title: 'مبروك! تم قبول طلبك',
+            message: 'تم قبول طلب الانضمام كمعلم في منصة سدرة. يمكنك الآن البدء في إضافة أوقات توفرك والمواد التي تدرسها.',
+            link: '/teacher/availability',
+            dedupeKey: `APPLICATION_APPROVED:${profileId}`,
+            metadata: {
+                profileId: profile.id,
+                nextSteps: ['إضافة أوقات التوفر', 'إضافة المواد الدراسية', 'إكمال الملف الشخصي']
+            }
+        });
+
+        return result;
     }
 
     /**
@@ -555,7 +703,7 @@ export class AdminService {
             );
         }
 
-        return this.prisma.teacherProfile.update({
+        const result = await this.prisma.teacherProfile.update({
             where: { id: profileId },
             data: {
                 applicationStatus: 'REJECTED',
@@ -565,6 +713,23 @@ export class AdminService {
                 rejectedAt: new Date(),
             }
         });
+
+        // 🔴 HIGH PRIORITY - Gap #5 Fix: Notify teacher of rejection
+        await this.notificationService.notifyUser({
+            userId: profile.userId,
+            type: 'ACCOUNT_UPDATE',
+            title: 'تحديث بخصوص طلبك',
+            message: `نأسف، لم نتمكن من قبول طلب الانضمام كمعلم في الوقت الحالي. السبب: ${reason}`,
+            link: '/teacher/application',
+            dedupeKey: `APPLICATION_REJECTED:${profileId}`,
+            metadata: {
+                profileId: profile.id,
+                reason: reason,
+                canReapply: true
+            }
+        });
+
+        return result;
     }
 
     /**
@@ -585,7 +750,7 @@ export class AdminService {
             throw new BadRequestException('يمكن طلب التغييرات فقط للطلبات المقدمة');
         }
 
-        return this.prisma.teacherProfile.update({
+        const result = await this.prisma.teacherProfile.update({
             where: { id: profileId },
             data: {
                 applicationStatus: 'CHANGES_REQUESTED',
@@ -594,6 +759,22 @@ export class AdminService {
                 changeRequestReason: reason,
             }
         });
+
+        // 🔴 HIGH PRIORITY - Gap #5 Fix: Notify teacher of requested changes
+        await this.notificationService.notifyUser({
+            userId: profile.userId,
+            type: 'ACCOUNT_UPDATE',
+            title: 'يرجى تحديث طلبك',
+            message: `يرجى إجراء التعديلات التالية على طلب الانضمام: ${reason}`,
+            link: '/teacher/application',
+            dedupeKey: `APPLICATION_CHANGES_REQUESTED:${profileId}`,
+            metadata: {
+                profileId: profile.id,
+                changesRequested: reason
+            }
+        });
+
+        return result;
     }
 
     /**
@@ -640,8 +821,30 @@ export class AdminService {
             }
         });
 
-        // TODO: Send notification/email to teacher with the proposed time slots
-        // await this.notificationService.notifyTeacherOfInterviewSlots(profile.userId, createdSlots);
+        // 🔴 HIGH PRIORITY - Gap #5 Fix: Notify teacher of interview slots
+        const slotsText = createdSlots.map((slot, index) =>
+            `${index + 1}. ${new Date(slot.proposedDateTime).toLocaleString('ar-EG', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            })}`
+        ).join('\n');
+
+        await this.notificationService.notifyUser({
+            userId: profile.userId,
+            type: 'ACCOUNT_UPDATE',
+            title: 'مقابلة مطلوبة - اختر موعداً',
+            message: `يرجى اختيار أحد المواعيد التالية لإجراء المقابلة:\n${slotsText}`,
+            link: '/teacher/application',
+            dedupeKey: `INTERVIEW_SLOTS_PROPOSED:${profileId}`,
+            metadata: {
+                profileId: profile.id,
+                timeSlots: createdSlots.map(s => s.proposedDateTime)
+            }
+        });
 
         return { message: 'تم إرسال خيارات المقابلة للمعلم', timeSlots: createdSlots };
     }
@@ -830,6 +1033,21 @@ export class AdminService {
                         adminNote: `Withdrawal ${transactionId} rejected and refunded - reason: ${adminNote || 'N/A'}`
                     } as any
                 });
+
+                // 🔴 HIGH PRIORITY - Gap #10 Fix: Notify teacher of withdrawal rejection
+                await this.notificationService.notifyUser({
+                    userId: transaction.wallet.userId,
+                    title: 'تم رفض طلب السحب',
+                    message: `تم رفض طلب سحب مبلغ ${transaction.amount} SDG وإرجاع المبلغ إلى رصيدك. السبب: ${adminNote || 'لم يتم تحديد السبب'}`,
+                    type: 'PAYMENT_RELEASED',
+                    link: '/teacher/wallet',
+                    dedupeKey: `WITHDRAWAL_REJECTED:${transactionId}`,
+                    metadata: {
+                        transactionId,
+                        amount: transaction.amount,
+                        reason: adminNote
+                    }
+                });
             }
             else if (newStatus === STATUS.APPROVED) {
                 // LEDGER: No Change (Funds stay locked)
@@ -875,11 +1093,37 @@ export class AdminService {
         });
     }
 
-    async createPackageTier(dto: { sessionCount: number; discountPercent: number; displayOrder?: number }) {
+    async createPackageTier(dto: {
+        sessionCount: number;
+        discountPercent: number;
+        recurringRatio: number;
+        floatingRatio: number;
+        rescheduleLimit: number;
+        durationWeeks: number;
+        gracePeriodDays: number;
+        nameAr?: string;
+        nameEn?: string;
+        descriptionAr?: string;
+        descriptionEn?: string;
+        isFeatured?: boolean;
+        badge?: string;
+        displayOrder?: number;
+    }) {
         return this.prisma.packageTier.create({
             data: {
                 sessionCount: dto.sessionCount,
                 discountPercent: dto.discountPercent,
+                recurringRatio: dto.recurringRatio,
+                floatingRatio: dto.floatingRatio,
+                rescheduleLimit: dto.rescheduleLimit,
+                durationWeeks: dto.durationWeeks,
+                gracePeriodDays: dto.gracePeriodDays,
+                nameAr: dto.nameAr,
+                nameEn: dto.nameEn,
+                descriptionAr: dto.descriptionAr,
+                descriptionEn: dto.descriptionEn,
+                isFeatured: dto.isFeatured ?? false,
+                badge: dto.badge,
                 displayOrder: dto.displayOrder ?? 0,
                 isActive: true
             }

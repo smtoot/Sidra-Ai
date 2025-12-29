@@ -3,10 +3,14 @@ import { IsStrongPassword } from '../validators/password.validator';
 
 export enum UserRole {
     PARENT = 'PARENT',
-    TEACHER = 'TEACHER',
-    ADMIN = 'ADMIN',
-    SUPPORT = 'SUPPORT',
     STUDENT = 'STUDENT',
+    TEACHER = 'TEACHER',
+    SUPER_ADMIN = 'SUPER_ADMIN',
+    ADMIN = 'ADMIN',
+    MODERATOR = 'MODERATOR',
+    CONTENT_ADMIN = 'CONTENT_ADMIN',
+    FINANCE = 'FINANCE',
+    SUPPORT = 'SUPPORT',
 }
 
 export class RegisterDto {

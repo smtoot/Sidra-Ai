@@ -58,11 +58,43 @@ async function main() {
     }
   });
 
+  // UPDATED: Package tiers now require durationWeeks and Smart Pack config
+  // Use the dedicated seed-package-tiers.ts for proper Smart Pack setup
   await prisma.packageTier.createMany({
     data: [
-      { sessionCount: 5, discountPercent: 5, displayOrder: 1 },
-      { sessionCount: 10, discountPercent: 10, displayOrder: 2 },
-      { sessionCount: 20, discountPercent: 15, displayOrder: 3 },
+      {
+        sessionCount: 5,
+        discountPercent: 5,
+        displayOrder: 1,
+        durationWeeks: 4,
+        nameAr: 'باقة المبتدئين',
+        nameEn: 'Starter Pack'
+      },
+      {
+        sessionCount: 10,
+        discountPercent: 8,
+        displayOrder: 2,
+        durationWeeks: 6,
+        nameAr: 'الباقة القياسية',
+        nameEn: 'Standard Pack'
+      },
+      {
+        sessionCount: 12,
+        discountPercent: 10,
+        displayOrder: 3,
+        durationWeeks: 7,
+        isFeatured: true,
+        nameAr: 'الباقة الذكية',
+        nameEn: 'Smart Pack'
+      },
+      {
+        sessionCount: 15,
+        discountPercent: 15,
+        displayOrder: 4,
+        durationWeeks: 9,
+        nameAr: 'باقة المتميزين',
+        nameEn: 'Premium Pack'
+      },
     ]
   });
 
@@ -165,7 +197,7 @@ async function main() {
           slug: 'ahmad-ali',
           slugLockedAt: now,
           bio: 'معلم متخصص في تدريس الرياضيات والعلوم للمراحل المدرسية المختلفة. أعتمد أسلوباً مبسطاً وتفاعلياً.',
-          education: 'بكالوريوس تربية - قسم رياضيات',
+          // REMOVED: education field - replaced by TeacherQualification model
           yearsOfExperience: 8,
           applicationStatus: 'APPROVED',
           teachingStyle: 'أركز على فهم الأساسيات وبناء الثقة لدى الطالب من خلال الأمثلة العملية.',

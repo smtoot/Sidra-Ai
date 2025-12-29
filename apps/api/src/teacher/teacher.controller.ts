@@ -4,6 +4,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { TeacherService } from './teacher.service';
 import { SlugService } from '../common/slug.service';
+import { PackageService } from '../package/package.service';
 import {
   UpdateTeacherProfileDto,
   CreateTeacherSubjectDto,
@@ -11,6 +12,8 @@ import {
   AcceptTermsDto,
   CreateQualificationDto,
   UpdateQualificationDto,
+  UpdateTeacherDemoSettingsDto,
+  UpdateTeacherTierSettingDto,
   UserRole
 } from '@sidra/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -26,6 +29,7 @@ export class TeacherController {
   constructor(
     private readonly teacherService: TeacherService,
     private readonly slugService: SlugService,
+    private readonly packageService: PackageService,
   ) { }
 
   @Get('me')
@@ -229,6 +233,83 @@ export class TeacherController {
   async confirmSlug(@Request() req: any, @Body() dto: { slug: string }) {
     const profile = await this.teacherService.getProfile(req.user.userId);
     return this.slugService.setTeacherSlug(profile.id, dto.slug, true);
+  }
+
+  // ============ Package Settings (Smart Pack) ============
+
+  /**
+   * Get available package tiers (only active tiers that teacher hasn't disabled)
+   */
+  @Get('me/package-tiers')
+  async getAvailablePackageTiers(@Request() req: any) {
+    const profile = await this.teacherService.getProfile(req.user.userId);
+    return this.packageService.getTeacherTierSettings(profile.id);
+  }
+
+  /**
+   * Update package/demo master settings
+   */
+  @Patch('me/package-settings')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 updates per minute
+  @RequiresApproval()
+  async updatePackageSettings(
+    @Request() req: any,
+    @Body() dto: UpdateTeacherDemoSettingsDto
+  ) {
+    const profile = await this.teacherService.getProfile(req.user.userId);
+    return this.packageService.updateTeacherDemoSettings(profile.id, dto);
+  }
+
+  /**
+   * Enable/disable a specific package tier
+   */
+  @Patch('me/package-tiers/:tierId')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 updates per minute
+  @RequiresApproval()
+  async updateTierSetting(
+    @Request() req: any,
+    @Param('tierId') tierId: string,
+    @Body() dto: UpdateTeacherTierSettingDto
+  ) {
+    const profile = await this.teacherService.getProfile(req.user.userId);
+    return this.packageService.updateTeacherTierSetting(profile.id, tierId, dto);
+  }
+
+  // ============ Vacation Mode ============
+
+  /**
+   * Get vacation mode status
+   */
+  @Get('me/vacation-mode')
+  @RequiresApproval()
+  getVacationMode(@Request() req: any) {
+    return this.teacherService.getVacationMode(req.user.userId);
+  }
+
+  /**
+   * Get vacation settings (max days) for UI
+   */
+  @Get('vacation-settings')
+  getVacationSettings() {
+    return this.teacherService.getVacationSettings();
+  }
+
+  /**
+   * Update vacation mode (enable/disable)
+   * 
+   * When enabling:
+   * - returnDate is REQUIRED
+   * - Will check for pending bookings (HARD BLOCK if exist)
+   * - Will warn about confirmed bookings within vacation dates
+   */
+  @Patch('me/vacation-mode')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 updates per minute
+  @RequiresApproval()
+  updateVacationMode(
+    @Request() req: any,
+    @Body() dto: { isOnVacation: boolean; returnDate?: string; reason?: string }
+  ) {
+    return this.teacherService.updateVacationMode(req.user.userId, dto);
   }
 }
 

@@ -1,6 +1,18 @@
 import { api } from '../api';
 import { CreateCurriculumDto, CreateSubjectDto } from '@sidra/shared';
 
+export interface TeacherQualification {
+    id: string;
+    degreeName: string;
+    institution: string;
+    fieldOfStudy: string | null;
+    status: 'IN_PROGRESS' | 'GRADUATED' | 'INCOMPLETE';
+    graduationYear: number | null;
+    startDate: string | null;
+    endDate: string | null;
+    verified: boolean;
+}
+
 export interface TeacherPublicProfile {
     id: string;
     userId: string;
@@ -41,6 +53,7 @@ export interface TeacherPublicProfile {
         subject: { id: string; nameAr: string; nameEn: string };
         curriculum: { id: string; nameAr: string; nameEn: string };
     }>;
+    qualifications: TeacherQualification[];
     availability: Array<{
         id: string;
         dayOfWeek: string;
@@ -53,6 +66,9 @@ export interface TeacherPublicProfile {
         tags: Array<{ id: string; labelAr: string }>;
     } | null;
     isFavorited?: boolean;
+    // Vacation Mode
+    isOnVacation?: boolean;
+    vacationEndDate?: string | null;
 }
 
 export interface GradeLevel {
@@ -125,11 +141,36 @@ export const marketplaceApi = {
         const response = await api.get(`/marketplace/teachers/${teacherId}/available-slots?${params.toString()}`);
         return response.data;
     },
+    getAvailabilityCalendar: async (teacherId: string, month: string, subjectId?: string): Promise<AvailabilityCalendar> => {
+        const params = new URLSearchParams({ month });
+        if (subjectId) params.append('subjectId', subjectId);
+        const response = await api.get(`/marketplace/teachers/${teacherId}/availability-calendar?${params.toString()}`);
+        return response.data;
+    },
     getTeacherRatings: async (teacherId: string, page: number = 1, limit: number = 10): Promise<TeacherRatingsResponse> => {
         const response = await api.get(`/marketplace/teachers/${teacherId}/ratings?page=${page}&limit=${limit}`);
         return response.data;
     },
+    getNextAvailableSlot: async (teacherId: string): Promise<NextAvailableSlot | null> => {
+        try {
+            const response = await api.get(`/marketplace/teachers/${teacherId}/next-available`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch next available slot:', error);
+            return null;
+        }
+    },
 };
+
+export interface AvailabilityCalendar {
+    availableDates: string[];  // ["2025-01-15", "2025-01-16", ...]
+    fullyBookedDates: string[];  // ["2025-01-14", ...]
+    nextAvailableSlot: {
+        date: string;
+        time: string;
+        display: string;  // "Tomorrow at 3pm"
+    } | null;
+}
 
 export interface TeacherRating {
     id: string;
@@ -147,4 +188,10 @@ export interface TeacherRatingsResponse {
         total: number;
         totalPages: number;
     };
+}
+
+export interface NextAvailableSlot {
+    date: string;  // ISO date string
+    time: string;  // Time string
+    display: string;  // Human-readable Arabic display (e.g., "غداً الساعة 3م")
 }

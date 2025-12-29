@@ -725,7 +725,10 @@ export class TeacherService {
         displayName: profile.displayName || 'معلم',
         firstName: profile.user.firstName, // Added for dashboard greeting
         lastName: profile.user.lastName,   // Added just in case
-        photo: profile.profilePhotoUrl || null
+        photo: profile.profilePhotoUrl || null,
+        // Vacation Mode status
+        isOnVacation: profile.isOnVacation,
+        vacationEndDate: profile.vacationEndDate
       },
       counts: {
         todaySessions,
@@ -922,6 +925,166 @@ export class TeacherService {
       select: { applicationStatus: true }
     });
     return profile?.applicationStatus === 'APPROVED';
+  }
+
+  // ============ VACATION MODE ============
+
+  /**
+   * Get vacation mode status for a teacher
+   */
+  async getVacationMode(userId: string) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: {
+        isOnVacation: true,
+        vacationStartDate: true,
+        vacationEndDate: true,
+        vacationReason: true
+      }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+    return profile;
+  }
+
+  /**
+   * Get vacation settings (max days) for UI
+   */
+  async getVacationSettings() {
+    const settings = await this.prisma.systemSettings.findUnique({
+      where: { id: 'default' }
+    });
+    return {
+      maxVacationDays: settings?.maxVacationDays || 21
+    };
+  }
+
+  /**
+   * Update vacation mode
+   * 
+   * Rules:
+   * 1. HARD BLOCK if pending bookings (PENDING_TEACHER_APPROVAL) exist
+   * 2. WARNING if confirmed bookings exist WITHIN vacation dates (allow proceed)
+   * 3. Return date is MANDATORY when enabling
+   * 4. Cannot exceed maxVacationDays from SystemSettings
+   */
+  async updateVacationMode(userId: string, dto: { isOnVacation: boolean; returnDate?: string; reason?: string }) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true, isOnVacation: true }
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    if (dto.isOnVacation) {
+      // === ENABLING VACATION MODE ===
+
+      // 1. Validate return date is provided (MANDATORY)
+      if (!dto.returnDate) {
+        throw new BadRequestException('يجب تحديد تاريخ العودة');
+      }
+
+      const returnDate = new Date(dto.returnDate);
+      const now = new Date();
+
+      // 2. Validate return date is in the future
+      if (returnDate <= now) {
+        throw new BadRequestException('تاريخ العودة يجب أن يكون في المستقبل');
+      }
+
+      // 3. Validate does not exceed max vacation days
+      const settings = await this.prisma.systemSettings.findUnique({
+        where: { id: 'default' }
+      });
+      const maxDays = settings?.maxVacationDays || 21;
+      const diffDays = Math.ceil((returnDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays > maxDays) {
+        throw new BadRequestException(`الحد الأقصى لفترة الإجازة هو ${maxDays} يوم`);
+      }
+
+      // 4. HARD BLOCK: Check for pending bookings (requiring teacher action)
+      const pendingBookings = await this.prisma.booking.count({
+        where: {
+          teacherId: profile.id,
+          status: 'PENDING_TEACHER_APPROVAL'
+        }
+      });
+
+      if (pendingBookings > 0) {
+        throw new BadRequestException({
+          code: 'PENDING_BOOKINGS_EXIST',
+          message: `لديك ${pendingBookings} طلب حجز في انتظار موافقتك. يرجى الموافقة عليها أو رفضها قبل تفعيل وضع الإجازة.`,
+          count: pendingBookings,
+          redirectTo: '/teacher/requests'
+        } as any);
+      }
+
+      // 5. WARNING CHECK: Confirmed bookings within vacation period
+      const vacationStartDate = now;
+      const conflictingBookings = await this.prisma.booking.findMany({
+        where: {
+          teacherId: profile.id,
+          status: 'SCHEDULED',
+          startTime: {
+            gte: vacationStartDate,
+            lte: returnDate
+          }
+        },
+        select: {
+          id: true,
+          startTime: true,
+          subject: { select: { nameAr: true } }
+        }
+      });
+
+      // 6. Enable vacation mode
+      const updated = await this.prisma.teacherProfile.update({
+        where: { userId },
+        data: {
+          isOnVacation: true,
+          vacationStartDate: now,
+          vacationEndDate: returnDate,
+          vacationReason: dto.reason || null
+        },
+        select: {
+          isOnVacation: true,
+          vacationEndDate: true
+        }
+      });
+
+      // 7. Return with warning if conflicting bookings exist
+      return {
+        success: true,
+        isOnVacation: updated.isOnVacation,
+        vacationEndDate: updated.vacationEndDate,
+        warning: conflictingBookings.length > 0 ? {
+          message: 'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
+          conflictingBookingsCount: conflictingBookings.length
+        } : undefined
+      };
+
+    } else {
+      // === DISABLING VACATION MODE ===
+      const updated = await this.prisma.teacherProfile.update({
+        where: { userId },
+        data: {
+          isOnVacation: false,
+          vacationStartDate: null,
+          vacationEndDate: null,
+          vacationReason: null
+        },
+        select: {
+          isOnVacation: true
+        }
+      });
+
+      return {
+        success: true,
+        isOnVacation: updated.isOnVacation,
+        vacationEndDate: null
+      };
+    }
   }
 }
 

@@ -7,9 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     User, Phone, Mail, MapPin, MessageCircle, BookOpen,
-    Edit2, Save, X, Loader2, GraduationCap, FileText
+    Edit2, Save, X, Loader2, GraduationCap, FileText, Camera
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PhotoUploadField } from '@/components/teacher/shared/PhotoUploadField';
+import { Avatar } from '@/components/ui/avatar';
+import { getFileUrl } from '@/lib/api/upload';
 
 interface StudentProfile {
     id: string;
@@ -19,6 +22,7 @@ interface StudentProfile {
     whatsappNumber?: string;
     city?: string;
     country?: string;
+    profilePhotoUrl?: string;
     user: {
         id: string;
         email?: string;
@@ -44,6 +48,7 @@ export default function StudentProfilePage() {
         city: '',
         gradeLevel: '',
         bio: '',
+        profilePhotoUrl: '',
     });
 
     useEffect(() => {
@@ -63,6 +68,7 @@ export default function StudentProfilePage() {
                 city: data.city || '',
                 gradeLevel: data.gradeLevel || '',
                 bio: data.bio || '',
+                profilePhotoUrl: data.profilePhotoUrl || '',
             });
         } catch (error) {
             console.error('Failed to load profile', error);
@@ -99,9 +105,14 @@ export default function StudentProfilePage() {
                 city: profile.city || '',
                 gradeLevel: profile.gradeLevel || '',
                 bio: profile.bio || '',
+                profilePhotoUrl: profile.profilePhotoUrl || '',
             });
         }
         setIsEditing(false);
+    };
+
+    const handlePhotoChange = (url: string | null) => {
+        setFormData(f => ({ ...f, profilePhotoUrl: url || '' }));
     };
 
     if (loading) {
@@ -118,6 +129,8 @@ export default function StudentProfilePage() {
             </div>
         );
     }
+
+    const displayName = `${profile?.user?.firstName || ''} ${profile?.user?.lastName || ''}`.trim() || 'طالب';
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
@@ -150,6 +163,48 @@ export default function StudentProfilePage() {
                         </div>
                     )}
                 </div>
+
+                {/* Profile Photo Section */}
+                <Card className="border-r-4 border-r-blue-500">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-blue-500" />
+                            الصورة الشخصية
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col md:flex-row items-center gap-6">
+                            {isEditing ? (
+                                <PhotoUploadField
+                                    value={formData.profilePhotoUrl || null}
+                                    onChange={handlePhotoChange}
+                                    disabled={saving}
+                                    size="lg"
+                                    folder="profile-photos"
+                                />
+                            ) : (
+                                <div className="flex items-center gap-4">
+                                    <Avatar
+                                        src={profile?.profilePhotoUrl ? getFileUrl(profile.profilePhotoUrl) : undefined}
+                                        fallback={displayName[0]?.toUpperCase() || 'ط'}
+                                        size="xl"
+                                    />
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900">{displayName}</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {profile?.gradeLevel || 'لم يتم تحديد المرحلة الدراسية'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {!isEditing && !profile?.profilePhotoUrl && (
+                            <p className="text-sm text-gray-400 mt-4">
+                                💡 أضف صورة شخصية لتعريف المعلمين بك
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Personal Information */}
                 <Card className="border-r-4 border-r-primary-600">

@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, ExternalLink, MessageCircle, Wallet, TrendingUp, AlertCircle, Bell, Video, Users, ArrowUpRight, ChevronRight, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
 import { ApplicationStatusBanner } from '@/components/teacher/ApplicationStatusBanner';
+import { VacationBanner } from '@/components/teacher/VacationBanner';
 import { getFileUrl } from '@/lib/api/upload';
 import { format, isToday, isTomorrow, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { ar } from 'date-fns/locale';
+
 
 export default function TeacherDashboardPage() {
     const [stats, setStats] = useState<any>(null);
@@ -81,6 +83,11 @@ export default function TeacherDashboardPage() {
             {/* Application Status Banner */}
             <ApplicationStatusBanner />
 
+            {/* Vacation Mode Banner */}
+            <VacationBanner
+                isOnVacation={profile?.isOnVacation ?? false}
+                vacationEndDate={profile?.vacationEndDate ?? null}
+            />
             <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
                 {/* Header Section - Modern & Clean */}
                 <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-2">

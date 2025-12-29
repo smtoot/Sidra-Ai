@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap } from 'lucide-react';
+import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ interface NavGroup {
 }
 
 interface NavigationProps {
-    userRole: 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT';
+    userRole: 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT' | 'SUPER_ADMIN' | 'MODERATOR' | 'CONTENT_ADMIN' | 'FINANCE' | 'SUPPORT';
     userName?: string;
 }
 
@@ -32,6 +32,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'باقاتي', href: '/parent/packages', icon: Package },
         { label: 'أبنائي', href: '/parent/children', icon: Users },
         { label: 'المحفظة', href: '/parent/wallet', icon: Wallet },
+        { label: 'الدعم الفني', href: '/support', icon: Headphones },
         { label: 'الملف الشخصي', href: '/parent/profile', icon: User },
         { label: 'الإعدادات', href: '/parent/settings', icon: Settings },
     ],
@@ -43,6 +44,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'باقات الطلاب', href: '/teacher/packages', icon: Package },
         { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign },
         { label: 'المواعيد', href: '/teacher/availability', icon: Clock },
+        { label: 'الدعم الفني', href: '/support', icon: Headphones },
         { label: 'الإعدادات', href: '/teacher/settings', icon: Settings },
     ],
     STUDENT: [
@@ -51,6 +53,8 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'حصصي', href: '/student/bookings', icon: Calendar },
         { label: 'باقاتي', href: '/student/packages', icon: Package },
         { label: 'المحفظة', href: '/student/wallet', icon: Wallet },
+        { label: 'المعلمين المفضلين', href: '/student/favorites', icon: Heart },
+        { label: 'الدعم الفني', href: '/support', icon: Headphones },
         { label: 'الملف الشخصي', href: '/student/profile', icon: User },
         { label: 'الإعدادات', href: '/student/settings', icon: Settings },
     ],
@@ -58,51 +62,78 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         // 1) Dashboard
         { label: 'لوحة التحكم', href: '/admin', icon: Home },
 
-        // 2) Operations
+        // 2) User Management
         {
-            label: 'العمليات',
-            icon: Clock,
+            label: 'إدارة المستخدمين',
+            icon: Users,
+            items: [
+                { label: 'جميع المستخدمين', href: '/admin/users', icon: Users },
+                { label: 'المعلمون', href: '/admin/teachers', icon: GraduationCap },
+                { label: 'أولياء الأمور', href: '/admin/parents', icon: Heart },
+                { label: 'الطلاب', href: '/admin/students', icon: BookOpen },
+            ]
+        },
+
+        // 3) Teacher Management
+        {
+            label: 'إدارة المعلمين',
+            icon: GraduationCap,
+            items: [
+                { label: 'طلبات الانضمام', href: '/admin/teacher-applications', icon: FileText },
+                { label: 'المقابلات', href: '/admin/interviews', icon: Video },
+            ]
+        },
+
+        // 4) Daily Operations
+        {
+            label: 'العمليات اليومية',
+            icon: Calendar,
             items: [
                 { label: 'الحجوزات', href: '/admin/bookings', icon: Calendar },
-                { label: 'الشكاوى', href: '/admin/disputes', icon: AlertTriangle },
-                { label: 'طلبات المعلمين', href: '/admin/teacher-applications', icon: Users },
-                { label: 'مقابلات المعلمين', href: '/admin/interviews', icon: Clock },
-                { label: 'المعلمون', href: '/admin/teachers', icon: Users },
-                { label: 'وسوم التدريس', href: '/admin/tags', icon: GraduationCap },
                 { label: 'الحصص التجريبية', href: '/admin/demo', icon: PlayCircle },
             ]
         },
 
-        // 3) Financials
+        // 5) Support & Complaints
+        {
+            label: 'الدعم والشكاوى',
+            icon: Headphones,
+            items: [
+                { label: 'التذاكر والدعم', href: '/admin/support-tickets', icon: Headphones },
+                { label: 'الشكاوى والنزاعات', href: '/admin/disputes', icon: AlertTriangle },
+            ]
+        },
+
+        // 6) Financials
         {
             label: 'المالية',
             icon: DollarSign,
             items: [
                 { label: 'لوحة المهام المالية', href: '/admin/financials', icon: CheckCircle },
-                { label: 'أرشيف طلبات السحب', href: '/admin/payouts', icon: FileText },
-                { label: 'سجل المعاملات', href: '/admin/transactions', icon: Settings },
+                { label: 'الباقات المباعة', href: '/admin/packages', icon: Package },
+                { label: 'طلبات السحب', href: '/admin/payouts', icon: FileText },
+                { label: 'سجل المعاملات', href: '/admin/transactions', icon: DollarSign },
             ]
         },
 
-        // 4) Users
-        { label: 'المستخدمين', href: '/admin/users', icon: Users },
-
-        // 5) Content / Marketplace
+        // 7) Educational Structure (Content)
         {
-            label: 'المحتوى والباقات',
+            label: 'الهيكل التعليمي',
             icon: BookOpen,
             items: [
-                { label: 'باقات الحصص', href: '/admin/packages', icon: Package },
-                { label: 'إدارة المحتوى', href: '/admin/content', icon: BookOpen },
+                { label: 'المناهج والمواد', href: '/admin/content', icon: BookOpen },
+                { label: 'إدارة الباقات الذكية', href: '/admin/package-tiers', icon: Package },
+                { label: 'وسوم التدريس', href: '/admin/tags', icon: Tag },
             ]
         },
 
-        // 6) System
+        // 8) System
         {
             label: 'النظام',
             icon: Settings,
             items: [
-                { label: 'سجل العمليات', href: '/admin/audit-logs', icon: Shield },
+                { label: 'فريق الإدارة', href: '/admin/team', icon: Shield },
+                { label: 'سجل العمليات', href: '/admin/audit-logs', icon: FileText },
                 { label: 'إعدادات النظام', href: '/admin/settings', icon: Settings },
             ]
         }
@@ -115,11 +146,15 @@ export function Navigation({ userRole, userName }: NavigationProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { logout } = useAuth();
-    const items = menuItems[userRole] || [];
+
+    // Map all admin roles to use ADMIN menu items
+    const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
+    const effectiveRole = adminRoles.includes(userRole) ? 'ADMIN' : userRole;
+    const items = menuItems[effectiveRole] || [];
 
     // Collapsible Groups State (track expanded groups by label)
     // Default expand common ones for easy access
-    const [expandedGroups, setExpandedGroups] = useState<string[]>(['العمليات', 'المالية']);
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(['العمليات اليومية', 'الدعم والشكاوى', 'المالية']);
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const handleLogout = () => {

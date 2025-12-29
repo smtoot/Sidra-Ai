@@ -90,6 +90,19 @@ export function mapHubStateToPublicProfile(hubProfile: any): TeacherPublicProfil
         teachingApproach: {
             text: hubProfile.teachingStyle || null,
             tags: teachingTags
-        }
+        },
+
+        // Qualifications - map from hubProfile if available, otherwise empty array
+        qualifications: Array.isArray(hubProfile.qualifications)
+            ? hubProfile.qualifications.map((q: any) => ({
+                id: q.id,
+                type: q.type || 'OTHER',
+                name: q.name || '',
+                institution: q.institution || null,
+                graduationYear: q.graduationYear || null,
+                fieldOfStudy: q.fieldOfStudy || null,
+                isVerified: q.isVerified || false
+            }))
+            : []
     };
 }

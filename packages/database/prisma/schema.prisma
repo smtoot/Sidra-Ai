@@ -13,8 +13,8 @@ model User {
   passwordHash          String
   role                  UserRole
   phoneNumber           String          @unique // Phone-first: primary identifier
-  firstName             String?         // Display name for all users
-  lastName              String?         // Optional family name
+  firstName             String? // Display name for all users
+  lastName              String? // Optional family name
   isActive              Boolean         @default(true)
   isVerified            Boolean         @default(false)
   requirePasswordChange Boolean         @default(false) // For admin-assisted recovery
@@ -47,7 +47,22 @@ model User {
   rescheduleRequestsMade     RescheduleRequest[] @relation("RescheduleRequestedBy")
   rescheduleRequestsAnswered RescheduleRequest[] @relation("RescheduleRespondedBy")
 
-  savedTeachers  SavedTeacher[]
+  savedTeachers SavedTeacher[]
+
+  // Admin permission system
+  permissionOverrides Json? // { add?: string[], remove?: string[] }
+  createdByAdminId    String?
+  createdByAdmin      User?   @relation("AdminCreator", fields: [createdByAdminId], references: [id])
+  createdAdmins       User[]  @relation("AdminCreator")
+
+  // Support Ticket relations
+  ticketsCreated          SupportTicket[]       @relation("TicketCreator")
+  ticketsAssigned         SupportTicket[]       @relation("TicketAssignee")
+  ticketsResolved         SupportTicket[]       @relation("TicketResolver")
+  ticketMessages          TicketMessage[]
+  ticketStatusChanges     TicketStatusHistory[]
+  ticketAccessControls    TicketAccessControl[]
+  ticketAccessRevocations TicketAccessControl[] @relation("AccessRevoker")
 
   @@map("users")
 }
@@ -85,7 +100,7 @@ model TeacherProfile {
   id                     String                  @id @default(uuid())
   userId                 String                  @unique
   slug                   String?                 @unique // Human-readable URL slug (e.g., "mohamed-ali")
-  slugLockedAt           DateTime?               // When slug was confirmed (null = editable, set = locked)
+  slugLockedAt           DateTime? // When slug was confirmed (null = editable, set = locked)
   bio                    String?
   averageRating          Float                   @default(0)
   cancellationPolicy     CancellationPolicy      @default(FLEXIBLE)
@@ -118,12 +133,17 @@ model TeacherProfile {
   interviewLink          String?
   rejectedAt             DateTime?
   // --- ID Verification ---
-  idType                 IdType?             // Type of ID document
-  idNumber               String?             // ID number
-  idImageUrl             String?             // Uploaded ID image
+  idType                 IdType? // Type of ID document
+  idNumber               String? // ID number
+  idImageUrl             String? // Uploaded ID image
   // --- Terms & Conditions ---
-  termsAcceptedAt        DateTime?           // When teacher accepted terms
-  termsVersion           String?             // Version of terms accepted (e.g., "1.0")
+  termsAcceptedAt        DateTime? // When teacher accepted terms
+  termsVersion           String? // Version of terms accepted (e.g., "1.0")
+  // --- Vacation Mode ---
+  isOnVacation           Boolean   @default(false) // Primary vacation toggle
+  vacationStartDate      DateTime? // When vacation started
+  vacationEndDate        DateTime? // Required return date (when enabling)
+  vacationReason         String?   // Optional internal note
   // --- Relations ---
   availability           Availability[]
   availabilityExceptions AvailabilityException[]
@@ -135,75 +155,79 @@ model TeacherProfile {
   subjects               TeacherSubject[]
 
   // Package & Demo relations
-  demoSettings           TeacherDemoSettings?
-  studentPackages        StudentPackage[]
-  demoSessions           DemoSession[]         @relation("DemoTeacher")
-  
-  // Teaching Approach
-  teachingStyle          String?                 @db.Text
-  teachingTags           TeacherTeachingApproachTag[]
+  demoSettings        TeacherDemoSettings?
+  packageTierSettings TeacherPackageTierSetting[] // Per-tier package settings
+  studentPackages     StudentPackage[]
+  demoSessions        DemoSession[]               @relation("DemoTeacher")
 
-  savedBy                SavedTeacher[]
-  interviewTimeSlots     InterviewTimeSlot[]
-  qualifications         TeacherQualification[]
+  // Teaching Approach
+  teachingStyle String?                      @db.Text
+  teachingTags  TeacherTeachingApproachTag[]
+
+  savedBy            SavedTeacher[]
+  interviewTimeSlots InterviewTimeSlot[]
+  qualifications     TeacherQualification[]
+  supportTickets     SupportTicket[] // Support tickets about this teacher
 
   @@map("teacher_profiles")
 }
 
 model InterviewTimeSlot {
-  id              String   @id @default(uuid())
+  id               String   @id @default(uuid())
   teacherProfileId String
   proposedDateTime DateTime
-  meetingLink     String
-  isSelected      Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  meetingLink      String
+  isSelected       Boolean  @default(false)
+  createdAt        DateTime @default(now())
 
-  teacherProfile  TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+  teacherProfile TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
 
   @@map("interview_time_slots")
 }
 
 model TeacherQualification {
-  id              String              @id @default(uuid())
-  teacherId       String
-  teacherProfile  TeacherProfile      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id             String         @id @default(uuid())
+  teacherId      String
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   // Core qualification data
-  degreeName      String              // e.g., "Bachelor of Science in Mathematics"
-  institution     String              // e.g., "Cairo University"
-  fieldOfStudy    String?             // e.g., "Computer Science" (optional, can be part of degreeName)
+  degreeName   String // e.g., "Bachelor of Science in Mathematics"
+  institution  String // e.g., "Cairo University"
+  fieldOfStudy String? // e.g., "Computer Science" (optional, can be part of degreeName)
 
   // Status and dates
-  status          QualificationStatus @default(GRADUATED)
-  startDate       DateTime?
-  endDate         DateTime?
-  graduationYear  Int?                // Derived or explicit
+  status         QualificationStatus @default(GRADUATED)
+  startDate      DateTime?
+  endDate        DateTime?
+  graduationYear Int? // Derived or explicit
 
   // Certificate (REQUIRED)
-  certificateUrl  String              // S3 URL - REQUIRED for submission
+  certificateUrl String // S3 URL - REQUIRED for submission
 
   // Verification
-  verified        Boolean             @default(false)
+  verified        Boolean   @default(false)
   verifiedAt      DateTime?
-  verifiedBy      String?             // Admin user ID
+  verifiedBy      String? // Admin user ID
   rejectionReason String?
 
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([teacherId])
   @@map("teacher_qualifications")
 }
 
 model StudentProfile {
-  id             String  @id @default(uuid())
-  userId         String  @unique
-  gradeLevel     String?
-  bio            String?
-  whatsappNumber String? // WhatsApp contact
-  city           String? // City of residence
-  country        String? // Country of residence
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String          @id @default(uuid())
+  userId          String          @unique
+  gradeLevel      String?
+  bio             String?
+  whatsappNumber  String? // WhatsApp contact
+  city            String? // City of residence
+  country         String? // Country of residence
+  profilePhotoUrl String? // Profile photo URL
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supportTickets  SupportTicket[] // Support tickets about this student
 
   @@map("student_profiles")
 }
@@ -366,7 +390,7 @@ model BankInfo {
   id                String         @id @default(uuid())
   teacherId         String         @unique
   bankName          String
-  bankBranch        String?        // Added: Branch name
+  bankBranch        String? // Added: Branch name
   accountNumber     String
   accountHolderName String
   iban              String?
@@ -392,23 +416,21 @@ model Wallet {
 }
 
 model Transaction {
-  id             String            @id @default(uuid())
-  readableId     String?           @unique // Human-readable ID (e.g., "TXN-2412-0042")
-  walletId       String
-  amount         Decimal           @db.Decimal(10, 2)
-  type           TransactionType
-  status         TransactionStatus @default(PENDING)
-  referenceImage String?
-  adminNote      String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  bankSnapshot   Json?             // Masked bank details at time of request
-  proofDocumentId String?          // Evidence of payment
-  referenceId     String?          // Receipt / Reference Number
-  paidAt         DateTime?         // When funds were actually sent
-  wallet         Wallet            @relation(fields: [walletId], references: [id])
-
-  @@map("transactions")
+  id              String            @id @default(uuid())
+  readableId      String?           @unique // Human-readable ID (e.g., "TXN-2412-0042")
+  walletId        String
+  amount          Decimal           @db.Decimal(10, 2)
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  referenceImage  String?
+  adminNote       String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  bankSnapshot    Json? // Masked bank details at time of request
+  proofDocumentId String? // Evidence of payment
+  referenceId     String? // Receipt / Reference Number
+  paidAt          DateTime? // When funds were actually sent
+  wallet          Wallet            @relation(fields: [walletId], references: [id])
   // One active withdrawal per wallet rule (Postgres partial index)
   // Note: Prisma schema syntax for partial index on relation fields might differ by provider version,
   // but raw SQL works reliably. Trying standard Prisma `where` clause syntax.
@@ -416,6 +438,8 @@ model Transaction {
   // Since 'in' within 'where' for unique constraints is limited in some Prisma versions,
   // we will enforce this via application logic (locked reads) if valid schema deploy fails,
   // but attempt the constraint here for best practice.
+
+  @@map("transactions")
 }
 
 model Booking {
@@ -428,32 +452,32 @@ model Booking {
   childId       String? // Required if beneficiaryType == CHILD
   studentUserId String? // Required if beneficiaryType == STUDENT
 
-  teacherId      String
-  subjectId      String
-  startTime      DateTime /// Stored in UTC - canonical source of truth
-  endTime        DateTime /// Stored in UTC - canonical source of truth
-  timezone       String? /// AUDIT/DISPLAY ONLY - User's timezone when booking was made. NEVER use for computation.
-  meetingLink    String?
-  price          Decimal       @db.Decimal(10, 2)
-  commissionRate Decimal       @default(0.18) @db.Decimal(5, 2)
-  status         BookingStatus @default(PENDING_TEACHER_APPROVAL)
-  cancelReason   String?
-  bookingNotes   String?       @db.Text // Notes from parent/student about what they want to study
-  teacherPrepNotes String?     @db.Text // Teacher's private preparation notes
+  teacherId        String
+  subjectId        String
+  startTime        DateTime /// Stored in UTC - canonical source of truth
+  endTime          DateTime /// Stored in UTC - canonical source of truth
+  timezone         String? /// AUDIT/DISPLAY ONLY - User's timezone when booking was made. NEVER use for computation.
+  meetingLink      String?
+  price            Decimal       @db.Decimal(10, 2)
+  commissionRate   Decimal       @default(0.18) @db.Decimal(5, 2)
+  status           BookingStatus @default(PENDING_TEACHER_APPROVAL)
+  cancelReason     String?
+  bookingNotes     String?       @db.Text // Notes from parent/student about what they want to study
+  teacherPrepNotes String?       @db.Text // Teacher's private preparation notes
 
   // Session Completion Details (Structured)
-  sessionProofUrl              String?  // Optional screenshot/proof from session (confidential, for disputes)
-  topicsCovered                String?  @db.Text // What was taught in this session
-  studentPerformanceRating     Int?     // 1-5 stars rating of student performance
-  studentPerformanceNotes      String?  @db.Text // Notes on how student performed
-  homeworkAssigned             Boolean? // Whether homework was assigned
-  homeworkDescription          String?  @db.Text // Description of homework if assigned
-  nextSessionRecommendations   String?  @db.Text // What to prepare/focus on next time
-  additionalNotes              String?  @db.Text // Any other observations
-  teacherSummary               String?  @db.Text // Legacy: Auto-generated or free-form summary
+  sessionProofUrl            String? // Optional screenshot/proof from session (confidential, for disputes)
+  topicsCovered              String?  @db.Text // What was taught in this session
+  studentPerformanceRating   Int? // 1-5 stars rating of student performance
+  studentPerformanceNotes    String?  @db.Text // Notes on how student performed
+  homeworkAssigned           Boolean? // Whether homework was assigned
+  homeworkDescription        String?  @db.Text // Description of homework if assigned
+  nextSessionRecommendations String?  @db.Text // What to prepare/focus on next time
+  additionalNotes            String?  @db.Text // Any other observations
+  teacherSummary             String?  @db.Text // Legacy: Auto-generated or free-form summary
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Dispute Window Tracking (NEW)
   disputeWindowOpensAt  DateTime? // When teacher completes session (starts dispute window)
@@ -463,13 +487,16 @@ model Booking {
   // Meeting Link Reminder Tracking
   meetingLinkReminderSentAt DateTime? // Track if 30-min reminder sent about missing meeting link
 
+  // Session Start Reminder Tracking
+  sessionReminderSentAt DateTime? // Track if 1-hour pre-session reminder sent
+
   // Payment & Escrow
-  paymentLockedAt  DateTime? // When funds were moved to pending
+  paymentLockedAt   DateTime? // When funds were moved to pending
   paymentReleasedAt DateTime? // When funds were moved to teacher
-  paymentDeadline  DateTime? // NEW: Deadline for payment if balance was insufficient
+  paymentDeadline   DateTime? // NEW: Deadline for payment if balance was insufficient
 
   // Dispute & Confirmation
-  studentConfirmedAt    DateTime? // When student clicked "Confirm Session"
+  studentConfirmedAt DateTime? // When student clicked "Confirm Session"
   teacherCompletedAt DateTime? // DEPRECATED: Use disputeWindowOpensAt
   autoReleaseAt      DateTime? // DEPRECATED: Use disputeWindowClosesAt
   reminderSentAt     DateTime? // DEPRECATED: Use disputeReminderSentAt
@@ -483,19 +510,25 @@ model Booking {
   cancellationPolicySnapshot String? // Policy at time of cancellation (FLEXIBLE/MODERATE/STRICT)
 
   // Reschedule Tracking (Package Sessions)
-  rescheduleCount      Int       @default(0)
-  lastRescheduledAt    DateTime?
-  rescheduledByRole    String?   // STUDENT | PARENT | TEACHER (via approval)
+  rescheduleCount     Int       @default(0)
+  maxReschedules      Int       @default(2) // From tier config (can be overridden)
+  lastRescheduledAt   DateTime?
+  rescheduledByRole   String? // STUDENT | PARENT | TEACHER (via approval)
+  originalScheduledAt DateTime? // Original time before any reschedules
 
-  bookedByUser   User           @relation("BookedByUser", fields: [bookedByUserId], references: [id])
-  child          Child?         @relation(fields: [childId], references: [id])
-  studentUser    User?          @relation("StudentUser", fields: [studentUserId], references: [id])
-  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id])
-  subject        Subject        @relation(fields: [subjectId], references: [id])
-  dispute        Dispute? // Related dispute if any
-  rating         Rating? // Optional rating after completion
-  packageRedemption PackageRedemption? // If this booking is part of a package
+  // Package Session Type
+  packageSessionType PackageSessionType? // AUTO_SCHEDULED, FLOATING, null for non-package bookings
+
+  bookedByUser       User                @relation("BookedByUser", fields: [bookedByUserId], references: [id])
+  child              Child?              @relation(fields: [childId], references: [id])
+  studentUser        User?               @relation("StudentUser", fields: [studentUserId], references: [id])
+  teacherProfile     TeacherProfile      @relation(fields: [teacherId], references: [id])
+  subject            Subject             @relation(fields: [subjectId], references: [id])
+  dispute            Dispute? // Related dispute if any
+  rating             Rating? // Optional rating after completion
+  packageRedemption  PackageRedemption? // If this booking is part of a package
   rescheduleRequests RescheduleRequest[] // Teacher reschedule requests
+  supportTickets     SupportTicket[] // Support tickets related to this booking
 
   // Deferred Package Purchase Support
   pendingTierId String? // Tier ID for package purchase that will happen after teacher approval
@@ -533,13 +566,28 @@ enum AuditAction {
   PAYOUT_PROCESS
   BOOKING_CANCEL
   REFUND_PROCESS
+  PERMISSION_OVERRIDE_UPDATE
+  ADMIN_USER_CREATED
+  ADMIN_USER_DEACTIVATED
+  TICKET_CREATED
+  TICKET_UPDATED
+  TICKET_CLOSED
+  TICKET_REOPENED
+  TICKET_ASSIGNED
+  TICKET_ESCALATED
+  TICKET_CONVERTED_TO_DISPUTE
+  SUPPORT_TICKET_MESSAGE_ADDED
 }
 
 enum UserRole {
   PARENT
   STUDENT
   TEACHER
+  SUPER_ADMIN
   ADMIN
+  MODERATOR
+  CONTENT_ADMIN
+  FINANCE
   SUPPORT
 }
 
@@ -587,10 +635,10 @@ enum DocumentType {
 
 // Type of ID for teacher verification
 enum IdType {
-  NATIONAL_ID      // البطاقة الوطنية
-  PASSPORT         // جواز السفر
-  DRIVER_LICENSE   // رخصة القيادة
-  RESIDENT_PERMIT  // إقامة
+  NATIONAL_ID // البطاقة الوطنية
+  PASSPORT // جواز السفر
+  DRIVER_LICENSE // رخصة القيادة
+  RESIDENT_PERMIT // إقامة
 }
 
 enum DayOfWeek {
@@ -610,13 +658,13 @@ enum TransactionType {
   PAYMENT_RELEASE
   REFUND
   CANCELLATION_COMPENSATION
-  PACKAGE_PURCHASE  // Package purchase wallet debit
-  PACKAGE_RELEASE   // Package session release to teacher
-  ESCROW_RELEASE    // Dispute escrow release (semantic)
+  PACKAGE_PURCHASE // Package purchase wallet debit
+  PACKAGE_RELEASE // Package session release to teacher
+  ESCROW_RELEASE // Dispute escrow release (semantic)
   // P1-1: Ledger completeness - track all balance mutations
-  WITHDRAWAL_COMPLETED  // Withdrawal paid out (pending -> external)
-  WITHDRAWAL_REFUNDED   // Withdrawal rejected (pending -> balance)
-  DEPOSIT_APPROVED      // Deposit approved (external -> balance)
+  WITHDRAWAL_COMPLETED // Withdrawal paid out (pending -> external)
+  WITHDRAWAL_REFUNDED // Withdrawal rejected (pending -> balance)
+  DEPOSIT_APPROVED // Deposit approved (external -> balance)
 }
 
 enum TransactionStatus {
@@ -652,43 +700,51 @@ enum BeneficiaryType {
   STUDENT
 }
 
+enum PackageSessionType {
+  AUTO_SCHEDULED // Part of recurring pattern (auto-booked at purchase)
+  FLOATING // Manually booked floating session
+}
+
 // ==================== ESCROW PAYMENT RELEASE SYSTEM ====================
 
 // System-wide settings controlled by Admin
 model SystemSettings {
-  id                         String   @id @default("default")
-  maintenanceMode            Boolean  @default(false)
-  allowedFileTypes           String[] @default(["image/jpeg", "image/png", "application/pdf"])
-  maxFileSizeMB              Int      @default(10)
-  supportEmail               String   @default("support@sidra.com") // Added
-  currency                   String   @default("SDG") // Added
-  timezone                   String   @default("Africa/Khartoum") // Added
+  id               String   @id @default("default")
+  maintenanceMode  Boolean  @default(false)
+  allowedFileTypes String[] @default(["image/jpeg", "image/png", "application/pdf"])
+  maxFileSizeMB    Int      @default(10)
+  supportEmail     String   @default("support@sidra.com") // Added
+  currency         String   @default("SDG") // Added
+  timezone         String   @default("Africa/Khartoum") // Added
 
   // Payment & Booking Settings
-  defaultCommissionRate      Float    @default(0.18) // Platform commission (e.g., 18%)
-  confirmationWindowHours    Int      @default(48) // Student has 48h to confirm/dispute
-  autoReleaseEnabled         Boolean  @default(true) // Auto-release payment if no dispute
-  reminderHoursBeforeRelease Int      @default(6) // Remind student 6h before auto-release
-  disputeWindowHours         Int      @default(48) // Time window to raise dispute
+  defaultCommissionRate      Float   @default(0.18) // Platform commission (e.g., 18%)
+  confirmationWindowHours    Int     @default(48) // Student has 48h to confirm/dispute
+  autoReleaseEnabled         Boolean @default(true) // Auto-release payment if no dispute
+  reminderHoursBeforeRelease Int     @default(6) // Remind student 6h before auto-release
+  disputeWindowHours         Int     @default(48) // Time window to raise dispute
 
   // NEW: Configurable Payment Window
-  paymentWindowHours         Int      @default(24) // Hours allowed for parent to pay after approval
-  minWithdrawalAmount        Decimal  @default(500) @db.Decimal(10, 2) // Min amount for withdrawal requests
-  minHoursBeforeSession      Int      @default(2)  // Minimum buffer before session start for payment
+  paymentWindowHours    Int     @default(24) // Hours allowed for parent to pay after approval
+  minWithdrawalAmount   Decimal @default(500) @db.Decimal(10, 2) // Min amount for withdrawal requests
+  minHoursBeforeSession Int     @default(2) // Minimum buffer before session start for payment
 
   // NEW: Feature Toggles
-  packagesEnabled            Boolean  @default(true)
-  demosEnabled             Boolean  @default(true)
+  packagesEnabled Boolean @default(true)
+  demosEnabled    Boolean @default(true)
 
   // NEW: Configurable Business Rules
-  maxPricePerHour            Decimal  @default(50000) @db.Decimal(10, 2) // Maximum allowed price per hour (SDG)
+  maxPricePerHour Decimal @default(50000) @db.Decimal(10, 2) // Maximum allowed price per hour (SDG)
 
   // Session Duration Configuration (Future-proof design)
-  defaultSessionDurationMinutes Int      @default(60) // Default session length (currently platform-wide)
-  allowedSessionDurations       Int[]    @default([60]) // Allowed durations in minutes (for future teacher selection)
+  defaultSessionDurationMinutes Int   @default(60) // Default session length (currently platform-wide)
+  allowedSessionDurations       Int[] @default([60]) // Allowed durations in minutes (for future teacher selection)
 
   // Meeting Link Access Configuration
-  meetingLinkAccessMinutesBefore Int     @default(15) // Minutes before session when teacher can access meeting link (default: 15 min)
+  meetingLinkAccessMinutesBefore Int @default(15) // Minutes before session when teacher can access meeting link (default: 15 min)
+
+  // Vacation Mode Settings
+  maxVacationDays Int @default(21) // Maximum allowed vacation period in days
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -721,6 +777,10 @@ model Dispute {
 
   createdAt  DateTime  @default(now())
   resolvedAt DateTime?
+
+  // NEW: Bidirectional link to SupportTicket
+  supportTicketId String?        @unique
+  supportTicket   SupportTicket? @relation(fields: [supportTicketId], references: [id])
 
   @@index([status])
   @@index([bookingId])
@@ -769,6 +829,45 @@ enum DisputeStatus {
   DISMISSED // Invalid/frivolous dispute
 }
 
+// ==================== SUPPORT TICKET SYSTEM ====================
+
+enum TicketCategory {
+  ACADEMIC // Curriculum, teaching methods, learning issues
+  SESSION // Scheduling, attendance, session quality
+  FINANCIAL // Payments, refunds, wallet issues
+  TECHNICAL // Platform bugs, login issues, performance
+  BEHAVIORAL // Teacher/student conduct, professionalism
+  GENERAL // Everything else
+}
+
+enum TicketType {
+  SUPPORT // Normal support ticket (full lifecycle)
+  DISPUTE // Financial dispute (restricted lifecycle, links to Dispute table)
+}
+
+enum TicketStatus {
+  OPEN // Newly created, awaiting assignment
+  IN_PROGRESS // Someone is working on it
+  WAITING_FOR_CUSTOMER // Waiting for user to reply
+  WAITING_FOR_SUPPORT // Waiting for support/teacher to reply
+  RESOLVED // Issue resolved, awaiting auto-close
+  CLOSED // Fully closed (can be reopened for SUPPORT type)
+  CANCELLED // User cancelled before resolution
+}
+
+enum TicketPriority {
+  CRITICAL // Financial disputes, payment issues, safety concerns (SLA: 2h)
+  HIGH // Session disruptions, booking problems (SLA: 12h)
+  NORMAL // General support, account questions (SLA: 24h)
+  LOW // Feature requests, documentation (SLA: 72h)
+}
+
+enum EscalationLevel {
+  L1 // Teacher (for session tickets) or automated response
+  L2 // Support agent (SUPPORT role)
+  L3 // Admin/Manager (ADMIN, SUPER_ADMIN roles)
+}
+
 // ==================== NOTIFICATION SYSTEM ====================
 
 model Notification {
@@ -805,8 +904,10 @@ enum NotificationType {
   DISPUTE_RAISED
   DISPUTE_UPDATE
   SYSTEM_ALERT
-  URGENT           // FIX: Added for urgent notifications
-  ADMIN_ALERT      // FIX: Added for admin alerts
+  URGENT // FIX: Added for urgent notifications
+  ADMIN_ALERT // FIX: Added for admin alerts
+  SESSION_REMINDER // Phase 1: Session start reminders (1 hour before)
+  ACCOUNT_UPDATE // Phase 1: Teacher application status, profile changes
 }
 
 enum NotificationStatus {
@@ -845,67 +946,126 @@ enum EmailStatus {
 // SESSION PACKAGES & DEMO FEATURE
 // =====================================================
 
-// Admin-configurable package tiers
+// Admin-configurable package tiers (Smart Pack configuration)
 model PackageTier {
-  id              String   @id @default(uuid())
-  sessionCount    Int      // 5, 10, 20
-  discountPercent Decimal  @db.Decimal(5, 2)
-  isActive        Boolean  @default(true)
-  displayOrder    Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String  @id @default(uuid())
+  sessionCount    Int // 5, 10, 12, 15, etc.
+  discountPercent Decimal @db.Decimal(5, 2)
+  isActive        Boolean @default(true)
+  displayOrder    Int     @default(0)
+
+  // Smart Pack configuration
+  recurringRatio  Decimal @default(0.8) @db.Decimal(3, 2) // 0.8 = 80% auto-booked
+  floatingRatio   Decimal @default(0.2) @db.Decimal(3, 2) // 0.2 = 20% floating
+  rescheduleLimit Int     @default(2) // Reschedules per session
+  durationWeeks   Int // Total package duration in weeks
+  gracePeriodDays Int     @default(14) // Days after last scheduled session
+
+  // Display labels (bilingual)
+  nameAr        String? // "باقة المبتدئين"
+  nameEn        String? // "Starter Pack"
+  descriptionAr String? @db.Text
+  descriptionEn String? @db.Text
+
+  // Marketing
+  isFeatured Boolean @default(false) // Show "Most Popular" badge
+  badge      String? // "RECOMMENDED", "BEST_VALUE", etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  studentPackages     StudentPackage[]
+  teacherTierSettings TeacherPackageTierSetting[]
 
   @@map("package_tiers")
 }
 
-// Teacher's demo session preferences
+// Teacher's demo session and package preferences
 model TeacherDemoSettings {
-  id          String         @id @default(uuid())
-  teacherId   String         @unique
-  demoEnabled Boolean        @default(false)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  teacher     TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id              String         @id @default(uuid())
+  teacherId       String         @unique
+  demoEnabled     Boolean        @default(false)
+  packagesEnabled Boolean        @default(true) // Master toggle for all packages
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  teacher         TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@map("teacher_demo_settings")
 }
 
+// Teacher's per-tier package settings (opt-in/opt-out specific tiers)
+model TeacherPackageTierSetting {
+  id        String   @id @default(uuid())
+  teacherId String
+  tierId    String
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  tier    PackageTier    @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, tierId])
+  @@index([teacherId])
+  @@map("teacher_package_tier_settings")
+}
+
 // Student's purchased package (with immutable pricing snapshot)
 model StudentPackage {
-  id                        String              @id @default(uuid())
-  readableId                String?             @unique // Human-readable ID (e.g., "PKG-2412-0015")
-  payerId                   String              // Wallet owner (parent or student)
-  studentId                 String              // Session attendee
+  id                        String        @id @default(uuid())
+  readableId                String?       @unique // Human-readable ID (e.g., "PKG-2412-0015")
+  payerId                   String // Wallet owner (parent or student)
+  studentId                 String // Session attendee
   teacherId                 String
   subjectId                 String
+  tierId                    String? // Reference to tier config
   sessionCount              Int
-  sessionsUsed              Int                 @default(0)
-  originalPricePerSession   Decimal             @db.Decimal(10, 2)
-  discountedPricePerSession Decimal             @db.Decimal(10, 2)
-  perSessionReleaseAmount   Decimal             @db.Decimal(10, 2) // Fixed at purchase
-  totalPaid                 Decimal             @db.Decimal(10, 2)
-  escrowRemaining           Decimal             @db.Decimal(10, 2)
-  status                    PackageStatus       @default(ACTIVE)
-  purchasedAt               DateTime            @default(now())
+  sessionsUsed              Int           @default(0)
+  originalPricePerSession   Decimal       @db.Decimal(10, 2)
+  discountedPricePerSession Decimal       @db.Decimal(10, 2)
+  perSessionReleaseAmount   Decimal       @db.Decimal(10, 2) // Fixed at purchase
+  totalPaid                 Decimal       @db.Decimal(10, 2)
+  escrowRemaining           Decimal       @db.Decimal(10, 2)
+  status                    PackageStatus @default(ACTIVE)
+  purchasedAt               DateTime      @default(now())
   expiresAt                 DateTime
-  payer                     User                @relation("PackagePayer", fields: [payerId], references: [id])
-  student                   User                @relation("PackageStudent", fields: [studentId], references: [id])
-  teacher                   TeacherProfile      @relation(fields: [teacherId], references: [id])
-  subject                   Subject             @relation(fields: [subjectId], references: [id])
-  redemptions               PackageRedemption[]
-  transactions              PackageTransaction[]
+
+  // Smart Pack specific fields
+  isSmartPack           Boolean @default(true) // All new packages are Smart Packs
+  recurringWeekday      String? // "TUESDAY", "WEDNESDAY", etc.
+  recurringTime         String? // "17:00" (24h format)
+  recurringSessionCount Int? // Calculated from tier: sessionCount * recurringRatio
+  floatingSessionCount  Int? // Calculated from tier: sessionCount * floatingRatio
+  floatingSessionsUsed  Int     @default(0) // How many floating sessions booked
+  rescheduleLimit       Int     @default(2) // From tier config at purchase
+
+  // Expiry tracking
+  firstScheduledSession DateTime? // First auto-booked session
+  lastScheduledSession  DateTime? // Last auto-booked session
+  gracePeriodEnds       DateTime? // lastScheduled + tier.gracePeriodDays
+
+  // Relations
+  payer        User                 @relation("PackagePayer", fields: [payerId], references: [id])
+  student      User                 @relation("PackageStudent", fields: [studentId], references: [id])
+  teacher      TeacherProfile       @relation(fields: [teacherId], references: [id])
+  subject      Subject              @relation(fields: [subjectId], references: [id])
+  packageTier  PackageTier?         @relation(fields: [tierId], references: [id])
+  redemptions  PackageRedemption[]
+  transactions PackageTransaction[]
 
   @@index([payerId])
   @@index([studentId])
   @@index([teacherId])
   @@index([status])
+  @@index([tierId])
   @@map("student_packages")
 }
 
 enum PackageStatus {
   ACTIVE
-  DEPLETED   // All sessions reserved/used, but not all released yet
-  COMPLETED  // All sessions released
+  DEPLETED // All sessions reserved/used, but not all released yet
+  COMPLETED // All sessions released
   EXPIRED
   CANCELLED
 }
@@ -936,13 +1096,13 @@ enum RedemptionStatus {
 // demoOwnerId = Parent (for child bookings) or Student (for self bookings)
 model DemoSession {
   id              String        @id @default(uuid())
-  demoOwnerId     String        // Parent or Standalone Student - quota key
+  demoOwnerId     String // Parent or Standalone Student - quota key
   demoOwnerType   DemoOwnerType // PARENT | STUDENT
-  beneficiaryId   String?       // Child ID (if parent booking for child)
+  beneficiaryId   String? // Child ID (if parent booking for child)
   teacherId       String
   status          DemoStatus    @default(SCHEDULED)
-  usedAt          DateTime?     // Set on COMPLETED
-  cancelledAt     DateTime?     // Set on CANCELLED (counts toward quota)
+  usedAt          DateTime? // Set on COMPLETED
+  cancelledAt     DateTime? // Set on CANCELLED (counts toward quota)
   rescheduleCount Int           @default(0)
   createdAt       DateTime      @default(now())
 
@@ -969,7 +1129,7 @@ enum DemoStatus {
 model PackageTransaction {
   id             String         @id @default(uuid())
   idempotencyKey String         @unique
-  type           String         // PURCHASE, RELEASE, REFUND, EXPIRE
+  type           String // PURCHASE, RELEASE, REFUND, EXPIRE
   packageId      String
   amount         Decimal        @db.Decimal(10, 2)
   createdAt      DateTime       @default(now())
@@ -984,21 +1144,21 @@ model PackageTransaction {
 // =====================================================
 
 model RescheduleRequest {
-  id                String                   @id @default(uuid())
+  id                String                  @id @default(uuid())
   bookingId         String
-  requestedById     String                   // Teacher user ID
+  requestedById     String // Teacher user ID
   proposedStartTime DateTime?
   proposedEndTime   DateTime?
   reason            String
-  status            RescheduleRequestStatus  @default(PENDING)
+  status            RescheduleRequestStatus @default(PENDING)
   respondedAt       DateTime?
-  respondedById     String?                  // Student/Parent user ID who responded
-  createdAt         DateTime                 @default(now())
-  expiresAt         DateTime                 // studentResponseTimeoutHours from now
+  respondedById     String? // Student/Parent user ID who responded
+  createdAt         DateTime                @default(now())
+  expiresAt         DateTime // studentResponseTimeoutHours from now
 
-  booking           Booking                  @relation(fields: [bookingId], references: [id])
-  requestedBy       User                     @relation("RescheduleRequestedBy", fields: [requestedById], references: [id])
-  respondedBy       User?                    @relation("RescheduleRespondedBy", fields: [respondedById], references: [id])
+  booking     Booking @relation(fields: [bookingId], references: [id])
+  requestedBy User    @relation("RescheduleRequestedBy", fields: [requestedById], references: [id])
+  respondedBy User?   @relation("RescheduleRespondedBy", fields: [respondedById], references: [id])
 
   @@index([bookingId])
   @@index([status])
@@ -1009,14 +1169,148 @@ enum RescheduleRequestStatus {
   PENDING
   APPROVED
   DECLINED
-  EXPIRED  // Lazy evaluation: treated same as DECLINED
+  EXPIRED // Lazy evaluation: treated same as DECLINED
+}
+
+// ==================== SUPPORT TICKET MODELS ====================
+
+model SupportTicket {
+  id         String @id @default(uuid())
+  readableId String @unique // TKT-2501-0001
+
+  // Ownership
+  createdByUserId String
+  assignedToId    String?
+
+  // Classification
+  category TicketCategory
+  type     TicketType     @default(SUPPORT)
+  priority TicketPriority @default(NORMAL)
+  status   TicketStatus   @default(OPEN)
+
+  // Context Linking (all optional)
+  linkedBookingId String?
+  linkedTeacherId String?
+  linkedStudentId String?
+
+  // Content
+  subject     String
+  description String   @db.Text
+  evidence    String[] @default([])
+
+  // SLA & Escalation
+  escalationLevel EscalationLevel @default(L1)
+  slaDeadline     DateTime?
+  slaBreach       Boolean         @default(false)
+
+  // Resolution
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolutionNote   String?   @db.Text
+
+  // Dispute Integration
+  disputeId String? @unique
+
+  // Audit
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  closedAt       DateTime?
+  lastActivityAt DateTime  @default(now())
+
+  // Relations
+  createdBy  User  @relation("TicketCreator", fields: [createdByUserId], references: [id])
+  assignedTo User? @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  resolvedBy User? @relation("TicketResolver", fields: [resolvedByUserId], references: [id])
+
+  linkedBooking Booking?        @relation(fields: [linkedBookingId], references: [id], onDelete: SetNull)
+  linkedTeacher TeacherProfile? @relation(fields: [linkedTeacherId], references: [id], onDelete: SetNull)
+  linkedStudent StudentProfile? @relation(fields: [linkedStudentId], references: [id], onDelete: SetNull)
+
+  dispute        Dispute?
+  messages       TicketMessage[]
+  statusHistory  TicketStatusHistory[]
+  accessControls TicketAccessControl[]
+
+  @@index([createdByUserId])
+  @@index([assignedToId])
+  @@index([status, priority])
+  @@index([type, status])
+  @@index([linkedBookingId])
+  @@index([escalationLevel, slaBreach])
+  @@index([lastActivityAt])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id       String @id @default(uuid())
+  ticketId String
+  authorId String
+
+  content           String   @db.Text
+  attachments       String[] @default([])
+  isInternal        Boolean  @default(false)
+  isSystemGenerated Boolean  @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+  @@map("ticket_messages")
+}
+
+model TicketStatusHistory {
+  id       String @id @default(uuid())
+  ticketId String
+
+  fromStatus      TicketStatus?
+  toStatus        TicketStatus
+  changedByUserId String
+  reason          String?       @db.Text
+
+  createdAt DateTime @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User          @relation(fields: [changedByUserId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_status_history")
+}
+
+model TicketAccessControl {
+  id       String @id @default(uuid())
+  ticketId String
+  userId   String
+
+  canView   Boolean @default(true)
+  canReply  Boolean @default(true)
+  canClose  Boolean @default(false)
+  canReopen Boolean @default(false)
+
+  revokedAt       DateTime?
+  revokedByUserId String?
+  revokedReason   String?
+
+  createdAt DateTime @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id])
+  revokedBy User?         @relation("AccessRevoker", fields: [revokedByUserId], references: [id])
+
+  @@unique([ticketId, userId])
+  @@index([userId])
+  @@map("ticket_access_controls")
 }
 
 // Counter table for generating human-readable sequential IDs
 model ReadableIdCounter {
   id        String   @id @default(uuid())
-  type      String   // BOOKING | TRANSACTION | PACKAGE | WALLET
-  yearMonth String?  // "2412" for monthly reset types, null for WALLET
+  type      String // BOOKING | TRANSACTION | PACKAGE | WALLET | TICKET
+  yearMonth String? // "2412" for monthly reset types, null for WALLET
   counter   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1026,22 +1320,24 @@ model ReadableIdCounter {
 }
 
 model TeachingApproachTag {
-  id        String   @id @default(uuid())
+  id        String                       @id @default(uuid())
   labelAr   String
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean                      @default(true)
+  sortOrder Int                          @default(0)
+  createdAt DateTime                     @default(now())
+  updatedAt DateTime                     @updatedAt
   teachers  TeacherTeachingApproachTag[]
+
   @@map("teaching_approach_tags")
 }
 
 model TeacherTeachingApproachTag {
   teacherId String
   tagId     String
-  createdAt DateTime @default(now())
+  createdAt DateTime            @default(now())
   teacher   TeacherProfile      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   tag       TeachingApproachTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@id([teacherId, tagId])
   @@map("teacher_teaching_approach_tags")
 }

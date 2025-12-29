@@ -3,6 +3,7 @@
 import { BookOpen, Star, FileText, TrendingUp, CheckCircle, Image as ImageIcon, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
+import { getFileUrl } from '@/lib/api/upload';
 
 interface SessionDetailsCardProps {
     booking: {
@@ -69,7 +70,7 @@ export function SessionDetailsCard({ booking, showProof = false, userRole = 'par
                                 ) : (
                                     <div className="mt-2">
                                         <img
-                                            src={`${process.env.NEXT_PUBLIC_API_URL}/uploads/${booking.sessionProofUrl}`}
+                                            src={getFileUrl(booking.sessionProofUrl!)}
                                             alt="Session proof"
                                             className="rounded-lg border-2 border-amber-300 max-w-full h-auto"
                                         />

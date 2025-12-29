@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, formatISO } from 'date-fns';
+import { format, formatISO, parseISO } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -9,12 +9,16 @@ import { bookingApi } from '@/lib/api/booking';
 import { parentApi } from '@/lib/api/parent';
 import { teacherApi } from '@/lib/api/teacher';
 import { packageApi } from '@/lib/api/package';
+import { marketplaceApi, AvailabilityCalendar } from '@/lib/api/marketplace';
 import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
 import { authApi, Child } from '@/lib/api/auth';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { BookingTypeSelector, BookingType, BookingTypeOption } from './BookingTypeSelector';
+import { BookingTypeSelectorV2 } from './BookingTypeSelectorV2';
+import { BookingSummaryCard } from './BookingSummaryCard';
+import { BookingType, BookingTypeOption } from './BookingTypeSelector';
+import { RecurringPatternSelector } from './RecurringPatternSelector';
 
 // New slot format from UTC-first API
 interface SlotWithTimezone {
@@ -56,6 +60,7 @@ export function CreateBookingModal({
     const [bookingNotes, setBookingNotes] = useState<string>('');
     const [userRole, setUserRole] = useState<'PARENT' | 'STUDENT' | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
     // Booking type state (demo/single/package)
     const [selectedBookingType, setSelectedBookingType] = useState<BookingType | null>(
@@ -64,6 +69,11 @@ export function CreateBookingModal({
                 initialOptionId?.startsWith('package-') ? 'PACKAGE' : null
     );
     const [selectedBookingOption, setSelectedBookingOption] = useState<BookingTypeOption | null>(null);
+
+    // Recurring pattern state for NEW package purchases
+    const [recurringWeekday, setRecurringWeekday] = useState<string>('');
+    const [recurringTime, setRecurringTime] = useState<string>('');
+    const [suggestedDates, setSuggestedDates] = useState<Date[]>([]);
 
     // Data state
     const [children, setChildren] = useState<Child[]>([]);
@@ -74,12 +84,27 @@ export function CreateBookingModal({
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
     const [userTimezoneDisplay, setUserTimezoneDisplay] = useState<string>('');
 
+    // Availability calendar data
+    const [availabilityCalendar, setAvailabilityCalendar] = useState<AvailabilityCalendar | null>(null);
+    const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
     useEffect(() => {
         if (isOpen) {
-            fetchChildren();
+            // Only fetch children if user is logged in
+            // This allows guests to browse booking options
+            if (user) {
+                fetchChildren();
+            }
             setUserTimezoneDisplay(getTimezoneDisplay(getUserTimezone()));
+            // Fetch availability calendar for current month
+            if (teacherId && selectedSubject) {
+                fetchAvailabilityCalendar();
+            }
+        } else {
+            // Reset validation state when modal closes
+            setHasAttemptedSubmit(false);
         }
-    }, [isOpen]);
+    }, [isOpen, selectedSubject, user]);
 
     useEffect(() => {
         if (selectedDate && teacherId) {
@@ -101,6 +126,22 @@ export function CreateBookingModal({
             console.error('Failed to fetch children:', error);
         } finally {
             setIsLoadingChildren(false);
+        }
+    };
+
+    const fetchAvailabilityCalendar = async () => {
+        if (!teacherId) return;
+
+        setIsLoadingCalendar(true);
+        try {
+            const currentMonth = format(new Date(), 'yyyy-MM');
+            const calendar = await marketplaceApi.getAvailabilityCalendar(teacherId, currentMonth, selectedSubject);
+            setAvailabilityCalendar(calendar);
+        } catch (error) {
+            console.error('Failed to fetch availability calendar:', error);
+            setAvailabilityCalendar(null);
+        } finally {
+            setIsLoadingCalendar(false);
         }
     };
 
@@ -143,12 +184,60 @@ export function CreateBookingModal({
 
     const selectedSubjectData = teacherSubjects.find(s => s.id === selectedSubject);
     const isParent = userRole === 'PARENT';
-    const canSubmit = selectedDate && selectedSlot && selectedSubject && selectedBookingOption && (!isParent || selectedChildId);
+
+    // Check if this is a NEW package purchase (has tierId)
+    const isNewPackagePurchase = selectedBookingOption?.tierId !== undefined;
+
+    // Different validation for new package purchase vs existing package/single
+    const canSubmit = isNewPackagePurchase
+        ? selectedSubject && selectedBookingOption && recurringWeekday && recurringTime && suggestedDates.length > 0 && (!isParent || selectedChildId)
+        : selectedDate && selectedSlot && selectedSubject && selectedBookingOption && (!isParent || selectedChildId);
 
     const handleSubmit = async () => {
-        if (!selectedDate || !selectedSlot) {
-            toast.error('يرجى اختيار الموعد');
+        // Mark that user has attempted to submit
+        setHasAttemptedSubmit(true);
+
+        // Check authentication FIRST - before validation
+        if (!user) {
+            // Save booking state to localStorage
+            const bookingState = {
+                teacherId,
+                teacherName,
+                selectedSubject,
+                selectedDate: selectedDate?.toISOString(),
+                selectedSlot,
+                selectedBookingType,
+                selectedBookingOption,
+                recurringWeekday,
+                recurringTime,
+                suggestedDates: suggestedDates.map(d => d.toISOString()),
+                bookingNotes,
+                returnUrl: window.location.pathname
+            };
+            localStorage.setItem('pendingBooking', JSON.stringify(bookingState));
+
+            toast.info('يرجى تسجيل الدخول لإتمام الحجز');
+            router.push(`/login?returnUrl=${encodeURIComponent(window.location.pathname)}`);
             return;
+        }
+
+        // Different validation based on booking type
+        if (isNewPackagePurchase) {
+            // NEW PACKAGE PURCHASE - requires recurring pattern
+            if (!recurringWeekday || !recurringTime) {
+                toast.error('يرجى اختيار النمط الأسبوعي للحصص');
+                return;
+            }
+            if (suggestedDates.length === 0) {
+                toast.error('يرجى التحقق من التوفر أولاً');
+                return;
+            }
+        } else {
+            // EXISTING PACKAGE or SINGLE/DEMO - requires specific date/time
+            if (!selectedDate || !selectedSlot) {
+                toast.error('يرجى اختيار الموعد');
+                return;
+            }
         }
 
         if (userRole === 'PARENT' && !selectedChildId) {
@@ -169,32 +258,57 @@ export function CreateBookingModal({
         setIsLoading(true);
 
         try {
-            // For package tiers (new purchases), we don't purchase upfront
-            // Instead, we pass the tierId with the booking request
-            // The purchase happens after teacher approval during the payment confirmation window
             const packageIdToUse = selectedBookingOption?.packageId; // Only for existing packages
             const tierIdToUse = selectedBookingOption?.tierId; // For new package purchases
 
-            const startTime = selectedSlot.startTimeUtc; // Already ISO string from API
-            // Calculate end time (60 mins usually, 30 for demo)
-            const duration = selectedBookingType === 'DEMO' ? 30 : 60;
-            const startDt = new Date(startTime);
-            const endDt = new Date(startDt.getTime() + duration * 60 * 1000);
-            const endTime = formatISO(endDt);
+            if (isNewPackagePurchase) {
+                // NEW PACKAGE PURCHASE - use first suggested date as startTime
+                const firstSessionDate = suggestedDates[0];
+                const [hours, minutes] = recurringTime.split(':');
+                firstSessionDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-            await bookingApi.createRequest({
-                teacherId,
-                subjectId: selectedSubject,
-                childId: userRole === 'PARENT' ? selectedChildId : undefined,
-                startTime,
-                endTime,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                bookingNotes,
-                price: selectedBookingOption?.price || 0,
-                isDemo: selectedBookingType === 'DEMO',
-                packageId: packageIdToUse,
-                tierId: tierIdToUse  // For new package purchases - payment deferred until teacher approval
-            });
+                const startTime = formatISO(firstSessionDate);
+                const duration = 60;
+                const endDt = new Date(firstSessionDate.getTime() + duration * 60 * 1000);
+                const endTime = formatISO(endDt);
+
+                await bookingApi.createRequest({
+                    teacherId,
+                    subjectId: selectedSubject,
+                    childId: userRole === 'PARENT' ? selectedChildId : undefined,
+                    startTime,
+                    endTime,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    bookingNotes,
+                    price: selectedBookingOption?.price || 0,
+                    isDemo: false,
+                    packageId: undefined,
+                    tierId: tierIdToUse
+                    // Note: recurringWeekday and recurringTime are handled by the backend
+                    // when tierId is provided for Smart Pack purchases
+                });
+            } else {
+                // EXISTING PACKAGE or SINGLE/DEMO - use selected slot
+                const startTime = selectedSlot!.startTimeUtc;
+                const duration = selectedBookingType === 'DEMO' ? 30 : 60;
+                const startDt = new Date(startTime);
+                const endDt = new Date(startDt.getTime() + duration * 60 * 1000);
+                const endTime = formatISO(endDt);
+
+                await bookingApi.createRequest({
+                    teacherId,
+                    subjectId: selectedSubject,
+                    childId: userRole === 'PARENT' ? selectedChildId : undefined,
+                    startTime,
+                    endTime,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    bookingNotes,
+                    price: selectedBookingOption?.price || 0,
+                    isDemo: selectedBookingType === 'DEMO',
+                    packageId: packageIdToUse,
+                    tierId: undefined
+                });
+            }
 
             toast.success('تم إرسال طلب الحجز بنجاح!');
             onClose();
@@ -267,6 +381,17 @@ export function CreateBookingModal({
 
                     {/* Content */}
                     <div className="p-6 space-y-6">
+                        {/* Guest Info Banner */}
+                        {!user && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                                <span className="material-symbols-outlined text-blue-600 text-xl">info</span>
+                                <div className="flex-1 text-sm">
+                                    <p className="font-medium text-blue-900 mb-1">يمكنك تصفح الأوقات المتاحة قبل التسجيل</p>
+                                    <p className="text-blue-700">اختر المادة والموعد المناسب، ثم سنطلب منك تسجيل الدخول لإتمام الحجز.</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Subject Selection */}
                         <div>
                             <label className="block text-sm font-bold text-text-main mb-3">
@@ -298,18 +423,7 @@ export function CreateBookingModal({
                             </div>
                         </div>
 
-                        {/* Booking Type Selection - Show after subject is selected */}
-                        {selectedSubject && selectedSubjectData && (
-                            <BookingTypeSelector
-                                teacherId={teacherId}
-                                subjectId={selectedSubject}
-                                basePrice={selectedSubjectData.price}
-                                onSelect={handleBookingTypeSelect}
-                                selectedOption={selectedBookingOption}
-                            />
-                        )}
-
-                        {/* Child Selection - Only for Parents */}
+                        {/* Child Selection - Only for Parents (MOVED BEFORE booking type) */}
                         {userRole === 'PARENT' && (
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-3">
@@ -339,25 +453,88 @@ export function CreateBookingModal({
                             </div>
                         )}
 
-                        {/* Date Selection */}
-                        <div>
+                        {/* Booking Type Selection - Show after subject is selected */}
+                        {selectedSubject && selectedSubjectData && (
+                            <BookingTypeSelectorV2
+                                teacherId={teacherId}
+                                subjectId={selectedSubject}
+                                basePrice={selectedSubjectData.price}
+                                onSelect={handleBookingTypeSelect}
+                                selectedOption={selectedBookingOption}
+                            />
+                        )}
+
+                        {/* Conditional Flow: NEW Package Purchase vs Existing Package/Single/Demo */}
+                        {isNewPackagePurchase ? (
+                            /* NEW PACKAGE PURCHASE - Show Recurring Pattern Selector */
+                            <RecurringPatternSelector
+                                teacherId={teacherId}
+                                sessionCount={selectedBookingOption?.sessionCount || 8}
+                                sessionDuration={60}
+                                onPatternSelect={(weekday, time, dates) => {
+                                    setRecurringWeekday(weekday);
+                                    setRecurringTime(time);
+                                    setSuggestedDates(dates);
+                                }}
+                            />
+                        ) : selectedBookingOption && (
+                            /* EXISTING PACKAGE or SINGLE/DEMO - Show Date/Time Picker */
+                            <>
+                                {/* Date Selection */}
+                                <div>
                             <label className="block text-sm font-bold text-text-main mb-3">
                                 اختر التاريخ
+                                {availabilityCalendar?.nextAvailableSlot && (
+                                    <button
+                                        onClick={() => setSelectedDate(parseISO(availabilityCalendar.nextAvailableSlot!.date))}
+                                        className="mr-3 text-xs text-primary hover:underline font-normal"
+                                    >
+                                        ⚡ التالي المتاح: {availabilityCalendar.nextAvailableSlot.display}
+                                    </button>
+                                )}
                             </label>
                             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                <DayPicker
-                                    mode="single"
-                                    selected={selectedDate}
-                                    onSelect={setSelectedDate}
-                                    locale={ar}
-                                    disabled={{ before: new Date() }}
-                                    className="rdp-custom"
-                                    classNames={{
-                                        day_selected: 'bg-primary text-white rounded-full',
-                                        day_today: 'font-bold text-primary',
-                                        day: 'h-9 w-9 rounded-full hover:bg-gray-100 transition-colors'
-                                    }}
-                                />
+                                {isLoadingCalendar ? (
+                                    <div className="flex items-center justify-center py-12 text-sm text-gray-500">
+                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary ml-2"></div>
+                                        جاري تحميل التقويم...
+                                    </div>
+                                ) : (
+                                    <>
+                                        <DayPicker
+                                            mode="single"
+                                            selected={selectedDate}
+                                            onSelect={setSelectedDate}
+                                            locale={ar}
+                                            disabled={{ before: new Date() }}
+                                            modifiers={{
+                                                available: availabilityCalendar?.availableDates.map(d => parseISO(d)) || [],
+                                                fullyBooked: availabilityCalendar?.fullyBookedDates.map(d => parseISO(d)) || []
+                                            }}
+                                            modifiersClassNames={{
+                                                available: 'has-availability',
+                                                fullyBooked: 'fully-booked'
+                                            }}
+                                            className="rdp-custom"
+                                            classNames={{
+                                                day_selected: 'bg-primary text-white rounded-full',
+                                                day_today: 'font-bold text-primary',
+                                                day: 'h-9 w-9 rounded-full hover:bg-gray-100 transition-colors'
+                                            }}
+                                        />
+                                        {/* Legend */}
+                                        <div className="flex items-center gap-4 mt-4 text-xs text-gray-600 justify-center">
+                                            <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                <span>متاح</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                                                <span>محجوز بالكامل</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -371,11 +548,20 @@ export function CreateBookingModal({
                                     </span>
                                 </label>
 
-                                {/* Timezone Notice */}
+                                {/* Timezone Notice - ENHANCED */}
                                 {userTimezoneDisplay && (
-                                    <div className="mb-3 flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
-                                        <span className="material-symbols-outlined text-base">language</span>
-                                        <span>جميع الأوقات معروضة بتوقيتك المحلي ({userTimezoneDisplay})</span>
+                                    <div className="mb-3 bg-amber-50 border-2 border-amber-300 rounded-lg px-4 py-3">
+                                        <div className="flex items-start gap-3">
+                                            <span className="material-symbols-outlined text-amber-700 text-xl flex-shrink-0">language</span>
+                                            <div className="text-sm">
+                                                <p className="font-bold text-amber-900 mb-1">
+                                                    جميع الأوقات معروضة بتوقيتك المحلي
+                                                </p>
+                                                <p className="text-amber-800">
+                                                    منطقتك الزمنية: <span className="font-semibold">{userTimezoneDisplay}</span>
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
@@ -407,6 +593,8 @@ export function CreateBookingModal({
                                     </div>
                                 )}
                             </div>
+                        )}
+                            </>
                         )}
 
                         {/* Price Summary */}
@@ -441,21 +629,44 @@ export function CreateBookingModal({
                             />
                             <p className="text-xs text-gray-400 mt-1 text-left">{bookingNotes.length}/1000</p>
                         </div>
+
+                        {/* Booking Summary - Show when all info is filled */}
+                        {canSubmit && selectedSubjectData && selectedSlot && (
+                            <BookingSummaryCard
+                                teacherName={teacherName}
+                                subjectName={selectedSubjectData.name}
+                                childName={selectedChildId ? children.find(c => c.id === selectedChildId)?.name : undefined}
+                                selectedDate={selectedDate!}
+                                selectedTime={formatSlotLabel(selectedSlot.label)}
+                                price={selectedBookingOption?.price || selectedSubjectData.price}
+                                bookingType={
+                                    selectedBookingType === 'DEMO' ? 'حصة تجريبية' :
+                                    selectedBookingType === 'PACKAGE' ?
+                                        (selectedBookingOption?.packageId ? 'من باقتك الحالية' : `باقة ${selectedBookingOption?.sessionCount} حصص`) :
+                                    'حصة واحدة'
+                                }
+                                notes={bookingNotes}
+                                userTimezone={userTimezoneDisplay}
+                            />
+                        )}
                     </div>
 
                     {/* Footer */}
                     <div className="sticky bottom-0 bg-gray-50 border-t border-gray-100 px-6 py-4 rounded-b-2xl">
-                        {/* Validation Feedback */}
-                        {!canSubmit && (selectedDate || selectedSlot || selectedSubject) && (
+                        {/* Validation Feedback - Only show after user attempts to submit */}
+                        {!canSubmit && hasAttemptedSubmit && (
                             <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
                                 <div className="flex items-start gap-2">
                                     <span className="material-symbols-outlined text-yellow-600 text-lg">info</span>
                                     <div>
                                         <p className="font-medium mb-1">يرجى استكمال المعلومات التالية:</p>
                                         <ul className="text-xs space-y-1 mr-4">
-                                            {!selectedDate && <li>• اختر التاريخ</li>}
-                                            {!selectedSlot && <li>• اختر الوقت</li>}
+                                            {!selectedDate && !isNewPackagePurchase && <li>• اختر التاريخ</li>}
+                                            {!selectedSlot && !isNewPackagePurchase && <li>• اختر الوقت</li>}
                                             {!selectedSubject && <li>• اختر المادة</li>}
+                                            {!selectedBookingOption && <li>• اختر نوع الحجز</li>}
+                                            {isNewPackagePurchase && !recurringWeekday && <li>• اختر اليوم المفضل</li>}
+                                            {isNewPackagePurchase && !recurringTime && <li>• اختر الوقت المفضل</li>}
                                             {isParent && !selectedChildId && <li>• اختر الطالب</li>}
                                         </ul>
                                     </div>
@@ -481,6 +692,11 @@ export function CreateBookingModal({
                                         <span className="animate-spin material-symbols-outlined">progress_activity</span>
                                         جاري الحجز...
                                     </>
+                                ) : !user ? (
+                                    <>
+                                        متابعة وتسجيل الدخول
+                                        <span className="material-symbols-outlined">arrow_back</span>
+                                    </>
                                 ) : (
                                     <>
                                         تأكيد الحجز
@@ -494,6 +710,29 @@ export function CreateBookingModal({
 
                 {/* Material Symbols Font (if not already loaded globally) */}
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+                {/* Custom Styles for Calendar Availability Indicators */}
+                <style jsx global>{`
+                    .has-availability {
+                        position: relative;
+                    }
+                    .has-availability::after {
+                        content: '';
+                        position: absolute;
+                        bottom: 2px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 4px;
+                        height: 4px;
+                        background-color: #10b981;
+                        border-radius: 50%;
+                    }
+                    .fully-booked {
+                        opacity: 0.4;
+                        text-decoration: line-through;
+                        pointer-events: none;
+                    }
+                `}</style>
             </div>
         </div>
     );

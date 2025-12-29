@@ -4,7 +4,7 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '@sidra/shared';
+import { UserRole, CreatePackageTierDto, UpdatePackageTierDto } from '@sidra/shared';
 import { AuditService } from '../common/audit/audit.service';
 import { SystemSettingsService } from './system-settings.service';
 import { AuditAction } from '@prisma/client';
@@ -24,6 +24,11 @@ export class AdminController {
     @Get('dashboard')
     getDashboardStats() {
         return this.adminService.getDashboardStats();
+    }
+
+    @Get('analytics/financial')
+    getFinancialAnalytics() {
+        return this.adminService.getFinancialAnalytics();
     }
 
     @Get('bookings')
@@ -182,7 +187,7 @@ export class AdminController {
         );
     }
 
-    // =================== PACKAGE TIER MANAGEMENT ===================
+    // =================== PACKAGE TIER MANAGEMENT (Smart Pack) ===================
 
     @Get('package-tiers')
     getPackageTiers() {
@@ -191,27 +196,47 @@ export class AdminController {
 
     @Get('package-tiers/all')
     getAllPackageTiers() {
-        return this.adminService.getAllPackageTiers();
+        return this.packageService.getAllTiers();
+    }
+
+    @Get('package-tiers/:id')
+    getPackageTierById(@Param('id') id: string) {
+        return this.packageService.getTierById(id);
     }
 
     @Post('package-tiers')
-    createPackageTier(
-        @Body() dto: { sessionCount: number; discountPercent: number; displayOrder?: number }
-    ) {
-        return this.adminService.createPackageTier(dto);
+    createPackageTier(@Body() dto: CreatePackageTierDto) {
+        return this.packageService.createTier(dto);
     }
 
     @Patch('package-tiers/:id')
     updatePackageTier(
         @Param('id') id: string,
-        @Body() dto: { sessionCount?: number; discountPercent?: number; isActive?: boolean; displayOrder?: number }
+        @Body() dto: UpdatePackageTierDto
     ) {
-        return this.adminService.updatePackageTier(id, dto);
+        return this.packageService.updateTier(id, dto);
     }
 
     @Delete('package-tiers/:id')
     deletePackageTier(@Param('id') id: string) {
-        return this.adminService.deletePackageTier(id);
+        return this.packageService.deleteTier(id);
+    }
+
+    @Get('package-stats')
+    getPackageStats() {
+        return this.packageService.getAdminStats();
+    }
+
+    // =================== STUDENT PACKAGES (Purchased Packages) ===================
+
+    @Get('student-packages')
+    async getAllStudentPackages(@Query('status') status?: string) {
+        return this.packageService.getAllStudentPackages(status);
+    }
+
+    @Get('student-packages/:id')
+    async getStudentPackageById(@Param('id') id: string) {
+        return this.packageService.getPackageById(id);
     }
 }
 

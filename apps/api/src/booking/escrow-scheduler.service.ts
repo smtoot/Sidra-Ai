@@ -93,6 +93,24 @@ export class EscrowSchedulerService {
                         releaseType: 'AUTO',
                     });
 
+                    // 🟡 MEDIUM PRIORITY - Gap #12 Fix: Notify parent that dispute window closed and payment released
+                    try {
+                        await this.notificationService.notifyUser({
+                            userId: booking.bookedByUserId,
+                            type: 'SYSTEM_ALERT',
+                            title: 'انتهى وقت فتح النزاع',
+                            message: `انتهت فترة فتح النزاع للحصة ${booking.readableId || booking.id.slice(0, 8)} وتم تحرير الدفعة للمعلم. إذا كانت هناك مشكلة، يرجى التواصل مع الدعم.`,
+                            link: `/parent/bookings/${booking.id}`,
+                            dedupeKey: `DISPUTE_WINDOW_CLOSED:${booking.id}:${booking.bookedByUserId}`,
+                            metadata: {
+                                bookingId: booking.id,
+                                amount: price
+                            }
+                        });
+                    } catch (error) {
+                        this.logger.error('Failed to send dispute window closed notification:', error);
+                    }
+
                 } catch (err) {
                     // Detailed error logging for debugging
                     if (err.code === 'P2025') {
@@ -353,5 +371,105 @@ export class EscrowSchedulerService {
      */
     async forceAutoRelease() {
         return this.processAutoReleases();
+    }
+
+    /**
+     * Session Start Reminder: Runs every 10 minutes
+     * Notifies both teacher and student 1 hour before session starts
+     * 🔴 HIGH PRIORITY - Gap #13 Fix
+     */
+    @Cron('*/10 * * * *') // Every 10 minutes
+    async sendSessionStartReminders() {
+        this.logger.log('🔔 Checking for upcoming sessions...');
+
+        try {
+            const now = new Date();
+            const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+            const fiftyMinutesFromNow = new Date(now.getTime() + 50 * 60 * 1000);
+
+            // Find SCHEDULED sessions starting in 50-60 minutes
+            // Haven't sent reminder yet
+            const upcomingSessions = await this.prisma.booking.findMany({
+                where: {
+                    status: 'SCHEDULED',
+                    startTime: {
+                        gte: fiftyMinutesFromNow,
+                        lte: oneHourFromNow
+                    },
+                    sessionReminderSentAt: null // Haven't sent reminder yet
+                },
+                include: {
+                    teacherProfile: { include: { user: true } },
+                    bookedByUser: true,
+                    child: true,
+                    studentUser: true,
+                    subject: true
+                },
+                take: 100 // Limit batch size
+            });
+
+            if (upcomingSessions.length === 0) {
+                this.logger.debug('No sessions needing start reminders');
+                return { remindersSent: 0 };
+            }
+
+            this.logger.log(`Found ${upcomingSessions.length} sessions needing start reminders`);
+
+            let remindersSent = 0;
+
+            for (const booking of upcomingSessions) {
+                try {
+                    const studentName = booking.child?.name || booking.studentUser?.email || 'الطالب';
+                    const teacherName = booking.teacherProfile.user.phoneNumber || 'المعلم';
+                    const subjectName = booking.subject?.nameAr || 'الدرس';
+                    const minutesUntilStart = Math.round((booking.startTime.getTime() - now.getTime()) / (60 * 1000));
+
+                    // Notify Student/Parent (NO meeting link - link is added closer to session time per admin config)
+                    await this.notificationService.notifyUser({
+                        userId: booking.bookedByUserId,
+                        type: 'SESSION_REMINDER',
+                        title: 'تذكير: حصتك تبدأ خلال ساعة',
+                        message: `حصتك مع ${teacherName} في ${subjectName} تبدأ بعد ${minutesUntilStart} دقيقة. سيتم إضافة رابط الاجتماع قبل بدء الحصة بدقائق.`,
+                        link: `/parent/bookings/${booking.id}`,
+                        dedupeKey: `SESSION_REMINDER:${booking.id}:${booking.bookedByUserId}`,
+                        metadata: {
+                            bookingId: booking.id
+                        }
+                    });
+
+                    // Notify Teacher
+                    await this.notificationService.notifyUser({
+                        userId: booking.teacherProfile.userId,
+                        type: 'SESSION_REMINDER',
+                        title: 'تذكير: حصتك تبدأ خلال ساعة',
+                        message: `حصتك مع ${studentName} في ${subjectName} تبدأ بعد ${minutesUntilStart} دقيقة.`,
+                        link: `/teacher/sessions/${booking.id}`,
+                        dedupeKey: `SESSION_REMINDER:${booking.id}:${booking.teacherProfile.userId}`,
+                        metadata: {
+                            bookingId: booking.id
+                        }
+                    });
+
+                    // Mark reminder as sent
+                    await this.prisma.booking.update({
+                        where: { id: booking.id },
+                        data: { sessionReminderSentAt: now }
+                    });
+
+                    remindersSent++;
+                    this.logger.log(`📬 Sent session reminders for booking ${booking.id.slice(0, 8)}`);
+
+                } catch (err) {
+                    this.logger.error(`Failed to send session reminder for booking ${booking.id}:`, err);
+                }
+            }
+
+            this.logger.log(`✅ Session start reminders complete: ${remindersSent} reminders sent`);
+            return { remindersSent };
+
+        } catch (err) {
+            this.logger.error('Session start reminder job failed:', err);
+            return { remindersSent: 0, error: err.message };
+        }
     }
 }

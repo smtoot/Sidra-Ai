@@ -169,6 +169,20 @@ export const teacherApi = {
         return response.data;
     },
 
+    // --- Smart Pack Settings ---
+    getPackageTiers: async () => {
+        const response = await api.get('/teacher/me/package-tiers');
+        return response.data;
+    },
+    updatePackageSettings: async (data: { packagesEnabled: boolean }) => {
+        const response = await api.patch('/teacher/me/package-settings', data);
+        return response.data;
+    },
+    updateTierSetting: async (tierId: string, data: { isEnabled: boolean }) => {
+        const response = await api.patch(`/teacher/me/package-tiers/${tierId}`, data);
+        return response.data;
+    },
+
     // --- Slug Management ---
     getSlugInfo: async (): Promise<SlugInfo> => {
         const response = await api.get('/teacher/me/slug');
