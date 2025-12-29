@@ -2,7 +2,7 @@
 # This file tells Railway how to build and run the Web service
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
