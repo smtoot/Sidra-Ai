@@ -12,6 +12,8 @@ cmds = [
 
 [phases.build]
 cmds = [
+  # Build shared packages first (required for @sidra/shared imports)
+  "cd ../../packages/shared && npm run build",
   # Build the Next.js app
   "npm run build"
 ]
