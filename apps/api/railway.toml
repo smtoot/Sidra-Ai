@@ -3,7 +3,7 @@
 
 [build]
 builder = "nixpacks"
-buildCommand = "cd ../.. && npm ci && cd packages/database && npx prisma generate && cd ../shared && npm run build && cd ../../apps/api && npm run build"
+buildCommand = "cd ../.. && npm install && cd packages/database && npx prisma generate && cd ../shared && npm run build && cd ../../apps/api && npm run build"
 
 [deploy]
 startCommand = "npx prisma migrate deploy --schema=../../packages/database/prisma/schema.prisma && npm run start:prod"

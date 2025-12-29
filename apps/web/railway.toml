@@ -3,7 +3,7 @@
 
 [build]
 builder = "nixpacks"
-buildCommand = "cd ../.. && npm ci && cd packages/shared && npm run build && cd ../../apps/web && npm run build"
+buildCommand = "cd ../.. && npm install && cd packages/shared && npm run build && cd ../../apps/web && npm run build"
 
 [deploy]
 startCommand = "npm run start"

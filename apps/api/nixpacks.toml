@@ -7,7 +7,7 @@ nixPkgs = ["nodejs_20"]
 [phases.install]
 cmds = [
   # Install all dependencies from the monorepo root
-  "cd ../.. && npm ci",
+  "cd ../.. && npm install",
   # Generate Prisma client
   "cd ../../packages/database && npx prisma generate"
 ]
