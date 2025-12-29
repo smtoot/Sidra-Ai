@@ -1,0 +1,21 @@
+# Nixpacks configuration for Sidra Monorepo
+# Use RAILWAY_SERVICE_NAME env var to determine which app to build
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "cd packages/database && npx prisma generate"
+]
+
+[phases.build]
+cmds = [
+  "npm run build --workspace=packages/shared",
+  "if [ \"$RAILWAY_SERVICE_NAME\" = \"api\" ]; then npm run build --workspace=apps/api; fi",
+  "if [ \"$RAILWAY_SERVICE_NAME\" = \"web\" ]; then npm run build --workspace=apps/web; fi"
+]
+
+[start]
+cmd = "if [ \"$RAILWAY_SERVICE_NAME\" = \"api\" ]; then cd packages/database && npx prisma migrate deploy && cd ../../apps/api && npm run start:prod; else npm run start --workspace=apps/web; fi"
