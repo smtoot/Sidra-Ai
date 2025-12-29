@@ -1,0 +1,11 @@
+# Railway configuration for Sidra API (NestJS)
+# Forces Railway to use specific build commands for monorepo
+
+[build]
+builder = "nixpacks"
+buildCommand = "cd ../.. && npm ci && cd packages/database && npx prisma generate && cd ../shared && npm run build && cd ../../apps/api && npm run build"
+
+[deploy]
+startCommand = "npx prisma migrate deploy --schema=../../packages/database/prisma/schema.prisma && npm run start:prod"
+healthcheckPath = "/health"
+healthcheckTimeout = 300

@@ -1,0 +1,11 @@
+# Railway configuration for Sidra Web (Next.js)
+# Forces Railway to use specific build commands for monorepo
+
+[build]
+builder = "nixpacks"
+buildCommand = "cd ../.. && npm ci && cd packages/shared && npm run build && cd ../../apps/web && npm run build"
+
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/"
+healthcheckTimeout = 300

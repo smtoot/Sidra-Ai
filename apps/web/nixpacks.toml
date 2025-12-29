@@ -12,8 +12,9 @@ cmds = [
 
 [phases.build]
 cmds = [
-  # Build all workspace packages from root (ensures @sidra/shared is built)
-  "cd ../.. && npm run build --workspace=packages/database --workspace=packages/shared",
+  # Build shared packages first (required for @sidra/shared)
+  "cd ../../packages/database && npx prisma generate",
+  "cd ../../packages/shared && npm run build",
   # Build the Next.js app
   "npm run build"
 ]
