@@ -1,24 +1,17 @@
 # Nixpacks configuration for Sidra Web (Next.js)
-# This file tells Railway how to build and run the Web service
+# Root directory should be set to "/" in Railway settings
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = [
-  # Install all dependencies from the monorepo root
-  "cd ../.. && npm install"
-]
+cmds = ["npm install"]
 
 [phases.build]
 cmds = [
-  # Build shared packages first (required for @sidra/shared)
-  "cd ../../packages/database && npx prisma generate",
-  "cd ../../packages/shared && npm run build",
-  # Build the Next.js app
-  "npm run build"
+  "npm run build --workspace=packages/shared",
+  "npm run build --workspace=apps/web"
 ]
 
 [start]
-# Start the Next.js production server
-cmd = "npm run start"
+cmd = "npm run start --workspace=apps/web"

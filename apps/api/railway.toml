@@ -1,11 +1,11 @@
 # Railway configuration for Sidra API (NestJS)
-# Forces Railway to use specific build commands for monorepo
+# Root directory should be set to "/" in Railway settings
 
 [build]
 builder = "nixpacks"
-buildCommand = "cd ../.. && npm install && cd packages/database && npx prisma generate && cd ../shared && npm run build && cd ../../apps/api && npm run build"
+buildCommand = "npm install && cd packages/database && npx prisma generate && cd .. && npm run build --workspace=packages/shared && npm run build --workspace=apps/api"
 
 [deploy]
-startCommand = "npx prisma migrate deploy --schema=../../packages/database/prisma/schema.prisma && npm run start:prod"
+startCommand = "cd packages/database && npx prisma migrate deploy && cd ../../apps/api && npm run start:prod"
 healthcheckPath = "/health"
 healthcheckTimeout = 300

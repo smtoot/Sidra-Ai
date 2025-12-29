@@ -1,25 +1,20 @@
 # Nixpacks configuration for Sidra API (NestJS)
-# This file tells Railway how to build and run the API service
+# Root directory should be set to "/" in Railway settings
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
-  # Install all dependencies from the monorepo root
-  "cd ../.. && npm install",
-  # Generate Prisma client
-  "cd ../../packages/database && npx prisma generate"
+  "npm install",
+  "cd packages/database && npx prisma generate"
 ]
 
 [phases.build]
 cmds = [
-  # Build shared packages first
-  "cd ../../packages/shared && npm run build",
-  # Build the API
-  "npm run build"
+  "npm run build --workspace=packages/shared",
+  "npm run build --workspace=apps/api"
 ]
 
 [start]
-# Run migrations then start the API
-cmd = "npx prisma migrate deploy --schema=../../packages/database/prisma/schema.prisma && npm run start:prod"
+cmd = "cd packages/database && npx prisma migrate deploy && cd ../../apps/api && npm run start:prod"

@@ -1,11 +1,11 @@
 # Railway configuration for Sidra Web (Next.js)
-# Forces Railway to use specific build commands for monorepo
+# Root directory should be set to "/" in Railway settings
 
 [build]
 builder = "nixpacks"
-buildCommand = "cd ../.. && npm install && cd packages/shared && npm run build && cd ../../apps/web && npm run build"
+buildCommand = "npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "npm run start --workspace=apps/web"
 healthcheckPath = "/"
 healthcheckTimeout = 300
