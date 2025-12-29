@@ -1,0 +1,30 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/database/package*.json ./packages/database/
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN cd packages/database && npx prisma generate
+
+# Build shared package
+RUN npm run build --workspace=packages/shared
+
+# Build API
+RUN npm run build --workspace=apps/api
+
+# Expose port
+EXPOSE 4000
+
+# Start command - migrations then server
+CMD cd packages/database && npx prisma migrate deploy && cd ../.. && node apps/api/dist/main
