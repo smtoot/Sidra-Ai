@@ -1,11 +1,10 @@
 # Railway configuration for Sidra API (NestJS)
-# Root directory should be set to "/" in Railway settings
+# Using Docker for explicit build control
 
 [build]
-builder = "nixpacks"
-buildCommand = "npm install && npx prisma generate --schema=packages/database/prisma/schema.prisma && npm run build --workspace=packages/shared && npm run build --workspace=apps/api"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/main.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
