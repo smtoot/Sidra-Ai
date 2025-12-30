@@ -13,19 +13,22 @@ COPY packages/database/package*.json ./packages/database/
 COPY packages/shared/package*.json ./packages/shared/
 
 # Install dependencies
-RUN npm install
+RUN echo "=== DOCKER BUILD: Installing dependencies ===" && npm install
 
 # Copy source files
 COPY . .
 
 # Generate Prisma client
-RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
+RUN echo "=== DOCKER BUILD: Generating Prisma client ===" && npx prisma generate --schema=packages/database/prisma/schema.prisma
 
 # Build shared package first
-RUN npm run build --workspace=packages/shared
+RUN echo "=== DOCKER BUILD: Building shared package ===" && npm run build --workspace=packages/shared
 
 # Build the API
-RUN npm run build --workspace=apps/api
+RUN echo "=== DOCKER BUILD: Building API ===" && npm run build --workspace=apps/api
+
+# Verify dist was created
+RUN echo "=== DOCKER BUILD: Checking dist folder ===" && ls -la apps/api/dist/ || echo "DIST FOLDER NOT FOUND!"
 
 # Production stage
 FROM node:20-alpine AS runner
