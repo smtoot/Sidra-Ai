@@ -24,6 +24,9 @@ RUN echo "=== DOCKER BUILD: Generating Prisma client ===" && npx prisma generate
 # Build shared package first
 RUN echo "=== DOCKER BUILD: Building shared package ===" && npm run build --workspace=packages/shared
 
+# Build database package
+RUN echo "=== DOCKER BUILD: Building database package ===" && npm run build --workspace=packages/database
+
 # Build the API
 RUN echo "=== DOCKER BUILD: Building API ===" && npm run build --workspace=apps/api
 
@@ -55,6 +58,7 @@ RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 # Copy built artifacts from builder
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
 
 # Expose port
 EXPOSE 3001
