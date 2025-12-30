@@ -9,11 +9,14 @@ const FOOTER_LINKS = {
         { href: '/how-it-works', label: 'كيف نعمل' },
         { href: '/join-as-teacher', label: 'انضم كمعلم' },
         { href: '/about', label: 'من نحن' },
+        { href: '/contact', label: 'تواصل معنا' },
+        { href: '/faq', label: 'الأسئلة الشائعة' },
     ],
     legal: [
         { href: '/terms', label: 'شروط الاستخدام' },
         { href: '/privacy', label: 'سياسة الخصوصية' },
-        { href: '/refund-policy', label: 'سياسة الاسترداد' },
+        { href: '/privacy', label: 'سياسة الخصوصية' },
+        { href: '/terms', label: 'سياسة الاسترداد' },
     ],
     subjects: [
         { href: '/subjects/math', label: 'الرياضيات' },
