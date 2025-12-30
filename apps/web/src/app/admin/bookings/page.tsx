@@ -8,7 +8,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
 import { SessionDetailsCard } from '@/components/booking/SessionDetailsCard';
-import { Calendar, Clock, User, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { useCallback } from 'react';
+import { Calendar, Clock, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import Link from 'next/link';
@@ -65,7 +66,7 @@ export default function AdminBookingsPage() {
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
-    const loadBookings = async () => {
+    const loadBookings = useCallback(async () => {
         setLoading(true);
         try {
             const data = await adminApi.getBookings(statusFilter);
@@ -75,11 +76,11 @@ export default function AdminBookingsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [statusFilter]);
 
     useEffect(() => {
         loadBookings();
-    }, [statusFilter]);
+    }, [loadBookings]);
 
     const getStatusVariant = (status: string): 'success' | 'warning' | 'error' | 'info' => {
         if (status === 'COMPLETED' || status === 'SCHEDULED') return 'success';
@@ -195,36 +196,36 @@ export default function AdminBookingsPage() {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Avatar
-                                                    fallback={booking.child?.name || booking.studentUser?.email || booking.bookedByUser?.email || 'S'}
-                                                    size="sm"
-                                                />
-                                                <div>
-                                                    <p className="font-medium text-sm">
-                                                        {booking.child?.name || '-'}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        {booking.studentUser?.email || booking.bookedByUser?.email}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            {booking.subject?.nameAr || '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <Calendar className="w-4 h-4 text-gray-400" />
-                                                <div>
-                                                    <div>{format(new Date(booking.startTime), 'dd MMM yyyy', { locale: ar })}</div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {format(new Date(booking.startTime), 'hh:mm a', { locale: ar })}
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Avatar
+                                                            fallback={booking.child?.name || booking.studentUser?.email || booking.bookedByUser?.email || 'S'}
+                                                            size="sm"
+                                                        />
+                                                        <div>
+                                                            <p className="font-medium text-sm">
+                                                                {booking.child?.name || '-'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {booking.studentUser?.email || booking.bookedByUser?.email}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    {booking.subject?.nameAr || '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <Calendar className="w-4 h-4 text-gray-400" />
+                                                        <div>
+                                                            <div>{format(new Date(booking.startTime), 'dd MMM yyyy', { locale: ar })}</div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {format(new Date(booking.startTime), 'hh:mm a', { locale: ar })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="font-mono font-bold text-primary-600">
                                                     {booking.price} SDG
                                                 </TableCell>

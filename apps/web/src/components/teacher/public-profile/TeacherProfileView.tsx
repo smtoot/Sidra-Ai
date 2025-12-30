@@ -94,6 +94,16 @@ interface TeacherProfileViewProps {
     onBook?: () => void; // Optional callback override
 }
 
+// --- Empty State Component ---
+const EmptyState = ({ message, isPreview }: { message: string, isPreview: boolean }) => {
+    if (!isPreview) return null;
+    return (
+        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+            <p className="text-text-subtle font-medium">{message}</p>
+        </div>
+    );
+};
+
 export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileViewProps) {
     const router = useRouter();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -147,14 +157,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
     };
 
     // --- Empty States for Preview ---
-    const EmptyState = ({ message }: { message: string }) => {
-        if (!isPreview) return null;
-        return (
-            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
-                <p className="text-text-subtle font-medium">{message}</p>
-            </div>
-        );
-    };
+    // Moved outside to fix lint error
 
     return (
         <div className="bg-background font-tajawal min-h-screen" dir="rtl">
@@ -404,7 +407,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                             </div>
                                         ));
                                     })() : (
-                                        isPreview ? <EmptyState message="ستظهر باقاتك هنا بعد إنشائها واعتمادها." /> : <p className="text-text-subtle text-center">لا توجد باقات متاحة حالياً</p>
+                                        isPreview ? <EmptyState message="ستظهر باقاتك هنا بعد إنشائها واعتمادها." isPreview={isPreview} /> : <p className="text-text-subtle text-center">لا توجد باقات متاحة حالياً</p>
                                     )}
                                 </div>
 
@@ -474,7 +477,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <Video className="w-5 h-5" />
                                     فيديو تعريفي
                                 </h2>
-                                <EmptyState message="أضف فيديو تعريفي لتعريف الطلاب بنفسك وأسلوبك في التدريس." />
+                                <EmptyState message="أضف فيديو تعريفي لتعريف الطلاب بنفسك وأسلوبك في التدريس." isPreview={isPreview} />
                             </section>
                         )}
 
@@ -487,7 +490,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                         ) : isPreview && (
                             <section className="bg-surface p-6 rounded-xl border border-gray-100">
                                 <h2 className="text-xl font-bold text-primary mb-4">نبذة عني</h2>
-                                <EmptyState message="هنا ستظهر نبذة عنك بعد أن تقوم بكتابتها." />
+                                <EmptyState message="هنا ستظهر نبذة عنك بعد أن تقوم بكتابتها." isPreview={isPreview} />
                             </section>
                         )}
 
@@ -555,7 +558,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <GraduationCap className="w-5 h-5" />
                                     المؤهلات الأكاديمية
                                 </h2>
-                                <EmptyState message="ستظهر مؤهلاتك الأكاديمية هنا بعد إضافتها." />
+                                <EmptyState message="ستظهر مؤهلاتك الأكاديمية هنا بعد إضافتها." isPreview={isPreview} />
                             </section>
                         )}
 
@@ -593,7 +596,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <GraduationCap className="w-5 h-5" />
                                     أسلوبي في التدريس
                                 </h2>
-                                <EmptyState message="في هذه المنطقة سيظهر أسلوبك في التدريس بعد اختياره." />
+                                <EmptyState message="في هذه المنطقة سيظهر أسلوبك في التدريس بعد اختياره." isPreview={isPreview} />
                             </section>
                         )}
 
@@ -676,7 +679,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <BookMarked className="w-5 h-5" />
                                     المواد والأسعار
                                 </h2>
-                                <EmptyState message="ستظهر المواد الدراسية هنا بعد إضافتها." />
+                                <EmptyState message="ستظهر المواد الدراسية هنا بعد إضافتها." isPreview={isPreview} />
                             </section>
                         ) : null}
 
@@ -807,7 +810,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <Clock className="w-5 h-5" />
                                     جدول الأوقات المتاحة
                                 </h2>
-                                <EmptyState message="ستظهر أوقاتك المتاحة هنا بعد تحديدها." />
+                                <EmptyState message="ستظهر أوقاتك المتاحة هنا بعد تحديدها." isPreview={isPreview} />
                             </section>
                         ) : null}
 
@@ -892,7 +895,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     <MessageSquare className="w-5 h-5" />
                                     تقييمات الطلاب
                                 </h2>
-                                <EmptyState message="ستظهر تقييمات الطلاب هنا بعد إكمال الحصص الأولى." />
+                                <EmptyState message="ستظهر تقييمات الطلاب هنا بعد إكمال الحصص الأولى." isPreview={isPreview} />
                             </section>
                         )}
                     </div>

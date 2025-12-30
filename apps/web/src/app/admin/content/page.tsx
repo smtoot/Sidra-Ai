@@ -13,7 +13,7 @@ type Tab = 'CURRICULA' | 'STAGES' | 'GRADES' | 'SUBJECTS';
 interface TabConfig {
     key: Tab;
     label: string;
-    icon: any;
+    icon: React.ComponentType<any>;
 }
 
 interface FormData {

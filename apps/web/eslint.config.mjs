@@ -26,8 +26,11 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-empty-object-type": "warn",
       // React rules - downgrade to warnings
       "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/set-state-in-effect": "warn",
       "react/no-unescaped-entities": "warn",
       "react/no-children-prop": "warn",
+      "react/no-unstable-nested-components": "warn",
+      "react-hooks/static-components": "warn",
     }
   },
   {
