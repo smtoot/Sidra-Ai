@@ -56,6 +56,7 @@ export class StudentService {
         firstName?: string;
         lastName?: string;
         profilePhotoUrl?: string;
+        schoolName?: string;
     }) {
         // Update user fields (firstName, lastName)
         if (data.firstName !== undefined || data.lastName !== undefined) {
@@ -78,6 +79,7 @@ export class StudentService {
                 city: data.city,
                 country: data.country,
                 profilePhotoUrl: data.profilePhotoUrl,
+                schoolName: data.schoolName,
             },
             include: { user: true }
         });

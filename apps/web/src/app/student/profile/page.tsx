@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import {
     User, Phone, Mail, MapPin, MessageCircle, BookOpen,
     Edit2, Save, X, Loader2, GraduationCap, FileText, Camera,
-    AlertCircle, CheckCircle, Shield
+    AlertCircle, CheckCircle, Shield, School
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PhotoUploadField } from '@/components/teacher/shared/PhotoUploadField';
@@ -24,6 +24,7 @@ interface StudentProfile {
     city?: string;
     country?: string;
     profilePhotoUrl?: string;
+    schoolName?: string;
     user: {
         id: string;
         email?: string;
@@ -51,6 +52,7 @@ export default function StudentProfilePage() {
         gradeLevel: '',
         bio: '',
         profilePhotoUrl: '',
+        schoolName: '',
     });
 
     useEffect(() => {
@@ -72,6 +74,7 @@ export default function StudentProfilePage() {
                 gradeLevel: data.gradeLevel || '',
                 bio: data.bio || '',
                 profilePhotoUrl: data.profilePhotoUrl || '',
+                schoolName: data.schoolName || '',
             });
         } catch (err) {
             console.error('Failed to load profile', err);
@@ -109,6 +112,7 @@ export default function StudentProfilePage() {
                 gradeLevel: profile.gradeLevel || '',
                 bio: profile.bio || '',
                 profilePhotoUrl: profile.profilePhotoUrl || '',
+                schoolName: profile.schoolName || '',
             });
         }
         setIsEditing(false);
@@ -317,7 +321,10 @@ export default function StudentProfilePage() {
                                         placeholder="الاسم الأول"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.user?.firstName || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -335,7 +342,10 @@ export default function StudentProfilePage() {
                                         placeholder="اسم العائلة"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.user?.lastName || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -364,32 +374,42 @@ export default function StudentProfilePage() {
                             </div>
 
                             {/* WhatsApp */}
-                            <div>
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                                     <MessageCircle className="w-4 h-4 text-green-600" />
                                     رقم واتساب
                                 </label>
                                 {isEditing ? (
-                                    <input
-                                        type="text"
-                                        value={formData.whatsappNumber}
-                                        onChange={(e) => setFormData(f => ({ ...f, whatsappNumber: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                                        placeholder="+249..."
-                                        dir="ltr"
-                                    />
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={formData.whatsappNumber}
+                                            onChange={(e) => setFormData(f => ({ ...f, whatsappNumber: e.target.value }))}
+                                            className="w-full md:w-1/2 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                                            placeholder="+249..."
+                                            dir="ltr"
+                                        />
+                                        <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                            <MessageCircle className="w-3 h-3" />
+                                            رقم الواتساب مهم جداً للتواصل السريع مع الإدارة والمعلمين
+                                        </p>
+                                    </>
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100" dir="ltr">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 w-full md:w-1/2 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        dir="ltr"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.whatsappNumber || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Country */}
+                            {/* Country of Residence & City - Same Row */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                                     <MapPin className="w-4 h-4 text-gray-500" />
-                                    الدولة
+                                    بلد الإقامة
                                 </label>
                                 {isEditing ? (
                                     <input
@@ -400,7 +420,10 @@ export default function StudentProfilePage() {
                                         placeholder="السودان"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.country || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -418,7 +441,10 @@ export default function StudentProfilePage() {
                                         placeholder="الخرطوم"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.city || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -438,47 +464,73 @@ export default function StudentProfilePage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 space-y-5">
-                        {/* Grade Level */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-                                <BookOpen className="w-4 h-4 text-success-600" />
-                                المرحلة الدراسية
-                            </label>
-                            {isEditing ? (
-                                <select
-                                    value={formData.gradeLevel}
-                                    onChange={(e) => setFormData(f => ({ ...f, gradeLevel: e.target.value }))}
-                                    className="w-full md:w-1/2 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
-                                >
-                                    <option value="">اختر المرحلة...</option>
-                                    <optgroup label="المرحلة الابتدائية">
-                                        <option value="ابتدائي 1">ابتدائي 1</option>
-                                        <option value="ابتدائي 2">ابتدائي 2</option>
-                                        <option value="ابتدائي 3">ابتدائي 3</option>
-                                        <option value="ابتدائي 4">ابتدائي 4</option>
-                                        <option value="ابتدائي 5">ابتدائي 5</option>
-                                        <option value="ابتدائي 6">ابتدائي 6</option>
-                                    </optgroup>
-                                    <optgroup label="المرحلة المتوسطة">
-                                        <option value="متوسط 1">متوسط 1</option>
-                                        <option value="متوسط 2">متوسط 2</option>
-                                        <option value="متوسط 3">متوسط 3</option>
-                                    </optgroup>
-                                    <optgroup label="المرحلة الثانوية">
-                                        <option value="ثانوي 1">ثانوي 1</option>
-                                        <option value="ثانوي 2">ثانوي 2</option>
-                                        <option value="ثانوي 3">ثانوي 3</option>
-                                    </optgroup>
-                                    <optgroup label="التعليم العالي">
-                                        <option value="جامعي">جامعي</option>
-                                        <option value="دراسات عليا">دراسات عليا</option>
-                                    </optgroup>
-                                </select>
-                            ) : (
-                                <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 w-full md:w-1/2">
-                                    {profile?.gradeLevel || <span className="text-gray-400">غير محدد</span>}
-                                </div>
-                            )}
+                        <div className="grid md:grid-cols-2 gap-5">
+                            {/* Grade Level */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <BookOpen className="w-4 h-4 text-success-600" />
+                                    المرحلة الدراسية
+                                </label>
+                                {isEditing ? (
+                                    <select
+                                        value={formData.gradeLevel}
+                                        onChange={(e) => setFormData(f => ({ ...f, gradeLevel: e.target.value }))}
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
+                                    >
+                                        <option value="">اختر المرحلة...</option>
+                                        <optgroup label="المرحلة الابتدائية">
+                                            <option value="ابتدائي 1">ابتدائي 1</option>
+                                            <option value="ابتدائي 2">ابتدائي 2</option>
+                                            <option value="ابتدائي 3">ابتدائي 3</option>
+                                            <option value="ابتدائي 4">ابتدائي 4</option>
+                                            <option value="ابتدائي 5">ابتدائي 5</option>
+                                            <option value="ابتدائي 6">ابتدائي 6</option>
+                                        </optgroup>
+                                        <optgroup label="المرحلة المتوسطة">
+                                            <option value="متوسط 1">متوسط 1</option>
+                                            <option value="متوسط 2">متوسط 2</option>
+                                            <option value="متوسط 3">متوسط 3</option>
+                                        </optgroup>
+                                        <optgroup label="المرحلة الثانوية">
+                                            <option value="ثانوي 1">ثانوي 1</option>
+                                            <option value="ثانوي 2">ثانوي 2</option>
+                                            <option value="ثانوي 3">ثانوي 3</option>
+                                        </optgroup>
+                                    </select>
+                                ) : (
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
+                                        {profile?.gradeLevel || <span className="text-gray-400">غير محدد</span>}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* School Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <School className="w-4 h-4 text-success-600" />
+                                    اسم المدرسة
+                                    <span className="text-gray-400 text-xs">(اختياري)</span>
+                                </label>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        value={formData.schoolName}
+                                        onChange={(e) => setFormData(f => ({ ...f, schoolName: e.target.value }))}
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                                        placeholder="مثال: مدرسة الخرطوم النموذجية"
+                                    />
+                                ) : (
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
+                                        {profile?.schoolName || <span className="text-gray-400">غير محدد</span>}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Bio */}
@@ -496,7 +548,10 @@ export default function StudentProfilePage() {
                                     maxLength={500}
                                 />
                             ) : (
-                                <div className="p-4 bg-gray-50 rounded-xl text-gray-900 min-h-[80px] border border-gray-100">
+                                <div
+                                    className="p-4 bg-gray-50 rounded-xl text-gray-900 min-h-[80px] border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                    onClick={() => setIsEditing(true)}
+                                >
                                     {profile?.bio || <span className="text-gray-400">لم تتم إضافة نبذة بعد. أضف نبذة لتعريف المعلمين بك واهتماماتك الدراسية.</span>}
                                 </div>
                             )}

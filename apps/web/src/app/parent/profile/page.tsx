@@ -282,7 +282,10 @@ export default function ParentProfilePage() {
                                         placeholder="الاسم الأول"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.user?.firstName || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -300,7 +303,10 @@ export default function ParentProfilePage() {
                                         placeholder="اسم العائلة"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.user?.lastName || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -329,32 +335,42 @@ export default function ParentProfilePage() {
                             </div>
 
                             {/* WhatsApp */}
-                            <div>
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                                     <MessageCircle className="w-4 h-4 text-green-600" />
                                     رقم واتساب
                                 </label>
                                 {isEditing ? (
-                                    <input
-                                        type="text"
-                                        value={formData.whatsappNumber}
-                                        onChange={(e) => setFormData(f => ({ ...f, whatsappNumber: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                                        placeholder="+249..."
-                                        dir="ltr"
-                                    />
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={formData.whatsappNumber}
+                                            onChange={(e) => setFormData(f => ({ ...f, whatsappNumber: e.target.value }))}
+                                            className="w-full md:w-1/2 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                                            placeholder="+249..."
+                                            dir="ltr"
+                                        />
+                                        <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                            <MessageCircle className="w-3 h-3" />
+                                            رقم الواتساب مهم جداً للتواصل السريع مع الإدارة والمعلمين
+                                        </p>
+                                    </>
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100" dir="ltr">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 w-full md:w-1/2 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        dir="ltr"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.whatsappNumber || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Country */}
+                            {/* Country of Residence */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                                     <MapPin className="w-4 h-4 text-gray-500" />
-                                    الدولة
+                                    بلد الإقامة
                                 </label>
                                 {isEditing ? (
                                     <input
@@ -365,7 +381,10 @@ export default function ParentProfilePage() {
                                         placeholder="السودان"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.country || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -383,7 +402,10 @@ export default function ParentProfilePage() {
                                         placeholder="الخرطوم"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
                                         {profile?.city || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}

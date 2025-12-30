@@ -227,6 +227,7 @@ model StudentProfile {
   city            String? // City of residence
   country         String? // Country of residence
   profilePhotoUrl String? // Profile photo URL
+  schoolName      String? // School name (optional)
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   supportTickets  SupportTicket[] // Support tickets about this student
 
