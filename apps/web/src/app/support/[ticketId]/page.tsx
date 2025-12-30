@@ -13,6 +13,7 @@ import {
 import { TicketDetail } from '@/components/support/TicketDetail';
 import { MessageThread } from '@/components/support/MessageThread';
 import { MessageForm } from '@/components/support/MessageForm';
+import { ArrowRight, MessageCircle, Loader2 } from 'lucide-react';
 
 export default function TicketDetailPage() {
   const router = useRouter();
@@ -85,9 +86,10 @@ export default function TicketDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-3" />
+          <p className="text-gray-500">جاري تحميل التذكرة...</p>
         </div>
       </div>
     );
@@ -95,48 +97,80 @@ export default function TicketDetailPage() {
 
   if (error || !ticket) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error || 'التذكرة غير موجودة'}
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <p className="text-red-700 font-medium mb-4">{error || 'التذكرة غير موجودة'}</p>
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+          >
+            <ArrowRight className="w-4 h-4" />
+            العودة للتذاكر
+          </button>
         </div>
-        <button
-          onClick={handleBack}
-          className="mt-4 text-blue-600 hover:text-blue-700"
-        >
-          العودة للتذاكر
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="container mx-auto px-4 py-6 max-w-4xl">
+      {/* Back Button */}
       <button
         onClick={handleBack}
-        className="text-gray-600 hover:text-gray-900 mb-4 flex items-center"
+        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
       >
-        <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-        العودة للتذاكر
+        <ArrowRight className="w-5 h-5" />
+        <span>العودة للتذاكر</span>
       </button>
 
-      <TicketDetail
-        ticket={ticket}
-        onClose={handleClose}
-        onReopen={handleReopen}
-        actionLoading={actionLoading}
-      />
+      {/* Main Content */}
+      <div className="space-y-6">
+        {/* Ticket Details */}
+        <TicketDetail
+          ticket={ticket}
+          onClose={handleClose}
+          onReopen={handleReopen}
+          actionLoading={actionLoading}
+        />
 
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">الرسائل</h2>
-        <MessageThread messages={ticket.messages} />
-
-        {ticket.status !== 'CLOSED' && (
-          <div className="mt-6">
-            <MessageForm onSubmit={handleAddMessage} />
+        {/* Conversation Section */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {/* Section Header */}
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-gray-400" />
+            <h2 className="font-semibold text-gray-900">المحادثة</h2>
+            {ticket.messages.length > 0 && (
+              <span className="text-sm text-gray-400">({ticket.messages.length} رسالة)</span>
+            )}
           </div>
-        )}
+
+          {/* Messages */}
+          <div className="p-4 bg-gray-50/50 min-h-[200px] max-h-[500px] overflow-y-auto">
+            <MessageThread messages={ticket.messages} />
+          </div>
+
+          {/* Message Form */}
+          {ticket.status !== 'CLOSED' && ticket.status !== 'CANCELLED' ? (
+            <div className="border-t border-gray-200">
+              <MessageForm onSubmit={handleAddMessage} />
+            </div>
+          ) : (
+            <div className="px-4 py-6 bg-gray-50 border-t border-gray-200 text-center">
+              <p className="text-gray-500 text-sm">
+                هذه التذكرة مغلقة. لا يمكن إضافة رسائل جديدة.
+              </p>
+              {ticket.type === 'SUPPORT' && (
+                <button
+                  onClick={handleReopen}
+                  disabled={actionLoading}
+                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
+                >
+                  إعادة فتح التذكرة
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
