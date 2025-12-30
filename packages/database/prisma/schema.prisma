@@ -745,6 +745,9 @@ model SystemSettings {
   // NEW: Configurable Business Rules
   maxPricePerHour Decimal @default(50000) @db.Decimal(10, 2) // Maximum allowed price per hour (SDG)
 
+  // NEW: Search Configuration (Dynamic Filters)
+  searchConfig    Json?   // { enableGenderFilter: boolean, enablePriceFilter: boolean, ... }
+
   // Session Duration Configuration (Future-proof design)
   defaultSessionDurationMinutes Int   @default(60) // Default session length (currently platform-wide)
   allowedSessionDurations       Int[] @default([60]) // Allowed durations in minutes (for future teacher selection)

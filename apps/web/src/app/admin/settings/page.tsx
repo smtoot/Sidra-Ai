@@ -18,7 +18,8 @@ export default function AdminSettingsPage() {
         packagesEnabled: true,
         demosEnabled: true,
         maxPricePerHour: '50000',
-        defaultSessionDurationMinutes: 60
+        defaultSessionDurationMinutes: 60,
+        searchConfig: { enableGenderFilter: true, enablePriceFilter: true }
     });
 
     // Form state (separate from data to handle dirty state/validation)
@@ -119,7 +120,8 @@ export default function AdminSettingsPage() {
                 maxPricePerHour: maxPrice,
                 defaultSessionDurationMinutes: duration,
                 meetingLinkAccessMinutesBefore: linkAccessMinutes,
-                maxVacationDays: vacationDays
+                maxVacationDays: vacationDays,
+                searchConfig: settings.searchConfig
             });
             toast.success('تم تحديث الإعدادات بنجاح');
             loadSettings(); // Reload to confirm
@@ -404,6 +406,48 @@ export default function AdminSettingsPage() {
                                     className={`w-14 h-7 rounded-full transition-colors relative ${settings.demosEnabled ? 'bg-success' : 'bg-gray-300'}`}
                                 >
                                     <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.demosEnabled ? 'right-8' : 'right-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr className="border-gray-100" />
+
+                        {/* Search Configuration */}
+                        <div className="space-y-6">
+                            <h3 className="text-lg font-bold text-gray-900">إعدادات البحث</h3>
+                            <p className="text-sm text-text-subtle">التحكم في فلاتر البحث المتاحة للطلاب.</p>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <h4 className="font-bold">فلتر النوع (الجنس)</h4>
+                                    <p className="text-sm text-text-subtle">إظهار خيار تصفية المعلمين حسب الجنس (ذكر/أنثى).</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSettings({
+                                        ...settings,
+                                        searchConfig: { ...settings.searchConfig, enableGenderFilter: !settings.searchConfig?.enableGenderFilter }
+                                    })}
+                                    className={`w-14 h-7 rounded-full transition-colors relative ${settings.searchConfig?.enableGenderFilter ? 'bg-success' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.searchConfig?.enableGenderFilter ? 'right-8' : 'right-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <h4 className="font-bold">فلتر السعر</h4>
+                                    <p className="text-sm text-text-subtle">إظهار خيار تصفية المعلمين حسب نطاق السعر.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSettings({
+                                        ...settings,
+                                        searchConfig: { ...settings.searchConfig, enablePriceFilter: !settings.searchConfig?.enablePriceFilter }
+                                    })}
+                                    className={`w-14 h-7 rounded-full transition-colors relative ${settings.searchConfig?.enablePriceFilter ? 'bg-success' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.searchConfig?.enablePriceFilter ? 'right-8' : 'right-1'}`} />
                                 </button>
                             </div>
                         </div>

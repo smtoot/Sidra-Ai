@@ -1,78 +1,66 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { searchApi, SearchResult } from '@/lib/api/search';
 import { marketplaceApi } from '@/lib/api/marketplace';
-import TeacherCard from '@/components/marketplace/TeacherCard';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Search, Filter, X } from 'lucide-react';
+import { TeacherPowerCard } from '@/components/marketplace/TeacherPowerCard';
+import { SearchFilters } from '@/components/marketplace/SearchFilters';
 import { MultiStepBookingModal } from '@/components/booking/MultiStepBookingModal';
-import { useCurricula } from '@/hooks/useCurricula';
-import { useSubjects } from '@/hooks/useSubjects';
-import { useCurriculumHierarchy } from '@/hooks/useCurriculumHierarchy';
+import { Button } from '@/components/ui/button';
+import { SearchSortBy } from '@sidra/shared';
+import { SearchX } from 'lucide-react';
 
-export default function SearchPage() {
+function SearchPageContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Results State
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(true);
+    const [initialSearchDone, setInitialSearchDone] = useState(false);
 
-    // Filters
-    const [subjectId, setSubjectId] = useState('');
-    const [curriculumId, setCurriculumId] = useState('');
-    const [gradeLevelId, setGradeLevelId] = useState('');
-    const [maxPrice, setMaxPrice] = useState('');
+    // Filter State
+    const [subjectId, setSubjectId] = useState(searchParams.get('subjectId') || '');
+    const [curriculumId, setCurriculumId] = useState(searchParams.get('curriculumId') || '');
+    const [gradeLevelId, setGradeLevelId] = useState(searchParams.get('gradeLevelId') || '');
+    const [maxPrice, setMaxPrice] = useState(Number(searchParams.get('maxPrice')) || 50000);
+    const [minPrice, setMinPrice] = useState(Number(searchParams.get('minPrice')) || 0);
+    const [gender, setGender] = useState<'MALE' | 'FEMALE' | ''>((searchParams.get('gender') as 'MALE' | 'FEMALE') || '');
+    const [sortBy, setSortBy] = useState<SearchSortBy>((searchParams.get('sortBy') as SearchSortBy) || SearchSortBy.RATING_DESC);
 
     // Booking Modal State
     const [selectedTeacher, setSelectedTeacher] = useState<SearchResult | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Mobile Filter State
-    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-
-    // React Query hooks for cached data
-    const { data: subjects = [] } = useSubjects();
-    const { data: curricula = [] } = useCurricula();
-    const { data: hierarchy, isLoading: loadingHierarchy } = useCurriculumHierarchy(curriculumId || null);
-
-    // Flatten hierarchy grades for dropdown
-    const grades = useMemo(() => {
-        if (!hierarchy?.stages) return [];
-        return hierarchy.stages.flatMap(s =>
-            s.grades.map(g => ({
-                ...g,
-                stageName: s.nameAr
-            }))
-        );
-    }, [hierarchy]);
-
-    // Reset grade when curriculum changes
+    // Initial Search: trigger only once on mount if not triggered by params logic
     useEffect(() => {
-        setGradeLevelId('');
-    }, [curriculumId]);
-
-    // Initial search on mount
-    useEffect(() => {
-        handleSearch();
+        if (!initialSearchDone) {
+            handleSearch();
+            setInitialSearchDone(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleSearch = async () => {
         setLoading(true);
+        updateUrl();
         try {
             const filters: any = {
                 subjectId,
                 curriculumId,
-                maxPrice: maxPrice ? Number(maxPrice) : undefined
+                gradeLevelId: gradeLevelId || undefined,
+                maxPrice: maxPrice < 50000 ? maxPrice : undefined,
+                minPrice: minPrice > 0 ? minPrice : undefined,
+                gender: gender || undefined,
+                sortBy: sortBy || undefined
             };
-
-            // Only add gradeLevelId if selected (Strict Mode)
-            if (gradeLevelId) {
-                filters.gradeLevelId = gradeLevelId;
-            }
 
             const data = await searchApi.searchTeachers(filters);
 
             // Fetch availability for each teacher (non-blocking)
+            // Note: Parallel request limit might be an issue if results are large. 
+            // For MVP (10-20 results) it's fine.
             const resultsWithAvailability = await Promise.all(
                 data.map(async (result) => {
                     const nextSlot = await marketplaceApi.getNextAvailableSlot(result.teacherProfile.id);
@@ -91,125 +79,96 @@ export default function SearchPage() {
         }
     };
 
+    const updateUrl = () => {
+        const params = new URLSearchParams();
+        if (subjectId) params.set('subjectId', subjectId);
+        if (curriculumId) params.set('curriculumId', curriculumId);
+        if (gradeLevelId) params.set('gradeLevelId', gradeLevelId);
+        if (maxPrice < 50000) params.set('maxPrice', maxPrice.toString());
+        if (minPrice > 0) params.set('minPrice', minPrice.toString());
+        if (gender) params.set('gender', gender);
+        if (sortBy) params.set('sortBy', sortBy);
+
+        router.push(`/search?${params.toString()}`, { scroll: false });
+    };
+
+    const handleReset = () => {
+        setSubjectId('');
+        setCurriculumId('');
+        setGradeLevelId('');
+        setMaxPrice(50000);
+        setMinPrice(0);
+        setGender('');
+        setSortBy(SearchSortBy.RATING_DESC);
+        // We'll trigger search manually or let user click search
+        // Suggestion: Let user click search to avoid accidental refreshes
+    };
+
     const handleBook = (teacher: SearchResult) => {
         setSelectedTeacher(teacher);
         setIsModalOpen(true);
     };
 
-    // Count active filters
-    const activeFilterCount = [subjectId, curriculumId, gradeLevelId, maxPrice].filter(Boolean).length;
-
     return (
-        <div className="min-h-screen bg-background font-tajawal text-text-primary" dir="rtl">
+        <div className="min-h-screen bg-background font-tajawal text-text-primary mb-20" dir="rtl">
             {/* Header */}
-            <div className="bg-surface shadow-sm border-b border-gray-100 py-8">
+            <div className="bg-surface shadow-sm border-b border-gray-100 py-10">
                 <div className="container mx-auto px-4">
-                    <h1 className="text-3xl font-bold text-primary mb-2">ابحث عن أفضل المعلمين</h1>
-                    <p className="text-text-subtle">نخبة من المعلمين المتميزين لجميع المراحل والمناهج</p>
+                    <h1 className="text-3xl lg:text-4xl font-bold text-primary mb-3">ابحث عن معلمك الخصوصي</h1>
+                    <p className="text-text-subtle text-lg max-w-2xl">نخبة من المعلمين المتميزين لجميع المراحل الدراسية والمناهج، متاحون لتدريس أبنائك في الوقت المناسب.</p>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
-                {/* Filters Sidebar - Desktop */}
-                <aside className="hidden lg:block w-full lg:w-1/4 space-y-6">
-                    <div className="bg-surface p-6 rounded-xl border border-gray-100 shadow-sm space-y-6 sticky top-8">
-                        <div className="flex items-center gap-2 text-primary font-bold border-b pb-4">
-                            <Filter className="w-5 h-5" />
-                            تصفية النتائج
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>المنهج</Label>
-                                <select
-                                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                    value={curriculumId}
-                                    onChange={(e) => setCurriculumId(e.target.value)}
-                                >
-                                    <option value="">الكل</option>
-                                    {curricula.map(c => (
-                                        <option key={c.id} value={c.id}>{c.nameAr}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Grade Filter - Dependent on Curriculum */}
-                            <div className="space-y-2">
-                                <Label className={!curriculumId ? "text-gray-400" : ""}>
-                                    الصف الدراسي {curriculumId && "(اختياري)"}
-                                </Label>
-                                <select
-                                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-400"
-                                    value={gradeLevelId}
-                                    onChange={(e) => setGradeLevelId(e.target.value)}
-                                    disabled={!curriculumId || loadingHierarchy}
-                                >
-                                    <option value="">
-                                        {!curriculumId
-                                            ? "اختر المنهج أولاً"
-                                            : loadingHierarchy
-                                                ? "جاري التحميل..."
-                                                : "الكل (بحث عام)"
-                                        }
-                                    </option>
-                                    {grades.map(g => (
-                                        <option key={g.id} value={g.id}>
-                                            {g.stageName ? `${g.stageName} - ${g.nameAr}` : g.nameAr}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>المادة</Label>
-                                <select
-                                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                    value={subjectId}
-                                    onChange={(e) => setSubjectId(e.target.value)}
-                                >
-                                    <option value="">الكل</option>
-                                    {subjects.map(s => (
-                                        <option key={s.id} value={s.id}>{s.nameAr}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>الحد الأقصى للسعر (SDG)</Label>
-                                <Input
-                                    type="number"
-                                    placeholder="مثال: 5000"
-                                    value={maxPrice}
-                                    onChange={(e) => setMaxPrice(e.target.value)}
-                                />
-                            </div>
-
-                            <Button onClick={handleSearch} className="w-full gap-2" disabled={loading}>
-                                <Search className="w-4 h-4" />
-                                {loading ? 'جاري البحث...' : 'بحث'}
-                            </Button>
-                        </div>
-                    </div>
-                </aside>
+                {/* Filters Sidebar */}
+                <SearchFilters
+                    subjectId={subjectId} setSubjectId={setSubjectId}
+                    curriculumId={curriculumId} setCurriculumId={setCurriculumId}
+                    gradeLevelId={gradeLevelId} setGradeLevelId={setGradeLevelId}
+                    minPrice={minPrice} maxPrice={maxPrice} setPriceRange={(min, max) => { setMinPrice(min); setMaxPrice(max); }}
+                    gender={gender} setGender={setGender}
+                    sortBy={sortBy} setSortBy={setSortBy}
+                    onSearch={handleSearch}
+                    onReset={handleReset}
+                    loading={loading}
+                    className="w-full lg:w-1/4"
+                />
 
                 {/* Results Grid */}
                 <main className="w-full lg:w-3/4 space-y-6">
+                    {/* Top Bar (Mobile Sort/Filter count?) - Optional */}
                     {loading ? (
-                        <div className="text-center py-20 text-text-subtle">
-                            جاري البحث...
+                        <div className="space-y-4">
+                            {/* Simple Skeletons */}
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+                            ))}
                         </div>
                     ) : results.length === 0 ? (
-                        <div className="text-center py-20 bg-surface rounded-xl border border-dashed border-gray-300">
-                            <p className="text-lg font-bold text-text-muted">لا توجد نتائج</p>
-                            <p className="text-text-subtle">جرب تغيير خيارات البحث</p>
+                        <div className="flex flex-col items-center justify-center py-20 bg-surface rounded-xl border border-dashed border-gray-300">
+                            <div className="bg-gray-50 p-4 rounded-full mb-4">
+                                <SearchX className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-700 mb-2">لا توجد نتائج مطابقة</h3>
+                            <p className="text-text-subtle text-center max-w-md">
+                                لم نتمكن من العثور على معلمين بهذه المواصفات. جرب تقليل الفلاتر أو البحث عن مادة أخرى.
+                            </p>
+                            <Button variant="link" onClick={handleReset} className="mt-4 text-primary">
+                                إعادة تعيين البحث
+                            </Button>
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            <p className="text-sm text-text-subtle">تم العثور على {results.length} معلم</p>
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center px-2">
+                                <p className="text-sm text-text-subtle font-medium">
+                                    تم العثور على {results.length} معلم
+                                </p>
+                            </div>
+
                             {results.map(result => (
-                                <TeacherCard
+                                <TeacherPowerCard
                                     key={result.id}
-                                    result={result}
+                                    teacher={result}
                                     onBook={handleBook}
                                 />
                             ))}
@@ -217,133 +176,6 @@ export default function SearchPage() {
                     )}
                 </main>
             </div>
-
-            {/* Mobile Filter Button - Floating */}
-            <button
-                onClick={() => setIsMobileFilterOpen(true)}
-                className="lg:hidden fixed bottom-6 left-6 bg-primary text-white rounded-full p-4 shadow-lg z-40 flex items-center gap-2"
-            >
-                <Filter className="w-5 h-5" />
-                {activeFilterCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                        {activeFilterCount}
-                    </span>
-                )}
-            </button>
-
-            {/* Mobile Filter Drawer */}
-            {isMobileFilterOpen && (
-                <>
-                    {/* Backdrop */}
-                    <div
-                        className="lg:hidden fixed inset-0 bg-black/50 z-40"
-                        onClick={() => setIsMobileFilterOpen(false)}
-                    />
-
-                    {/* Drawer */}
-                    <div className="lg:hidden fixed left-0 top-0 bottom-0 w-[85%] max-w-sm bg-surface z-50 overflow-y-auto shadow-2xl">
-                        <div className="p-6 space-y-6">
-                            {/* Header */}
-                            <div className="flex items-center justify-between border-b pb-4">
-                                <div className="flex items-center gap-2 text-primary font-bold">
-                                    <Filter className="w-5 h-5" />
-                                    تصفية النتائج
-                                    {activeFilterCount > 0 && (
-                                        <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">
-                                            {activeFilterCount}
-                                        </span>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={() => setIsMobileFilterOpen(false)}
-                                    className="text-gray-500 hover:text-gray-700"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            {/* Filters - Same as desktop */}
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>المنهج</Label>
-                                    <select
-                                        className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                        value={curriculumId}
-                                        onChange={(e) => setCurriculumId(e.target.value)}
-                                    >
-                                        <option value="">الكل</option>
-                                        {curricula.map(c => (
-                                            <option key={c.id} value={c.id}>{c.nameAr}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className={!curriculumId ? "text-gray-400" : ""}>
-                                        الصف الدراسي {curriculumId && "(اختياري)"}
-                                    </Label>
-                                    <select
-                                        className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-400"
-                                        value={gradeLevelId}
-                                        onChange={(e) => setGradeLevelId(e.target.value)}
-                                        disabled={!curriculumId || loadingHierarchy}
-                                    >
-                                        <option value="">
-                                            {!curriculumId
-                                                ? "اختر المنهج أولاً"
-                                                : loadingHierarchy
-                                                    ? "جاري التحميل..."
-                                                    : "الكل (بحث عام)"
-                                            }
-                                        </option>
-                                        {grades.map(g => (
-                                            <option key={g.id} value={g.id}>
-                                                {g.stageName ? `${g.stageName} - ${g.nameAr}` : g.nameAr}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>المادة</Label>
-                                    <select
-                                        className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                        value={subjectId}
-                                        onChange={(e) => setSubjectId(e.target.value)}
-                                    >
-                                        <option value="">الكل</option>
-                                        {subjects.map(s => (
-                                            <option key={s.id} value={s.id}>{s.nameAr}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>الحد الأقصى للسعر (SDG)</Label>
-                                    <Input
-                                        type="number"
-                                        placeholder="مثال: 5000"
-                                        value={maxPrice}
-                                        onChange={(e) => setMaxPrice(e.target.value)}
-                                    />
-                                </div>
-
-                                <Button
-                                    onClick={() => {
-                                        handleSearch();
-                                        setIsMobileFilterOpen(false);
-                                    }}
-                                    className="w-full gap-2"
-                                    disabled={loading}
-                                >
-                                    <Search className="w-4 h-4" />
-                                    {loading ? 'جاري البحث...' : 'بحث'}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
 
             {/* Booking Modal */}
             {selectedTeacher && (
@@ -366,5 +198,13 @@ export default function SearchPage() {
                 />
             )}
         </div>
+    );
+}
+
+export default function SearchPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>}>
+            <SearchPageContent />
+        </Suspense>
     );
 }

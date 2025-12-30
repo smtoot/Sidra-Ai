@@ -20,15 +20,18 @@ import { PermissionsGuard } from './permissions.guard';
         if (!secret) {
           throw new Error(
             'CRITICAL: JWT_SECRET environment variable is not set. ' +
-            'Generate a strong secret with: openssl rand -base64 64'
+              'Generate a strong secret with: openssl rand -base64 64',
           );
         }
 
         // SECURITY: Warn if using weak development secret
-        if (secret === 'test-secret-key-for-development' || secret === 'dev_secret') {
+        if (
+          secret === 'test-secret-key-for-development' ||
+          secret === 'dev_secret'
+        ) {
           console.warn(
             '⚠️  WARNING: Using development JWT_SECRET in production is INSECURE! ' +
-            'Generate a strong secret with: openssl rand -base64 64'
+              'Generate a strong secret with: openssl rand -base64 64',
           );
         }
 
@@ -44,5 +47,4 @@ import { PermissionsGuard } from './permissions.guard';
   providers: [AuthService, JwtStrategy, PermissionService, PermissionsGuard],
   exports: [AuthService, PermissionService, PermissionsGuard],
 })
-export class AuthModule { }
-
+export class AuthModule {}

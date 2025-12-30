@@ -5,35 +5,38 @@ import { UserRole } from '@sidra/shared';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-    constructor(private reflector: Reflector) { }
+  constructor(private reflector: Reflector) {}
 
-    canActivate(context: ExecutionContext): boolean {
-        const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
-            context.getHandler(),
-            context.getClass(),
-        ]);
-        if (!requiredRoles) {
-            return true;
-        }
-        const { user } = context.switchToHttp().getRequest();
-
-        if (!user || !user.role) {
-            console.warn('RolesGuard: No user or role found in request');
-            return false;
-        }
-
-        // SUPER_ADMIN bypass: has access to all role-protected endpoints
-        if (String(user.role).trim() === 'SUPER_ADMIN') {
-            return true;
-        }
-
-        const hasRole = requiredRoles.some((role) => String(user.role).trim() === String(role).trim());
-
-        if (!hasRole) {
-            console.warn(`RolesGuard Denied: User Role=${user.role} Required=${JSON.stringify(requiredRoles)}`);
-        }
-
-        return hasRole;
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (!requiredRoles) {
+      return true;
     }
-}
+    const { user } = context.switchToHttp().getRequest();
 
+    if (!user || !user.role) {
+      console.warn('RolesGuard: No user or role found in request');
+      return false;
+    }
+
+    // SUPER_ADMIN bypass: has access to all role-protected endpoints
+    if (String(user.role).trim() === 'SUPER_ADMIN') {
+      return true;
+    }
+
+    const hasRole = requiredRoles.some(
+      (role) => String(user.role).trim() === String(role).trim(),
+    );
+
+    if (!hasRole) {
+      console.warn(
+        `RolesGuard Denied: User Role=${user.role} Required=${JSON.stringify(requiredRoles)}`,
+      );
+    }
+
+    return hasRole;
+  }
+}

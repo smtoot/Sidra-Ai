@@ -8,9 +8,9 @@ import { NotificationModule } from '../notification/notification.module';
 import { ReadableIdModule } from '../common/readable-id/readable-id.module';
 
 @Module({
-    imports: [PrismaModule, ReadableIdModule, NotificationModule],
-    controllers: [PackageController],
-    providers: [PackageService, DemoService, PackageScheduler],
-    exports: [PackageService, DemoService]
+  imports: [PrismaModule, ReadableIdModule, NotificationModule],
+  controllers: [PackageController],
+  providers: [PackageService, DemoService, PackageScheduler],
+  exports: [PackageService, DemoService],
 })
-export class PackageModule { }
+export class PackageModule {}

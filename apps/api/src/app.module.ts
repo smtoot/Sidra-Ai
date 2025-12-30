@@ -28,10 +28,12 @@ import { SupportTicketModule } from './support-ticket/support-ticket.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 60 seconds
-      limit: 10, // 10 requests per minute (global default)
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 seconds
+        limit: 10, // 10 requests per minute (global default)
+      },
+    ]),
     ScheduleModule.forRoot(), // Enable cron jobs for escrow auto-release
     PrismaModule,
     CommonModule,
@@ -63,4 +65,4 @@ import { SupportTicketModule } from './support-ticket/support-ticket.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

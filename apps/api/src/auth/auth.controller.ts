@@ -6,7 +6,7 @@ import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('register')
@@ -33,8 +33,12 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute
   changePassword(
     @Request() req: any,
-    @Body() body: { currentPassword: string; newPassword: string }
+    @Body() body: { currentPassword: string; newPassword: string },
   ) {
-    return this.authService.changePassword(req.user.userId, body.currentPassword, body.newPassword);
+    return this.authService.changePassword(
+      req.user.userId,
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 }

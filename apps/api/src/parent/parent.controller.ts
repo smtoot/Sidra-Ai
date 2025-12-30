@@ -43,7 +43,13 @@ export class ParentController {
   @Post('children')
   addChild(
     @Request() req: any,
-    @Body() body: { name: string; gradeLevel: string; schoolName?: string; curriculumId?: string },
+    @Body()
+    body: {
+      name: string;
+      gradeLevel: string;
+      schoolName?: string;
+      curriculumId?: string;
+    },
   ) {
     return this.parentService.addChild(req.user.userId, body);
   }
@@ -52,7 +58,13 @@ export class ParentController {
   updateChild(
     @Request() req: any,
     @Param('id') id: string,
-    @Body() body: { name?: string; gradeLevel?: string; schoolName?: string; curriculumId?: string },
+    @Body()
+    body: {
+      name?: string;
+      gradeLevel?: string;
+      schoolName?: string;
+      curriculumId?: string;
+    },
   ) {
     return this.parentService.updateChild(req.user.userId, id, body);
   }

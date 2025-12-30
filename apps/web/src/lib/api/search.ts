@@ -1,10 +1,14 @@
 import { api } from '../api';
+import { SearchSortBy } from '@sidra/shared';
 
 export interface SearchFilters {
     subjectId?: string;
     curriculumId?: string;
     gradeLevelId?: string;
     maxPrice?: number;
+    minPrice?: number;
+    gender?: 'MALE' | 'FEMALE';
+    sortBy?: SearchSortBy;
 }
 
 export interface SearchResult {
@@ -19,6 +23,9 @@ export interface SearchResult {
         id: string;
         slug: string | null; // Added slug
         displayName: string | null;
+        profilePhotoUrl: string | null;
+        introVideoUrl: string | null;
+        gender: 'MALE' | 'FEMALE' | null;
         bio: string | null;
         averageRating: number;
         totalReviews: number;
@@ -49,6 +56,9 @@ export const searchApi = {
         if (filters.curriculumId) params.append('curriculumId', filters.curriculumId);
         if (filters.gradeLevelId) params.append('gradeLevelId', filters.gradeLevelId);
         if (filters.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
+        if (filters.minPrice) params.append('minPrice', filters.minPrice.toString());
+        if (filters.gender) params.append('gender', filters.gender);
+        if (filters.sortBy) params.append('sortBy', filters.sortBy);
 
         const response = await api.get(`/marketplace/teachers?${params.toString()}`);
         return response.data;

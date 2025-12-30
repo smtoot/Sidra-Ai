@@ -60,7 +60,10 @@ export class SupportTicketController {
    */
   @Get(':ticketId')
   @UseGuards(TicketAccessGuard)
-  async findOne(@Request() req: any, @Param('ticketId') ticketId: string): Promise<SupportTicketDetailDto> {
+  async findOne(
+    @Request() req: any,
+    @Param('ticketId') ticketId: string,
+  ): Promise<SupportTicketDetailDto> {
     return this.ticketService.findOne(ticketId, req.user.userId, req.user.role);
   }
 
@@ -71,7 +74,10 @@ export class SupportTicketController {
   @Patch(':ticketId/close')
   @UseGuards(TicketAccessGuard)
   @HttpCode(HttpStatus.OK)
-  async close(@Request() req: any, @Param('ticketId') ticketId: string): Promise<SupportTicketDetailDto> {
+  async close(
+    @Request() req: any,
+    @Param('ticketId') ticketId: string,
+  ): Promise<SupportTicketDetailDto> {
     return this.ticketService.close(ticketId, req.user.userId, req.user.role);
   }
 
@@ -83,7 +89,10 @@ export class SupportTicketController {
   @Patch(':ticketId/reopen')
   @UseGuards(TicketAccessGuard)
   @HttpCode(HttpStatus.OK)
-  async reopen(@Request() req: any, @Param('ticketId') ticketId: string): Promise<SupportTicketDetailDto> {
+  async reopen(
+    @Request() req: any,
+    @Param('ticketId') ticketId: string,
+  ): Promise<SupportTicketDetailDto> {
     return this.ticketService.reopen(ticketId, req.user.userId, req.user.role);
   }
 
@@ -98,7 +107,12 @@ export class SupportTicketController {
     @Param('ticketId') ticketId: string,
     @Body() createMessageDto: CreateMessageDto,
   ): Promise<TicketMessageDto> {
-    return this.messageService.addMessage(ticketId, req.user.userId, req.user.role, createMessageDto);
+    return this.messageService.addMessage(
+      ticketId,
+      req.user.userId,
+      req.user.role,
+      createMessageDto,
+    );
   }
 
   /**
@@ -110,6 +124,10 @@ export class SupportTicketController {
     @Request() req: any,
     @Param('ticketId') ticketId: string,
   ): Promise<TicketMessageDto[]> {
-    return this.messageService.findAllForTicket(ticketId, req.user.userId, req.user.role);
+    return this.messageService.findAllForTicket(
+      ticketId,
+      req.user.userId,
+      req.user.role,
+    );
   }
 }

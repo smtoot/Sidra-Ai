@@ -47,7 +47,10 @@ export class AdminSupportTicketController {
    */
   @Get(':ticketId')
   @RequirePermissions(PERMISSIONS.TICKETS_VIEW)
-  async findOne(@Request() req: any, @Param('ticketId') ticketId: string): Promise<SupportTicketDetailDto> {
+  async findOne(
+    @Request() req: any,
+    @Param('ticketId') ticketId: string,
+  ): Promise<SupportTicketDetailDto> {
     return this.ticketService.findOne(ticketId, req.user.userId, req.user.role);
   }
 
@@ -62,7 +65,11 @@ export class AdminSupportTicketController {
     @Param('ticketId') ticketId: string,
     @Body() updateTicketDto: UpdateSupportTicketDto,
   ): Promise<SupportTicketDetailDto> {
-    return this.ticketService.update(ticketId, req.user.userId, updateTicketDto);
+    return this.ticketService.update(
+      ticketId,
+      req.user.userId,
+      updateTicketDto,
+    );
   }
 
   /**
@@ -89,7 +96,11 @@ export class AdminSupportTicketController {
     @Param('ticketId') ticketId: string,
   ): Promise<SupportTicketDetailDto> {
     // Get current ticket to determine new escalation level
-    const ticket = await this.ticketService.findOne(ticketId, req.user.userId, req.user.role);
+    const ticket = await this.ticketService.findOne(
+      ticketId,
+      req.user.userId,
+      req.user.role,
+    );
 
     let newLevel;
     switch (ticket.escalationLevel) {
@@ -120,6 +131,10 @@ export class AdminSupportTicketController {
     @Param('ticketId') ticketId: string,
     @Body() createMessageDto: CreateMessageDto,
   ): Promise<TicketMessageDto> {
-    return this.messageService.addInternalMessage(ticketId, req.user.userId, createMessageDto);
+    return this.messageService.addInternalMessage(
+      ticketId,
+      req.user.userId,
+      createMessageDto,
+    );
   }
 }

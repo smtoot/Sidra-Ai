@@ -11,10 +11,14 @@ import { PackageModule } from '../package/package.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [WalletModule, NotificationModule, PackageModule, AuthModule],
-    controllers: [AdminController, AdminTeamController],
-    providers: [AdminService, AuditService, SystemSettingsService, AdminTeamService],
-    exports: [SystemSettingsService], // Export for use in other modules
+  imports: [WalletModule, NotificationModule, PackageModule, AuthModule],
+  controllers: [AdminController, AdminTeamController],
+  providers: [
+    AdminService,
+    AuditService,
+    SystemSettingsService,
+    AdminTeamService,
+  ],
+  exports: [SystemSettingsService], // Export for use in other modules
 })
-export class AdminModule { }
-
+export class AdminModule {}

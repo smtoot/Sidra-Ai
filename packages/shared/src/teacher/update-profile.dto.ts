@@ -1,11 +1,8 @@
 
 import { IsString, IsOptional, IsEnum, IsInt, Min, Matches, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { Gender } from '../enums';
 
-export enum Gender {
-    MALE = 'MALE',
-    FEMALE = 'FEMALE',
-}
 
 // ID Type for verification
 export enum IdType {

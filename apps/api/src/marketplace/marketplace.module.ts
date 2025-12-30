@@ -8,4 +8,4 @@ import { CurriculumController } from './curriculum.controller';
   controllers: [MarketplaceController, CurriculumController],
   providers: [MarketplaceService, CurriculumService],
 })
-export class MarketplaceModule { }
+export class MarketplaceModule {}

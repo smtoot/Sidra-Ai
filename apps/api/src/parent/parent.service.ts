@@ -49,8 +49,8 @@ export class ParentService {
       where: { userId },
       include: {
         children: {
-          include: { curriculum: true }
-        }
+          include: { curriculum: true },
+        },
       },
     });
 
@@ -58,12 +58,15 @@ export class ParentService {
     return parentProfile.children;
   }
 
-  async addChild(userId: string, data: {
-    name: string;
-    gradeLevel: string;
-    schoolName?: string;
-    curriculumId?: string;
-  }) {
+  async addChild(
+    userId: string,
+    data: {
+      name: string;
+      gradeLevel: string;
+      schoolName?: string;
+      curriculumId?: string;
+    },
+  ) {
     const parentProfile = await this.prisma.parentProfile.findUnique({
       where: { userId },
     });
@@ -117,7 +120,7 @@ export class ParentService {
   async getCurricula() {
     return this.prisma.curriculum.findMany({
       where: { isActive: true },
-      orderBy: { nameAr: 'asc' }
+      orderBy: { nameAr: 'asc' },
     });
   }
 

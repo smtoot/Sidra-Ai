@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -40,7 +46,9 @@ export class TicketAccessGuard implements CanActivate {
       throw new NotFoundException(`Ticket ${ticketId} not found`);
     }
 
-    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(user.role);
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(
+      user.role,
+    );
 
     // Admins can access all tickets
     if (isAdmin) {

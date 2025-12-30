@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReadableIdService } from '../common/readable-id.service';
 import {
@@ -24,7 +29,10 @@ export class SupportTicketService {
   /**
    * Create a new support ticket
    */
-  async create(userId: string, dto: CreateSupportTicketDto): Promise<SupportTicketDetailDto> {
+  async create(
+    userId: string,
+    dto: CreateSupportTicketDto,
+  ): Promise<SupportTicketDetailDto> {
     // Generate readable ID
     const readableId = await this.readableIdService.generateTicketId();
 
@@ -134,8 +142,13 @@ export class SupportTicketService {
   /**
    * Find all tickets for a user (creator or assigned)
    */
-  async findAllForUser(userId: string, userRole: UserRole): Promise<SupportTicketDto[]> {
-    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(userRole);
+  async findAllForUser(
+    userId: string,
+    userRole: UserRole,
+  ): Promise<SupportTicketDto[]> {
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(
+      userRole,
+    );
 
     const tickets = await this.prisma.supportTicket.findMany({
       where: isAdmin
@@ -178,7 +191,11 @@ export class SupportTicketService {
   /**
    * Find one ticket by ID
    */
-  async findOne(ticketId: string, userId: string, userRole: UserRole): Promise<SupportTicketDetailDto> {
+  async findOne(
+    ticketId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<SupportTicketDetailDto> {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
       include: {
@@ -271,15 +288,20 @@ export class SupportTicketService {
         priority: dto.priority,
         escalationLevel: dto.escalationLevel,
         resolutionNote: dto.resolutionNote,
-        resolvedAt: newStatus === TicketStatus.RESOLVED && oldStatus !== TicketStatus.RESOLVED
-          ? new Date()
-          : ticket.resolvedAt,
-        resolvedByUserId: newStatus === TicketStatus.RESOLVED && oldStatus !== TicketStatus.RESOLVED
-          ? userId
-          : ticket.resolvedByUserId,
-        closedAt: newStatus === TicketStatus.CLOSED && oldStatus !== TicketStatus.CLOSED
-          ? new Date()
-          : ticket.closedAt,
+        resolvedAt:
+          newStatus === TicketStatus.RESOLVED &&
+          oldStatus !== TicketStatus.RESOLVED
+            ? new Date()
+            : ticket.resolvedAt,
+        resolvedByUserId:
+          newStatus === TicketStatus.RESOLVED &&
+          oldStatus !== TicketStatus.RESOLVED
+            ? userId
+            : ticket.resolvedByUserId,
+        closedAt:
+          newStatus === TicketStatus.CLOSED && oldStatus !== TicketStatus.CLOSED
+            ? new Date()
+            : ticket.closedAt,
         lastActivityAt: new Date(),
       },
       include: {
@@ -353,7 +375,10 @@ export class SupportTicketService {
   /**
    * Assign ticket to support agent
    */
-  async assign(ticketId: string, dto: AssignTicketDto): Promise<SupportTicketDetailDto> {
+  async assign(
+    ticketId: string,
+    dto: AssignTicketDto,
+  ): Promise<SupportTicketDetailDto> {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
     });
@@ -371,7 +396,9 @@ export class SupportTicketService {
       throw new NotFoundException(`User ${dto.assignedToId} not found`);
     }
 
-    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(assignee.role);
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(
+      assignee.role,
+    );
     if (!isAdmin) {
       throw new BadRequestException('Can only assign tickets to support staff');
     }
@@ -381,7 +408,10 @@ export class SupportTicketService {
       where: { id: ticketId },
       data: {
         assignedToId: dto.assignedToId,
-        status: ticket.status === TicketStatus.OPEN ? TicketStatus.IN_PROGRESS : ticket.status,
+        status:
+          ticket.status === TicketStatus.OPEN
+            ? TicketStatus.IN_PROGRESS
+            : ticket.status,
         lastActivityAt: new Date(),
       },
       include: {
@@ -466,7 +496,11 @@ export class SupportTicketService {
   /**
    * Close ticket
    */
-  async close(ticketId: string, userId: string, userRole: UserRole): Promise<SupportTicketDetailDto> {
+  async close(
+    ticketId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<SupportTicketDetailDto> {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
     });
@@ -555,7 +589,11 @@ export class SupportTicketService {
   /**
    * Reopen ticket (only for SUPPORT type tickets)
    */
-  async reopen(ticketId: string, userId: string, userRole: UserRole): Promise<SupportTicketDetailDto> {
+  async reopen(
+    ticketId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<SupportTicketDetailDto> {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
     });
@@ -675,8 +713,14 @@ export class SupportTicketService {
   /**
    * Verify user has access to ticket
    */
-  private async verifyAccess(ticket: any, userId: string, userRole: UserRole): Promise<void> {
-    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(userRole);
+  private async verifyAccess(
+    ticket: any,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<void> {
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(
+      userRole,
+    );
 
     // Admins can access all tickets
     if (isAdmin) {

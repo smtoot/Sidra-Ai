@@ -6,19 +6,19 @@ import { UploadService } from './upload.service';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
-    imports: [
-        StorageModule,
-        JwtModule.registerAsync({
-            imports: [ConfigModule],
-            useFactory: (configService: ConfigService) => ({
-                secret: configService.get<string>('JWT_SECRET'),
-                signOptions: { expiresIn: '7d' },
-            }),
-            inject: [ConfigService],
-        }),
-    ],
-    controllers: [UploadController],
-    providers: [UploadService],
-    exports: [UploadService],
+  imports: [
+    StorageModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '7d' },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+  controllers: [UploadController],
+  providers: [UploadService],
+  exports: [UploadService],
 })
-export class UploadModule { }
+export class UploadModule {}

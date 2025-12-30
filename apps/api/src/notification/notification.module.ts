@@ -5,9 +5,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EmailOutboxWorker } from './email-outbox.worker';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [NotificationController],
-    providers: [NotificationService, EmailOutboxWorker],
-    exports: [NotificationService],
+  imports: [PrismaModule],
+  controllers: [NotificationController],
+  providers: [NotificationService, EmailOutboxWorker],
+  exports: [NotificationService],
 })
-export class NotificationModule { }
+export class NotificationModule {}

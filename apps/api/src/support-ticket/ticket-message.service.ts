@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateMessageDto, TicketMessageDto, UserRole, TicketStatus } from '@sidra/shared';
+import {
+  CreateMessageDto,
+  TicketMessageDto,
+  UserRole,
+  TicketStatus,
+} from '@sidra/shared';
 
 @Injectable()
 export class TicketMessageService {
@@ -72,11 +81,17 @@ export class TicketMessageService {
   /**
    * Get all messages for a ticket
    */
-  async findAllForTicket(ticketId: string, userId: string, userRole: UserRole): Promise<TicketMessageDto[]> {
+  async findAllForTicket(
+    ticketId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<TicketMessageDto[]> {
     // Verify access
     await this.verifyAccess(ticketId, userId, userRole);
 
-    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(userRole);
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(
+      userRole,
+    );
 
     const messages = await this.prisma.ticketMessage.findMany({
       where: {
@@ -187,16 +202,30 @@ export class TicketMessageService {
   /**
    * Determine if status should be updated when user adds message
    */
-  private shouldUpdateStatus(currentStatus: TicketStatus, userRole: UserRole): boolean {
-    const isCustomer = !['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(userRole);
+  private shouldUpdateStatus(
+    currentStatus: TicketStatus,
+    userRole: UserRole,
+  ): boolean {
+    const isCustomer = ![
+      'SUPER_ADMIN',
+      'ADMIN',
+      'MODERATOR',
+      'SUPPORT',
+    ].includes(userRole);
     return isCustomer && currentStatus === TicketStatus.WAITING_FOR_CUSTOMER;
   }
 
   /**
    * Verify user has access to ticket
    */
-  private async verifyAccess(ticketId: string, userId: string, userRole: UserRole): Promise<void> {
-    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(userRole);
+  private async verifyAccess(
+    ticketId: string,
+    userId: string,
+    userRole: UserRole,
+  ): Promise<void> {
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].includes(
+      userRole,
+    );
 
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
@@ -235,7 +264,9 @@ export class TicketMessageService {
       return;
     }
 
-    throw new ForbiddenException('You do not have permission to reply to this ticket');
+    throw new ForbiddenException(
+      'You do not have permission to reply to this ticket',
+    );
   }
 
   /**

@@ -8,10 +8,9 @@ import { PackageModule } from '../package/package.module';
 import { ReadableIdModule } from '../common/readable-id/readable-id.module';
 
 @Module({
-    imports: [WalletModule, NotificationModule, PackageModule, ReadableIdModule],
-    controllers: [BookingController],
-    providers: [BookingService, EscrowSchedulerService],
-    exports: [BookingService],
+  imports: [WalletModule, NotificationModule, PackageModule, ReadableIdModule],
+  controllers: [BookingController],
+  providers: [BookingService, EscrowSchedulerService],
+  exports: [BookingService],
 })
-export class BookingModule { }
-
+export class BookingModule {}

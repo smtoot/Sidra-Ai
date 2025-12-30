@@ -10,8 +10,14 @@ import { PackageModule } from '../package/package.module'; // Import PackageModu
 import { NotificationModule } from '../notification/notification.module'; // For vacation scheduler
 
 @Module({
-  imports: [PrismaModule, WalletModule, AdminModule, PackageModule, NotificationModule],
+  imports: [
+    PrismaModule,
+    WalletModule,
+    AdminModule,
+    PackageModule,
+    NotificationModule,
+  ],
   controllers: [TeacherController, TeacherAdminController],
   providers: [TeacherService, VacationScheduler],
 })
-export class TeacherModule { }
+export class TeacherModule {}

@@ -1,5 +1,14 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+  Query,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { TeacherService } from './teacher.service';
@@ -14,7 +23,7 @@ import {
   UpdateQualificationDto,
   UpdateTeacherDemoSettingsDto,
   UpdateTeacherTierSettingDto,
-  UserRole
+  UserRole,
 } from '@sidra/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -30,7 +39,7 @@ export class TeacherController {
     private readonly teacherService: TeacherService,
     private readonly slugService: SlugService,
     private readonly packageService: PackageService,
-  ) { }
+  ) {}
 
   @Get('me')
   getProfile(@Request() req: any) {
@@ -81,15 +90,25 @@ export class TeacherController {
   updateQualification(
     @Request() req: any,
     @Param('id') qualificationId: string,
-    @Body() dto: UpdateQualificationDto
+    @Body() dto: UpdateQualificationDto,
   ) {
-    return this.teacherService.updateQualification(req.user.userId, qualificationId, dto);
+    return this.teacherService.updateQualification(
+      req.user.userId,
+      qualificationId,
+      dto,
+    );
   }
 
   @Delete('me/qualifications/:id')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
-  removeQualification(@Request() req: any, @Param('id') qualificationId: string) {
-    return this.teacherService.deleteQualification(req.user.userId, qualificationId);
+  removeQualification(
+    @Request() req: any,
+    @Param('id') qualificationId: string,
+  ) {
+    return this.teacherService.deleteQualification(
+      req.user.userId,
+      qualificationId,
+    );
   }
 
   // SECURITY: Rate limit availability changes to prevent excessive updates
@@ -104,7 +123,10 @@ export class TeacherController {
   @Post('me/availability/bulk')
   @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 bulk updates per minute (teachers may adjust multiple times)
   @RequiresApproval()
-  setBulkAvailability(@Request() req: any, @Body() dto: { slots: CreateAvailabilityDto[] }) {
+  setBulkAvailability(
+    @Request() req: any,
+    @Body() dto: { slots: CreateAvailabilityDto[] },
+  ) {
     return this.teacherService.replaceAvailability(req.user.userId, dto.slots);
   }
 
@@ -145,7 +167,7 @@ export class TeacherController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 document uploads per minute
   addDocument(
     @Request() req: any,
-    @Body() dto: { type: string; fileKey: string; fileName: string }
+    @Body() dto: { type: string; fileKey: string; fileName: string },
   ) {
     return this.teacherService.addDocument(req.user.userId, dto);
   }
@@ -186,7 +208,10 @@ export class TeacherController {
   async getSlugInfo(@Request() req: any) {
     const profile = await this.teacherService.getProfile(req.user.userId);
     const suggestedSlug = profile.displayName
-      ? await this.slugService.generateUniqueSlug(profile.displayName, profile.id)
+      ? await this.slugService.generateUniqueSlug(
+          profile.displayName,
+          profile.id,
+        )
       : null;
 
     return {
@@ -201,7 +226,10 @@ export class TeacherController {
    * Check if a slug is available
    */
   @Get('me/slug/check')
-  async checkSlugAvailability(@Request() req: any, @Query('slug') slug: string) {
+  async checkSlugAvailability(
+    @Request() req: any,
+    @Query('slug') slug: string,
+  ) {
     const profile = await this.teacherService.getProfile(req.user.userId);
 
     // Validate format
@@ -254,7 +282,7 @@ export class TeacherController {
   @RequiresApproval()
   async updatePackageSettings(
     @Request() req: any,
-    @Body() dto: UpdateTeacherDemoSettingsDto
+    @Body() dto: UpdateTeacherDemoSettingsDto,
   ) {
     const profile = await this.teacherService.getProfile(req.user.userId);
     return this.packageService.updateTeacherDemoSettings(profile.id, dto);
@@ -269,10 +297,14 @@ export class TeacherController {
   async updateTierSetting(
     @Request() req: any,
     @Param('tierId') tierId: string,
-    @Body() dto: UpdateTeacherTierSettingDto
+    @Body() dto: UpdateTeacherTierSettingDto,
   ) {
     const profile = await this.teacherService.getProfile(req.user.userId);
-    return this.packageService.updateTeacherTierSetting(profile.id, tierId, dto);
+    return this.packageService.updateTeacherTierSetting(
+      profile.id,
+      tierId,
+      dto,
+    );
   }
 
   // ============ Vacation Mode ============
@@ -296,7 +328,7 @@ export class TeacherController {
 
   /**
    * Update vacation mode (enable/disable)
-   * 
+   *
    * When enabling:
    * - returnDate is REQUIRED
    * - Will check for pending bookings (HARD BLOCK if exist)
@@ -307,9 +339,9 @@ export class TeacherController {
   @RequiresApproval()
   updateVacationMode(
     @Request() req: any,
-    @Body() dto: { isOnVacation: boolean; returnDate?: string; reason?: string }
+    @Body()
+    dto: { isOnVacation: boolean; returnDate?: string; reason?: string },
   ) {
     return this.teacherService.updateVacationMode(req.user.userId, dto);
   }
 }
-

@@ -112,6 +112,10 @@ export interface Subject {
 export interface PlatformConfig {
     defaultSessionDurationMinutes: number;
     allowedSessionDurations: number[];
+    searchConfig?: {
+        enableGenderFilter?: boolean;
+        enablePriceFilter?: boolean;
+    };
 }
 
 export const marketplaceApi = {

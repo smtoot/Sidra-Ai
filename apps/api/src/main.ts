@@ -6,17 +6,21 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
 
   // SECURITY: Enable global validation for all DTOs
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,              // Strip properties not in DTO
-    forbidNonWhitelisted: true,   // Throw error on unknown properties
-    transform: true,              // Auto-transform payloads to DTO instances
-    transformOptions: {
-      enableImplicitConversion: false  // Require explicit @Type() decorators
-    }
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Strip properties not in DTO
+      forbidNonWhitelisted: true, // Throw error on unknown properties
+      transform: true, // Auto-transform payloads to DTO instances
+      transformOptions: {
+        enableImplicitConversion: false, // Require explicit @Type() decorators
+      },
+    }),
+  );
 
   // SECURITY: Restrict CORS to allowed origins only
   // Default includes common Next.js dev ports (3000, 3001, 3002)
@@ -36,7 +40,7 @@ async function bootstrap() {
         callback(new Error(`Origin ${origin} not allowed by CORS policy`));
       }
     },
-    credentials: true,  // Allow cookies and authorization headers
+    credentials: true, // Allow cookies and authorization headers
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });

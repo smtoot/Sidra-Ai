@@ -1,6 +1,23 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { MarketplaceService } from './marketplace.service';
-import { CreateCurriculumDto, UpdateCurriculumDto, CreateSubjectDto, UpdateSubjectDto, UserRole, SearchTeachersDto } from '@sidra/shared';
+import {
+  CreateCurriculumDto,
+  UpdateCurriculumDto,
+  CreateSubjectDto,
+  UpdateSubjectDto,
+  UserRole,
+  SearchTeachersDto,
+} from '@sidra/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -8,7 +25,7 @@ import { Public } from '../auth/public.decorator';
 
 @Controller('marketplace')
 export class MarketplaceController {
-  constructor(private readonly marketplaceService: MarketplaceService) { }
+  constructor(private readonly marketplaceService: MarketplaceService) {}
 
   // --- Platform Configuration (Public) ---
   @Public()
@@ -103,13 +120,24 @@ export class MarketplaceController {
   @Post('stages')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  createStage(@Body() dto: { curriculumId: string; nameAr: string; nameEn: string; sequence: number }) {
+  createStage(
+    @Body()
+    dto: {
+      curriculumId: string;
+      nameAr: string;
+      nameEn: string;
+      sequence: number;
+    },
+  ) {
     return this.marketplaceService.createStage(dto);
   }
 
   @Public()
   @Get('stages')
-  findAllStages(@Query('curriculumId') curriculumId?: string, @Query('all') all?: string) {
+  findAllStages(
+    @Query('curriculumId') curriculumId?: string,
+    @Query('all') all?: string,
+  ) {
     const includeInactive = all === 'true';
     return this.marketplaceService.findAllStages(curriculumId, includeInactive);
   }
@@ -123,7 +151,16 @@ export class MarketplaceController {
   @Patch('stages/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  updateStage(@Param('id') id: string, @Body() dto: { nameAr?: string; nameEn?: string; sequence?: number; isActive?: boolean }) {
+  updateStage(
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      nameAr?: string;
+      nameEn?: string;
+      sequence?: number;
+      isActive?: boolean;
+    },
+  ) {
     return this.marketplaceService.updateStage(id, dto);
   }
 
@@ -139,13 +176,25 @@ export class MarketplaceController {
   @Post('grades')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  createGrade(@Body() dto: { stageId: string; nameAr: string; nameEn: string; code: string; sequence: number }) {
+  createGrade(
+    @Body()
+    dto: {
+      stageId: string;
+      nameAr: string;
+      nameEn: string;
+      code: string;
+      sequence: number;
+    },
+  ) {
     return this.marketplaceService.createGrade(dto);
   }
 
   @Public()
   @Get('grades')
-  findAllGrades(@Query('stageId') stageId?: string, @Query('all') all?: string) {
+  findAllGrades(
+    @Query('stageId') stageId?: string,
+    @Query('all') all?: string,
+  ) {
     const includeInactive = all === 'true';
     return this.marketplaceService.findAllGrades(stageId, includeInactive);
   }
@@ -159,7 +208,17 @@ export class MarketplaceController {
   @Patch('grades/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  updateGrade(@Param('id') id: string, @Body() dto: { nameAr?: string; nameEn?: string; code?: string; sequence?: number; isActive?: boolean }) {
+  updateGrade(
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      nameAr?: string;
+      nameEn?: string;
+      code?: string;
+      sequence?: number;
+      isActive?: boolean;
+    },
+  ) {
     return this.marketplaceService.updateGrade(id, dto);
   }
 
@@ -189,16 +248,20 @@ export class MarketplaceController {
   getAvailableSlots(
     @Param('teacherId') teacherId: string,
     @Query('date') dateStr: string,
-    @Query('userTimezone') userTimezone?: string
+    @Query('userTimezone') userTimezone?: string,
   ) {
-    return this.marketplaceService.getAvailableSlots(teacherId, dateStr, userTimezone);
+    return this.marketplaceService.getAvailableSlots(
+      teacherId,
+      dateStr,
+      userTimezone,
+    );
   }
 
   @Public()
   @Get('teachers/:teacherId/availability-calendar')
   getAvailabilityCalendar(
     @Param('teacherId') teacherId: string,
-    @Query('month') month: string
+    @Query('month') month: string,
   ) {
     return this.marketplaceService.getAvailabilityCalendar(teacherId, month);
   }
@@ -210,14 +273,14 @@ export class MarketplaceController {
     @Query('weekday') weekday: string,
     @Query('time') time: string,
     @Query('sessionCount') sessionCount: string,
-    @Query('duration') duration: string
+    @Query('duration') duration: string,
   ) {
     return this.marketplaceService.checkRecurringAvailability(
       teacherId,
       weekday,
       time,
       parseInt(sessionCount, 10),
-      parseInt(duration, 10)
+      parseInt(duration, 10),
     );
   }
 
@@ -226,12 +289,12 @@ export class MarketplaceController {
   getTeacherRatings(
     @Param('teacherId') teacherId: string,
     @Query('page') page?: string,
-    @Query('limit') limit?: string
+    @Query('limit') limit?: string,
   ) {
     return this.marketplaceService.getTeacherRatings(
       teacherId,
       page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10
+      limit ? parseInt(limit, 10) : 10,
     );
   }
 }

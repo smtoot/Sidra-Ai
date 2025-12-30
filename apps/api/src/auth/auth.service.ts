@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -9,7 +14,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
   /**
    * Validate password requirements
@@ -20,25 +25,35 @@ export class AuthService {
       throw new BadRequestException('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
     }
     if (!/[A-Z]/.test(password)) {
-      throw new BadRequestException('كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل');
+      throw new BadRequestException(
+        'كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل',
+      );
     }
     if (!/[a-z]/.test(password)) {
-      throw new BadRequestException('كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل');
+      throw new BadRequestException(
+        'كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل',
+      );
     }
     if (!/[0-9]/.test(password)) {
-      throw new BadRequestException('كلمة المرور يجب أن تحتوي على رقم واحد على الأقل');
+      throw new BadRequestException(
+        'كلمة المرور يجب أن تحتوي على رقم واحد على الأقل',
+      );
     }
   }
 
   async register(dto: RegisterDto) {
     // PHONE-FIRST: Check by phone number (primary identifier), not email
-    const existingByPhone = dto.phoneNumber ? await this.prisma.user.findFirst({
-      where: { phoneNumber: dto.phoneNumber },
-    }) : null;
+    const existingByPhone = dto.phoneNumber
+      ? await this.prisma.user.findFirst({
+          where: { phoneNumber: dto.phoneNumber },
+        })
+      : null;
 
     // P1-6 FIX: Use generic message to prevent account enumeration
     if (existingByPhone) {
-      throw new ConflictException('An account with these credentials already exists');
+      throw new ConflictException(
+        'An account with these credentials already exists',
+      );
     }
 
     // Optional: Also check email if provided
@@ -48,7 +63,9 @@ export class AuthService {
       });
       // P1-6 FIX: Use generic message to prevent account enumeration
       if (existingByEmail) {
-        throw new ConflictException('An account with these credentials already exists');
+        throw new ConflictException(
+          'An account with these credentials already exists',
+        );
       }
     }
 
@@ -97,12 +114,12 @@ export class AuthService {
     if (phoneNumber) {
       user = await this.prisma.user.findFirst({
         where: { phoneNumber },
-        include: { teacherProfile: true }
+        include: { teacherProfile: true },
       });
     } else if (email) {
       user = await this.prisma.user.findUnique({
         where: { email },
-        include: { teacherProfile: true }
+        include: { teacherProfile: true },
       });
     }
 
@@ -123,7 +140,7 @@ export class AuthService {
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,
-      displayName: user.teacherProfile?.displayName || undefined
+      displayName: user.teacherProfile?.displayName || undefined,
     });
   }
 
@@ -146,7 +163,11 @@ export class AuthService {
     return result;
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -155,7 +176,8 @@ export class AuthService {
 
     // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isMatch) throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
+    if (!isMatch)
+      throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
 
     // P1-5: Validate strong password requirements
     this.validateStrongPassword(newPassword);
@@ -174,7 +196,11 @@ export class AuthService {
     userId: string,
     email: string | undefined,
     role: string,
-    profileData?: { firstName?: string | null, lastName?: string | null, displayName?: string | null }
+    profileData?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      displayName?: string | null;
+    },
   ) {
     const payload = {
       sub: userId,
@@ -184,7 +210,7 @@ export class AuthService {
       lastName: profileData?.lastName || undefined,
       // If a specific displayName is provided (e.g. from teacher profile), use it.
       // Otherwise frontend can construct it from firstName/lastName.
-      displayName: profileData?.displayName || undefined
+      displayName: profileData?.displayName || undefined,
     };
 
     return {

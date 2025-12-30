@@ -5,8 +5,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 
 @Global()
 @Module({
-    imports: [PrismaModule],
-    providers: [ReadableIdService, SlugService],
-    exports: [ReadableIdService, SlugService],
+  imports: [PrismaModule],
+  providers: [ReadableIdService, SlugService],
+  exports: [ReadableIdService, SlugService],
 })
-export class CommonModule { }
+export class CommonModule {}

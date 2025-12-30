@@ -18,14 +18,14 @@ export class AppService {
         status: 'ok',
         timestamp: new Date().toISOString(),
         database: 'connected',
-        uptime: process.uptime()
+        uptime: process.uptime(),
       };
     } catch (error) {
       return {
         status: 'error',
         timestamp: new Date().toISOString(),
         database: 'disconnected',
-        error: error.message
+        error: error.message,
       };
     }
   }

@@ -39,6 +39,10 @@ export * from './src/utils/display-name.util';
 // Validators
 export * from './src/validators/password.validator';
 
+// Enums
+export * from './src/enums';
+
+
 // Global enums
 export enum UserRole {
     PARENT = 'PARENT',

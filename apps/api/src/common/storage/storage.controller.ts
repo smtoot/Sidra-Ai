@@ -1,18 +1,18 @@
 import {
-    Controller,
-    Post,
-    Get,
-    Delete,
-    Query,
-    UseGuards,
-    UseInterceptors,
-    UploadedFile,
-    Req,
-    Res,
-    HttpException,
-    HttpStatus,
-    BadRequestException,
-    Logger,
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Req,
+  Res,
+  HttpException,
+  HttpStatus,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtService } from '@nestjs/jwt';
@@ -21,7 +21,10 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { StorageService, UploadFolder } from './storage.service';
-import { validateMagicBytes, detectDangerousContent } from '../upload/file-validator';
+import {
+  validateMagicBytes,
+  detectDangerousContent,
+} from '../upload/file-validator';
 import type { Request, Response } from 'express';
 import { UserRole } from '@sidra/shared';
 import { Public } from '../../auth/public.decorator';
@@ -30,11 +33,18 @@ import { Public } from '../../auth/public.decorator';
  * Allowed folders for uploads.
  * Each folder has specific access control rules.
  */
-const ALLOWED_FOLDERS: UploadFolder[] = ['deposits', 'teacher-docs', 'disputes', 'profile-photos', 'intro-videos', 'dispute-evidence'];
+const ALLOWED_FOLDERS: UploadFolder[] = [
+  'deposits',
+  'teacher-docs',
+  'disputes',
+  'profile-photos',
+  'intro-videos',
+  'dispute-evidence',
+];
 
 /**
  * StorageController - Handles file upload, download, and deletion.
- * 
+ *
  * Security:
  * - All endpoints require authentication
  * - File access is validated by ownership or admin role
@@ -44,216 +54,226 @@ const ALLOWED_FOLDERS: UploadFolder[] = ['deposits', 'teacher-docs', 'disputes',
 @Controller('storage')
 @UseGuards(ThrottlerGuard, JwtAuthGuard, RolesGuard)
 export class StorageController {
-    private readonly logger = new Logger(StorageController.name);
+  private readonly logger = new Logger(StorageController.name);
 
-    constructor(
-        private readonly storageService: StorageService,
-        private readonly jwtService: JwtService,
-    ) { }
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-    /**
-     * Upload a file.
-     * 
-     * POST /upload
-     * Body: multipart/form-data with file and folder fields
-     * Returns: { fileKey }
-     */
-    @Post()
-    @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 uploads per minute
-    @UseInterceptors(FileInterceptor('file', {
-        limits: {
-            fileSize: 50 * 1024 * 1024, // 50MB (for videos)
-        },
-    }))
-    async uploadFile(
-        @UploadedFile() file: Express.Multer.File,
-        @Query('folder') folder: string,
-        @Req() req: Request,
-    ) {
-        if (!file) {
-            throw new BadRequestException('No file provided');
-        }
-
-        if (!ALLOWED_FOLDERS.includes(folder as UploadFolder)) {
-            throw new BadRequestException(`Invalid folder. Allowed: ${ALLOWED_FOLDERS.join(', ')}`);
-        }
-
-        const userId = (req.user as any)?.userId;
-        if (!userId) {
-            throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
-        }
-
-        try {
-            // Check for dangerous content first (executables, scripts, etc.)
-            const dangerousContent = detectDangerousContent(file.buffer);
-            if (dangerousContent) {
-                this.logger.warn(`Dangerous file upload blocked from user ${userId}: ${dangerousContent}`);
-                throw new BadRequestException(`Dangerous file type detected: ${dangerousContent}`);
-            }
-
-            // Validate file MIME type and size
-            this.storageService.validateFile(file.buffer, file.mimetype);
-
-            // Validate magic bytes match claimed MIME type
-            validateMagicBytes(file.buffer, file.mimetype);
-
-            // Generate upload target
-            const { fileKey } = this.storageService.generateUploadTarget(
-                file.originalname,
-                folder as UploadFolder,
-                userId,
-            );
-
-            // Save file (pass content type for R2)
-            await this.storageService.saveFile(file.buffer, fileKey, file.mimetype);
-
-            // Get URL for the uploaded file
-            const url = await this.storageService.getFileUrl(fileKey);
-
-            return {
-                fileKey,
-                url,
-                message: 'File uploaded successfully',
-            };
-        } catch (error: any) {
-            throw new BadRequestException(error.message || 'File upload failed');
-        }
+  /**
+   * Upload a file.
+   *
+   * POST /upload
+   * Body: multipart/form-data with file and folder fields
+   * Returns: { fileKey }
+   */
+  @Post()
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 uploads per minute
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB (for videos)
+      },
+    }),
+  )
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('folder') folder: string,
+    @Req() req: Request,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
     }
 
-    /**
-     * Get URL for a file.
-     *
-     * GET /storage/url?key=...
-     * Returns a URL (signed for private files, direct for public files)
-     */
-    @Get('url')
-    async getFileUrl(
-        @Query('key') fileKey: string,
-        @Req() req: Request,
-    ) {
-        if (!fileKey) {
-            throw new BadRequestException('File key is required');
-        }
-
-        const userId = (req.user as any)?.userId;
-        const userRole = (req.user as any)?.role;
-
-        // Public folders - accessible without ownership check
-        const folder = fileKey.split('/')[0];
-        const isPublicFile = this.storageService.isPublicFolder(folder);
-
-        if (!isPublicFile) {
-            // Validate ownership or admin access for private files
-            const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
-            const isOwner = fileOwnerId === userId;
-            const isAdmin = userRole === 'ADMIN';
-
-            if (!isOwner && !isAdmin) {
-                throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
-            }
-        }
-
-        const exists = await this.storageService.fileExists(fileKey);
-        if (!exists) {
-            throw new HttpException('File not found', HttpStatus.NOT_FOUND);
-        }
-
-        const url = await this.storageService.getFileUrl(fileKey);
-        return { url };
+    if (!ALLOWED_FOLDERS.includes(folder as UploadFolder)) {
+      throw new BadRequestException(
+        `Invalid folder. Allowed: ${ALLOWED_FOLDERS.join(', ')}`,
+      );
     }
 
-    /**
-     * Download/view a file.
-     * 
-     * GET /storage/file?key=...
-     * Access: Public for profile-photos/intro-videos, Owner or Admin for others
-     */
-    @Get('file')
-    @Public() // Allow unauthenticated access - internal logic handles folder-based access control
-    async getFile(
-        @Query('key') fileKey: string,
-        @Req() req: Request,
-        @Res() res: Response,
-    ) {
-        if (!fileKey) {
-            throw new BadRequestException('File key is required');
-        }
-
-        // For @Public() routes, req.user is not populated by the guard
-        // So we manually extract user info from the Authorization header if present
-        let userId: string | undefined;
-        let userRole: string | undefined;
-
-        const authHeader = req.headers.authorization;
-
-        if (authHeader?.startsWith('Bearer ')) {
-            try {
-                const token = authHeader.substring(7);
-                const payload = this.jwtService.verify(token);
-                userId = payload.sub;  // JWT uses 'sub' for userId
-                userRole = payload.role;
-            } catch {
-                // Token invalid or expired - treat as unauthenticated
-            }
-        }
-
-        // Public folders - accessible without authentication
-        const publicFolders = ['profile-photos', 'intro-videos'];
-        const isPublicFile = publicFolders.some(folder => fileKey.startsWith(folder + '/'));
-
-        // Skip ownership check for public files
-        if (!isPublicFile) {
-            // Validate ownership or admin access for private files
-            const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
-            const isOwner = fileOwnerId === userId;
-            const isAdmin = userRole === 'ADMIN';
-
-            if (!isOwner && !isAdmin) {
-                this.logger.warn(`Unauthorized file access attempt: ${fileKey} by user ${userId || 'anonymous'}`);
-                throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
-            }
-        }
-
-        // Check if file exists
-        const exists = await this.storageService.fileExists(fileKey);
-        if (!exists) {
-            throw new HttpException('File not found', HttpStatus.NOT_FOUND);
-        }
-
-        // Stream file to response
-        const stream = this.storageService.getFileStream(fileKey);
-        const contentType = this.storageService.getContentType(fileKey);
-
-        res.set({
-            'Content-Type': contentType,
-            'Cache-Control': 'private, max-age=3600',
-        });
-
-        stream.pipe(res);
+    const userId = (req.user as any)?.userId;
+    if (!userId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
-    /**
-     * Delete a file.
-     * 
-     * DELETE /upload?key=...
-     * Access: Admin only
-     */
-    @Delete()
-    @Roles(UserRole.ADMIN)
-    async deleteFile(
-        @Query('key') fileKey: string,
-    ) {
-        if (!fileKey) {
-            throw new BadRequestException('File key is required');
-        }
+    try {
+      // Check for dangerous content first (executables, scripts, etc.)
+      const dangerousContent = detectDangerousContent(file.buffer);
+      if (dangerousContent) {
+        this.logger.warn(
+          `Dangerous file upload blocked from user ${userId}: ${dangerousContent}`,
+        );
+        throw new BadRequestException(
+          `Dangerous file type detected: ${dangerousContent}`,
+        );
+      }
 
-        const exists = await this.storageService.fileExists(fileKey);
-        if (!exists) {
-            throw new HttpException('File not found', HttpStatus.NOT_FOUND);
-        }
+      // Validate file MIME type and size
+      this.storageService.validateFile(file.buffer, file.mimetype);
 
-        await this.storageService.deleteFile(fileKey);
+      // Validate magic bytes match claimed MIME type
+      validateMagicBytes(file.buffer, file.mimetype);
 
-        return { message: 'File deleted successfully' };
+      // Generate upload target
+      const { fileKey } = this.storageService.generateUploadTarget(
+        file.originalname,
+        folder as UploadFolder,
+        userId,
+      );
+
+      // Save file (pass content type for R2)
+      await this.storageService.saveFile(file.buffer, fileKey, file.mimetype);
+
+      // Get URL for the uploaded file
+      const url = await this.storageService.getFileUrl(fileKey);
+
+      return {
+        fileKey,
+        url,
+        message: 'File uploaded successfully',
+      };
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'File upload failed');
     }
+  }
+
+  /**
+   * Get URL for a file.
+   *
+   * GET /storage/url?key=...
+   * Returns a URL (signed for private files, direct for public files)
+   */
+  @Get('url')
+  async getFileUrl(@Query('key') fileKey: string, @Req() req: Request) {
+    if (!fileKey) {
+      throw new BadRequestException('File key is required');
+    }
+
+    const userId = (req.user as any)?.userId;
+    const userRole = (req.user as any)?.role;
+
+    // Public folders - accessible without ownership check
+    const folder = fileKey.split('/')[0];
+    const isPublicFile = this.storageService.isPublicFolder(folder);
+
+    if (!isPublicFile) {
+      // Validate ownership or admin access for private files
+      const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
+      const isOwner = fileOwnerId === userId;
+      const isAdmin = userRole === 'ADMIN';
+
+      if (!isOwner && !isAdmin) {
+        throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
+      }
+    }
+
+    const exists = await this.storageService.fileExists(fileKey);
+    if (!exists) {
+      throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+    }
+
+    const url = await this.storageService.getFileUrl(fileKey);
+    return { url };
+  }
+
+  /**
+   * Download/view a file.
+   *
+   * GET /storage/file?key=...
+   * Access: Public for profile-photos/intro-videos, Owner or Admin for others
+   */
+  @Get('file')
+  @Public() // Allow unauthenticated access - internal logic handles folder-based access control
+  async getFile(
+    @Query('key') fileKey: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    if (!fileKey) {
+      throw new BadRequestException('File key is required');
+    }
+
+    // For @Public() routes, req.user is not populated by the guard
+    // So we manually extract user info from the Authorization header if present
+    let userId: string | undefined;
+    let userRole: string | undefined;
+
+    const authHeader = req.headers.authorization;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const payload = this.jwtService.verify(token);
+        userId = payload.sub; // JWT uses 'sub' for userId
+        userRole = payload.role;
+      } catch {
+        // Token invalid or expired - treat as unauthenticated
+      }
+    }
+
+    // Public folders - accessible without authentication
+    const publicFolders = ['profile-photos', 'intro-videos'];
+    const isPublicFile = publicFolders.some((folder) =>
+      fileKey.startsWith(folder + '/'),
+    );
+
+    // Skip ownership check for public files
+    if (!isPublicFile) {
+      // Validate ownership or admin access for private files
+      const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
+      const isOwner = fileOwnerId === userId;
+      const isAdmin = userRole === 'ADMIN';
+
+      if (!isOwner && !isAdmin) {
+        this.logger.warn(
+          `Unauthorized file access attempt: ${fileKey} by user ${userId || 'anonymous'}`,
+        );
+        throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
+      }
+    }
+
+    // Check if file exists
+    const exists = await this.storageService.fileExists(fileKey);
+    if (!exists) {
+      throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Stream file to response
+    const stream = this.storageService.getFileStream(fileKey);
+    const contentType = this.storageService.getContentType(fileKey);
+
+    res.set({
+      'Content-Type': contentType,
+      'Cache-Control': 'private, max-age=3600',
+    });
+
+    stream.pipe(res);
+  }
+
+  /**
+   * Delete a file.
+   *
+   * DELETE /upload?key=...
+   * Access: Admin only
+   */
+  @Delete()
+  @Roles(UserRole.ADMIN)
+  async deleteFile(@Query('key') fileKey: string) {
+    if (!fileKey) {
+      throw new BadRequestException('File key is required');
+    }
+
+    const exists = await this.storageService.fileExists(fileKey);
+    if (!exists) {
+      throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+    }
+
+    await this.storageService.deleteFile(fileKey);
+
+    return { message: 'File deleted successfully' };
+  }
 }

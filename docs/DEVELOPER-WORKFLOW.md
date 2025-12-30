@@ -317,12 +317,14 @@ git push origin develop
 | API | `https://sidra-backend-production.up.railway.app` |
 | API Health | `https://sidra-backend-production.up.railway.app/health` |
 
-### Future Custom Domains
+### Custom Domains (via Cloudflare)
 
 | Service | Staging | Production |
 |---------|---------|------------|
 | Web | `staging.sidra.sd` | `sidra.sd` / `www.sidra.sd` |
 | API | `api-staging.sidra.sd` | `api.sidra.sd` |
+
+> **Setup Guide:** See [CLOUDFLARE-RAILWAY-SETUP.md](./CLOUDFLARE-RAILWAY-SETUP.md) for complete domain configuration instructions.
 
 ---
 
