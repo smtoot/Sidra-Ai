@@ -64,4 +64,4 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 # Start command: run migrations and start the server
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/src/main.js"]
