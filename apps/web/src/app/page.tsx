@@ -1,8 +1,6 @@
 'use client';
 
 import {
-  PublicNavbar,
-  Footer,
   HeroSection,
   FeaturedTeachers,
   SubjectCategories,
@@ -13,8 +11,6 @@ import {
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white font-tajawal rtl">
-      <PublicNavbar />
-
       <main>
         {/* Hero with Search */}
         <HeroSection />
@@ -31,8 +27,6 @@ export default function HomePage() {
         {/* Teacher CTA */}
         <TeacherCTA />
       </main>
-
-      <Footer />
     </div>
   );
 }
