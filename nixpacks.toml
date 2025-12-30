@@ -1,22 +1,20 @@
-# Nixpacks configuration for Sidra Monorepo
-# Use RAILWAY_SERVICE_NAME env var to determine which app to build
+# Nixpacks configuration for Sidra API (NestJS)
+# This file should be at the repository root for monorepo builds
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "openssl_3"]
-aptPkgs = ["openssl", "libssl3", "ca-certificates"]
+nixPkgs = ["nodejs_20", "openssl"]
 
 [phases.install]
 cmds = [
   "npm install",
-  "cd packages/database && npx prisma generate"
+  "npx prisma generate --schema=packages/database/prisma/schema.prisma"
 ]
 
 [phases.build]
 cmds = [
   "npm run build --workspace=packages/shared",
-  "if [ \"$RAILWAY_SERVICE_NAME\" = \"Sidra-Ai\" ]; then npm run build --workspace=apps/api; fi",
-  "if [ \"$RAILWAY_SERVICE_NAME\" = \"perfect-youthfulness\" ]; then npm run build --workspace=apps/web; fi"
+  "npm run build --workspace=apps/api"
 ]
 
 [start]
-cmd = "if [ \"$RAILWAY_SERVICE_NAME\" = \"Sidra-Ai\" ]; then cd packages/database && npx prisma migrate deploy && cd ../../apps/api && npm run start:prod; else npm run start --workspace=apps/web; fi"
+cmd = "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/main.js"
