@@ -15,8 +15,6 @@ const FOOTER_LINKS = {
     legal: [
         { href: '/terms', label: 'شروط الاستخدام' },
         { href: '/privacy', label: 'سياسة الخصوصية' },
-        { href: '/privacy', label: 'سياسة الخصوصية' },
-        { href: '/terms', label: 'سياسة الاسترداد' },
     ],
     subjects: [
         { href: '/subjects/math', label: 'الرياضيات' },
