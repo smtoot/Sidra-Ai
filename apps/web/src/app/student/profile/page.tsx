@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     User, Phone, Mail, MapPin, MessageCircle, BookOpen,
-    Edit2, Save, X, Loader2, GraduationCap, FileText, Camera
+    Edit2, Save, X, Loader2, GraduationCap, FileText, Camera,
+    AlertCircle, CheckCircle, Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PhotoUploadField } from '@/components/teacher/shared/PhotoUploadField';
@@ -36,6 +37,7 @@ export default function StudentProfilePage() {
     const { updateUser } = useAuth();
     const [profile, setProfile] = useState<StudentProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
@@ -57,6 +59,7 @@ export default function StudentProfilePage() {
 
     const loadProfile = async () => {
         setLoading(true);
+        setError(false);
         try {
             const data = await studentApi.getProfile();
             setProfile(data);
@@ -70,8 +73,9 @@ export default function StudentProfilePage() {
                 bio: data.bio || '',
                 profilePhotoUrl: data.profilePhotoUrl || '',
             });
-        } catch (error) {
-            console.error('Failed to load profile', error);
+        } catch (err) {
+            console.error('Failed to load profile', err);
+            setError(true);
             toast.error('فشل تحميل الملف الشخصي');
         } finally {
             setLoading(false);
@@ -82,13 +86,12 @@ export default function StudentProfilePage() {
         setSaving(true);
         try {
             await studentApi.updateProfile(formData);
-            // Update auth context so sidebar shows new name immediately
             updateUser({ firstName: formData.firstName, lastName: formData.lastName });
-            toast.success('تم حفظ التغييرات بنجاح ✓');
+            toast.success('تم حفظ التغييرات بنجاح');
             setIsEditing(false);
             await loadProfile();
-        } catch (error) {
-            console.error('Failed to save profile', error);
+        } catch (err) {
+            console.error('Failed to save profile', err);
             toast.error('فشل حفظ التغييرات');
         } finally {
             setSaving(false);
@@ -115,11 +118,30 @@ export default function StudentProfilePage() {
         setFormData(f => ({ ...f, profilePhotoUrl: url || '' }));
     };
 
+    // Calculate profile completeness
+    const calculateCompleteness = () => {
+        if (!profile) return 0;
+        const fields = [
+            profile.user?.firstName,
+            profile.user?.lastName,
+            profile.profilePhotoUrl,
+            profile.gradeLevel,
+            profile.whatsappNumber,
+            profile.country,
+            profile.city,
+            profile.bio,
+        ];
+        const filled = fields.filter(Boolean).length;
+        return Math.round((filled / fields.length) * 100);
+    };
+
+    const completeness = calculateCompleteness();
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
                 <div className="max-w-4xl mx-auto">
-                    <Card>
+                    <Card className="border-none shadow-md">
                         <CardContent className="p-12 text-center">
                             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary-600" />
                             <p className="text-gray-500">جاري التحميل...</p>
@@ -130,49 +152,98 @@ export default function StudentProfilePage() {
         );
     }
 
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
+                <div className="max-w-4xl mx-auto">
+                    <Card className="border-none shadow-md bg-gradient-to-br from-red-50 to-red-100 border-r-4 border-r-red-500">
+                        <CardContent className="p-8 text-center">
+                            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-600" />
+                            <p className="text-red-700 font-semibold">حدث خطأ في تحميل الملف الشخصي</p>
+                            <Button variant="outline" className="mt-4" onClick={loadProfile}>
+                                إعادة المحاولة
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
+
     const displayName = `${profile?.user?.firstName || ''} ${profile?.user?.lastName || ''}`.trim() || 'طالب';
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">الملف الشخصي 👤</h1>
-                        <p className="text-gray-600 mt-1">معلوماتك الشخصية والتعليمية</p>
-                    </div>
-                    {!isEditing ? (
-                        <Button onClick={() => setIsEditing(true)} variant="outline">
-                            <Edit2 className="w-4 h-4 ml-2" />
-                            تعديل
-                        </Button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Button onClick={handleSave} disabled={saving}>
-                                {saving ? (
-                                    <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-                                ) : (
-                                    <Save className="w-4 h-4 ml-2" />
-                                )}
-                                {saving ? 'جاري الحفظ...' : 'حفظ'}
-                            </Button>
-                            <Button onClick={handleCancel} variant="outline" disabled={saving}>
-                                <X className="w-4 h-4 ml-2" />
-                                إلغاء
-                            </Button>
+                <header className="mb-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <h1 className="text-3xl md:text-4xl font-bold text-gray-900">الملف الشخصي</h1>
+                            </div>
+                            <p className="text-gray-600 flex items-center gap-2">
+                                <User className="w-5 h-5" />
+                                <span>معلوماتك الشخصية والتعليمية</span>
+                            </p>
                         </div>
-                    )}
-                </div>
+                        {!isEditing ? (
+                            <Button onClick={() => setIsEditing(true)} className="gap-2 bg-primary-700 hover:bg-primary-800">
+                                <Edit2 className="w-4 h-4" />
+                                تعديل الملف
+                            </Button>
+                        ) : (
+                            <div className="flex gap-2">
+                                <Button onClick={handleSave} disabled={saving} className="gap-2 bg-success-600 hover:bg-success-700">
+                                    {saving ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Save className="w-4 h-4" />
+                                    )}
+                                    {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                                </Button>
+                                <Button onClick={handleCancel} variant="outline" disabled={saving} className="gap-2">
+                                    <X className="w-4 h-4" />
+                                    إلغاء
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </header>
 
-                {/* Profile Photo Section */}
-                <Card className="border-r-4 border-r-blue-500">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Camera className="w-5 h-5 text-blue-500" />
-                            الصورة الشخصية
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                {/* Profile Completeness Card */}
+                {!isEditing && completeness < 100 && (
+                    <Card className="border-warning-200 bg-gradient-to-br from-warning-50 to-orange-50 border-r-4 border-r-warning-500 shadow-md">
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-warning-100 rounded-full flex items-center justify-center">
+                                    <Shield className="w-7 h-7 text-warning-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="font-bold text-warning-800">اكتمال الملف الشخصي</p>
+                                        <span className="text-warning-700 font-bold">{completeness}%</span>
+                                    </div>
+                                    <div className="w-full bg-warning-200 rounded-full h-2.5">
+                                        <div
+                                            className="bg-warning-500 h-2.5 rounded-full transition-all duration-500"
+                                            style={{ width: `${completeness}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-warning-700 text-sm mt-2">
+                                        أكمل ملفك الشخصي لتحصل على تجربة أفضل مع المعلمين
+                                    </p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Profile Header Card with Photo */}
+                <Card className="border-none shadow-md bg-gradient-to-br from-primary-50 to-white relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-40 h-40 bg-primary-100/50 rounded-full -translate-x-1/2 -translate-y-1/2" />
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-primary-100/30 rounded-full translate-x-1/2 translate-y-1/2" />
+                    <CardContent className="p-6 relative z-10">
                         <div className="flex flex-col md:flex-row items-center gap-6">
                             {isEditing ? (
                                 <PhotoUploadField
@@ -183,52 +254,70 @@ export default function StudentProfilePage() {
                                     folder="profile-photos"
                                 />
                             ) : (
-                                <div className="flex items-center gap-4">
+                                <div className="relative">
                                     <Avatar
                                         src={profile?.profilePhotoUrl ? getFileUrl(profile.profilePhotoUrl) : undefined}
                                         fallback={displayName[0]?.toUpperCase() || 'ط'}
                                         size="xl"
+                                        className="ring-4 ring-white shadow-lg"
                                     />
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900">{displayName}</h3>
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            {profile?.gradeLevel || 'لم يتم تحديد المرحلة الدراسية'}
-                                        </p>
-                                    </div>
+                                    {profile?.profilePhotoUrl && (
+                                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-success-500 rounded-full flex items-center justify-center ring-2 ring-white">
+                                            <CheckCircle className="w-4 h-4 text-white" />
+                                        </div>
+                                    )}
                                 </div>
                             )}
+                            <div className="text-center md:text-right flex-1">
+                                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{displayName}</h2>
+                                {profile?.gradeLevel && (
+                                    <div className="inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-medium">
+                                        <GraduationCap className="w-4 h-4" />
+                                        {profile.gradeLevel}
+                                    </div>
+                                )}
+                                {profile?.city && profile?.country && (
+                                    <p className="text-gray-500 mt-2 flex items-center justify-center md:justify-start gap-1">
+                                        <MapPin className="w-4 h-4" />
+                                        {profile.city}، {profile.country}
+                                    </p>
+                                )}
+                                {!isEditing && !profile?.profilePhotoUrl && (
+                                    <p className="text-sm text-gray-400 mt-3 flex items-center justify-center md:justify-start gap-1">
+                                        <Camera className="w-4 h-4" />
+                                        أضف صورة شخصية لتعريف المعلمين بك
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                        {!isEditing && !profile?.profilePhotoUrl && (
-                            <p className="text-sm text-gray-400 mt-4">
-                                💡 أضف صورة شخصية لتعريف المعلمين بك
-                            </p>
-                        )}
                     </CardContent>
                 </Card>
 
                 {/* Personal Information */}
-                <Card className="border-r-4 border-r-primary-600">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <User className="w-5 h-5 text-primary-600" />
+                <Card className="border-none shadow-md">
+                    <CardHeader className="border-b bg-gray-50/50">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                                <User className="w-4 h-4 text-primary-600" />
+                            </div>
                             المعلومات الشخصية
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid md:grid-cols-2 gap-4">
+                    <CardContent className="p-6">
+                        <div className="grid md:grid-cols-2 gap-5">
                             {/* First Name */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">الاسم الأول</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">الاسم الأول</label>
                                 {isEditing ? (
                                     <input
                                         type="text"
                                         value={formData.firstName}
                                         onChange={(e) => setFormData(f => ({ ...f, firstName: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                                         placeholder="الاسم الأول"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
+                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
                                         {profile?.user?.firstName || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -236,17 +325,17 @@ export default function StudentProfilePage() {
 
                             {/* Last Name */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">اسم العائلة</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">اسم العائلة</label>
                                 {isEditing ? (
                                     <input
                                         type="text"
                                         value={formData.lastName}
                                         onChange={(e) => setFormData(f => ({ ...f, lastName: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                                         placeholder="اسم العائلة"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
+                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
                                         {profile?.user?.lastName || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -254,30 +343,30 @@ export default function StudentProfilePage() {
 
                             {/* Phone (Read-only) */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <Phone className="w-4 h-4 inline ml-1" />
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <Phone className="w-4 h-4 text-gray-500" />
                                     رقم الهاتف
                                 </label>
-                                <div className="p-3 bg-gray-100 rounded-lg text-gray-600">
-                                    {profile?.user?.phoneNumber || 'غير محدد'}
+                                <div className="p-3 bg-gray-100 rounded-xl text-gray-600 border border-gray-200">
+                                    <span dir="ltr">{profile?.user?.phoneNumber || 'غير محدد'}</span>
                                 </div>
                             </div>
 
                             {/* Email (Read-only) */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <Mail className="w-4 h-4 inline ml-1" />
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <Mail className="w-4 h-4 text-gray-500" />
                                     البريد الإلكتروني
                                 </label>
-                                <div className="p-3 bg-gray-100 rounded-lg text-gray-600">
+                                <div className="p-3 bg-gray-100 rounded-xl text-gray-600 border border-gray-200">
                                     {profile?.user?.email || 'غير محدد'}
                                 </div>
                             </div>
 
                             {/* WhatsApp */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <MessageCircle className="w-4 h-4 inline ml-1" />
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <MessageCircle className="w-4 h-4 text-green-600" />
                                     رقم واتساب
                                 </label>
                                 {isEditing ? (
@@ -285,12 +374,12 @@ export default function StudentProfilePage() {
                                         type="text"
                                         value={formData.whatsappNumber}
                                         onChange={(e) => setFormData(f => ({ ...f, whatsappNumber: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                                         placeholder="+249..."
                                         dir="ltr"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-lg text-gray-900" dir="ltr">
+                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100" dir="ltr">
                                         {profile?.whatsappNumber || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -298,8 +387,8 @@ export default function StudentProfilePage() {
 
                             {/* Country */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <MapPin className="w-4 h-4 inline ml-1" />
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <MapPin className="w-4 h-4 text-gray-500" />
                                     الدولة
                                 </label>
                                 {isEditing ? (
@@ -307,11 +396,11 @@ export default function StudentProfilePage() {
                                         type="text"
                                         value={formData.country}
                                         onChange={(e) => setFormData(f => ({ ...f, country: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                                         placeholder="السودان"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
+                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
                                         {profile?.country || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -319,17 +408,17 @@ export default function StudentProfilePage() {
 
                             {/* City */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">المدينة</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">المدينة</label>
                                 {isEditing ? (
                                     <input
                                         type="text"
                                         value={formData.city}
                                         onChange={(e) => setFormData(f => ({ ...f, city: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                                         placeholder="الخرطوم"
                                     />
                                 ) : (
-                                    <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
+                                    <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100">
                                         {profile?.city || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
@@ -339,72 +428,102 @@ export default function StudentProfilePage() {
                 </Card>
 
                 {/* Educational Information */}
-                <Card className="border-r-4 border-r-success-600">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <GraduationCap className="w-5 h-5 text-success-600" />
+                <Card className="border-none shadow-md">
+                    <CardHeader className="border-b bg-gray-50/50">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <div className="w-8 h-8 bg-success-100 rounded-lg flex items-center justify-center">
+                                <GraduationCap className="w-4 h-4 text-success-600" />
+                            </div>
                             المعلومات التعليمية
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {/* Grade Level */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    <BookOpen className="w-4 h-4 inline ml-1" />
-                                    المرحلة الدراسية
-                                </label>
-                                {isEditing ? (
-                                    <select
-                                        value={formData.gradeLevel}
-                                        onChange={(e) => setFormData(f => ({ ...f, gradeLevel: e.target.value }))}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                    >
-                                        <option value="">اختر المرحلة...</option>
+                    <CardContent className="p-6 space-y-5">
+                        {/* Grade Level */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                <BookOpen className="w-4 h-4 text-success-600" />
+                                المرحلة الدراسية
+                            </label>
+                            {isEditing ? (
+                                <select
+                                    value={formData.gradeLevel}
+                                    onChange={(e) => setFormData(f => ({ ...f, gradeLevel: e.target.value }))}
+                                    className="w-full md:w-1/2 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
+                                >
+                                    <option value="">اختر المرحلة...</option>
+                                    <optgroup label="المرحلة الابتدائية">
                                         <option value="ابتدائي 1">ابتدائي 1</option>
                                         <option value="ابتدائي 2">ابتدائي 2</option>
                                         <option value="ابتدائي 3">ابتدائي 3</option>
                                         <option value="ابتدائي 4">ابتدائي 4</option>
                                         <option value="ابتدائي 5">ابتدائي 5</option>
                                         <option value="ابتدائي 6">ابتدائي 6</option>
+                                    </optgroup>
+                                    <optgroup label="المرحلة المتوسطة">
                                         <option value="متوسط 1">متوسط 1</option>
                                         <option value="متوسط 2">متوسط 2</option>
                                         <option value="متوسط 3">متوسط 3</option>
+                                    </optgroup>
+                                    <optgroup label="المرحلة الثانوية">
                                         <option value="ثانوي 1">ثانوي 1</option>
                                         <option value="ثانوي 2">ثانوي 2</option>
                                         <option value="ثانوي 3">ثانوي 3</option>
+                                    </optgroup>
+                                    <optgroup label="التعليم العالي">
                                         <option value="جامعي">جامعي</option>
                                         <option value="دراسات عليا">دراسات عليا</option>
-                                    </select>
-                                ) : (
-                                    <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
-                                        {profile?.gradeLevel || <span className="text-gray-400">غير محدد</span>}
-                                    </div>
-                                )}
-                            </div>
+                                    </optgroup>
+                                </select>
+                            ) : (
+                                <div className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 w-full md:w-1/2">
+                                    {profile?.gradeLevel || <span className="text-gray-400">غير محدد</span>}
+                                </div>
+                            )}
                         </div>
 
                         {/* Bio */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                <FileText className="w-4 h-4 inline ml-1" />
+                            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                <FileText className="w-4 h-4 text-gray-500" />
                                 نبذة عني
                             </label>
                             {isEditing ? (
                                 <textarea
                                     value={formData.bio}
                                     onChange={(e) => setFormData(f => ({ ...f, bio: e.target.value }))}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px] resize-none"
-                                    placeholder="اكتب نبذة مختصرة عنك..."
+                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[120px] resize-none transition-all"
+                                    placeholder="اكتب نبذة مختصرة عنك واهتماماتك الدراسية..."
+                                    maxLength={500}
                                 />
                             ) : (
-                                <div className="p-3 bg-gray-50 rounded-lg text-gray-900 min-h-[60px]">
-                                    {profile?.bio || <span className="text-gray-400">لم تتم إضافة نبذة بعد</span>}
+                                <div className="p-4 bg-gray-50 rounded-xl text-gray-900 min-h-[80px] border border-gray-100">
+                                    {profile?.bio || <span className="text-gray-400">لم تتم إضافة نبذة بعد. أضف نبذة لتعريف المعلمين بك واهتماماتك الدراسية.</span>}
                                 </div>
+                            )}
+                            {isEditing && (
+                                <p className="text-xs text-gray-400 mt-1 text-left" dir="ltr">
+                                    {formData.bio.length}/500
+                                </p>
                             )}
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Save Actions (Mobile) */}
+                {isEditing && (
+                    <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg">
+                        <div className="flex gap-2">
+                            <Button onClick={handleSave} disabled={saving} className="flex-1 gap-2 bg-success-600 hover:bg-success-700">
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                {saving ? 'جاري الحفظ...' : 'حفظ'}
+                            </Button>
+                            <Button onClick={handleCancel} variant="outline" disabled={saving} className="gap-2">
+                                <X className="w-4 h-4" />
+                                إلغاء
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
