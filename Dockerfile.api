@@ -41,24 +41,15 @@ WORKDIR /app
 # Install OpenSSL for Prisma
 RUN apk add --no-cache openssl
 
-# Copy package files and install production dependencies
-COPY package*.json ./
-COPY apps/api/package*.json ./apps/api/
-COPY packages/database/package*.json ./packages/database/
-COPY packages/shared/package*.json ./packages/shared/
+# Copy the entire built workspace from builder
+# This preserves the workspace structure and symlinks
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api ./apps/api
+COPY --from=builder /app/packages ./packages
 
-RUN npm ci --omit=dev
-
-# Copy Prisma schema and migrations
-COPY packages/database/prisma ./packages/database/prisma
-
-# Generate Prisma client for production
+# Regenerate Prisma client for production (Alpine)
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
-
-# Copy built artifacts from builder
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/database/dist ./packages/database/dist
 
 # Expose port
 EXPOSE 3001
