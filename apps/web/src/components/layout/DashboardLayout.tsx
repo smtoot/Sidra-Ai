@@ -41,7 +41,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         pathname.startsWith('/admin') ||
         pathname.startsWith('/teacher') ||
         pathname.startsWith('/student') ||
-        pathname.startsWith('/parent');
+        pathname.startsWith('/parent') ||
+        pathname.startsWith('/support');
 
     // Exception: /teachers is likely public profile listing, not the /teacher dashboard
     // But currently /teacher is the dashboard route.
