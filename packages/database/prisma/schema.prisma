@@ -228,19 +228,24 @@ model StudentProfile {
   country         String? // Country of residence
   profilePhotoUrl String? // Profile photo URL
   schoolName      String? // School name (optional)
+  curriculumId    String? // Curriculum reference
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  curriculum      Curriculum?     @relation(fields: [curriculumId], references: [id])
   supportTickets  SupportTicket[] // Support tickets about this student
 
   @@map("student_profiles")
 }
 
 model Child {
-  id         String        @id @default(uuid())
-  parentId   String
-  name       String
-  gradeLevel String?
-  bookings   Booking[]
-  parent     ParentProfile @relation(fields: [parentId], references: [id])
+  id           String        @id @default(uuid())
+  parentId     String
+  name         String
+  gradeLevel   String? // Specific grade like "ابتدائي 3"
+  schoolName   String? // School name (optional)
+  curriculumId String? // Curriculum reference
+  bookings     Booking[]
+  parent       ParentProfile @relation(fields: [parentId], references: [id])
+  curriculum   Curriculum?   @relation(fields: [curriculumId], references: [id])
 
   @@map("children")
 }
@@ -255,6 +260,8 @@ model Curriculum {
   stages          EducationalStage[]
   subjects        CurriculumSubject[]
   teacherSubjects TeacherSubject[]
+  students        StudentProfile[] // Students following this curriculum
+  children        Child[] // Children (parent's kids) following this curriculum
 
   @@map("curricula")
 }

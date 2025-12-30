@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { studentApi } from '@/lib/api/student';
+import { studentApi, Curriculum } from '@/lib/api/student';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,8 @@ interface StudentProfile {
     country?: string;
     profilePhotoUrl?: string;
     schoolName?: string;
+    curriculumId?: string;
+    curriculum?: Curriculum;
     user: {
         id: string;
         email?: string;
@@ -53,11 +55,25 @@ export default function StudentProfilePage() {
         bio: '',
         profilePhotoUrl: '',
         schoolName: '',
+        curriculumId: '',
     });
+
+    // Curricula list
+    const [curricula, setCurricula] = useState<Curriculum[]>([]);
 
     useEffect(() => {
         loadProfile();
+        loadCurricula();
     }, []);
+
+    const loadCurricula = async () => {
+        try {
+            const data = await studentApi.getCurricula();
+            setCurricula(data);
+        } catch (err) {
+            console.error('Failed to load curricula', err);
+        }
+    };
 
     const loadProfile = async () => {
         setLoading(true);
@@ -75,6 +91,7 @@ export default function StudentProfilePage() {
                 bio: data.bio || '',
                 profilePhotoUrl: data.profilePhotoUrl || '',
                 schoolName: data.schoolName || '',
+                curriculumId: data.curriculumId || '',
             });
         } catch (err) {
             console.error('Failed to load profile', err);
@@ -113,6 +130,7 @@ export default function StudentProfilePage() {
                 bio: profile.bio || '',
                 profilePhotoUrl: profile.profilePhotoUrl || '',
                 schoolName: profile.schoolName || '',
+                curriculumId: profile.curriculumId || '',
             });
         }
         setIsEditing(false);
@@ -528,6 +546,34 @@ export default function StudentProfilePage() {
                                         onClick={() => setIsEditing(true)}
                                     >
                                         {profile?.schoolName || <span className="text-gray-400">غير محدد</span>}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Curriculum */}
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <BookOpen className="w-4 h-4 text-success-600" />
+                                    المنهج الدراسي
+                                    <span className="text-gray-400 text-xs">(اختياري)</span>
+                                </label>
+                                {isEditing ? (
+                                    <select
+                                        value={formData.curriculumId}
+                                        onChange={(e) => setFormData(f => ({ ...f, curriculumId: e.target.value }))}
+                                        className="w-full md:w-1/2 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
+                                    >
+                                        <option value="">اختر المنهج...</option>
+                                        {curricula.map((c) => (
+                                            <option key={c.id} value={c.id}>{c.nameAr}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div
+                                        className="p-3 bg-gray-50 rounded-xl text-gray-900 border border-gray-100 w-full md:w-1/2 cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => setIsEditing(true)}
+                                    >
+                                        {profile?.curriculum?.nameAr || <span className="text-gray-400">غير محدد</span>}
                                     </div>
                                 )}
                             </div>

@@ -1,5 +1,11 @@
-
 import { api } from '../api';
+
+export interface Curriculum {
+    id: string;
+    code: string;
+    nameAr: string;
+    nameEn: string;
+}
 
 export const parentApi = {
     getDashboardStats: async () => {
@@ -18,12 +24,16 @@ export const parentApi = {
         const response = await api.get('/parent/children');
         return response.data;
     },
-    addChild: async (data: { name: string; gradeLevel: string }) => {
+    addChild: async (data: { name: string; gradeLevel: string; schoolName?: string; curriculumId?: string }) => {
         const response = await api.post('/parent/children', data);
         return response.data;
     },
-    updateChild: async (id: string, data: { name?: string; gradeLevel?: string }) => {
+    updateChild: async (id: string, data: { name?: string; gradeLevel?: string; schoolName?: string; curriculumId?: string }) => {
         const response = await api.patch(`/parent/children/${id}`, data);
+        return response.data;
+    },
+    getCurricula: async (): Promise<Curriculum[]> => {
+        const response = await api.get('/parent/curricula');
         return response.data;
     }
 };

@@ -3,8 +3,15 @@ import { api } from '../api';
 export interface Child {
     id: string;
     name: string;
-    gradeLevel: string; // Updated from grade to gradeLevel to match backend
-    // gender/dob removed if not in backend MVP, checking usage.
+    gradeLevel: string;
+    schoolName?: string;
+    curriculumId?: string;
+    curriculum?: {
+        id: string;
+        code: string;
+        nameAr: string;
+        nameEn: string;
+    };
 }
 
 export interface UserProfile {
