@@ -19,7 +19,7 @@ export class WalletController {
     // SECURITY: Rate limit deposits to prevent transaction spam
     @Post('deposit')
     @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 deposits per minute
-    @Roles(UserRole.PARENT, UserRole.TEACHER)
+    @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.STUDENT)
     deposit(@Request() req: any, @Body() dto: DepositDto) {
         return this.walletService.deposit(req.user.userId, dto);
     }
