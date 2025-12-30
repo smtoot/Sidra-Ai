@@ -2,7 +2,8 @@
 # Use RAILWAY_SERVICE_NAME env var to determine which app to build
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "openssl"]
+nixPkgs = ["nodejs_20", "openssl_3"]
+aptPkgs = ["openssl", "libssl3", "ca-certificates"]
 
 [phases.install]
 cmds = [
