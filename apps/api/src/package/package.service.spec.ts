@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PackageService } from './package.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReadableIdService } from '../common/readable-id.service';
+import { NotificationService } from '../notification/notification.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -36,6 +38,16 @@ const mockStudentPackage = {
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     purchasedAt: new Date(),
     teacher: { userId: 'teacher-user-1' }
+};
+
+// Mock services
+const mockReadableIdService = {
+    generateId: jest.fn().mockReturnValue('PKG-2412-0001'),
+};
+
+const mockNotificationService = {
+    sendNotification: jest.fn().mockResolvedValue(undefined),
+    createNotification: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('PackageService', () => {
@@ -97,7 +109,9 @@ describe('PackageService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 PackageService,
-                { provide: PrismaService, useValue: mockPrismaBase }
+                { provide: PrismaService, useValue: mockPrismaBase },
+                { provide: ReadableIdService, useValue: mockReadableIdService },
+                { provide: NotificationService, useValue: mockNotificationService }
             ]
         }).compile();
 
