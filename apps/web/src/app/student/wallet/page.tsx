@@ -47,6 +47,10 @@ export default function StudentWalletPage() {
                 return 'دفع حجز';
             case 'REFUND':
                 return 'استرداد';
+            case 'PACKAGE_PURCHASE':
+                return 'شراء باقة';
+            case 'PACKAGE_RELEASE':
+                return 'إكمال حصة باقة';
             default:
                 return type;
         }
