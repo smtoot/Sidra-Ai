@@ -1,7 +1,7 @@
 FROM node:20-slim
 
-# Install OpenSSL for Prisma
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL for Prisma (required for Prisma engine binaries)
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
