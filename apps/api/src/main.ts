@@ -48,5 +48,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 4000);
 }
-// Trigger restart 2
+// Trigger redeploy for CORS fix - 2025-12-30
 bootstrap();
