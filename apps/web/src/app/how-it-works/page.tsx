@@ -15,12 +15,12 @@ export default function HowItWorksIndexPage() {
                             <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto mb-6 group-hover:scale-110 transition-transform">
                                 <GraduationCap className="w-10 h-10" />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-primary transition-colors">أنا طالب / ولي أمر</h2>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-primary transition-colors">كيف تساعدك سدرة كطالب؟</h2>
                             <p className="text-text-subtle mb-8 text-lg">
-                                أرغب في البحث عن معلمين متميزين وحجز حصص تعليمية.
+                                اكتشف كيف نسهل عليك رحلة البحث عن المعلم المثالي والتعلم بمرونة وأمان.
                             </p>
                             <span className="text-primary font-bold flex items-center justify-center gap-2">
-                                اكتشف كيف يعمل للطلاب
+                                اكتشف تجربة الطالب
                                 <span className="text-xl">&larr;</span>
                             </span>
                         </div>
@@ -32,12 +32,12 @@ export default function HowItWorksIndexPage() {
                             <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center text-accent mx-auto mb-6 group-hover:scale-110 transition-transform">
                                 <School className="w-10 h-10" />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-accent transition-colors">أنا معلم</h2>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-accent transition-colors">كيف تساعدك سدرة كمعلم؟</h2>
                             <p className="text-text-subtle mb-8 text-lg">
-                                أرغب في الانضمام للمنصة وتقديم الدروس للطلاب.
+                                تعرف على الأدوات التي نقدمها لتمكينك من التدريس وبناء دخلك الخاص بحرية.
                             </p>
                             <span className="text-accent font-bold flex items-center justify-center gap-2">
-                                اكتشف كيف يعمل للمعلمين
+                                اكتشف تجربة المعلم
                                 <span className="text-xl">&larr;</span>
                             </span>
                         </div>
