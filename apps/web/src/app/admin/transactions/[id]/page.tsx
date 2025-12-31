@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { walletApi } from '@/lib/api/wallet';
-import { getFileUrl } from '@/lib/api/upload';
+import { getFileUrl, getAuthenticatedFileUrl } from '@/lib/api/upload';
 import { useAuth } from '@/context/AuthContext';
 import {
     ArrowRight,
@@ -122,6 +122,7 @@ export default function TransactionDetailsPage() {
     const [transaction, setTransaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (!id) return;
@@ -133,6 +134,12 @@ export default function TransactionDetailsPage() {
         try {
             const data = await walletApi.getTransaction(id);
             setTransaction(data);
+
+            // Fetch authenticated URL for receipt image if exists
+            if (data.referenceImage) {
+                const url = await getAuthenticatedFileUrl(data.referenceImage);
+                setReceiptUrl(url);
+            }
         } catch (err) {
             console.error('Failed to load transaction details', err);
             setError('فشل تحميل تفاصيل المعاملة');
@@ -432,9 +439,9 @@ export default function TransactionDetailsPage() {
                                     <FileText className="w-4 h-4 text-emerald-600" />
                                     المستندات المرفقة
                                 </h4>
-                                {transaction.referenceImage ? (
+                                {transaction.referenceImage && receiptUrl ? (
                                     <a
-                                        href={getFileUrl(transaction.referenceImage)}
+                                        href={receiptUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="group flex items-center gap-3 p-4 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-all"
@@ -452,6 +459,15 @@ export default function TransactionDetailsPage() {
                                             </div>
                                         </div>
                                     </a>
+                                ) : transaction.referenceImage ? (
+                                    <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 border border-gray-100">
+                                        <div className="bg-gray-300 p-2.5 rounded-lg text-white animate-pulse">
+                                            <FileText className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-sm text-gray-500">جاري تحميل الإيصال...</div>
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div className="text-sm text-gray-400 py-4 text-center border border-dashed border-gray-200 rounded-lg">
                                         لا توجد مستندات مرفقة

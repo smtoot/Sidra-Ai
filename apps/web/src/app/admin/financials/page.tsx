@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { walletApi, TransactionStatus } from '@/lib/api/wallet';
-import { getFileUrl } from '@/lib/api/upload';
+import { getFileUrl, getAuthenticatedFileUrl } from '@/lib/api/upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';

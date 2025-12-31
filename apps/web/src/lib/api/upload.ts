@@ -169,14 +169,35 @@ export async function uploadFile(
 
 /**
  * Get the URL to view/download a file.
- * This URL requires authentication.
- * 
+ * For public files (profile-photos, intro-videos), returns direct URL.
+ * For private files, this URL won't work in browser without auth.
+ * Use getAuthenticatedFileUrl() for private files in new tabs.
+ *
  * @param fileKey - File key returned from uploadFile
  * @returns URL to access the file
  */
 export function getFileUrl(fileKey: string): string {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     return `${baseUrl}/storage/file?key=${encodeURIComponent(fileKey)}`;
+}
+
+/**
+ * Get an authenticated/signed URL for private files.
+ * This fetches a URL from the backend that can be used to view files
+ * in new tabs or <a> links without requiring auth headers.
+ *
+ * @param fileKey - File key returned from uploadFile
+ * @returns Promise<string> - Signed URL to access the file
+ */
+export async function getAuthenticatedFileUrl(fileKey: string): Promise<string> {
+    try {
+        const response = await api.get(`/storage/url?key=${encodeURIComponent(fileKey)}`);
+        return response.data.url;
+    } catch (error) {
+        console.error('Failed to get authenticated file URL:', error);
+        // Fallback to basic URL (will fail for private files opened in new tabs)
+        return getFileUrl(fileKey);
+    }
 }
 
 /**

@@ -55,13 +55,98 @@ export class ParentService {
       where: { userId },
       include: {
         children: {
-          include: { curriculum: true },
+          include: {
+            curriculum: true,
+            bookings: {
+              where: { status: 'SCHEDULED' },
+              select: { id: true }, // Lightweight, just for counting
+            },
+          },
         },
       },
     });
 
     if (!parentProfile) throw new NotFoundException('Parent profile not found');
-    return parentProfile.children;
+
+    // Map to include a simple count
+    return parentProfile.children.map(child => ({
+      ...child,
+      upcomingClassesCount: child.bookings.length,
+    }));
+  }
+
+  async getChild(userId: string, childId: string) {
+    console.log(`[ParentService] getChild called for userId: ${userId}, childId: ${childId}`);
+
+    // 1. Get Parent Profile ID first (more robust than nested query)
+    const parentProfile = await this.prisma.parentProfile.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!parentProfile) {
+      console.error(`[ParentService] Parent profile not found for userId: ${userId}`);
+      throw new NotFoundException('Parent profile not found');
+    }
+    console.log(`[ParentService] Found ParentProfile ID: ${parentProfile.id}`);
+
+    // 2. Verify child ownership using parentId
+    // 2. Verify child ownership using parentId
+    const child = await this.prisma.child.findFirst({
+      where: {
+        id: childId,
+        parentId: parentProfile.id,
+      },
+      include: {
+        curriculum: true,
+      },
+    });
+
+    if (!child) {
+      throw new NotFoundException('Child not found or unauthorized');
+    }
+    console.log(`[ParentService] found child: ${child.name}`);
+
+    // 2. Fetch Stats (Wrapped in Try/Catch to isolate failures)
+    let stats = { upcomingCount: 0, completedCount: 0 };
+    let recentBookings: any[] = [];
+
+    try {
+      const [upcomingCount, completedCount, upcomingClasses] = await Promise.all([
+        this.prisma.booking.count({
+          where: {
+            childId,
+            status: 'SCHEDULED',
+          },
+        }),
+        this.prisma.booking.count({
+          where: {
+            childId,
+            status: 'COMPLETED',
+          },
+        }),
+        this.prisma.booking.findMany({
+          where: { childId },
+          orderBy: { startTime: 'desc' },
+          take: 5,
+          include: {
+            teacherProfile: { include: { user: true } },
+            subject: true,
+          },
+        })
+      ]);
+      stats = { upcomingCount, completedCount };
+      recentBookings = upcomingClasses;
+    } catch (err) {
+      console.error("[ParentService] Error fetching stats:", err);
+      // Don't crash the whole details view if stats fail
+    }
+
+    return {
+      ...child,
+      stats,
+      recentBookings,
+    };
   }
 
   async addChild(
