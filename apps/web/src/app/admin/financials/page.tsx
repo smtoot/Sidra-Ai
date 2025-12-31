@@ -140,11 +140,20 @@ export default function AdminFinancialsPage() {
         }
     };
 
-    const getReceiptImageUrl = (referenceImage: string): string => {
-        if (referenceImage.startsWith('http://') || referenceImage.startsWith('https://')) {
-            return referenceImage;
+    const handleViewReceipt = async (referenceImage: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            // If already a full URL, use directly
+            if (referenceImage.startsWith('http://') || referenceImage.startsWith('https://')) {
+                window.open(referenceImage, '_blank');
+                return;
+            }
+            // Otherwise, fetch authenticated URL
+            const url = await getAuthenticatedFileUrl(referenceImage);
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error('Failed to get receipt URL:', error);
         }
-        return getFileUrl(referenceImage);
     };
 
     const getStatusVariant = (status: TransactionStatus): 'success' | 'warning' | 'error' | 'info' => {
@@ -284,14 +293,12 @@ export default function AdminFinancialsPage() {
                                         </TableCell>
                                         <TableCell className="text-sm" onClick={(e) => e.stopPropagation()}>
                                             {tx.type === 'DEPOSIT' && tx.referenceImage && (
-                                                <a
-                                                    href={getReceiptImageUrl(tx.referenceImage)}
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                    className="text-primary-600 hover:underline flex items-center gap-1 text-xs"
+                                                <button
+                                                    onClick={(e) => handleViewReceipt(tx.referenceImage, e)}
+                                                    className="text-primary-600 hover:underline flex items-center gap-1 text-xs cursor-pointer"
                                                 >
                                                     <ExternalLink className="w-3 h-3" /> إيصال
-                                                </a>
+                                                </button>
                                             )}
                                             {tx.type === 'WITHDRAWAL' && (
                                                 <div className="text-xs text-gray-600 space-y-1">
