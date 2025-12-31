@@ -190,10 +190,20 @@ export function Navigation({ userRole, userName }: NavigationProps) {
             )}>
                 <div className="flex items-center justify-between">
                     {isCollapsed && !isMobile ? (
-                        <h1 className="text-lg font-bold text-primary mx-auto">س</h1>
+                        <button
+                            onClick={() => router.push('/')}
+                            className="text-lg font-bold text-primary mx-auto hover:opacity-80 transition-opacity"
+                        >
+                            س
+                        </button>
                     ) : (
                         <>
-                            <h1 className="text-2xl font-bold text-primary">سدرة</h1>
+                            <button
+                                onClick={() => router.push('/')}
+                                className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
+                            >
+                                سدرة
+                            </button>
                             <div className="flex items-center gap-2">
                                 <NotificationBell />
                                 {isMobile && (
@@ -348,7 +358,12 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                     >
                         <Menu className="w-6 h-6 text-gray-700" />
                     </button>
-                    <h1 className="text-xl font-bold text-primary">سدرة</h1>
+                    <button
+                        onClick={() => router.push('/')}
+                        className="text-xl font-bold text-primary hover:opacity-80 transition-opacity"
+                    >
+                        سدرة
+                    </button>
                     <NotificationBell />
                 </div>
             </div>
