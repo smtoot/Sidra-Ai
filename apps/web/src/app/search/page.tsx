@@ -9,16 +9,31 @@ import { SearchFilters } from '@/components/marketplace/SearchFilters';
 import { MultiStepBookingModal } from '@/components/booking/MultiStepBookingModal';
 import { Button } from '@/components/ui/button';
 import { SearchSortBy } from '@sidra/shared';
-import { SearchX } from 'lucide-react';
+import { SearchX, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 function SearchPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user } = useAuth();
 
     // Results State
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(true);
     const [initialSearchDone, setInitialSearchDone] = useState(false);
+
+    // Get dashboard link based on user role
+    const getDashboardLink = () => {
+        switch (user?.role) {
+            case 'TEACHER': return '/teacher/sessions';
+            case 'PARENT': return '/parent';
+            case 'STUDENT': return '/student';
+            case 'ADMIN': return '/admin/financials';
+            default: return null;
+        }
+    };
+
+    const dashboardLink = getDashboardLink();
 
     // Filter State
     const [subjectId, setSubjectId] = useState(searchParams.get('subjectId') || '');
@@ -111,11 +126,27 @@ function SearchPageContent() {
 
     return (
         <div className="min-h-screen bg-background font-tajawal text-text-primary mb-20" dir="rtl">
+            {/* Back to Dashboard - For logged-in users */}
+            {dashboardLink && (
+                <div className="bg-primary/5 border-b border-primary/10">
+                    <div className="container mx-auto px-4 py-2">
+                        <button
+                            onClick={() => router.push(dashboardLink)}
+                            className="flex items-center gap-2 text-sm text-primary hover:text-primary-700 font-medium transition-colors"
+                        >
+                            <ArrowRight className="w-4 h-4" />
+                            <LayoutDashboard className="w-4 h-4" />
+                            <span>العودة للوحة التحكم</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
-            <div className="bg-surface shadow-sm border-b border-gray-100 py-10">
+            <div className="bg-surface shadow-sm border-b border-gray-100 py-8 sm:py-10">
                 <div className="container mx-auto px-4">
-                    <h1 className="text-3xl lg:text-4xl font-bold text-primary mb-3">ابحث عن معلمك الخصوصي</h1>
-                    <p className="text-text-subtle text-lg max-w-2xl">نخبة من المعلمين المتميزين لجميع المراحل الدراسية والمناهج، متاحون لتدريس أبنائك في الوقت المناسب.</p>
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary mb-2 sm:mb-3">ابحث عن معلمك الخصوصي</h1>
+                    <p className="text-text-subtle text-base sm:text-lg max-w-2xl">نخبة من المعلمين المتميزين لجميع المراحل الدراسية والمناهج، متاحون لتدريس أبنائك في الوقت المناسب.</p>
                 </div>
             </div>
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { marketplaceApi, TeacherPublicProfile } from '@/lib/api/marketplace';
 import { teacherApi } from '@/lib/api/teacher';
 import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, LayoutDashboard } from 'lucide-react';
 import { TeacherProfileView } from '@/components/teacher/public-profile/TeacherProfileView';
 
 interface TeacherProfilePageClientProps {
@@ -22,6 +21,19 @@ export default function TeacherProfilePageClient({ slug }: TeacherProfilePageCli
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentTeacherId, setCurrentTeacherId] = useState<string | null>(null);
+
+    // Get dashboard link based on user role
+    const getDashboardLink = () => {
+        switch (user?.role) {
+            case 'TEACHER': return '/teacher/sessions';
+            case 'PARENT': return '/parent';
+            case 'STUDENT': return '/student';
+            case 'ADMIN': return '/admin/financials';
+            default: return null;
+        }
+    };
+
+    const dashboardLink = getDashboardLink();
 
     // Fetch own profile ID if logged in as teacher to verify ownership
     useEffect(() => {
@@ -84,10 +96,27 @@ export default function TeacherProfilePageClient({ slug }: TeacherProfilePageCli
     const isOwner = (user?.id === teacher?.userId) || (currentTeacherId === teacher?.id);
 
     return (
-        <TeacherProfileView
-            teacher={teacher}
-            mode="public"
-            onBook={() => { }} // Booking handled internally by view for now
-        />
+        <div dir="rtl">
+            {/* Back to Dashboard - For logged-in users */}
+            {dashboardLink && (
+                <div className="bg-primary/5 border-b border-primary/10">
+                    <div className="container mx-auto px-4 py-2">
+                        <button
+                            onClick={() => router.push(dashboardLink)}
+                            className="flex items-center gap-2 text-sm text-primary hover:text-primary-700 font-medium transition-colors"
+                        >
+                            <ArrowRight className="w-4 h-4" />
+                            <LayoutDashboard className="w-4 h-4" />
+                            <span>العودة للوحة التحكم</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+            <TeacherProfileView
+                teacher={teacher}
+                mode="public"
+                onBook={() => { }} // Booking handled internally by view for now
+            />
+        </div>
     );
 }
