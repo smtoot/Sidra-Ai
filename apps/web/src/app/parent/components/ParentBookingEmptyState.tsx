@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar, Search } from 'lucide-react';
@@ -14,10 +14,12 @@ interface ParentBookingEmptyStateProps {
 export function ParentBookingEmptyState({ childrenList }: ParentBookingEmptyStateProps) {
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
-    // Auto-select if only 1 child
-    if (childrenList.length === 1 && !selectedChildId) {
-        setSelectedChildId(childrenList[0].id);
-    }
+    // Auto-select if only 1 child - use useEffect to avoid state update during render
+    useEffect(() => {
+        if (childrenList.length === 1 && !selectedChildId) {
+            setSelectedChildId(childrenList[0].id);
+        }
+    }, [childrenList, selectedChildId]);
 
     const selectedChild = childrenList.find(c => c.id === selectedChildId);
 
