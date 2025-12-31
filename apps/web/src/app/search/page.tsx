@@ -9,13 +9,20 @@ import { SearchFilters } from '@/components/marketplace/SearchFilters';
 import { MultiStepBookingModal } from '@/components/booking/MultiStepBookingModal';
 import { Button } from '@/components/ui/button';
 import { SearchSortBy } from '@sidra/shared';
-import { SearchX, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { SearchX, ArrowRight, LayoutDashboard, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSubjects } from '@/hooks/useSubjects';
+import { useCurricula } from '@/hooks/useCurricula';
 
 function SearchPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user } = useAuth();
+
+    // Metadata for active filters
+    const { data: subjects = [] } = useSubjects();
+    const { data: curricula = [] } = useCurricula();
 
     // Results State
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -167,12 +174,62 @@ function SearchPageContent() {
 
                 {/* Results Grid */}
                 <main className="w-full lg:w-3/4 space-y-6">
-                    {/* Top Bar (Mobile Sort/Filter count?) - Optional */}
-                    {loading ? (
+                    {/* Active Filters & Count */}
+                    {!loading && (
                         <div className="space-y-4">
-                            {/* Simple Skeletons */}
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-bold text-gray-700 ml-2">
+                                    تم العثور على {results.length} معلم
+                                </span>
+                                {subjectId && (
+                                    <Badge variant="secondary" className="gap-1 pl-1 pr-2 py-1 bg-primary/10 text-primary hover:bg-primary/20">
+                                        {subjects?.find(s => s.id === subjectId)?.nameAr || 'المادة'}
+                                        <X className="w-3 h-3 cursor-pointer" onClick={() => setSubjectId('')} />
+                                    </Badge>
+                                )}
+                                {curriculumId && (
+                                    <Badge variant="secondary" className="gap-1 pl-1 pr-2 py-1 bg-primary/10 text-primary hover:bg-primary/20">
+                                        {curricula?.find(c => c.id === curriculumId)?.nameAr || 'المنهج'}
+                                        <X className="w-3 h-3 cursor-pointer" onClick={() => setCurriculumId('')} />
+                                    </Badge>
+                                )}
+                                {/* Complex logic for grade name would require hierarchy here, skipping for simplicity or fetching raw grades list if available. 
+                                    For now, we just show "الصف الدراسي" or try hierarchy hook if easy. */}
+                                {(maxPrice < 50000 || minPrice > 0) && (
+                                    <Badge variant="secondary" className="gap-1 pl-1 pr-2 py-1 bg-primary/10 text-primary hover:bg-primary/20 font-english">
+                                        {minPrice.toLocaleString()} - {maxPrice === 50000 ? 'MAX' : maxPrice.toLocaleString()} SDG
+                                        <X className="w-3 h-3 cursor-pointer" onClick={() => { setMinPrice(0); setMaxPrice(50000); }} />
+                                    </Badge>
+                                )}
+                                {gender && (
+                                    <Badge variant="secondary" className="gap-1 pl-1 pr-2 py-1 bg-primary/10 text-primary hover:bg-primary/20">
+                                        {gender === 'MALE' ? 'معلم' : 'معلمة'}
+                                        <X className="w-3 h-3 cursor-pointer" onClick={() => setGender('')} />
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {loading ? (
+                        <div className="space-y-6">
+                            {/* Realistic Skeletons to match Card Height */}
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="h-[220px] bg-white rounded-xl border border-gray-100 p-4 flex gap-4 animate-pulse">
+                                    <div className="w-[220px] bg-gray-100 rounded-lg shrink-0 hidden sm:block" />
+                                    <div className="flex-1 space-y-4 py-2">
+                                        <div className="flex justify-between">
+                                            <div className="w-1/3 h-6 bg-gray-100 rounded" />
+                                            <div className="w-16 h-6 bg-gray-100 rounded" />
+                                        </div>
+                                        <div className="w-1/4 h-4 bg-gray-50 rounded" />
+                                        <div className="w-full h-12 bg-gray-50 rounded mt-4" />
+                                        <div className="flex gap-2 mt-auto pt-4">
+                                            <div className="w-24 h-10 bg-gray-100 rounded" />
+                                            <div className="w-24 h-10 bg-gray-100 rounded" />
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     ) : results.length === 0 ? (
@@ -190,12 +247,6 @@ function SearchPageContent() {
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            <div className="flex justify-between items-center px-2">
-                                <p className="text-sm text-text-subtle font-medium">
-                                    تم العثور على {results.length} معلم
-                                </p>
-                            </div>
-
                             {results.map(result => (
                                 <TeacherPowerCard
                                     key={result.id}

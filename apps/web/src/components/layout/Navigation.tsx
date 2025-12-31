@@ -12,6 +12,7 @@ interface NavItem {
     label: string;
     href: string;
     icon: any;
+    count?: number; // New badge property
 }
 
 interface NavGroup {
@@ -140,6 +141,41 @@ export function Navigation({ userRole, userName }: NavigationProps) {
     const [expandedGroups, setExpandedGroups] = useState<string[]>(['العمليات اليومية', 'الدعم والشكاوى', 'المالية']);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [counts, setCounts] = useState<{ upcoming: number, support: number }>({ upcoming: 0, support: 0 });
+
+    // Mock Fetch Counts (In production, fetch from API or Context)
+    useEffect(() => {
+        if (userRole === 'STUDENT') {
+            // Simulate fetching data
+            // In real app: const data = await studentApi.getDashboardStats()
+            // setCounts({ upcoming: data.upcomingClasses.length, support: 0 })
+            setCounts({ upcoming: 0, support: 0 });
+        }
+    }, [userRole]);
+
+    // Helper to check if item is a group
+    const isGroup = (item: NavItem | NavGroup): item is NavGroup => {
+        return (item as NavGroup).items !== undefined;
+    };
+
+    // Inject counts into items
+    const itemsWithCounts = items.map(item => {
+        if (isGroup(item)) return item;
+
+        // Add badges for Student
+        if (userRole === 'STUDENT') {
+            if (item.label === 'حصصي') {
+                return { ...item, count: counts.upcoming > 0 ? counts.upcoming : undefined };
+            }
+            if (item.label === 'الدعم الفني') {
+                return { ...item, count: counts.support > 0 ? counts.support : undefined };
+            }
+        }
+        return item;
+    });
+
+    // Use itemsWithCounts instead of items below
+
 
     // Close mobile menu on route change
     useEffect(() => {
@@ -171,9 +207,7 @@ export function Navigation({ userRole, userName }: NavigationProps) {
         }
     };
 
-    const isGroup = (item: NavItem | NavGroup): item is NavGroup => {
-        return (item as NavGroup).items !== undefined;
-    };
+
 
     const handleNavClick = (href: string) => {
         router.push(href);
@@ -228,7 +262,7 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                 "flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar",
                 isCollapsed && !isMobile && "p-2"
             )}>
-                {items.map((item, idx) => {
+                {itemsWithCounts.map((item, idx) => {
                     if (isGroup(item)) {
                         const Icon = item.icon;
                         const isExpanded = expandedGroups.includes(item.label);
@@ -302,22 +336,43 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                     } else {
                         const Icon = item.icon;
                         const isActive = pathname === item.href;
+                        const count = item.count;
+
                         return (
                             <button
                                 key={item.href}
                                 onClick={() => handleNavClick(item.href)}
                                 title={isCollapsed && !isMobile ? item.label : undefined}
                                 className={cn(
-                                    "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-right",
+                                    "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-right relative",
                                     isActive
                                         ? 'bg-primary text-white shadow-sm'
                                         : 'text-text hover:bg-gray-100',
                                     isCollapsed && !isMobile && "justify-center px-2"
                                 )}
                             >
-                                <Icon className="w-5 h-5 flex-shrink-0" />
+                                <div className="relative">
+                                    <Icon className="w-5 h-5 flex-shrink-0" />
+                                    {/* Collapsed Badge */}
+                                    {isCollapsed && !isMobile && count && count > 0 && (
+                                        <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full border border-white">
+                                            {count > 9 ? '9+' : count}
+                                        </span>
+                                    )}
+                                </div>
                                 {(!isCollapsed || isMobile) && (
-                                    <span className="font-medium">{item.label}</span>
+                                    <>
+                                        <span className="font-medium flex-1 text-right">{item.label}</span>
+                                        {/* Expanded Badge */}
+                                        {count && count > 0 && (
+                                            <span className={cn(
+                                                "px-2 py-0.5 text-xs font-bold rounded-full",
+                                                isActive ? "bg-white/20 text-white" : "bg-red-100 text-red-600"
+                                            )}>
+                                                {count > 9 ? '+9' : count}
+                                            </span>
+                                        )}
+                                    </>
                                 )}
                             </button>
                         );

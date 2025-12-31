@@ -14,6 +14,7 @@ import {
   SearchSortBy,
 } from '@sidra/shared';
 import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 import {
   buildUtcWindowForUserDate,
   getTeacherDatesInUtcWindow,
@@ -25,7 +26,7 @@ import { toZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class MarketplaceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get public platform configuration (for frontend booking UI)
@@ -478,16 +479,16 @@ export class MarketplaceService {
         vacationEndDate: teacher.vacationEndDate,
         teachingApproach:
           (teacher as any).teachingStyle ||
-          ((teacher as any).teachingTags &&
-            (teacher as any).teachingTags.length > 0)
+            ((teacher as any).teachingTags &&
+              (teacher as any).teachingTags.length > 0)
             ? {
-                text: (teacher as any).teachingStyle,
-                tags:
-                  (teacher as any).teachingTags?.map((tt: any) => ({
-                    id: tt.tag?.id,
-                    labelAr: tt.tag?.labelAr,
-                  })) || [],
-              }
+              text: (teacher as any).teachingStyle,
+              tags:
+                (teacher as any).teachingTags?.map((tt: any) => ({
+                  id: tt.tag?.id,
+                  labelAr: tt.tag?.labelAr,
+                })) || [],
+            }
             : null,
       };
     } catch (error) {
@@ -1179,12 +1180,24 @@ export class MarketplaceService {
         );
         if (slotsResponse.slots && slotsResponse.slots.length > 0) {
           const firstSlot = slotsResponse.slots[0];
+
+          // Format time in Arabic
+          const slotDateUtc = new Date(firstSlot.startTimeUtc);
+          // Re-convert to teacher timezone for display
+          const zonedSlotDate = toZonedTime(slotDateUtc, teacherTimezone);
+
+          const arabicTime = format(zonedSlotDate, 'h:mm a', { locale: ar })
+            .replace('AM', 'صباحاً')
+            .replace('PM', 'مساءً')
+            .replace('am', 'صباحاً')
+            .replace('pm', 'مساءً');
+
           nextAvailableSlot = {
             date: firstAvailableDate,
-            time: firstSlot.label, // Display label (e.g., "9:30 AM")
+            time: arabicTime,
             display: this.formatNextAvailableDisplay(
               firstAvailableDate,
-              firstSlot.label,
+              arabicTime,
             ),
           };
         }
@@ -1219,5 +1232,34 @@ export class MarketplaceService {
     } else {
       return `${format(slotDate, 'yyyy-MM-dd')} في ${time}`;
     }
+  }
+
+  /**
+   * Get the absolute next available slot for a teacher
+   * Scans current month and next month
+   */
+  async getNextAvailableSlot(teacherId: string) {
+    const today = new Date();
+    const currentMonthStr = format(today, 'yyyy-MM');
+    const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const nextMonthStr = format(nextMonthDate, 'yyyy-MM');
+
+    // Check current month
+    const currentMonthData = await this.getAvailabilityCalendar(
+      teacherId,
+      currentMonthStr,
+    );
+
+    if (currentMonthData.nextAvailableSlot) {
+      return currentMonthData.nextAvailableSlot;
+    }
+
+    // Check next month
+    const nextMonthData = await this.getAvailabilityCalendar(
+      teacherId,
+      nextMonthStr,
+    );
+
+    return nextMonthData.nextAvailableSlot;
   }
 }

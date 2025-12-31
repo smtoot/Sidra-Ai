@@ -25,7 +25,7 @@ import { Public } from '../auth/public.decorator';
 
 @Controller('marketplace')
 export class MarketplaceController {
-  constructor(private readonly marketplaceService: MarketplaceService) {}
+  constructor(private readonly marketplaceService: MarketplaceService) { }
 
   // --- Platform Configuration (Public) ---
   @Public()
@@ -255,6 +255,12 @@ export class MarketplaceController {
       dateStr,
       userTimezone,
     );
+  }
+
+  @Public()
+  @Get('teachers/:teacherId/next-available')
+  getNextAvailableSlot(@Param('teacherId') teacherId: string) {
+    return this.marketplaceService.getNextAvailableSlot(teacherId);
   }
 
   @Public()

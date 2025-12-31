@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { walletApi, TransactionStatus } from '@/lib/api/wallet';
 import { getFileUrl } from '@/lib/api/upload';
@@ -13,8 +14,9 @@ import { Avatar } from '@/components/ui/avatar';
 import { Check, X, ExternalLink, Info, Wallet, TrendingDown, AlertCircle } from 'lucide-react';
 
 export default function AdminFinancialsPage() {
+    const router = useRouter();
     const { user } = useAuth();
-    const isAuthorized = ['ADMIN', 'FINANCE'].includes(user?.role || '');
+    const isAuthorized = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'].includes(user?.role || '');
     const [transactions, setTransactions] = useState<any[]>([]);
     const [stats, setStats] = useState<{
         totalRevenue: number;
@@ -242,7 +244,11 @@ export default function AdminFinancialsPage() {
                             </TableHeader>
                             <TableBody>
                                 {transactions.map((tx) => (
-                                    <TableRow key={tx.id}>
+                                    <TableRow
+                                        key={tx.id}
+                                        className="cursor-pointer hover:bg-gray-50"
+                                        onClick={() => router.push(`/admin/transactions/${tx.id}`)}
+                                    >
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <Avatar
@@ -276,7 +282,7 @@ export default function AdminFinancialsPage() {
                                         <TableCell className="text-sm text-gray-600">
                                             {new Date(tx.createdAt).toLocaleDateString('ar-SA')}
                                         </TableCell>
-                                        <TableCell className="text-sm">
+                                        <TableCell className="text-sm" onClick={(e) => e.stopPropagation()}>
                                             {tx.type === 'DEPOSIT' && tx.referenceImage && (
                                                 <a
                                                     href={getReceiptImageUrl(tx.referenceImage)}
@@ -301,7 +307,7 @@ export default function AdminFinancialsPage() {
                                             )}
                                         </TableCell>
                                         {isAuthorized && (
-                                            <TableCell>
+                                            <TableCell onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center gap-2">
                                                     {tx.status === 'PENDING' && (
                                                         <>

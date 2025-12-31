@@ -13,6 +13,11 @@ async function main() {
   // Helper to clear data in order
   console.log('🧹 Clearing old data...');
   // Delete in reverse order of dependencies
+  await prisma.savedTeacher.deleteMany();
+  await prisma.ticketAccessControl.deleteMany();
+  await prisma.ticketStatusHistory.deleteMany();
+  await prisma.ticketMessage.deleteMany();
+  await prisma.supportTicket.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.rating.deleteMany();
@@ -201,7 +206,7 @@ async function main() {
           yearsOfExperience: 8,
           applicationStatus: 'APPROVED',
           teachingStyle: 'أركز على فهم الأساسيات وبناء الثقة لدى الطالب من خلال الأمثلة العملية.',
-          profilePhotoUrl: 'uploads/demo-avatar-teacher.jpg' // Placeholder
+          profilePhotoUrl: '/uploads/demo-avatar-teacher.jpg' // Placeholder with leading slash
         }
       }
     }

@@ -28,7 +28,13 @@ export default function TeacherProfilePageClient({ slug }: TeacherProfilePageCli
             case 'TEACHER': return '/teacher/sessions';
             case 'PARENT': return '/parent';
             case 'STUDENT': return '/student';
-            case 'ADMIN': return '/admin/financials';
+            case 'ADMIN':
+            case 'SUPER_ADMIN':
+            case 'MODERATOR':
+            case 'CONTENT_ADMIN':
+            case 'FINANCE':
+            case 'SUPPORT':
+                return '/admin';
             default: return null;
         }
     };

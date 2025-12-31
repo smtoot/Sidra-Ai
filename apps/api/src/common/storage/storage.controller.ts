@@ -164,7 +164,8 @@ export class StorageController {
       // Validate ownership or admin access for private files
       const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
       const isOwner = fileOwnerId === userId;
-      const isAdmin = userRole === 'ADMIN';
+      const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
+      const isAdmin = adminRoles.includes(userRole as string);
 
       if (!isOwner && !isAdmin) {
         throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
@@ -226,7 +227,8 @@ export class StorageController {
       // Validate ownership or admin access for private files
       const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
       const isOwner = fileOwnerId === userId;
-      const isAdmin = userRole === 'ADMIN';
+      const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
+      const isAdmin = adminRoles.includes(userRole as string);
 
       if (!isOwner && !isAdmin) {
         this.logger.warn(
