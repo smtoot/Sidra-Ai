@@ -76,8 +76,6 @@ export class ParentService {
   }
 
   async getChild(userId: string, childId: string) {
-    console.log(`[ParentService] getChild called for userId: ${userId}, childId: ${childId}`);
-
     // 1. Get Parent Profile ID first (more robust than nested query)
     const parentProfile = await this.prisma.parentProfile.findUnique({
       where: { userId },
@@ -85,12 +83,9 @@ export class ParentService {
     });
 
     if (!parentProfile) {
-      console.error(`[ParentService] Parent profile not found for userId: ${userId}`);
       throw new NotFoundException('Parent profile not found');
     }
-    console.log(`[ParentService] Found ParentProfile ID: ${parentProfile.id}`);
 
-    // 2. Verify child ownership using parentId
     // 2. Verify child ownership using parentId
     const child = await this.prisma.child.findFirst({
       where: {
@@ -105,7 +100,6 @@ export class ParentService {
     if (!child) {
       throw new NotFoundException('Child not found or unauthorized');
     }
-    console.log(`[ParentService] found child: ${child.name}`);
 
     // 2. Fetch Stats (Wrapped in Try/Catch to isolate failures)
     let stats = { upcomingCount: 0, completedCount: 0 };
@@ -137,9 +131,8 @@ export class ParentService {
       ]);
       stats = { upcomingCount, completedCount };
       recentBookings = upcomingClasses;
-    } catch (err) {
-      console.error("[ParentService] Error fetching stats:", err);
-      // Don't crash the whole details view if stats fail
+    } catch {
+      // Don't crash the whole details view if stats fail - silently use defaults
     }
 
     return {
