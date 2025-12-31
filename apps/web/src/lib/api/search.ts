@@ -31,6 +31,7 @@ export interface SearchResult {
         totalReviews: number;
         education: string | null;
         yearsOfExperience: number | null;
+        applicationStatus: string;
     };
     subject: {
         id: string;

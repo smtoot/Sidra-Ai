@@ -50,7 +50,12 @@ export class MarketplaceService {
 
   // --- Search ---
   async searchTeachers(dto: SearchTeachersDto) {
-    const whereClause: any = {};
+    const whereClause: any = {
+      // CRITICAL: Only show approved teachers in search results
+      teacherProfile: {
+        applicationStatus: 'APPROVED',
+      },
+    };
 
     if (dto.subjectId) {
       whereClause.subjectId = dto.subjectId;
@@ -73,9 +78,10 @@ export class MarketplaceService {
       if (dto.minPrice) whereClause.pricePerHour.gte = dto.minPrice;
     }
 
-    // Gender filter (on TeacherProfile)
+    // Gender filter (on TeacherProfile) - merge with existing teacherProfile filter
     if (dto.gender) {
       whereClause.teacherProfile = {
+        ...whereClause.teacherProfile,
         gender: dto.gender,
       };
     }

@@ -4,10 +4,15 @@ import { useRef, useState } from 'react';
 import { SearchResult } from '@/lib/api/search';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Clock, Video, User, CheckCircle2 } from 'lucide-react';
+import { Star, Clock, Video, User, CheckCircle2, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+    isRecentlyJoinedTeacher,
+    isVerifiedTeacher,
+    TEACHER_STATUS_LABELS
+} from '@/config/teacher-status';
 
 interface TeacherPowerCardProps {
     teacher: SearchResult;
@@ -45,8 +50,8 @@ export function TeacherPowerCard({ teacher, onBook }: TeacherPowerCardProps) {
 
     // Formatters
     const formattedPrice = parseInt(pricePerHour).toLocaleString();
-    const hasRating = teacherProfile.totalReviews > 0;
-    const isNew = !hasRating;
+    const isRecentlyJoined = isRecentlyJoinedTeacher(teacherProfile.totalReviews);
+    const isVerified = isVerifiedTeacher(teacherProfile.applicationStatus);
 
     return (
         <div
@@ -117,8 +122,10 @@ export function TeacherPowerCard({ teacher, onBook }: TeacherPowerCardProps) {
                             <h3 className="font-bold text-lg sm:text-xl text-gray-900 leading-tight">
                                 {teacherProfile.displayName || "معلم منصة سدرة"}
                             </h3>
-                            {/* Verified Badge could go here */}
-                            <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-50" />
+                            {/* Verified Badge - Only show for approved teachers */}
+                            {isVerified && (
+                                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-50" />
+                            )}
                         </div>
 
                         {/* Subject (Secondary) */}
@@ -136,18 +143,16 @@ export function TeacherPowerCard({ teacher, onBook }: TeacherPowerCardProps) {
 
                     {/* Rating (Top Left) */}
                     <div className="shrink-0">
-                        {hasRating ? (
+                        {!isRecentlyJoined ? (
                             <div className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
                                 <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                                 <span className="font-bold text-sm text-amber-700 font-english">{teacherProfile.averageRating.toFixed(1)}</span>
                                 <span className="text-xs text-amber-600/60">({teacherProfile.totalReviews})</span>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 font-medium">بدون تقييمات</span>
-                                <Badge variant="outline" className="bg-gray-50 text-gray-500 font-normal border-gray-200 text-[10px] px-2 h-5">
-                                    جديد
-                                </Badge>
+                            <div className="flex items-center gap-1.5 bg-accent/10 px-2.5 py-1 rounded-lg border border-accent/20">
+                                <UserPlus className="w-3.5 h-3.5 text-accent-dark" />
+                                <span className="text-xs text-accent-dark font-medium">{TEACHER_STATUS_LABELS.RECENTLY_JOINED}</span>
                             </div>
                         )}
                     </div>
