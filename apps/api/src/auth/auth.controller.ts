@@ -1,8 +1,19 @@
-import { Controller, Post, Body, Get, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { Public } from './public.decorator';
+
+/**
+ * Authenticated request interface for JWT-protected endpoints
+ */
+interface AuthRequest {
+  user: {
+    userId: string;
+    email: string;
+    role: string;
+  };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -24,7 +35,7 @@ export class AuthController {
 
   // SECURITY: Protected by global JwtAuthGuard - requires JWT token
   @Get('profile')
-  getProfile(@Request() req: any) {
+  getProfile(@Req() req: AuthRequest) {
     return this.authService.getProfile(req.user.userId);
   }
 
@@ -32,7 +43,7 @@ export class AuthController {
   @Post('change-password')
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute
   changePassword(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Body() body: { currentPassword: string; newPassword: string },
   ) {
     return this.authService.changePassword(
