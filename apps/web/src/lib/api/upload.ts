@@ -126,13 +126,23 @@ export async function compressImage(file: File, maxWidth = MAX_IMAGE_DIMENSION, 
 }
 
 /**
+ * Upload result containing both fileKey and URL
+ */
+export interface UploadResult {
+    /** Unique key to reference the file (store in DB) */
+    fileKey: string;
+    /** Signed URL for immediate access (useful for previews) */
+    url: string;
+}
+
+/**
  * Upload a file to the server.
- * 
+ *
  * @param file - File to upload
  * @param folder - Target folder
  * @param options - Upload options
  * @returns fileKey - Unique key to reference the file (store in DB)
- * 
+ *
  * Note: Files are NOT publicly accessible. Use getFileUrl() to get
  * an authenticated URL for viewing/downloading.
  */
@@ -141,6 +151,25 @@ export async function uploadFile(
     folder: UploadFolder,
     options?: { compress?: boolean; maxWidth?: number }
 ): Promise<string> {
+    const result = await uploadFileWithUrl(file, folder, options);
+    return result.fileKey;
+}
+
+/**
+ * Upload a file and get both the fileKey and signed URL for immediate preview.
+ * Use this when you need to display the uploaded file immediately without
+ * making an additional fetch request.
+ *
+ * @param file - File to upload
+ * @param folder - Target folder
+ * @param options - Upload options
+ * @returns UploadResult with fileKey and url
+ */
+export async function uploadFileWithUrl(
+    file: File,
+    folder: UploadFolder,
+    options?: { compress?: boolean; maxWidth?: number }
+): Promise<UploadResult> {
     // Validate file
     const validation = validateFile(file, folder);
     if (!validation.valid) {
@@ -164,7 +193,10 @@ export async function uploadFile(
         },
     });
 
-    return response.data.fileKey;
+    return {
+        fileKey: response.data.fileKey,
+        url: response.data.url,
+    };
 }
 
 /**
