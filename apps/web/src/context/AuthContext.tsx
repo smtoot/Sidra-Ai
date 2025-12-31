@@ -120,8 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (payload.role === 'TEACHER') {
             // Check application status for teachers
             await redirectTeacher();
-        } else if (payload.role === 'ADMIN') {
-            router.push('/admin/financials');
+        } else if (['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'].includes(payload.role)) {
+            router.push('/admin');
         } else if (payload.role === 'STUDENT') {
             router.push('/student');
         } else {
@@ -155,8 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (payload.role === 'TEACHER') {
             // New teachers always go to onboarding (they start as DRAFT)
             router.push('/teacher/onboarding');
-        } else if (payload.role === 'ADMIN') {
-            router.push('/admin/financials');
+        } else if (['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'].includes(payload.role)) {
+            router.push('/admin');
         } else if (payload.role === 'STUDENT') {
             router.push('/student');
         } else {

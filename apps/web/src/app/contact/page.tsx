@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { PublicNavbar, Footer } from '@/components/public';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,8 +25,6 @@ export default function ContactPage() {
 
     return (
         <div className="min-h-screen bg-white font-tajawal rtl flex flex-col">
-            <PublicNavbar />
-
             <main className="flex-grow">
                 {/* Header */}
                 <div className="bg-primary-900 text-white py-16 relative overflow-hidden">
@@ -130,7 +127,7 @@ export default function ContactPage() {
                 </div>
             </main>
 
-            <Footer />
+
         </div>
     );
 }

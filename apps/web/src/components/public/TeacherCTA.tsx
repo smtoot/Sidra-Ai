@@ -73,7 +73,7 @@ export function TeacherCTA() {
 
                     {/* CTA */}
                     <div className="pt-4">
-                        <Link href="/register?role=TEACHER">
+                        <Link href="/join-as-teacher">
                             <Button
                                 size="lg"
                                 className="bg-white text-primary hover:bg-gray-100 shadow-xl text-lg px-8 gap-2"

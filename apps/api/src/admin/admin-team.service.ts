@@ -8,8 +8,12 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { PermissionService } from '../auth/permission.service';
-import { CREATABLE_ADMIN_ROLES } from '../auth/permissions.constants';
-import type { PermissionOverrides } from '../auth/permissions.constants';
+import {
+  CREATABLE_ADMIN_ROLES,
+  ADMIN_ROLES,
+  type PermissionOverrides,
+} from '../auth/permissions.constants';
+import { UserRole } from '@prisma/client';
 
 /**
  * AdminTeamService
@@ -31,18 +35,19 @@ export class AdminTeamService {
    * List all admin users (non-regular users)
    */
   async listAdminUsers() {
-    const adminRoles = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'MODERATOR',
-      'CONTENT_ADMIN',
-      'FINANCE',
-      'SUPPORT',
+    // Use typed admin roles from constants
+    const adminRoles: UserRole[] = [
+      UserRole.SUPER_ADMIN,
+      UserRole.ADMIN,
+      UserRole.MODERATOR,
+      UserRole.CONTENT_ADMIN,
+      UserRole.FINANCE,
+      UserRole.SUPPORT,
     ];
 
     const users = await this.prisma.user.findMany({
       where: {
-        role: { in: adminRoles as any },
+        role: { in: adminRoles },
       },
       select: {
         id: true,
@@ -67,7 +72,7 @@ export class AdminTeamService {
       ...user,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        permissionOverrides: user.permissionOverrides as any,
+        permissionOverrides: user.permissionOverrides as PermissionOverrides | null,
       }),
     }));
   }
@@ -100,7 +105,8 @@ export class AdminTeamService {
     }
 
     // SECURITY: Only allow creatable admin roles
-    if (!CREATABLE_ADMIN_ROLES.includes(data.role as any)) {
+    const creatableRoles: readonly string[] = CREATABLE_ADMIN_ROLES;
+    if (!creatableRoles.includes(data.role)) {
       throw new BadRequestException(
         `Invalid role: ${data.role}. Allowed roles: ${CREATABLE_ADMIN_ROLES.join(', ')}`,
       );
@@ -151,7 +157,7 @@ export class AdminTeamService {
         email: data.email,
         phoneNumber: data.phoneNumber,
         passwordHash,
-        role: data.role as any,
+        role: data.role as UserRole,
         firstName: data.firstName,
         lastName: data.lastName,
         permissionOverrides: data.permissionOverrides
@@ -187,7 +193,7 @@ export class AdminTeamService {
       ...user,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        permissionOverrides: user.permissionOverrides as any,
+        permissionOverrides: user.permissionOverrides as PermissionOverrides | null,
       }),
     };
   }
@@ -244,10 +250,10 @@ export class AdminTeamService {
       );
     }
 
-    // Update user
+    // Update user - cast to JSON-compatible type for Prisma
     const updatedUser = await this.prisma.user.update({
       where: { id: targetUserId },
-      data: { permissionOverrides: overrides as any },
+      data: { permissionOverrides: JSON.parse(JSON.stringify(overrides)) },
       select: {
         id: true,
         email: true,
@@ -273,7 +279,8 @@ export class AdminTeamService {
       ...updatedUser,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: updatedUser.role,
-        permissionOverrides: updatedUser.permissionOverrides as any,
+        permissionOverrides:
+          updatedUser.permissionOverrides as PermissionOverrides | null,
       }),
     };
   }
@@ -363,16 +370,9 @@ export class AdminTeamService {
       throw new NotFoundException('User not found');
     }
 
-    // Verify it's an admin role
-    const adminRoles = [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'MODERATOR',
-      'CONTENT_ADMIN',
-      'FINANCE',
-      'SUPPORT',
-    ];
-    if (!adminRoles.includes(user.role)) {
+    // Verify it's an admin role - use ADMIN_ROLES constant
+    const adminRolesSet: readonly string[] = ADMIN_ROLES;
+    if (!adminRolesSet.includes(user.role)) {
       throw new NotFoundException('User not found');
     }
 
@@ -380,7 +380,7 @@ export class AdminTeamService {
       ...user,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        permissionOverrides: user.permissionOverrides as any,
+        permissionOverrides: user.permissionOverrides as PermissionOverrides | null,
       }),
     };
   }

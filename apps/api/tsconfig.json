@@ -23,6 +23,7 @@
     "noFallthroughCasesInSwitch": true
   },
   "exclude": [
+    "dist",
     "scripts/**/*"
   ]
 }

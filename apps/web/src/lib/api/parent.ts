@@ -24,6 +24,10 @@ export const parentApi = {
         const response = await api.get('/parent/children');
         return response.data;
     },
+    getChild: async (id: string) => {
+        const response = await api.get(`/parent/children/${id}`);
+        return response.data;
+    },
     addChild: async (data: { name: string; gradeLevel: string; schoolName?: string; curriculumId?: string }) => {
         const response = await api.post('/parent/children', data);
         return response.data;

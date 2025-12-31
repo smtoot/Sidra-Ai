@@ -62,7 +62,7 @@ function SessionCard({ sessionNumber, totalSessions, redemption, teacherName, su
 
     return (
         <div className={cn(
-            "relative p-5 rounded-2xl border-2 transition-all",
+            "relative p-4 sm:p-5 rounded-2xl border-2 transition-all",
             isScheduled
                 ? isCompleted
                     ? "bg-blue-50 border-blue-200"
@@ -71,38 +71,38 @@ function SessionCard({ sessionNumber, totalSessions, redemption, teacherName, su
                     ? "bg-white border-gray-200 hover:border-primary/50 hover:shadow-lg cursor-pointer"
                     : "bg-gray-50 border-gray-200 opacity-60"
         )}>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                     {/* Session Number Badge */}
                     <div className={cn(
-                        "w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold",
+                        "w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0",
                         isScheduled
                             ? isCompleted
                                 ? "bg-blue-500 text-white"
                                 : "bg-green-500 text-white"
                             : "bg-gray-200 text-gray-600"
                     )}>
-                        <span className="text-lg">{sessionNumber}</span>
+                        <span className="text-base sm:text-lg">{sessionNumber}</span>
                         <span className="text-xs opacity-80">/{totalSessions}</span>
                     </div>
 
                     {/* Session Info */}
-                    <div>
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                            <User className="w-4 h-4 text-gray-400" />
-                            <span className="font-bold text-gray-800">{teacherName}</span>
+                            <User className="w-4 h-4 text-gray-400 shrink-0" />
+                            <span className="font-bold text-gray-800 truncate">{teacherName}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-500">{subjectName}</span>
+                            <BookOpen className="w-4 h-4 text-gray-400 shrink-0" />
+                            <span className="text-sm text-gray-500 truncate">{subjectName}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Status / Action */}
-                <div className="text-left">
+                <div className="text-right sm:text-left">
                     {isScheduled ? (
-                        <div className="text-left">
+                        <div className="text-right sm:text-left">
                             <div className={cn(
                                 "text-sm font-bold mb-1",
                                 isCompleted ? "text-blue-600" : "text-green-600"
@@ -123,7 +123,7 @@ function SessionCard({ sessionNumber, totalSessions, redemption, teacherName, su
                                 e.stopPropagation();
                                 onSchedule();
                             }}
-                            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-bold text-sm hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg shadow-primary/20 hover:shadow-xl"
+                            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 sm:px-5 sm:py-3 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-bold text-sm hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg shadow-primary/20 hover:shadow-xl"
                         >
                             <CalendarPlus className="w-4 h-4" />
                             جدول الآن
@@ -244,8 +244,8 @@ export default function PackageDetailsPage() {
     });
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100" dir="rtl">
-            <div className="container mx-auto px-4 py-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-x-hidden" dir="rtl">
+            <div className="container mx-auto px-4 py-6 sm:py-8 max-w-full">
                 {/* Back Button */}
                 <button
                     onClick={() => router.push('/student/packages')}
@@ -259,30 +259,30 @@ export default function PackageDetailsPage() {
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-6">
                         {/* Header Card */}
-                        <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-6">
-                            <div className="flex items-center justify-between flex-wrap gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-                                        <Package className="w-8 h-8 text-primary" />
+                        <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-4 sm:p-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center shrink-0">
+                                        <Package className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                                     </div>
-                                    <div>
-                                        <h1 className="text-2xl font-bold text-gray-800">
+                                    <div className="min-w-0 flex-1">
+                                        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
                                             باقة {pkg.sessionCount} حصص
                                         </h1>
-                                        <p className="text-gray-500 flex items-center gap-2 mt-1">
-                                            <User className="w-4 h-4" />
-                                            {pkg.teacher?.displayName || 'معلم'}
+                                        <p className="text-gray-500 flex flex-wrap items-center gap-1 sm:gap-2 mt-1 text-sm">
+                                            <User className="w-4 h-4 shrink-0" />
+                                            <span className="truncate">{pkg.teacher?.displayName || 'معلم'}</span>
                                             <span className="mx-1">•</span>
-                                            <BookOpen className="w-4 h-4" />
-                                            {pkg.subject?.nameAr || 'مادة'}
+                                            <BookOpen className="w-4 h-4 shrink-0" />
+                                            <span className="truncate">{pkg.subject?.nameAr || 'مادة'}</span>
                                         </p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <StatusBadge status={pkg.status} />
-                                        {pkg.readableId && (
-                                            <span className="text-xs text-gray-400 font-mono" dir="ltr">#{pkg.readableId}</span>
-                                        )}
-                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+                                    <StatusBadge status={pkg.status} />
+                                    {pkg.readableId && (
+                                        <span className="text-xs text-gray-400 font-mono" dir="ltr">#{pkg.readableId}</span>
+                                    )}
                                 </div>
                             </div>
 

@@ -84,7 +84,7 @@ export function SearchFilters({
 
     const FilterContent = () => (
         <div className="space-y-6">
-            {/* Sort Order (Mobile mainly, but visible here too) */}
+            {/* Sort Order */}
             <div className="space-y-2">
                 <Label>ترتيب حسب</Label>
                 <select
@@ -96,6 +96,21 @@ export function SearchFilters({
                     <option value={SearchSortBy.PRICE_ASC}>السعر: من الأقل للأعلى</option>
                     <option value={SearchSortBy.PRICE_DESC}>السعر: من الأعلى للأقل</option>
                     <option value={SearchSortBy.RATING_DESC}>التقييم: الأعلى أولاً</option>
+                </select>
+            </div>
+
+            {/* Subject (Moved before Curriculum) */}
+            <div className="space-y-2">
+                <Label>المادة</Label>
+                <select
+                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={subjectId}
+                    onChange={(e) => setSubjectId(e.target.value)}
+                >
+                    <option value="">الكل</option>
+                    {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.nameAr}</option>
+                    ))}
                 </select>
             </div>
 
@@ -139,28 +154,12 @@ export function SearchFilters({
                 </select>
             </div>
 
-            <div className="space-y-2">
-                <Label>المادة</Label>
-                <select
-                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={subjectId}
-                    onChange={(e) => setSubjectId(e.target.value)}
-                >
-                    <option value="">الكل</option>
-                    {subjects.map(s => (
-                        <option key={s.id} value={s.id}>{s.nameAr}</option>
-                    ))}
-                </select>
-            </div>
-
             {/* Dynamic Filters */}
             {config?.searchConfig?.enablePriceFilter !== false && (
                 <div className="space-y-4 pt-4 border-t border-gray-100">
                     <div className="flex justify-between items-center">
-                        <Label>نطاق السعر (SDG)</Label>
-                        <span className="text-xs text-text-subtle font-english">
-                            {minPrice} - {maxPrice === PLATFORM_MAX_PRICE ? 'MAX' : maxPrice}
-                        </span>
+                        <Label>نطاق السعر</Label>
+                        {/* Price Range Label */}
                     </div>
                     <Slider
                         defaultValue={[0, PLATFORM_MAX_PRICE]}
@@ -169,19 +168,23 @@ export function SearchFilters({
                         step={500}
                         minStepsBetweenThumbs={1}
                         onValueChange={(vals) => setPriceRange(vals[0], vals[1])}
-                        className="py-4"
+                        className="py-4 dir-ltr" // Slider handles LTR internally usually, but force LTR for logic if needed, actually radix slider is usually direction agnostic but numbers run L-R. Let's rely on standard behavior but fix labels.
                     />
+                    <div className="flex justify-between text-xs text-text-subtle font-english">
+                        <span>{minPrice.toLocaleString()} SDG</span>
+                        <span>{maxPrice === PLATFORM_MAX_PRICE ? 'MAX' : `${maxPrice.toLocaleString()} SDG`}</span>
+                    </div>
                 </div>
             )}
 
             {config?.searchConfig?.enableGenderFilter !== false && (
                 <div className="space-y-3 pt-4 border-t border-gray-100">
-                    <Label>جنس المعلم</Label>
+                    <Label>جنس المعلم (اختياري)</Label>
                     <div className="flex gap-2">
                         <Button
                             variant={gender === 'MALE' ? 'default' : 'outline'}
                             onClick={() => setGender(gender === 'MALE' ? '' : 'MALE')}
-                            className={cn("flex-1", gender === 'MALE' && "bg-primary text-white border-primary")}
+                            className={cn("flex-1", gender === 'MALE' ? "bg-primary text-white border-primary" : "text-gray-600")}
                             size="sm"
                         >
                             معلم
@@ -189,7 +192,7 @@ export function SearchFilters({
                         <Button
                             variant={gender === 'FEMALE' ? 'default' : 'outline'}
                             onClick={() => setGender(gender === 'FEMALE' ? '' : 'FEMALE')}
-                            className={cn("flex-1", gender === 'FEMALE' && "bg-primary text-white border-primary")}
+                            className={cn("flex-1", gender === 'FEMALE' ? "bg-primary text-white border-primary" : "text-gray-600")}
                             size="sm"
                         >
                             معلمة
@@ -198,14 +201,14 @@ export function SearchFilters({
                 </div>
             )}
 
-            <div className="pt-6 flex gap-3">
-                <Button onClick={onSearch} className="flex-1 gap-2" disabled={loading}>
+            <div className="pt-6 flex gap-3 sticky bottom-0 bg-white pb-2 sm:static sm:bg-transparent sm:pb-0 border-t sm:border-t-0 border-gray-100 sm:border-transparent mt-auto">
+                <Button onClick={onSearch} className="flex-1 gap-2 shadow-lg sm:shadow-none" disabled={loading}>
                     <Filter className="w-4 h-4" />
                     {loading ? 'جاري البحث...' : 'تطبيق الفلتر'}
                 </Button>
                 {activeFiltersCount > 0 && (
-                    <Button onClick={onReset} variant="ghost" size="icon" title="Reset Filters">
-                        <RefreshCcw className="w-4 h-4 text-gray-500" />
+                    <Button onClick={onReset} variant="outline" className="px-3" title="إعادة ضبط">
+                        إعادة ضبط
                     </Button>
                 )}
             </div>

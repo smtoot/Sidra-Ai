@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { walletApi, TransactionStatus } from '@/lib/api/wallet';
-import { getFileUrl } from '@/lib/api/upload';
+import { getFileUrl, getAuthenticatedFileUrl } from '@/lib/api/upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -13,8 +14,9 @@ import { Avatar } from '@/components/ui/avatar';
 import { Check, X, ExternalLink, Info, Wallet, TrendingDown, AlertCircle } from 'lucide-react';
 
 export default function AdminFinancialsPage() {
+    const router = useRouter();
     const { user } = useAuth();
-    const isAuthorized = ['ADMIN', 'FINANCE'].includes(user?.role || '');
+    const isAuthorized = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'].includes(user?.role || '');
     const [transactions, setTransactions] = useState<any[]>([]);
     const [stats, setStats] = useState<{
         totalRevenue: number;
@@ -138,11 +140,20 @@ export default function AdminFinancialsPage() {
         }
     };
 
-    const getReceiptImageUrl = (referenceImage: string): string => {
-        if (referenceImage.startsWith('http://') || referenceImage.startsWith('https://')) {
-            return referenceImage;
+    const handleViewReceipt = async (referenceImage: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            // If already a full URL, use directly
+            if (referenceImage.startsWith('http://') || referenceImage.startsWith('https://')) {
+                window.open(referenceImage, '_blank');
+                return;
+            }
+            // Otherwise, fetch authenticated URL
+            const url = await getAuthenticatedFileUrl(referenceImage);
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error('Failed to get receipt URL:', error);
         }
-        return getFileUrl(referenceImage);
     };
 
     const getStatusVariant = (status: TransactionStatus): 'success' | 'warning' | 'error' | 'info' => {
@@ -242,7 +253,11 @@ export default function AdminFinancialsPage() {
                             </TableHeader>
                             <TableBody>
                                 {transactions.map((tx) => (
-                                    <TableRow key={tx.id}>
+                                    <TableRow
+                                        key={tx.id}
+                                        className="cursor-pointer hover:bg-gray-50"
+                                        onClick={() => router.push(`/admin/transactions/${tx.id}`)}
+                                    >
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <Avatar
@@ -276,16 +291,14 @@ export default function AdminFinancialsPage() {
                                         <TableCell className="text-sm text-gray-600">
                                             {new Date(tx.createdAt).toLocaleDateString('ar-SA')}
                                         </TableCell>
-                                        <TableCell className="text-sm">
+                                        <TableCell className="text-sm" onClick={(e) => e.stopPropagation()}>
                                             {tx.type === 'DEPOSIT' && tx.referenceImage && (
-                                                <a
-                                                    href={getReceiptImageUrl(tx.referenceImage)}
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                    className="text-primary-600 hover:underline flex items-center gap-1 text-xs"
+                                                <button
+                                                    onClick={(e) => handleViewReceipt(tx.referenceImage, e)}
+                                                    className="text-primary-600 hover:underline flex items-center gap-1 text-xs cursor-pointer"
                                                 >
                                                     <ExternalLink className="w-3 h-3" /> إيصال
-                                                </a>
+                                                </button>
                                             )}
                                             {tx.type === 'WITHDRAWAL' && (
                                                 <div className="text-xs text-gray-600 space-y-1">
@@ -301,7 +314,7 @@ export default function AdminFinancialsPage() {
                                             )}
                                         </TableCell>
                                         {isAuthorized && (
-                                            <TableCell>
+                                            <TableCell onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center gap-2">
                                                     {tx.status === 'PENDING' && (
                                                         <>

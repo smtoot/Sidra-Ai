@@ -160,22 +160,22 @@
      TYPOGRAPHY SCALE (Based on Major Second - 1.125 ratio)
      ======================================== */
 
-  --font-size-xs: 0.75rem;
-  /* 12px - Captions, metadata */
-  --font-size-sm: 0.875rem;
-  /* 14px - Body text, labels */
-  --font-size-base: 1rem;
-  /* 16px - Default body */
-  --font-size-lg: 1.125rem;
-  /* 18px - Emphasized text */
-  --font-size-xl: 1.25rem;
-  /* 20px - Section headers */
-  --font-size-2xl: 1.5rem;
-  /* 24px - Page titles */
-  --font-size-3xl: 1.875rem;
-  /* 30px - Hero headings */
-  --font-size-4xl: 2.25rem;
-  /* 36px - Display headings */
+  --font-size-xs: 0.875rem;
+  /* 14px - Captions, metadata (was 12px) */
+  --font-size-sm: 1rem;
+  /* 16px - Body text, labels (was 14px) */
+  --font-size-base: 1.125rem;
+  /* 18px - Default body (was 16px) */
+  --font-size-lg: 1.25rem;
+  /* 20px - Emphasized text (was 18px) */
+  --font-size-xl: 1.5rem;
+  /* 24px - Section headers (was 20px) */
+  --font-size-2xl: 1.875rem;
+  /* 30px - Page titles (was 24px) */
+  --font-size-3xl: 2.25rem;
+  /* 36px - Hero headings (was 30px) */
+  --font-size-4xl: 3rem;
+  /* 48px - Display headings (was 36px) */
 
   /* Font Weights */
   --font-weight-light: 300;

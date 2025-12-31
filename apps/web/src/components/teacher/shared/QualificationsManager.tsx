@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { teacherApi, TeacherQualification } from '@/lib/api/teacher';
 import { QualificationStatus, CreateQualificationDto } from '@sidra/shared';
-import { uploadFile } from '@/lib/api/upload';
+import { uploadFileWithUrl } from '@/lib/api/upload';
 import { AuthenticatedImage } from '@/components/ui/AuthenticatedImage';
 import {
     GraduationCap,
@@ -43,6 +43,8 @@ interface QualificationFormData {
     endDate: string;
     graduationYear: string;
     certificateUrl: string;
+    /** Signed URL for preview - only available for freshly uploaded files */
+    certificatePreviewUrl?: string;
 }
 
 const emptyFormData: QualificationFormData = {
@@ -54,6 +56,7 @@ const emptyFormData: QualificationFormData = {
     endDate: '',
     graduationYear: '',
     certificateUrl: '',
+    certificatePreviewUrl: undefined,
 };
 
 /**
@@ -100,8 +103,12 @@ export function QualificationsManager({
 
         setUploadingCert(true);
         try {
-            const fileKey = await uploadFile(file, 'teacher-docs');
-            setFormData(prev => ({ ...prev, certificateUrl: fileKey }));
+            const { fileKey, url } = await uploadFileWithUrl(file, 'teacher-docs');
+            setFormData(prev => ({
+                ...prev,
+                certificateUrl: fileKey,
+                certificatePreviewUrl: url, // Store signed URL for immediate preview
+            }));
             toast.success('تم رفع الشهادة بنجاح ✅');
         } catch (error: any) {
             console.error('Failed to upload certificate:', error);
@@ -479,16 +486,29 @@ export function QualificationsManager({
                         </Label>
                         {formData.certificateUrl ? (
                             <div className="space-y-2">
-                                <AuthenticatedImage
-                                    fileKey={formData.certificateUrl}
-                                    alt="شهادة"
-                                    className="h-32 w-full rounded-lg border border-gray-200"
-                                    enableFullView={true}
-                                />
+                                {/* Use signed URL for fresh uploads, AuthenticatedImage for existing */}
+                                {formData.certificatePreviewUrl ? (
+                                    <img
+                                        src={formData.certificatePreviewUrl}
+                                        alt="شهادة"
+                                        className="h-32 w-full rounded-lg border border-gray-200 object-cover"
+                                    />
+                                ) : (
+                                    <AuthenticatedImage
+                                        fileKey={formData.certificateUrl}
+                                        alt="شهادة"
+                                        className="h-32 w-full rounded-lg border border-gray-200"
+                                        enableFullView={true}
+                                    />
+                                )}
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setFormData(prev => ({ ...prev, certificateUrl: '' }))}
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        certificateUrl: '',
+                                        certificatePreviewUrl: undefined,
+                                    }))}
                                     disabled={saving}
                                     className="w-full"
                                 >

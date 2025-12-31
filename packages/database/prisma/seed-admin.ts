@@ -5,10 +5,10 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('🌱 Seeding Admin User...');
+    console.log('🌱 Seeding Super Admin User...');
 
-    const email = 'admin@sidra.com';
-    const password = 'Admin123!@#$'; // Strong password: 12+ chars, uppercase, lowercase, number, special
+    const email = 'superadmin@sidra.com';
+    const password = 'SuperAdmin123!@#$'; // Strong password: 12+ chars, uppercase, lowercase, number, special
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Verify hash immediately
@@ -25,19 +25,20 @@ async function main() {
         update: {
             passwordHash: hashedPassword, // Ensure update happens even if user exists
             isVerified: true,
-            isActive: true
+            isActive: true,
+            role: UserRole.SUPER_ADMIN
         },
         create: {
             email,
-            phoneNumber: '0599999999', // Admin placeholder phone
+            phoneNumber: '+249999999999', // Admin placeholder phone
             passwordHash: hashedPassword,
-            role: UserRole.ADMIN,
-            isActive: true, // Default
+            role: UserRole.SUPER_ADMIN,
+            isActive: true,
             isVerified: true
         },
     });
 
-    console.log(`✅ Admin user seeded: ${admin.email}`);
+    console.log(`✅ Super Admin user seeded: ${admin.email}`);
     console.log(`📧 Email: ${email}`);
     console.log(`🔑 Password: ${password}`);
     console.log(`\n🚀 You can now login with these credentials!`);

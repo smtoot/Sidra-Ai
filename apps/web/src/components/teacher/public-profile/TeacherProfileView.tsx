@@ -9,11 +9,17 @@ import {
     ArrowRight, Star, GraduationCap, Clock, CheckCircle,
     Calendar, MessageSquare, ChevronDown, Sparkles,
     ShieldCheck, Play, Users, Sun, Sunset, Moon, Gift, Share,
-    Award, BookOpen, Building2, Video, BookMarked, Layers, DollarSign, Palmtree
+    Award, BookOpen, Building2, Video, BookMarked, Layers, DollarSign, Palmtree,
+    UserPlus
 } from 'lucide-react';
 import { ShareModal } from '../ShareModal';
 import { FavoriteButton } from '../FavoriteButton';
 import { toast } from 'sonner';
+import {
+    isRecentlyJoinedTeacher,
+    isVerifiedTeacher,
+    TEACHER_STATUS_LABELS
+} from '@/config/teacher-status';
 
 // --- Helper Functions & Constants ---
 const DAY_LABELS: Record<string, string> = {
@@ -223,8 +229,8 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
 
                         {/* Trust Signals & Badges */}
                         <div className="flex flex-wrap justify-center gap-3 text-sm">
-                            {/* Rating / New Teacher Badge */}
-                            {teacher.totalReviews >= 5 ? (
+                            {/* Rating / Recently Joined Badge */}
+                            {!isRecentlyJoinedTeacher(teacher.totalReviews) ? (
                                 <div className="flex items-center gap-1 bg-white/80 px-3 py-1.5 rounded-full shadow-sm border border-gray-100">
                                     <Star className="w-4 h-4 text-accent fill-current" />
                                     <span className="font-bold">{teacher.averageRating.toFixed(1)}</span>
@@ -232,8 +238,8 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-1 bg-accent/10 text-accent-dark px-3 py-1.5 rounded-full shadow-sm border border-accent/20">
-                                    <Sparkles className="w-4 h-4 fill-current" />
-                                    <span className="font-bold">معلم جديد</span>
+                                    <UserPlus className="w-4 h-4" />
+                                    <span className="font-bold">{TEACHER_STATUS_LABELS.RECENTLY_JOINED}</span>
                                 </div>
                             )}
 

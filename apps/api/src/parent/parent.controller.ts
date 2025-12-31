@@ -18,7 +18,7 @@ import { UserRole } from '@sidra/shared';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.PARENT)
 export class ParentController {
-  constructor(private readonly parentService: ParentService) {}
+  constructor(private readonly parentService: ParentService) { }
 
   @Get('dashboard')
   getDashboardStats(@Request() req: any) {
@@ -38,6 +38,11 @@ export class ParentController {
   @Get('children')
   getChildren(@Request() req: any) {
     return this.parentService.getChildren(req.user.userId);
+  }
+
+  @Get('children/:id')
+  getChild(@Request() req: any, @Param('id') id: string) {
+    return this.parentService.getChild(req.user.userId, id);
   }
 
   @Post('children')

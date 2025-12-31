@@ -8,7 +8,7 @@ import {
   Query,
   Body,
   UseGuards,
-  Request,
+  Req,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,6 +23,17 @@ import { AuditService } from '../common/audit/audit.service';
 import { SystemSettingsService } from './system-settings.service';
 import { AuditAction } from '@prisma/client';
 import { PackageService } from '../package/package.service';
+
+/**
+ * Authenticated request interface for JWT-protected endpoints
+ */
+interface AuthRequest {
+  user: {
+    userId: string;
+    email: string;
+    role: string;
+  };
+}
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -69,7 +80,7 @@ export class AdminController {
 
   @Patch('disputes/:id/resolve')
   resolveDispute(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body()
     dto: {
@@ -101,7 +112,7 @@ export class AdminController {
 
   @Patch('settings')
   updateSettings(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Body()
     dto: {
       platformFeePercent?: number;
@@ -113,7 +124,7 @@ export class AdminController {
       maxPricePerHour?: number;
       defaultSessionDurationMinutes?: number;
       allowedSessionDurations?: number[];
-      searchConfig?: any; // JSON object for dynamic search configuration
+      searchConfig?: Record<string, unknown>; // JSON object for dynamic search configuration
     },
   ) {
     return this.settingsService.updateSettings(req.user.userId, dto);
@@ -149,13 +160,13 @@ export class AdminController {
   }
 
   @Patch('teacher-applications/:id/approve')
-  approveApplication(@Request() req: any, @Param('id') id: string) {
+  approveApplication(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.adminService.approveApplication(req.user.userId, id);
   }
 
   @Patch('teacher-applications/:id/reject')
   rejectApplication(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() dto: { reason: string },
   ) {
@@ -164,7 +175,7 @@ export class AdminController {
 
   @Patch('teacher-applications/:id/request-changes')
   requestChanges(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() dto: { reason: string },
   ) {
@@ -173,7 +184,7 @@ export class AdminController {
 
   @Post('teacher-applications/:id/propose-interview-slots')
   proposeInterviewSlots(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Param('id') id: string,
     @Body() dto: { timeSlots: { dateTime: string; meetingLink: string }[] },
   ) {
@@ -193,7 +204,7 @@ export class AdminController {
 
   @Patch('users/:id/reset-password')
   async resetUserPassword(
-    @Request() req: any,
+    @Req() req: AuthRequest,
     @Param('id') userId: string,
     @Body() dto: { temporaryPassword?: string; forceChange?: boolean },
   ) {

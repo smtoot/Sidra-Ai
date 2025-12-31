@@ -1,6 +1,6 @@
 'use client';
 
-import { PublicNavbar, Footer } from '@/components/public';
+
 import { Badge } from '@/components/ui/badge';
 import {
     Accordion,
@@ -53,7 +53,7 @@ export default function FAQPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 font-tajawal rtl flex flex-col">
-            <PublicNavbar />
+
 
             <main className="flex-grow py-16">
                 <div className="container mx-auto px-4">
@@ -115,7 +115,7 @@ export default function FAQPage() {
                 </div>
             </main>
 
-            <Footer />
+
         </div>
     );
 }
