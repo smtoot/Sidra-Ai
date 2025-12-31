@@ -11,10 +11,10 @@ export class ParentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) {}
+  ) { }
 
   async getDashboardStats(userId: string) {
-    const [wallet, upcomingClasses, parentProfile] = await Promise.all([
+    const [wallet, upcomingBookings, parentProfile] = await Promise.all([
       this.walletService.getBalance(userId),
       this.prisma.booking.findMany({
         where: {
@@ -35,8 +35,14 @@ export class ParentService {
       }),
     ]);
 
+    // Flatten and enrich booking data
+    const upcomingClasses = upcomingBookings.map((booking, index) => ({
+      ...booking,
+      isNextGlobalSession: index === 0, // Oldest upcoming is "next"
+    }));
+
     return {
-      balance: wallet.balance,
+      balance: wallet?.balance || 0,
       upcomingClasses,
       children: parentProfile?.children || [],
     };
