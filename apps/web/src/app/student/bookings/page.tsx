@@ -217,45 +217,45 @@ export default function StudentBookingsPage() {
                                         return (
                                             <Card key={booking.id} className={cn("border-r-4 hover:shadow-lg transition-all", statusConfig.borderColor)}>
                                                 <CardContent className="p-0">
-                                                    <div className="p-5">
+                                                    <div className="p-4 sm:p-5">
                                                         {/* Header with Teacher Info */}
-                                                        <div className="flex items-center justify-between mb-4">
-                                                            <div className="flex items-center gap-4">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                                            <div className="flex items-center gap-3 sm:gap-4">
                                                                 <Avatar
                                                                     src={booking.teacherProfile?.user?.photoUrl}
                                                                     fallback={booking.teacherProfile?.displayName?.[0] || 'م'}
                                                                     size="lg"
                                                                 />
                                                                 <div>
-                                                                    <h3 className="text-lg font-bold text-gray-900">
+                                                                    <h3 className="text-base sm:text-lg font-bold text-gray-900">
                                                                         {booking.teacherProfile?.displayName || 'معلم'}
                                                                     </h3>
-                                                                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-0.5">
+                                                                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-0.5 flex-wrap">
                                                                         <BookOpen className="w-3.5 h-3.5" />
                                                                         <span>{booking.subject?.nameAr}</span>
                                                                         {booking.readableId && (
-                                                                            <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 mr-2">
+                                                                            <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
                                                                                 #{booking.readableId}
                                                                             </span>
                                                                         )}
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className={cn("px-4 py-2 rounded-xl flex items-center gap-2 font-bold text-sm", statusConfig.bgColor, `text-${statusConfig.color}-700`)}>
+                                                            <div className={cn("px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl flex items-center gap-2 font-bold text-xs sm:text-sm w-fit", statusConfig.bgColor, `text-${statusConfig.color}-700`)}>
                                                                 <StatusIcon className="w-4 h-4" />
                                                                 <span>{statusConfig.label}</span>
                                                             </div>
                                                         </div>
 
                                                         {/* Date & Time */}
-                                                        <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4 text-sm">
                                                             <div className="flex items-center gap-2 text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                                                                <Calendar className="w-4 h-4 text-primary-600" />
-                                                                <span className="font-medium">{new Date(booking.startTime).toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                                                <Calendar className="w-4 h-4 text-primary-600 shrink-0" />
+                                                                <span className="font-medium text-xs sm:text-sm">{new Date(booking.startTime).toLocaleDateString('ar-SA', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2 text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                                                                <Clock className="w-4 h-4 text-primary-600" />
-                                                                <span className="font-medium">
+                                                                <Clock className="w-4 h-4 text-primary-600 shrink-0" />
+                                                                <span className="font-medium text-xs sm:text-sm">
                                                                     {new Date(booking.startTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
                                                                     {' - '}
                                                                     {new Date(booking.endTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
@@ -307,15 +307,16 @@ export default function StudentBookingsPage() {
                                                         )}
 
                                                         {/* Actions Bar */}
-                                                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                                                            <div className="text-2xl font-black text-primary-700">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-100">
+                                                            <div className="text-xl sm:text-2xl font-black text-primary-700">
                                                                 {booking.price} <span className="text-sm font-normal text-gray-500">SDG</span>
                                                             </div>
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 {booking.status === 'WAITING_FOR_PAYMENT' && (
                                                                     <Button
                                                                         onClick={() => setSelectedBookingForPayment(booking)}
-                                                                        className="bg-blue-600 hover:bg-blue-700"
+                                                                        className="bg-blue-600 hover:bg-blue-700 text-sm"
+                                                                        size="sm"
                                                                     >
                                                                         <CreditCard className="w-4 h-4 ml-1" />
                                                                         ادفع الآن
@@ -323,7 +324,8 @@ export default function StudentBookingsPage() {
                                                                 )}
                                                                 {booking.status === 'SCHEDULED' && (
                                                                     <Button
-                                                                        className="bg-success-600 hover:bg-success-700"
+                                                                        className="bg-success-600 hover:bg-success-700 text-sm"
+                                                                        size="sm"
                                                                         onClick={() => alert('سيتم توجيهك إلى رابط الاجتماع')}
                                                                     >
                                                                         <Video className="w-4 h-4 ml-1" />
@@ -331,7 +333,7 @@ export default function StudentBookingsPage() {
                                                                     </Button>
                                                                 )}
                                                                 <Link href={`/student/bookings/${booking.id}`}>
-                                                                    <Button variant="outline">
+                                                                    <Button variant="outline" size="sm" className="text-sm">
                                                                         التفاصيل
                                                                         <ArrowLeft className="w-4 h-4 mr-1" />
                                                                     </Button>

@@ -223,16 +223,16 @@ export default function ParentBookingsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background font-tajawal rtl p-8">
-            <div className="max-w-6xl mx-auto space-y-8">
+        <div className="min-h-screen bg-background font-tajawal rtl p-4 md:p-8">
+            <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
                 <header>
-                    <h1 className="text-3xl font-bold text-primary">حجوزاتي</h1>
-                    <div className="flex items-center justify-between mt-1">
-                        <p className="text-text-subtle">جميع الحصص المحجوزة</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-primary">حجوزاتي</h1>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
+                        <p className="text-text-subtle text-sm md:text-base">جميع الحصص المحجوزة</p>
                         {userTimezone && (
-                            <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg w-fit">
                                 <Globe className="w-4 h-4" />
-                                <span>الأوقات بتوقيت {getTimezoneDisplay(userTimezone)}</span>
+                                <span>{getTimezoneDisplay(userTimezone)}</span>
                             </div>
                         )}
                     </div>
@@ -268,10 +268,10 @@ export default function ParentBookingsPage() {
                 ) : (
                     <div className="space-y-4">
                         {bookings.map((booking) => (
-                            <div key={booking.id} className="bg-surface rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow">
-                                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                            <div key={booking.id} className="bg-surface rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow">
+                                <div className="flex flex-col md:flex-row justify-between items-start gap-4 sm:gap-6">
                                     <div className="flex-1 space-y-3 w-full">
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                                                     <User className="w-5 h-5 text-primary" />
@@ -322,8 +322,8 @@ export default function ParentBookingsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between mt-4">
-                                            <div className="flex items-center gap-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
+                                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                                                 <span className="font-bold text-lg text-primary">{booking.price} SDG</span>
                                                 {booking.cancelReason && (
                                                     <span className="text-xs text-error bg-error/10 px-2 py-1 rounded">
@@ -334,10 +334,10 @@ export default function ParentBookingsPage() {
 
                                             {/* Action Buttons */}
                                             {booking.status === 'WAITING_FOR_PAYMENT' && (
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-2 flex-wrap">
                                                     <button
                                                         onClick={() => setSelectedBookingForPayment(booking)}
-                                                        className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-hover transition-colors flex items-center gap-2 shadow-sm"
+                                                        className="bg-primary text-white px-4 sm:px-6 py-2 rounded-lg font-bold hover:bg-primary-hover transition-colors flex items-center gap-2 shadow-sm text-sm sm:text-base"
                                                     >
                                                         <CreditCard className="w-4 h-4" />
                                                         ادفع الآن
@@ -347,7 +347,7 @@ export default function ParentBookingsPage() {
                                                             setSelectedBookingForCancel(booking);
                                                             setCancelModalOpen(true);
                                                         }}
-                                                        className="border border-red-300 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2"
+                                                        className="border border-red-300 text-red-600 px-3 sm:px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2 text-sm sm:text-base"
                                                     >
                                                         <XOctagon className="w-4 h-4" />
                                                         إلغاء

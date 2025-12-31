@@ -46,17 +46,17 @@ export default function ChildrenPage() {
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 p-4 md:p-0">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                        <Users className="w-8 h-8 text-primary" />
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
+                        <Users className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                         أبنائي
                     </h1>
-                    <p className="text-gray-500 mt-2">إدارة حسابات الأبناء ومتابعتهم</p>
+                    <p className="text-gray-500 mt-1 sm:mt-2 text-sm sm:text-base">إدارة حسابات الأبناء ومتابعتهم</p>
                 </div>
-                <Button onClick={handleAddClick} className="gap-2 shadow-lg hover:shadow-primary/20">
+                <Button onClick={handleAddClick} className="gap-2 shadow-lg hover:shadow-primary/20 w-full sm:w-auto">
                     <Plus className="w-5 h-5" />
                     إضافة ابن
                 </Button>

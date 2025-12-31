@@ -134,27 +134,31 @@ export function TeacherPowerCard({ teacher, onBook }: TeacherPowerCardProps) {
                 </div>
 
                 {/* Footer / Actions */}
-                <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between gap-4">
-                    <div className="flex flex-col">
-                        <span className="text-xs text-gray-500">سعر الساعة</span>
-                        <div className="font-bold text-primary font-english text-lg">
-                            {parseInt(pricePerHour).toLocaleString()} <span className="text-xs font-normal text-gray-500">SDG</span>
+                <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                    {/* Price + Availability Row */}
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-xs text-gray-500">سعر الساعة</span>
+                            <div className="font-bold text-primary font-english text-lg">
+                                {parseInt(pricePerHour).toLocaleString()} <span className="text-xs font-normal text-gray-500">SDG</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="flex items-center gap-3 flex-1 justify-end">
                         {nextAvailableSlot && (
-                            <div className="hidden md:flex flex-col items-end text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                            <div className="flex flex-col items-end text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
                                 <span className="font-semibold flex items-center gap-1">
                                     <Clock className="w-3 h-3" /> متاح {nextAvailableSlot.display}
                                 </span>
                             </div>
                         )}
+                    </div>
 
-                        <Button onClick={() => onBook(teacher)} className="bg-primary hover:bg-primary/90 min-w-[100px]">
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <Button onClick={() => onBook(teacher)} className="bg-primary hover:bg-primary/90 flex-1 sm:flex-none sm:min-w-[100px]">
                             حجز حصة
                         </Button>
-                        <Button variant="outline" asChild>
+                        <Button variant="outline" asChild className="flex-1 sm:flex-none">
                             <Link href={`/teacher/${teacherProfile.slug || teacherProfile.id}`}>
                                 الملف الشخصي
                             </Link>

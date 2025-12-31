@@ -192,27 +192,27 @@ export function BookingCard({
                 </div>
             )}
 
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
                 {/* Header Row */}
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                     {/* Student Info */}
                     <div className="flex items-center gap-3">
                         <div className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center",
+                            "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0",
                             "bg-gradient-to-br",
                             config.gradient,
                             "text-white shadow-lg"
                         )}>
-                            <User className="w-6 h-6" />
+                            <User className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
                         <div>
                             <Link
                                 href={`/teacher/sessions/${id}`}
-                                className="font-bold text-gray-800 hover:text-primary transition-colors text-lg"
+                                className="font-bold text-gray-800 hover:text-primary transition-colors text-base sm:text-lg"
                             >
                                 {studentName}
                             </Link>
-                            <p className="text-sm text-gray-500 flex items-center gap-2">
+                            <p className="text-sm text-gray-500 flex items-center gap-2 flex-wrap">
                                 <span className="flex items-center gap-1">📚 {subjectName}</span>
                                 {readableId && (
                                     <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
@@ -241,7 +241,7 @@ export function BookingCard({
 
                     {/* Status Badge */}
                     <div className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold",
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold w-fit",
                         config.bgColor,
                         config.textColor,
                     )}>
@@ -252,24 +252,24 @@ export function BookingCard({
 
                 {/* Date/Time Row */}
                 <div className={cn(
-                    "flex items-center gap-6 p-3 rounded-xl mb-4",
+                    "flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 p-3 rounded-xl mb-4",
                     config.bgColor,
                 )}>
                     <div className="flex items-center gap-2">
-                        <Calendar className={cn("w-5 h-5", config.textColor)} />
+                        <Calendar className={cn("w-5 h-5 shrink-0", config.textColor)} />
                         <div>
                             <p className="text-xs text-gray-500">التاريخ</p>
-                            <p className="font-semibold text-gray-800">
+                            <p className="font-semibold text-gray-800 text-sm sm:text-base">
                                 {format(startDate, 'EEEE d MMM', { locale: ar })}
                             </p>
                         </div>
                     </div>
-                    <div className="w-px h-10 bg-gray-200" />
+                    <div className="hidden sm:block w-px h-10 bg-gray-200" />
                     <div className="flex items-center gap-2">
-                        <Clock className={cn("w-5 h-5", config.textColor)} />
+                        <Clock className={cn("w-5 h-5 shrink-0", config.textColor)} />
                         <div>
                             <p className="text-xs text-gray-500">الوقت</p>
-                            <p className="font-semibold text-gray-800">
+                            <p className="font-semibold text-gray-800 text-sm sm:text-base">
                                 {format(startDate, 'h:mm a', { locale: ar })}
                                 <span className="text-gray-400 mx-1">←</span>
                                 {format(endDate, 'h:mm a', { locale: ar })}
@@ -279,18 +279,18 @@ export function BookingCard({
                 </div>
 
                 {/* Footer Row */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     {/* Price */}
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
                             <DollarSign className="w-5 h-5 text-emerald-500" />
-                            <span className="text-2xl font-bold text-gray-800">{price}</span>
+                            <span className="text-xl sm:text-2xl font-bold text-gray-800">{price}</span>
                             <span className="text-sm text-gray-500">SDG</span>
                         </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         {actionSlot ? (
                             actionSlot
                         ) : showActions && status === 'PENDING_TEACHER_APPROVAL' ? (

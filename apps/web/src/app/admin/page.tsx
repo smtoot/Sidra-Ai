@@ -10,8 +10,8 @@ export default function AdminDashboardPage() {
     const { user } = useAuth();
 
     return (
-        <div className="min-h-screen bg-background font-sans rtl p-6">
-            <div className="max-w-[1600px] mx-auto space-y-6">
+        <div className="min-h-screen bg-background font-sans rtl p-4 md:p-6">
+            <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6">
 
                 {/* Page Header */}
                 <header className="space-y-1">

@@ -258,7 +258,7 @@ export default function TeacherDashboardPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4">
-                                <div className="grid grid-cols-7 gap-2">
+                                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                                     {weekDays.map((day, index) => {
                                         const isCurrentDay = isToday(day);
                                         const hasSession = upcomingSession && isSameDay(new Date(upcomingSession.startTime), day);
@@ -267,15 +267,15 @@ export default function TeacherDashboardPage() {
                                             <div
                                                 key={index}
                                                 className={`
-                                                    p-3 rounded-lg text-center transition-all
+                                                    p-2 sm:p-3 rounded-lg text-center transition-all
                                                     ${isCurrentDay ? 'bg-primary-600 text-white shadow-md' : 'bg-gray-50'}
                                                     ${hasSession && !isCurrentDay ? 'ring-2 ring-primary-300' : ''}
                                                 `}
                                             >
-                                                <div className={`text-xs font-medium mb-1 ${isCurrentDay ? 'text-primary-100' : 'text-gray-500'}`}>
+                                                <div className={`text-[10px] sm:text-xs font-medium mb-1 ${isCurrentDay ? 'text-primary-100' : 'text-gray-500'}`}>
                                                     {format(day, 'EEE', { locale: ar })}
                                                 </div>
-                                                <div className={`text-lg font-bold ${isCurrentDay ? 'text-white' : 'text-gray-900'}`}>
+                                                <div className={`text-sm sm:text-lg font-bold ${isCurrentDay ? 'text-white' : 'text-gray-900'}`}>
                                                     {format(day, 'd')}
                                                 </div>
                                                 {hasSession && (
