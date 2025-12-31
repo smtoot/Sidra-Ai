@@ -11,7 +11,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, isLoading } = useAuth();
 
     // 1. Auth Pages: No Navigation, No Footer
-    const authPages = ['/login', '/register'];
+    const authPages = ['/login', '/register', '/join-as-teacher'];
     const isAuthPage = authPages.includes(pathname);
 
     if (isLoading) return <>{children}</>;
@@ -20,7 +20,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
-    const userRole = user?.role as 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT' | undefined;
+    const userRole = user?.role as 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT' | 'SUPER_ADMIN' | 'MODERATOR' | 'CONTENT_ADMIN' | 'FINANCE' | 'SUPPORT' | undefined;
 
     // Get display name with proper Arabic fallbacks based on role
     const getRoleFallback = (role: string | undefined) => {
@@ -28,7 +28,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             case 'PARENT': return 'ولي الأمر';
             case 'STUDENT': return 'الطالب';
             case 'TEACHER': return 'المعلم';
-            case 'ADMIN': return 'المسؤول';
+            case 'ADMIN':
+            case 'SUPER_ADMIN':
+            case 'MODERATOR':
+            case 'CONTENT_ADMIN':
+            case 'FINANCE':
+            case 'SUPPORT':
+                return 'المسؤول';
             default: return 'مستخدم';
         }
     };

@@ -332,8 +332,8 @@ export default function JoinAsTeacherPage() {
                                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmed" alt="Teacher" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-gray-900 dark:text-white">أ. أحمد محمد</p>
-                                    <p className="text-xs text-gray-500">معلم رياضيات</p>
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white">أ. سارة أحمد</p>
+                                    <p className="text-xs text-gray-500">معلمة رياضيات</p>
                                 </div>
                             </div>
                         </div>
