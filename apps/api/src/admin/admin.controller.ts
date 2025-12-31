@@ -112,7 +112,6 @@ export class AdminController {
       demosEnabled?: boolean;
       maxPricePerHour?: number;
       defaultSessionDurationMinutes?: number;
-      defaultSessionDurationMinutes?: number;
       allowedSessionDurations?: number[];
       searchConfig?: any; // JSON object for dynamic search configuration
     },

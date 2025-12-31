@@ -54,7 +54,6 @@ export class SystemSettingsService {
       defaultSessionDurationMinutes?: number; // Default session duration in minutes
       allowedSessionDurations?: number[]; // Allowed session durations (future-proof)
       meetingLinkAccessMinutesBefore?: number; // Minutes before session when meeting link becomes accessible
-      meetingLinkAccessMinutesBefore?: number; // Minutes before session when meeting link becomes accessible
       maxVacationDays?: number; // Maximum vacation duration allowed for teachers
       searchConfig?: any;
     },
