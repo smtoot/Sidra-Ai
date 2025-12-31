@@ -8,8 +8,45 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { User, Loader2 } from 'lucide-react';
+import { ApplicationStatus } from '@sidra/shared';
 
 import Link from 'next/link';
+
+/**
+ * Get Arabic label for application status
+ */
+function getStatusLabel(status: ApplicationStatus | undefined): string {
+    if (!status) return 'غير محدد';
+    const labels: Record<ApplicationStatus, string> = {
+        DRAFT: 'مسودة',
+        SUBMITTED: 'قيد المراجعة',
+        CHANGES_REQUESTED: 'تحتاج تعديل',
+        INTERVIEW_REQUIRED: 'تحتاج مقابلة',
+        INTERVIEW_SCHEDULED: 'مقابلة محددة',
+        APPROVED: 'مفعل',
+        REJECTED: 'مرفوض',
+    };
+    return labels[status] || status;
+}
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+
+/**
+ * Get badge variant for application status
+ */
+function getStatusVariant(status: ApplicationStatus | undefined): BadgeVariant {
+    if (!status) return 'neutral';
+    const variants: Record<ApplicationStatus, BadgeVariant> = {
+        DRAFT: 'neutral',
+        SUBMITTED: 'warning',
+        CHANGES_REQUESTED: 'warning',
+        INTERVIEW_REQUIRED: 'info',
+        INTERVIEW_SCHEDULED: 'info',
+        APPROVED: 'success',
+        REJECTED: 'error',
+    };
+    return variants[status] || 'neutral';
+}
 
 export default function AdminTeachersPage() {
     const [teachers, setTeachers] = useState<any[]>([]);
@@ -87,9 +124,9 @@ export default function AdminTeachersPage() {
                                         </TableCell>
                                         <TableCell>
                                             <StatusBadge
-                                                variant={teacher.teacherProfile?.applicationStatus === 'APPROVED' ? 'success' : 'warning'}
+                                                variant={getStatusVariant(teacher.teacherProfile?.applicationStatus)}
                                             >
-                                                {teacher.teacherProfile?.applicationStatus === 'APPROVED' ? 'مفعل' : 'قيد المراجعة'}
+                                                {getStatusLabel(teacher.teacherProfile?.applicationStatus)}
                                             </StatusBadge>
                                         </TableCell>
                                         <TableCell className="text-sm text-gray-600">
