@@ -58,7 +58,14 @@ export default function StudentDashboardPage() {
         );
     }
 
-    const { balance, upcomingClasses, totalClasses } = stats;
+    const {
+        balance,
+        upcomingClasses,
+        totalClasses,
+        completedClassesCount,
+        totalHoursLearned,
+        suggestedTeachers
+    } = stats;
     const hasUpcoming = upcomingClasses && upcomingClasses.length > 0;
 
     return (
@@ -72,6 +79,8 @@ export default function StudentDashboardPage() {
                     balance={balance}
                     upcomingClasses={upcomingClasses}
                     totalClasses={totalClasses}
+                    completedClassesCount={completedClassesCount}
+                    totalHoursLearned={totalHoursLearned}
                 />
 
                 {/* Main Content & Sidebar Layout */}
@@ -140,7 +149,7 @@ export default function StudentDashboardPage() {
                                 </CardContent>
                             </Card>
                         ) : (
-                            <EmptyStateGuided />
+                            <EmptyStateGuided suggestedTeachers={suggestedTeachers} />
                         )}
                     </div>
 

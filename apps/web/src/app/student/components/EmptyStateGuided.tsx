@@ -4,14 +4,11 @@ import { Avatar } from '@/components/ui/avatar';
 import { Search, Calendar, CheckCircle, ArrowLeft, Star, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
-// Mock Data for Suggestions (since API is unavailable)
-const SUGGESTED_TEACHERS = [
-    { id: 1, name: 'أ. محمد أحمد', subject: 'الرياضيات', rating: 4.9, image: null },
-    { id: 2, name: 'أ. سارة علي', subject: 'اللغة الإنجليزية', rating: 4.8, image: null },
-    { id: 3, name: 'أ. خالد عمر', subject: 'الفيزياء', rating: 5.0, image: null },
-];
+interface EmptyStateGuidedProps {
+    suggestedTeachers: any[];
+}
 
-export function EmptyStateGuided() {
+export function EmptyStateGuided({ suggestedTeachers = [] }: EmptyStateGuidedProps) {
     return (
         <div className="space-y-8">
             {/* Guided Onboarding Area */}
@@ -65,55 +62,58 @@ export function EmptyStateGuided() {
             </Card>
 
             {/* Suggested Teachers */}
-            <div>
-                <div className="flex items-center justify-between mb-4 px-1">
-                    <h3 className="font-bold text-gray-900 text-lg">معلمون مقترحون لك</h3>
-                    <Link href="/search" className="text-sm text-gray-500 hover:text-gray-900 font-medium transition-colors">
-                        عرض الكل
-                    </Link>
-                </div>
+            {suggestedTeachers && suggestedTeachers.length > 0 && (
+                <div>
+                    <div className="flex items-center justify-between mb-4 px-1">
+                        <h3 className="font-bold text-gray-900 text-lg">معلمون مقترحون لك</h3>
+                        <Link href="/search" className="text-sm text-gray-500 hover:text-gray-900 font-medium transition-colors">
+                            عرض الكل
+                        </Link>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {SUGGESTED_TEACHERS.slice(0, 3).map((teacher) => (
-                        <Card key={teacher.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
-                            <CardContent className="p-4">
-                                <div className="flex items-start gap-4">
-                                    <Avatar
-                                        fallback={teacher.name[0]}
-                                        className="w-12 h-12 ring-2 ring-gray-50 group-hover:ring-primary-100 transition-all flex-shrink-0"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        {/* Name: Primary, max 2 lines */}
-                                        <div className="font-bold text-gray-900 text-lg leading-tight mb-1 line-clamp-2" title={teacher.name}>
-                                            {teacher.name}
-                                        </div>
-
-                                        {/* Subject: Secondary, max 1 line */}
-                                        <div className="text-sm text-gray-500 mb-2 truncate" title={teacher.subject}>
-                                            {teacher.subject}
-                                        </div>
-
-                                        <div className="flex items-center justify-between mt-auto">
-                                            {/* Rating: Explicitly visible */}
-                                            <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md">
-                                                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                                                <span className="text-xs font-bold text-amber-700 dir-ltr">{teacher.rating}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {suggestedTeachers.slice(0, 3).map((teacher) => (
+                            <Card key={teacher.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
+                                <CardContent className="p-4">
+                                    <div className="flex items-start gap-4">
+                                        <Avatar
+                                            src={teacher.image}
+                                            fallback={teacher.name?.[0] || 'م'}
+                                            className="w-12 h-12 ring-2 ring-gray-50 group-hover:ring-primary-100 transition-all flex-shrink-0"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            {/* Name: Primary, max 2 lines */}
+                                            <div className="font-bold text-gray-900 text-lg leading-tight mb-1 line-clamp-2" title={teacher.name}>
+                                                {teacher.name}
                                             </div>
 
-                                            {/* CTA: Single action */}
-                                            <Link href={`/search?teacher=${teacher.id}`}>
-                                                <Button size="sm" variant="ghost" className="h-8 px-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50">
-                                                    عرض الملف
-                                                </Button>
-                                            </Link>
+                                            {/* Subject: Secondary, max 1 line */}
+                                            <div className="text-sm text-gray-500 mb-2 truncate" title={teacher.subject}>
+                                                {teacher.subject}
+                                            </div>
+
+                                            <div className="flex items-center justify-between mt-auto">
+                                                {/* Rating: Explicitly visible */}
+                                                <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md">
+                                                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                                                    <span className="text-xs font-bold text-amber-700 dir-ltr">{teacher.rating?.toFixed(1) || '5.0'}</span>
+                                                </div>
+
+                                                {/* CTA: Single action */}
+                                                <Link href={`/teacher/${teacher.slug}`}>
+                                                    <Button size="sm" variant="ghost" className="h-8 px-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50">
+                                                        عرض الملف
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

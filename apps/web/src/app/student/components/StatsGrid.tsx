@@ -11,9 +11,17 @@ interface StatsGridProps {
     balance: number;
     upcomingClasses: any[];
     totalClasses: number;
+    completedClassesCount?: number;
+    totalHoursLearned?: number;
 }
 
-export function StatsGrid({ balance, upcomingClasses, totalClasses }: StatsGridProps) {
+export function StatsGrid({
+    balance,
+    upcomingClasses,
+    totalClasses,
+    completedClassesCount,
+    totalHoursLearned
+}: StatsGridProps) {
     const nextClass = upcomingClasses && upcomingClasses.length > 0 ? upcomingClasses[0] : null;
     const isUrgent = nextClass && differenceInHours(new Date(nextClass.startTime), new Date()) < 24;
 
@@ -119,15 +127,16 @@ export function StatsGrid({ balance, upcomingClasses, totalClasses }: StatsGridP
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
                                 <span className="text-gray-600">مكتملة</span>
                             </div>
-                            <span className="text-2xl font-bold text-gray-900">{totalClasses}</span>
+                            {/* Use accurate completed count, fallback to total for legacy compatibility if missing */}
+                            <span className="text-2xl font-bold text-gray-900">{completedClassesCount ?? totalClasses}</span>
                         </div>
 
                         <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
                             <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                <span className="text-gray-600">قادمة</span>
+                                <span className="text-gray-600">ساعات تعلم</span>
                             </div>
-                            <span className="text-2xl font-bold text-gray-900">{upcomingClasses?.length || 0}</span>
+                            <span className="text-2xl font-bold text-gray-900" dir="ltr">{totalHoursLearned || 0}h</span>
                         </div>
                     </div>
                 </CardContent>
