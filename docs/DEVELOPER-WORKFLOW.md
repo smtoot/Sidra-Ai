@@ -6,13 +6,14 @@
 
 1. [Environment Overview](#environment-overview)
 2. [Golden Rules](#golden-rules)
-3. [Branch Strategy](#branch-strategy)
-4. [Development Workflow](#development-workflow)
-5. [Code Review Process](#code-review-process)
-6. [Deployment Process](#deployment-process)
-7. [Hotfix Procedure](#hotfix-procedure)
-8. [Environment URLs](#environment-urls)
-9. [Common Mistakes to Avoid](#common-mistakes-to-avoid)
+3. [⚠️ Database Migrations (CRITICAL)](#database-migrations-critical)
+4. [Branch Strategy](#branch-strategy)
+5. [Development Workflow](#development-workflow)
+6. [Code Review Process](#code-review-process)
+7. [Deployment Process](#deployment-process)
+8. [Hotfix Procedure](#hotfix-procedure)
+9. [Environment URLs](#environment-urls)
+10. [Common Mistakes to Avoid](#common-mistakes-to-avoid)
 
 ---
 
@@ -67,6 +68,161 @@ All changes to `main` require:
 - Production uses `sidra-production` R2 bucket
 - Each environment has unique JWT secrets
 - Database credentials are isolated
+
+---
+
+## ⚠️ Database Migrations (CRITICAL)
+
+> **WARNING**: Incorrect database changes have caused production outages. This section is MANDATORY reading for anyone touching the Prisma schema.
+
+### The Golden Rule of Database Changes
+
+```
+NEVER edit schema.prisma without creating a migration!
+```
+
+### What Happens When You Skip Migrations
+
+| What You Did | What Happens |
+|--------------|--------------|
+| Edit `schema.prisma` and push | Code expects new column that doesn't exist |
+| App tries to query the table | **CRASH** - `Column does not exist` |
+| Production goes down | Users can't use the platform |
+
+**Real example (Jan 1, 2026):** `searchConfig` was added to `SystemSettings` without a migration. Production crashed with:
+```
+PrismaClientKnownRequestError:
+The column `system_settings.searchConfig` does not exist in the current database.
+```
+
+### Correct Workflow for Database Changes
+
+```bash
+# 1. Make your schema change
+# Edit packages/database/prisma/schema.prisma
+
+# 2. CREATE THE MIGRATION (THIS IS CRITICAL!)
+cd packages/database
+npx prisma migrate dev --name descriptive_name_here
+
+# 3. Verify migration was created
+ls prisma/migrations/  # Should see new folder with your migration
+
+# 4. Commit BOTH files together
+git add prisma/schema.prisma
+git add prisma/migrations/
+git commit -m "feat: add xyz field with migration"
+
+# 5. Push to deploy
+git push origin develop
+```
+
+### Migration Checklist
+
+Before pushing any database change, verify:
+
+- [ ] `schema.prisma` has your new field/table
+- [ ] New migration folder exists in `prisma/migrations/`
+- [ ] Migration `.sql` file contains the correct `ALTER TABLE` or `CREATE TABLE`
+- [ ] Both files are committed together
+
+### How Migrations Are Applied
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    DATABASE MIGRATION DEPLOYMENT                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   1. You push code with migration file                                   │
+│   2. Railway detects the push                                            │
+│   3. Railway runs: npx prisma migrate deploy                             │
+│   4. Migration is applied to database                                    │
+│   5. App starts with correct schema                                      │
+│                                                                          │
+│   ⚠️  If migration file is MISSING:                                      │
+│   - Step 3 does nothing (no pending migrations)                          │
+│   - Step 5 crashes (code expects columns that don't exist)               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Common Database Mistakes
+
+#### Mistake 1: Editing schema.prisma directly
+
+**WRONG:**
+```bash
+# Edit schema.prisma, add a field
+git add prisma/schema.prisma
+git commit -m "add new field"
+git push  # CRASH! No migration file!
+```
+
+**CORRECT:**
+```bash
+# Edit schema.prisma, add a field
+npx prisma migrate dev --name add_new_field  # Creates migration
+git add prisma/schema.prisma prisma/migrations/
+git commit -m "feat: add new field with migration"
+git push  # Works! Migration is applied.
+```
+
+#### Mistake 2: Using `prisma db push` instead of `migrate dev`
+
+**WRONG:**
+```bash
+npx prisma db push  # Updates local DB but NO migration file created!
+```
+
+**CORRECT:**
+```bash
+npx prisma migrate dev --name your_change  # Creates migration file
+```
+
+> `db push` is for prototyping only. Never use it for changes you want to deploy.
+
+#### Mistake 3: Forgetting to commit the migration folder
+
+**WRONG:**
+```bash
+git add prisma/schema.prisma
+git commit -m "update schema"  # Migration folder not added!
+```
+
+**CORRECT:**
+```bash
+git add prisma/schema.prisma prisma/migrations/
+git commit -m "update schema with migration"
+```
+
+### If You Realize You Forgot a Migration
+
+If code is already pushed without a migration:
+
+```bash
+# 1. Create the migration locally
+cd packages/database
+npx prisma migrate dev --name add_missing_xyz
+
+# 2. Or manually create migration file if prisma migrate fails
+mkdir -p prisma/migrations/YYYYMMDDHHMMSS_add_xyz
+echo 'ALTER TABLE "table_name" ADD COLUMN "column_name" TYPE;' > prisma/migrations/YYYYMMDDHHMMSS_add_xyz/migration.sql
+
+# 3. Commit and push immediately
+git add prisma/migrations/
+git commit -m "fix: add missing migration for xyz"
+git push
+```
+
+### Database Change Review Checklist
+
+When reviewing PRs with database changes:
+
+- [ ] Is there a new migration folder?
+- [ ] Does the migration SQL match the schema change?
+- [ ] Is the migration reversible (for rollback)?
+- [ ] Have indexes been added for frequently queried columns?
+- [ ] Are there any breaking changes for existing data?
 
 ---
 
@@ -451,6 +607,7 @@ For production issues:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2024-12-30 | Claude Code | Initial document |
+| 1.1 | 2026-01-01 | Claude Code | Added critical Database Migrations section after production outage |
 
 ---
 
