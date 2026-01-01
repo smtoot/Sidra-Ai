@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { walletApi } from '@/lib/api/wallet';
 import { adminApi } from '@/lib/api/admin';
-import { AlertCircle, Banknote, UserCheck, Wallet } from 'lucide-react';
+import { getAdminSupportTickets } from '@/lib/api/support-ticket';
+import { Headset, Banknote, UserCheck, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -61,7 +62,7 @@ export function ActionStrip() {
     const [counts, setCounts] = useState({
         deposits: 0,
         withdrawals: 0,
-        disputes: 0,
+        tickets: 0,
         teachers: 0
     });
     const [loading, setLoading] = useState(true);
@@ -69,22 +70,25 @@ export function ActionStrip() {
     useEffect(() => {
         const loadCounts = async () => {
             try {
-                const [depositsRes, withdrawalsStats, disputesRes, teachersRes] = await Promise.all([
+                const [depositsRes, withdrawalsStats, ticketsRes, teachersRes] = await Promise.all([
                     walletApi.getTransactions({ status: 'PENDING', type: 'DEPOSIT' }),
                     walletApi.getAdminStats(),
-                    adminApi.getDisputes('PENDING'),
+                    getAdminSupportTickets(),
                     adminApi.getPendingTeachers()
                 ]);
 
                 const pendingDeposits = depositsRes.data?.length || 0;
                 const pendingWithdrawals = withdrawalsStats.pendingPayouts?.count || 0;
-                const openDisputes = Array.isArray(disputesRes) ? disputesRes.length : 0;
+                // Count only OPEN tickets (not resolved/closed)
+                const openTickets = Array.isArray(ticketsRes)
+                    ? ticketsRes.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length
+                    : 0;
                 const pendingTeachers = Array.isArray(teachersRes) ? teachersRes.length : 0;
 
                 setCounts({
                     deposits: pendingDeposits,
                     withdrawals: pendingWithdrawals,
-                    disputes: openDisputes,
+                    tickets: openTickets,
                     teachers: pendingTeachers
                 });
             } catch (error) {
@@ -113,10 +117,10 @@ export function ActionStrip() {
                     icon={Banknote}
                 />
                 <StripItem
-                    label="شكاوى مفتوحة"
-                    count={counts.disputes}
-                    href="/admin/disputes"
-                    icon={AlertCircle}
+                    label="طلبات المساعدة"
+                    count={counts.tickets}
+                    href="/admin/support-tickets"
+                    icon={Headset}
                 />
                 <StripItem
                     label="طلبات انضمام"

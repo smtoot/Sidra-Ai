@@ -42,7 +42,7 @@ export function AdminTicketQueue({ tickets, onTicketClick, onRefresh }: AdminTic
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">إجمالي التذاكر</p>
+          <p className="text-sm text-gray-500">إجمالي الطلبات</p>
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -72,7 +72,7 @@ export function AdminTicketQueue({ tickets, onTicketClick, onRefresh }: AdminTic
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="رقم التذكرة، الموضوع، المستخدم..."
+              placeholder="رقم الطلب، الموضوع، المستخدم..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -109,7 +109,7 @@ export function AdminTicketQueue({ tickets, onTicketClick, onRefresh }: AdminTic
         </div>
         <div className="mt-3 flex justify-between items-center">
           <p className="text-sm text-gray-600">
-            عرض {filteredTickets.length} من {tickets.length} تذكرة
+            عرض {filteredTickets.length} من {tickets.length} طلب
           </p>
           <button
             onClick={onRefresh}
@@ -123,7 +123,7 @@ export function AdminTicketQueue({ tickets, onTicketClick, onRefresh }: AdminTic
       {/* Tickets List */}
       {filteredTickets.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">لا توجد تذاكر تطابق البحث.</p>
+          <p className="text-gray-500">لا توجد طلبات تطابق البحث.</p>
         </div>
       ) : (
         <div className="space-y-4">

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -15,13 +16,17 @@ import {
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { WalletService } from '../wallet/wallet.service';
 import { SystemSettingsService } from '../admin/system-settings.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class TeacherService {
+  private readonly logger = new Logger(TeacherService.name);
+
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
     private systemSettingsService: SystemSettingsService,
+    private notificationService: NotificationService,
   ) {}
 
   async getProfile(userId: string) {
@@ -1026,7 +1031,7 @@ export class TeacherService {
       throw new BadRequestException('يجب إضافة مادة واحدة على الأقل للتدريس');
     }
 
-    return this.prisma.teacherProfile.update({
+    const updatedProfile = await this.prisma.teacherProfile.update({
       where: { userId },
       data: {
         applicationStatus: 'SUBMITTED',
@@ -1034,6 +1039,57 @@ export class TeacherService {
         changeRequestReason: null, // Clear any previous change request
       },
     });
+
+    // Send notification to all admins about new teacher application
+    await this.notifyAdminsAboutNewApplication(profile.displayName, userId);
+
+    return updatedProfile;
+  }
+
+  /**
+   * Send notifications to all admin users about a new teacher application
+   */
+  private async notifyAdminsAboutNewApplication(
+    teacherName: string,
+    teacherUserId: string,
+  ): Promise<void> {
+    try {
+      // Get all admin users who should receive notifications
+      const admins = await this.prisma.user.findMany({
+        where: {
+          role: { in: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      // Send notification to each admin
+      for (const admin of admins) {
+        await this.notificationService.notifyUser({
+          userId: admin.id,
+          type: 'ADMIN_ALERT',
+          title: 'طلب انضمام معلم جديد',
+          message: `قدّم المعلم "${teacherName}" طلب انضمام للمنصة ويحتاج للمراجعة`,
+          link: `/admin/teacher-applications`,
+          metadata: {
+            teacherUserId,
+            teacherName,
+            applicationType: 'NEW_TEACHER_APPLICATION',
+          },
+          dedupeKey: `NEW_TEACHER_APP:${teacherUserId}`,
+        });
+      }
+
+      this.logger.log(
+        `Sent admin notifications for new teacher application: ${teacherName}`,
+      );
+    } catch (error) {
+      // Don't fail the submission if notifications fail
+      this.logger.error(
+        'Failed to send admin notifications for new teacher application',
+        error,
+      );
+    }
   }
 
   /**

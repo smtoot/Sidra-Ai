@@ -95,7 +95,7 @@ export function TicketDetail({ ticket, onClose, onReopen, actionLoading }: Ticke
                 disabled={actionLoading}
                 className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                إغلاق التذكرة
+                إغلاق الطلب
               </button>
             )}
           </div>

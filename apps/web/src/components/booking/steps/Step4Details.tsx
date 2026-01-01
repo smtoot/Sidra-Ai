@@ -1,10 +1,18 @@
 'use client';
 
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Child } from '@/lib/api/auth';
+import { BookingSummaryCard } from '../BookingSummaryCard';
+import { BookingTypeOption, SlotWithTimezone } from '../types';
+import { formatTime, parseUtcDate } from '../formatUtils';
 
 interface Step4DetailsProps {
+    teacherName: string;
+    subjectName: string;
+    bookingOption: BookingTypeOption | null;
+    selectedDate: Date | null;
+    selectedSlot: SlotWithTimezone | null;
     userRole: 'PARENT' | 'STUDENT' | null;
     userName: string;
     children: Child[];
@@ -13,9 +21,16 @@ interface Step4DetailsProps {
     bookingNotes: string;
     onNotesChange: (notes: string) => void;
     onAddChild?: () => void;
+    termsAccepted: boolean;
+    onTermsChange: (accepted: boolean) => void;
 }
 
 export function Step4Details({
+    teacherName,
+    subjectName,
+    bookingOption,
+    selectedDate,
+    selectedSlot,
     userRole,
     userName,
     children,
@@ -23,10 +38,36 @@ export function Step4Details({
     onChildSelect,
     bookingNotes,
     onNotesChange,
-    onAddChild
+    onAddChild,
+    termsAccepted,
+    onTermsChange
 }: Step4DetailsProps) {
     return (
         <div className="space-y-6">
+            {/* Booking Summary - Secondary Priority */}
+            {selectedDate && selectedSlot && bookingOption && (
+                <div className="bg-gray-50/50 rounded-xl border border-gray-100 overflow-hidden">
+                    <div className="p-4 opacity-75 hover:opacity-100 transition-opacity">
+                        <BookingSummaryCard
+                            teacherName={teacherName}
+                            subjectName={subjectName}
+                            selectedDate={selectedDate}
+                            selectedTime={formatTime(parseUtcDate(selectedSlot.startTimeUtc))}
+                            price={0} // Hide price in summary to highlight it separately
+                            bookingType={bookingOption.type === 'DEMO' ? 'حصة تجريبية' : bookingOption.type === 'SINGLE' ? 'حصة واحدة' : 'باقة'}
+                        />
+                    </div>
+
+                    {/* Primary Price Display */}
+                    <div className="bg-white border-t border-gray-100 p-4 flex items-center justify-between">
+                        <span className="text-gray-600 font-medium">الإجمالي المطلوب:</span>
+                        <div className="text-xl md:text-2xl font-bold text-primary">
+                            {bookingOption.price === 0 ? 'مجاناً' : `${bookingOption.price.toLocaleString('en-US')} SDG`}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Child Selection (Parents only) */}
             {userRole === 'PARENT' && (
                 <div>
@@ -35,15 +76,23 @@ export function Step4Details({
                     </h3>
 
                     {children.length === 0 ? (
-                        <div className="text-center py-6 bg-gray-50 rounded-xl">
-                            <p className="text-gray-600 mb-3">لم تضف أي أطفال بعد</p>
+                        <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors">
+                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-gray-100">
+                                <Plus className="w-6 h-6 text-primary" />
+                            </div>
+                            <h4 className="font-medium text-gray-900 mb-1">
+                                إضافة طالب للحجز
+                            </h4>
+                            <p className="text-sm text-gray-500 mb-6 px-8 max-w-sm mx-auto leading-relaxed">
+                                لإكمال الحجز، يرجى إضافة بيانات الابن أو الابنة. سيمكنك هذا من تتبع تقدمهم الدراسي لاحقًا.
+                            </p>
                             {onAddChild && (
                                 <button
                                     onClick={onAddChild}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                    className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-medium shadow-md shadow-primary/20 transform hover:-translate-y-0.5"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    إضافة طفل
+                                    إضافة ابن / ابنة
                                 </button>
                             )}
                         </div>
@@ -87,16 +136,6 @@ export function Step4Details({
                                     </div>
                                 </button>
                             ))}
-
-                            {onAddChild && (
-                                <button
-                                    onClick={onAddChild}
-                                    className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    إضافة طفل آخر
-                                </button>
-                            )}
                         </div>
                     )}
                 </div>
@@ -116,16 +155,53 @@ export function Step4Details({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                     ملاحظات للمعلم (اختياري)
                 </label>
-                <textarea
-                    value={bookingNotes}
-                    onChange={(e) => onNotesChange(e.target.value)}
-                    placeholder="مثال: أحتاج مساعدة في حل المعادلات التفاضلية..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                    rows={4}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                    يمكنك إخبار المعلم بأي احتياجات خاصة أو مواضيع تريد التركيز عليها
-                </p>
+                <div className="relative">
+                    <textarea
+                        value={bookingNotes}
+                        onChange={(e) => onNotesChange(e.target.value.slice(0, 300))}
+                        placeholder="أضف أي ملاحظات أو مواضيع تود التركيز عليها في الحصة..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                        rows={4}
+                        maxLength={300}
+                    />
+                    <div className="absolute bottom-2 left-2 text-xs text-gray-400">
+                        {bookingNotes.length}/300
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer Area: Reassurance & Terms */}
+            <div className="pt-4 space-y-4">
+                {/* Reassurance Message */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                    <p className="text-sm text-blue-800 leading-relaxed">
+                        سيتم إرسال طلب الحجز للمعلم للمراجعة، ولن يتم خصم أي مبلغ من رصيدك إلا بعد موافقة المعلم على الطلب.
+                    </p>
+                </div>
+
+                {/* Terms & Conditions */}
+                <div className={`border rounded-xl p-4 transition-all duration-200 ${termsAccepted ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <div className="relative flex items-center mt-0.5">
+                            <input
+                                type="checkbox"
+                                checked={termsAccepted}
+                                onChange={(e) => onTermsChange(e.target.checked)}
+                                className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300 transition-all checked:bg-primary checked:border-primary focus:ring-2 focus:ring-primary/20"
+                            />
+                            <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100" />
+                        </div>
+                        <div className="flex-1 text-sm">
+                            <p className="text-gray-900 font-medium mb-1">
+                                أوافق على شروط وأحكام الحجز
+                            </p>
+                            <p className="text-gray-500 text-xs leading-relaxed">
+                                بالمتابعة، أوافق على سياسة الإلغاء والاسترجاع وشروط الاستخدام الخاصة بالمنصة.
+                            </p>
+                        </div>
+                    </label>
+                </div>
             </div>
         </div>
     );

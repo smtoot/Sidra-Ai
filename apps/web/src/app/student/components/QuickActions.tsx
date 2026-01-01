@@ -35,7 +35,7 @@ export function QuickActions() {
                     href="/support"
                     icon={Headphones}
                     title="الدعم الفني"
-                    desc="تذاكر الدعم والمساعدة"
+                    desc="طلب المساعدة والاستفسارات"
                     color="gray"
                 />
             </CardContent>

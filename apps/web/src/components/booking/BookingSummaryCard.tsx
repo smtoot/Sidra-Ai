@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { Calendar, Clock, User, BookOpen, DollarSign, FileText, Globe } from 'lucide-react';
+import { Calendar, Clock, User, BookOpen, DollarSign, FileText, Globe, Info } from 'lucide-react';
+import { formatCurrency } from './formatUtils';
 
 interface BookingSummaryCardProps {
     teacherName: string;
@@ -11,7 +12,7 @@ interface BookingSummaryCardProps {
     price: number;
     bookingType: string;
     notes?: string;
-    userTimezone?: string; // Add timezone display
+    userTimezone?: string;
 }
 
 export function BookingSummaryCard({
@@ -26,87 +27,89 @@ export function BookingSummaryCard({
     userTimezone
 }: BookingSummaryCardProps) {
     return (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-primary/20 rounded-xl p-5 space-y-4">
+        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="flex items-center gap-2 border-b border-primary/20 pb-3">
-                <FileText className="w-5 h-5 text-primary" />
-                <h4 className="font-bold text-primary">ملخص الحجز</h4>
+            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-500" />
+                <h4 className="font-semibold text-gray-900 text-sm">بيانات الحجز</h4>
             </div>
 
-            {/* Details */}
-            <div className="space-y-3">
-                <SummaryRow
-                    icon={<User className="w-4 h-4 text-gray-600" />}
-                    label="المعلم"
-                    value={teacherName}
-                />
-
-                <SummaryRow
-                    icon={<BookOpen className="w-4 h-4 text-gray-600" />}
-                    label="المادة"
-                    value={subjectName}
-                />
-
-                {childName && (
+            <div className="p-4 space-y-4">
+                {/* Main Details Grid */}
+                <div className="grid grid-cols-1 gap-3">
                     <SummaryRow
-                        icon={<User className="w-4 h-4 text-gray-600" />}
-                        label="الطالب"
-                        value={childName}
+                        icon={<User className="w-3.5 h-3.5 text-gray-500" />}
+                        label="المعلم"
+                        value={teacherName}
                     />
-                )}
 
-                <SummaryRow
-                    icon={<Calendar className="w-4 h-4 text-gray-600" />}
-                    label="التاريخ"
-                    value={format(selectedDate, 'EEEE، d MMMM yyyy', { locale: ar })}
-                />
+                    <SummaryRow
+                        icon={<BookOpen className="w-3.5 h-3.5 text-gray-500" />}
+                        label="المادة"
+                        value={subjectName}
+                    />
 
-                <SummaryRow
-                    icon={<Clock className="w-4 h-4 text-gray-600" />}
-                    label="الوقت"
-                    value={selectedTime}
-                />
+                    {childName && (
+                        <SummaryRow
+                            icon={<User className="w-3.5 h-3.5 text-gray-500" />}
+                            label="الطالب"
+                            value={childName}
+                        />
+                    )}
 
-                {userTimezone && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                        <div className="flex items-center gap-2 text-xs">
-                            <Globe className="w-3 h-3 text-amber-700" />
-                            <span className="text-amber-800">
-                                <span className="font-semibold">توقيتك:</span> {userTimezone}
-                            </span>
-                        </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <SummaryRow
+                            icon={<Calendar className="w-3.5 h-3.5 text-gray-500" />}
+                            label="التاريخ"
+                            value={format(selectedDate, 'EEEE، d MMMM', { locale: ar })}
+                        />
+                        <SummaryRow
+                            icon={<Clock className="w-3.5 h-3.5 text-gray-500" />}
+                            label="الوقت"
+                            value={selectedTime}
+                        />
                     </div>
-                )}
 
-                <SummaryRow
-                    icon={<FileText className="w-4 h-4 text-gray-600" />}
-                    label="نوع الحجز"
-                    value={bookingType}
-                />
+                    {userTimezone && (
+                        <div className="flex items-center gap-1.5 text-xs bg-gray-50 text-gray-500 px-2 py-1.5 rounded-md w-fit">
+                            <Globe className="w-3 h-3" />
+                            <span>الموعد بتوقيت: {userTimezone}</span>
+                        </div>
+                    )}
+
+                    <SummaryRow
+                        icon={<FileText className="w-3.5 h-3.5 text-gray-500" />}
+                        label="نوع الحجز"
+                        value={bookingType}
+                    />
+                </div>
 
                 {notes && (
-                    <div className="pt-2 border-t border-primary/10">
-                        <p className="text-xs text-gray-600 mb-1">الملاحظات:</p>
-                        <p className="text-sm text-gray-800 bg-white/50 p-2 rounded">{notes}</p>
+                    <div className="bg-gray-50 rounded-lg p-3 text-xs">
+                        <span className="font-medium text-gray-700 block mb-1">ملاحظات:</span>
+                        <p className="text-gray-600 leading-relaxed">{notes}</p>
                     </div>
                 )}
 
-                {/* Price */}
-                <div className="pt-3 border-t-2 border-primary/20 flex items-center justify-between">
-                    <span className="font-bold text-gray-900 flex items-center gap-2">
-                        <DollarSign className="w-4 h-4" />
-                        الإجمالي:
-                    </span>
-                    <span className="text-2xl font-bold text-primary font-mono">
-                        {price === 0 ? 'مجاناً' : `${price.toLocaleString()} SDG`}
-                    </span>
+                {/* Price Section - Cleaner & Reassuring */}
+                <div className="pt-3 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-500">
+                            الإجمالي المستحق لاحقًا
+                        </span>
+                        <span className={`text-base font-bold ${price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                            {price === 0 ? 'مجاناً' : formatCurrency(price).replace('SDG', '') + ' SDG'}
+                        </span>
+                    </div>
                 </div>
-            </div>
 
-            {/* Confirmation Note */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800">
-                <p className="font-medium mb-1">📌 ملاحظة مهمة:</p>
-                <p>سيتم إرسال طلب الحجز للمعلم. سيصلك إشعار بمجرد الموافقة على الطلب.</p>
+                {/* Reassurance Message - Blue Style */}
+                <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex items-start gap-2.5">
+                    <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                        لن يتم خصم أي مبلغ قبل موافقة المعلم على الحجز.
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -120,11 +123,13 @@ interface SummaryRowProps {
 
 function SummaryRow({ icon, label, value }: SummaryRowProps) {
     return (
-        <div className="flex items-start gap-3">
-            <div className="mt-0.5">{icon}</div>
-            <div className="flex-1">
-                <p className="text-xs text-gray-600">{label}</p>
-                <p className="text-sm font-semibold text-gray-900">{value}</p>
+        <div className="flex items-center gap-3 min-h-[24px]">
+            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-50 shrink-0">
+                {icon}
+            </div>
+            <div className="flex items-center gap-2 flex-1">
+                <span className="text-xs text-gray-500 w-12 shrink-0">{label}</span>
+                <span className="text-sm font-medium text-gray-900 truncate">{value}</span>
             </div>
         </div>
     );

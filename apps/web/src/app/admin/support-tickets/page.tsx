@@ -22,7 +22,7 @@ export default function AdminSupportTicketsPage() {
       const data = await getAdminSupportTickets();
       setTickets(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل في تحميل التذاكر');
+      setError(err.response?.data?.message || 'فشل في تحميل طلبات المساعدة');
     } finally {
       setLoading(false);
     }
@@ -35,8 +35,8 @@ export default function AdminSupportTicketsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">قائمة تذاكر الدعم</h1>
-        <p className="text-gray-600 mt-1">إدارة والرد على تذاكر دعم المستخدمين</p>
+        <h1 className="text-3xl font-bold text-gray-900">طلبات المساعدة</h1>
+        <p className="text-gray-600 mt-1">إدارة والرد على طلبات مساعدة المستخدمين</p>
       </div>
 
       {error && (

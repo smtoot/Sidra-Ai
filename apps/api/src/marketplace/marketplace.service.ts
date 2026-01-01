@@ -696,9 +696,16 @@ export class MarketplaceService {
         new Date(a.startTimeUtc).getTime() - new Date(b.startTimeUtc).getTime(),
     );
 
+    // Step 8: Filter out slots in the past
+    // This is critical to prevent showing 1:00 AM slots when it's currently 5:00 PM
+    const now = new Date();
+    const futureSlots = availableSlots.filter(
+      (slot) => new Date(slot.startTimeUtc) > now,
+    );
+
     // Return with metadata
     return {
-      slots: availableSlots,
+      slots: futureSlots,
       teacherTimezone,
       userTimezone: effectiveUserTimezone,
     };
@@ -1175,40 +1182,48 @@ export class MarketplaceService {
 
     // Find next available slot
     let nextAvailableSlot = null;
+
+    // Iterate through available dates to find the first one with valid FUTURE slots
+    // (A date might be "available" but all its slots are in the past)
     if (availableDates.length > 0) {
-      const firstAvailableDate = availableDates[0];
-      // Get the first available time slot for this date
-      try {
-        const slotsResponse = await this.getAvailableSlots(
-          teacherId,
-          firstAvailableDate,
-          teacherTimezone,
-        );
-        if (slotsResponse.slots && slotsResponse.slots.length > 0) {
-          const firstSlot = slotsResponse.slots[0];
+      for (const dateStr of availableDates) {
+        try {
+          const slotsResponse = await this.getAvailableSlots(
+            teacherId,
+            dateStr,
+            teacherTimezone,
+          );
 
-          // Format time in Arabic
-          const slotDateUtc = new Date(firstSlot.startTimeUtc);
-          // Re-convert to teacher timezone for display
-          const zonedSlotDate = toZonedTime(slotDateUtc, teacherTimezone);
+          if (slotsResponse.slots && slotsResponse.slots.length > 0) {
+            const firstSlot = slotsResponse.slots[0];
 
-          const arabicTime = format(zonedSlotDate, 'h:mm a', { locale: ar })
-            .replace('AM', 'صباحاً')
-            .replace('PM', 'مساءً')
-            .replace('am', 'صباحاً')
-            .replace('pm', 'مساءً');
+            // Format time in Arabic
+            const slotDateUtc = new Date(firstSlot.startTimeUtc);
+            // Re-convert to teacher timezone for display
+            const zonedSlotDate = toZonedTime(slotDateUtc, teacherTimezone);
 
-          nextAvailableSlot = {
-            date: firstAvailableDate,
-            time: arabicTime,
-            display: this.formatNextAvailableDisplay(
-              firstAvailableDate,
-              arabicTime,
-            ),
-          };
+            const arabicTime = format(zonedSlotDate, 'h:mm a', { locale: ar })
+              .replace('AM', 'صباحاً')
+              .replace('PM', 'مساءً')
+              .replace('am', 'صباحاً')
+              .replace('pm', 'مساءً');
+
+            nextAvailableSlot = {
+              date: dateStr,
+              time: arabicTime,
+              startTimeUtc: firstSlot.startTimeUtc, // Pass UTC time for frontend timezone handling
+              display: this.formatNextAvailableDisplay(
+                dateStr,
+                arabicTime,
+              ),
+            };
+
+            // Found a valid slot, stop searching
+            break;
+          }
+        } catch (error) {
+          console.error(`Failed to check slots for date ${dateStr}:`, error);
         }
-      } catch (error) {
-        console.error('Failed to get next available slot:', error);
       }
     }
 

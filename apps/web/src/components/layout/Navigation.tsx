@@ -92,7 +92,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
             label: 'الدعم والشكاوى',
             icon: Headphones,
             items: [
-                { label: 'التذاكر والدعم', href: '/admin/support-tickets', icon: Headphones },
+                { label: 'طلبات المساعدة', href: '/admin/support-tickets', icon: Headphones },
                 { label: 'الشكاوى والنزاعات', href: '/admin/disputes', icon: AlertTriangle },
             ]
         },

@@ -172,6 +172,7 @@ export interface AvailabilityCalendar {
     nextAvailableSlot: {
         date: string;
         time: string;
+        startTimeUtc?: string; // Added for timezone handling
         display: string;  // "Tomorrow at 3pm"
     } | null;
 }
@@ -197,5 +198,6 @@ export interface TeacherRatingsResponse {
 export interface NextAvailableSlot {
     date: string;  // ISO date string
     time: string;  // Time string
+    startTimeUtc?: string; // User-friendly UTC time
     display: string;  // Human-readable Arabic display (e.g., "غداً الساعة 3م")
 }

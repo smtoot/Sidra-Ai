@@ -34,7 +34,7 @@ export class BookingService {
     private packageService: PackageService,
     private demoService: DemoService,
     private readableIdService: ReadableIdService,
-  ) {}
+  ) { }
 
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
@@ -1300,7 +1300,7 @@ export class BookingService {
     // Notify teacher - use normalizeMoney for consistent calculation
     const teacherEarnings = normalizeMoney(
       normalizeMoney(bookingContext.price) *
-        (1 - Number(bookingContext.commissionRate)),
+      (1 - Number(bookingContext.commissionRate)),
     );
     await this.notificationService.notifyTeacherPaymentReleased({
       bookingId: updatedBooking.id,
@@ -1769,7 +1769,7 @@ export class BookingService {
 
         if (userRole === 'TEACHER') {
           cancelledBy = 'TEACHER';
-          newStatus = 'CANCELLED_BY_ADMIN'; // Use existing status (or create CANCELLED_BY_TEACHER later)
+          newStatus = 'CANCELLED_BY_TEACHER'; // Correct status for teacher cancellation
           refundPercent = 100; // Teacher cancel = full refund to parent
         } else if (userRole === 'ADMIN') {
           cancelledBy = 'ADMIN';

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { marketplaceApi, TeacherPublicProfile } from '@/lib/api/marketplace';
 import { teacherApi } from '@/lib/api/teacher';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, LayoutDashboard } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { TeacherProfileView } from '@/components/teacher/public-profile/TeacherProfileView';
 
 interface TeacherProfilePageClientProps {
@@ -103,24 +103,11 @@ export default function TeacherProfilePageClient({ slug }: TeacherProfilePageCli
 
     return (
         <div dir="rtl">
-            {/* Back to Dashboard - For logged-in users */}
-            {dashboardLink && (
-                <div className="bg-primary/5 border-b border-primary/10">
-                    <div className="container mx-auto px-4 py-2">
-                        <button
-                            onClick={() => router.push(dashboardLink)}
-                            className="flex items-center gap-2 text-sm text-primary hover:text-primary-700 font-medium transition-colors"
-                        >
-                            <ArrowRight className="w-4 h-4" />
-                            <LayoutDashboard className="w-4 h-4" />
-                            <span>العودة للوحة التحكم</span>
-                        </button>
-                    </div>
-                </div>
-            )}
+
             <TeacherProfileView
                 teacher={teacher}
                 mode="public"
+                slug={slug}
                 onBook={() => { }} // Booking handled internally by view for now
             />
         </div>

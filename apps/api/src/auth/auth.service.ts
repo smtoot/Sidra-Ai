@@ -14,7 +14,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Validate password requirements
@@ -45,8 +45,8 @@ export class AuthService {
     // PHONE-FIRST: Check by phone number (primary identifier), not email
     const existingByPhone = dto.phoneNumber
       ? await this.prisma.user.findFirst({
-          where: { phoneNumber: dto.phoneNumber },
-        })
+        where: { phoneNumber: dto.phoneNumber },
+      })
       : null;
 
     // P1-6 FIX: Use generic message to prevent account enumeration
@@ -112,10 +112,26 @@ export class AuthService {
     let user = null;
 
     if (phoneNumber) {
+      // 1. Try exact match
       user = await this.prisma.user.findFirst({
         where: { phoneNumber },
         include: { teacherProfile: true },
       });
+
+      // 2. If not found, try to normalize (Sudan specific context)
+      if (!user && !phoneNumber.startsWith('+')) {
+        let cleanNumber = phoneNumber;
+        // Remove leading zero if present (e.g. 09123... -> 9123...)
+        if (cleanNumber.startsWith('0')) {
+          cleanNumber = cleanNumber.substring(1);
+        }
+
+        // Try with +249 prefix
+        user = await this.prisma.user.findFirst({
+          where: { phoneNumber: `+249${cleanNumber}` },
+          include: { teacherProfile: true },
+        });
+      }
     } else if (email) {
       user = await this.prisma.user.findUnique({
         where: { email },

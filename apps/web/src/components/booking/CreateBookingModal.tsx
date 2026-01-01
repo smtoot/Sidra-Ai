@@ -283,9 +283,10 @@ export function CreateBookingModal({
                     price: selectedBookingOption?.price || 0,
                     isDemo: false,
                     packageId: undefined,
-                    tierId: tierIdToUse
+                    tierId: tierIdToUse,
                     // Note: recurringWeekday and recurringTime are handled by the backend
                     // when tierId is provided for Smart Pack purchases
+                    termsAccepted: true
                 });
             } else {
                 // EXISTING PACKAGE or SINGLE/DEMO - use selected slot
@@ -306,7 +307,8 @@ export function CreateBookingModal({
                     price: selectedBookingOption?.price || 0,
                     isDemo: selectedBookingType === 'DEMO',
                     packageId: packageIdToUse,
-                    tierId: undefined
+                    tierId: undefined,
+                    termsAccepted: true
                 });
             }
 
@@ -482,118 +484,118 @@ export function CreateBookingModal({
                             <>
                                 {/* Date Selection */}
                                 <div>
-                            <label className="block text-sm font-bold text-text-main mb-3">
-                                اختر التاريخ
-                                {availabilityCalendar?.nextAvailableSlot && (
-                                    <button
-                                        onClick={() => setSelectedDate(parseISO(availabilityCalendar.nextAvailableSlot!.date))}
-                                        className="mr-3 text-xs text-primary hover:underline font-normal"
-                                    >
-                                        ⚡ التالي المتاح: {availabilityCalendar.nextAvailableSlot.display}
-                                    </button>
-                                )}
-                            </label>
-                            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                {isLoadingCalendar ? (
-                                    <div className="flex items-center justify-center py-12 text-sm text-gray-500">
-                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary ml-2"></div>
-                                        جاري تحميل التقويم...
-                                    </div>
-                                ) : (
-                                    <>
-                                        <DayPicker
-                                            mode="single"
-                                            selected={selectedDate}
-                                            onSelect={setSelectedDate}
-                                            locale={ar}
-                                            disabled={{ before: new Date() }}
-                                            modifiers={{
-                                                available: availabilityCalendar?.availableDates.map(d => parseISO(d)) || [],
-                                                fullyBooked: availabilityCalendar?.fullyBookedDates.map(d => parseISO(d)) || []
-                                            }}
-                                            modifiersClassNames={{
-                                                available: 'has-availability',
-                                                fullyBooked: 'fully-booked'
-                                            }}
-                                            className="rdp-custom"
-                                            classNames={{
-                                                day_selected: 'bg-primary text-white rounded-full',
-                                                day_today: 'font-bold text-primary',
-                                                day: 'h-9 w-9 rounded-full hover:bg-gray-100 transition-colors'
-                                            }}
-                                        />
-                                        {/* Legend */}
-                                        <div className="flex items-center gap-4 mt-4 text-xs text-gray-600 justify-center">
-                                            <div className="flex items-center gap-1">
-                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                                <span>متاح</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                                                <span>محجوز بالكامل</span>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Time Selection */}
-                        {selectedDate && (
-                            <div>
-                                <label className="block text-sm font-bold text-text-main mb-3">
-                                    اختر الوقت
-                                    <span className="text-xs font-normal text-gray-500 mr-2">
-                                        ({format(selectedDate, 'EEEE، d MMMM', { locale: ar })})
-                                    </span>
-                                </label>
-
-                                {/* Timezone Notice - ENHANCED */}
-                                {userTimezoneDisplay && (
-                                    <div className="mb-3 bg-amber-50 border-2 border-amber-300 rounded-lg px-4 py-3">
-                                        <div className="flex items-start gap-3">
-                                            <span className="material-symbols-outlined text-amber-700 text-xl flex-shrink-0">language</span>
-                                            <div className="text-sm">
-                                                <p className="font-bold text-amber-900 mb-1">
-                                                    جميع الأوقات معروضة بتوقيتك المحلي
-                                                </p>
-                                                <p className="text-amber-800">
-                                                    منطقتك الزمنية: <span className="font-semibold">{userTimezoneDisplay}</span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {isLoadingSlots ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
-                                        <p className="text-sm">جاري تحميل الأوقات المتاحة...</p>
-                                    </div>
-                                ) : availableSlots.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                                        <span className="material-symbols-outlined text-6xl text-gray-300 mb-3">event_busy</span>
-                                        <p className="text-sm text-gray-600 font-medium mb-1">لا توجد أوقات متاحة في هذا اليوم</p>
-                                        <p className="text-xs text-gray-400">يرجى اختيار تاريخ آخر</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                        {availableSlots.map((slot) => (
+                                    <label className="block text-sm font-bold text-text-main mb-3">
+                                        اختر التاريخ
+                                        {availabilityCalendar?.nextAvailableSlot && (
                                             <button
-                                                key={slot.startTimeUtc}
-                                                onClick={() => setSelectedSlot(slot)}
-                                                className={`py-3 rounded-lg border text-sm font-medium transition-all ${selectedSlot?.startTimeUtc === slot.startTimeUtc
-                                                    ? 'border-secondary bg-secondary text-white shadow-md shadow-secondary/20'
-                                                    : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
-                                                    }`}
+                                                onClick={() => setSelectedDate(parseISO(availabilityCalendar.nextAvailableSlot!.date))}
+                                                className="mr-3 text-xs text-primary hover:underline font-normal"
                                             >
-                                                {formatSlotLabel(slot.label)}
+                                                ⚡ التالي المتاح: {availabilityCalendar.nextAvailableSlot.display}
                                             </button>
-                                        ))}
+                                        )}
+                                    </label>
+                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                        {isLoadingCalendar ? (
+                                            <div className="flex items-center justify-center py-12 text-sm text-gray-500">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary ml-2"></div>
+                                                جاري تحميل التقويم...
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <DayPicker
+                                                    mode="single"
+                                                    selected={selectedDate}
+                                                    onSelect={setSelectedDate}
+                                                    locale={ar}
+                                                    disabled={{ before: new Date() }}
+                                                    modifiers={{
+                                                        available: availabilityCalendar?.availableDates.map(d => parseISO(d)) || [],
+                                                        fullyBooked: availabilityCalendar?.fullyBookedDates.map(d => parseISO(d)) || []
+                                                    }}
+                                                    modifiersClassNames={{
+                                                        available: 'has-availability',
+                                                        fullyBooked: 'fully-booked'
+                                                    }}
+                                                    className="rdp-custom"
+                                                    classNames={{
+                                                        day_selected: 'bg-primary text-white rounded-full',
+                                                        day_today: 'font-bold text-primary',
+                                                        day: 'h-9 w-9 rounded-full hover:bg-gray-100 transition-colors'
+                                                    }}
+                                                />
+                                                {/* Legend */}
+                                                <div className="flex items-center gap-4 mt-4 text-xs text-gray-600 justify-center">
+                                                    <div className="flex items-center gap-1">
+                                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                        <span>متاح</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                                                        <span>محجوز بالكامل</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Time Selection */}
+                                {selectedDate && (
+                                    <div>
+                                        <label className="block text-sm font-bold text-text-main mb-3">
+                                            اختر الوقت
+                                            <span className="text-xs font-normal text-gray-500 mr-2">
+                                                ({format(selectedDate, 'EEEE، d MMMM', { locale: ar })})
+                                            </span>
+                                        </label>
+
+                                        {/* Timezone Notice - ENHANCED */}
+                                        {userTimezoneDisplay && (
+                                            <div className="mb-3 bg-amber-50 border-2 border-amber-300 rounded-lg px-4 py-3">
+                                                <div className="flex items-start gap-3">
+                                                    <span className="material-symbols-outlined text-amber-700 text-xl flex-shrink-0">language</span>
+                                                    <div className="text-sm">
+                                                        <p className="font-bold text-amber-900 mb-1">
+                                                            جميع الأوقات معروضة بتوقيتك المحلي
+                                                        </p>
+                                                        <p className="text-amber-800">
+                                                            منطقتك الزمنية: <span className="font-semibold">{userTimezoneDisplay}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {isLoadingSlots ? (
+                                            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
+                                                <p className="text-sm">جاري تحميل الأوقات المتاحة...</p>
+                                            </div>
+                                        ) : availableSlots.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                                <span className="material-symbols-outlined text-6xl text-gray-300 mb-3">event_busy</span>
+                                                <p className="text-sm text-gray-600 font-medium mb-1">لا توجد أوقات متاحة في هذا اليوم</p>
+                                                <p className="text-xs text-gray-400">يرجى اختيار تاريخ آخر</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                                {availableSlots.map((slot) => (
+                                                    <button
+                                                        key={slot.startTimeUtc}
+                                                        onClick={() => setSelectedSlot(slot)}
+                                                        className={`py-3 rounded-lg border text-sm font-medium transition-all ${selectedSlot?.startTimeUtc === slot.startTimeUtc
+                                                            ? 'border-secondary bg-secondary text-white shadow-md shadow-secondary/20'
+                                                            : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
+                                                            }`}
+                                                    >
+                                                        {formatSlotLabel(slot.label)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                            </div>
-                        )}
                             </>
                         )}
 
@@ -641,9 +643,9 @@ export function CreateBookingModal({
                                 price={selectedBookingOption?.price || selectedSubjectData.price}
                                 bookingType={
                                     selectedBookingType === 'DEMO' ? 'حصة تجريبية' :
-                                    selectedBookingType === 'PACKAGE' ?
-                                        (selectedBookingOption?.packageId ? 'من باقتك الحالية' : `باقة ${selectedBookingOption?.sessionCount} حصص`) :
-                                    'حصة واحدة'
+                                        selectedBookingType === 'PACKAGE' ?
+                                            (selectedBookingOption?.packageId ? 'من باقتك الحالية' : `باقة ${selectedBookingOption?.sessionCount} حصص`) :
+                                            'حصة واحدة'
                                 }
                                 notes={bookingNotes}
                                 userTimezone={userTimezoneDisplay}

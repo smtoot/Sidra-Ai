@@ -16,7 +16,7 @@ export function MessageThread({ messages, currentUserId }: MessageThreadProps) {
       <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-100">
         <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
         <p className="text-gray-500 font-medium">لا توجد رسائل بعد</p>
-        <p className="text-gray-400 text-sm mt-1">كن أول من يرد على هذه التذكرة</p>
+        <p className="text-gray-400 text-sm mt-1">كن أول من يرد على هذا الطلب</p>
       </div>
     );
   }

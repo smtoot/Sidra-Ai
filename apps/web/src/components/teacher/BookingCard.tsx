@@ -92,7 +92,7 @@ const STATUS_CONFIG = {
         icon: XCircle,
     },
     CANCELLED_BY_TEACHER: {
-        label: 'ملغاة من المعلم',
+        label: 'تم إلغاء الحجز بواسطة المعلم',
         gradient: 'from-gray-400 to-slate-500',
         bgColor: 'bg-gray-50',
         borderColor: 'border-gray-200',

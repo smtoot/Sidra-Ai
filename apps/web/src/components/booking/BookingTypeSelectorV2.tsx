@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { packageApi, PackageTier, StudentPackage, DemoEligibility } from '@/lib/api/package';
 import { Play, Package, Clock, Check, AlertCircle, Tag, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from './formatUtils';
 
 // =====================================================
 // TYPES
@@ -117,9 +118,9 @@ export function BookingTypeSelectorV2({
                 enabled: true,
                 tierId: bestTier.id,
                 price: discountedTotal,
-                displayPrice: `${discountedTotal.toLocaleString()} SDG`,
+                displayPrice: formatCurrency(discountedTotal),
                 sessionCount: bestTier.sessionCount,
-                savings: `وفّر ${savings.toFixed(0)} SDG (${bestTier.discountPercent}%)`,
+                savings: `${formatCurrency(savings).replace(' SDG', '')} (${bestTier.discountPercent}%)`,
                 isRecommended: true
             };
         }
@@ -147,7 +148,7 @@ export function BookingTypeSelectorV2({
             type: 'SINGLE',
             enabled: true,
             price: basePrice,
-            displayPrice: `${basePrice.toLocaleString()} SDG`
+            displayPrice: formatCurrency(basePrice)
         });
     }
 
@@ -164,9 +165,9 @@ export function BookingTypeSelectorV2({
             enabled: true,
             tierId: tier.id,
             price: discountedTotal,
-            displayPrice: `${discountedTotal.toLocaleString()} SDG`,
+            displayPrice: formatCurrency(discountedTotal),
             sessionCount: tier.sessionCount,
-            savings: `وفّر ${savings.toFixed(0)} SDG (${tier.discountPercent}%)`
+            savings: `${formatCurrency(savings).replace(' SDG', '')} (${tier.discountPercent}%)`
         });
     });
 
@@ -194,15 +195,30 @@ export function BookingTypeSelectorV2({
             {/* Other Options */}
             {otherOptions.length > 0 && (
                 <div className="space-y-2">
-                    <button
-                        onClick={() => setShowOtherOptions(!showOtherOptions)}
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                        {showOtherOptions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        <span>خيارات أخرى ({otherOptions.length})</span>
-                    </button>
+                    {otherOptions.length > 5 ? (
+                        <>
+                            <button
+                                onClick={() => setShowOtherOptions(!showOtherOptions)}
+                                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                            >
+                                {showOtherOptions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                <span>خيارات أخرى ({otherOptions.length})</span>
+                            </button>
 
-                    {showOtherOptions && (
+                            {showOtherOptions && (
+                                <div className="grid gap-2">
+                                    {otherOptions.map((option, idx) => (
+                                        <OptionCard
+                                            key={`${option.type}-${option.tierId || idx}`}
+                                            option={option}
+                                            isSelected={isOptionSelected(selectedOption, option)}
+                                            onSelect={() => option.enabled && onSelect(option)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    ) : (
                         <div className="grid gap-2">
                             {otherOptions.map((option, idx) => (
                                 <OptionCard
@@ -276,15 +292,15 @@ function RecommendedCard({ option, basePrice, isSelected, onSelect }: CardProps)
                         <div className="pr-9 space-y-1 text-sm text-gray-600">
                             <div className="flex items-center justify-between">
                                 <span>السعر الأصلي:</span>
-                                <span className="line-through">{(basePrice * option.sessionCount).toLocaleString()} SDG</span>
+                                <span className="line-through">{formatCurrency(basePrice * option.sessionCount)}</span>
                             </div>
                             <div className="flex items-center justify-between text-green-600 font-semibold">
                                 <span>الخصم:</span>
-                                <span>-{option.savings}</span>
+                                <span>وفّر {option.savings}</span>
                             </div>
                             <div className="flex items-center justify-between font-bold text-primary text-base pt-2 border-t">
                                 <span>الإجمالي:</span>
-                                <span>{option.price.toLocaleString()} SDG</span>
+                                <span>{formatCurrency(option.price)}</span>
                             </div>
                         </div>
                     )}
@@ -346,9 +362,9 @@ function OptionCard({ option, isSelected, onSelect }: Omit<CardProps, 'basePrice
                     </span>
                 ) : (
                     <div>
-                        <p className="text-sm font-bold text-gray-900">{option.price.toLocaleString()} SDG</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(option.price)}</p>
                         {option.savings && (
-                            <p className="text-[10px] text-green-600 font-semibold">{option.savings}</p>
+                            <p className="text-[10px] text-green-600 font-semibold">وفّر {option.savings}</p>
                         )}
                     </div>
                 )}
@@ -366,8 +382,8 @@ function isOptionSelected(selected: BookingTypeOption | null, option: BookingTyp
 
     return selected.type === option.type &&
         (option.tierId ? selected.tierId === option.tierId :
-         option.packageId ? selected.packageId === option.packageId :
-         option.type !== 'PACKAGE');
+            option.packageId ? selected.packageId === option.packageId :
+                option.type !== 'PACKAGE');
 }
 
 function getOptionTitle(type: BookingType): string {

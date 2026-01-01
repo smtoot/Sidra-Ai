@@ -12,9 +12,12 @@ export type BookingStatus =
     | 'PARTIALLY_REFUNDED'    // NEW: Admin split the payment
     | 'REJECTED_BY_TEACHER'
     | 'CANCELLED_BY_PARENT'
-    | 'CANCELLED_BY_TEACHER'  // FIX: Added missing status
+    | 'CANCELLED_BY_TEACHER'
     | 'CANCELLED_BY_ADMIN'
     | 'EXPIRED';
+
+export type BookingAction = 'pay' | 'cancel' | 'confirm' | 'dispute' | 'rate' | 'book-new' | 'details';
+
 
 export interface CreateBookingRequest {
     teacherId: string;
@@ -29,6 +32,7 @@ export interface CreateBookingRequest {
     packageId?: string; // If booking using a purchased package
     tierId?: string; // If booking will trigger a new package purchase (deferred payment)
     isDemo?: boolean; // If this is a demo session
+    termsAccepted: boolean;
 }
 
 export interface Booking {
