@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getFileUrl } from '@/lib/api/upload';
 import { teacherApi } from '@/lib/api/teacher';
+import { AuthenticatedImage } from '@/components/ui/AuthenticatedImage';
 
 // Helper to get ID type label in Arabic
 const getIdTypeLabel = (type: string | null) => {
@@ -201,10 +202,13 @@ export function ReviewStep() {
                 >
                     <div className="flex items-start gap-4">
                         {data.profilePhotoUrl ? (
-                            <img
-                                src={getFileUrl(data.profilePhotoUrl)}
+                            <AuthenticatedImage
+                                fileKey={data.profilePhotoUrl}
                                 alt="Profile"
-                                className="w-20 h-20 rounded-xl object-cover border-2 border-gray-100"
+                                className="w-20 h-20 rounded-xl overflow-hidden border-2 border-gray-100"
+                                imageClassName="object-cover"
+                                showLoader={false}
+                                enableFullView={true}
                             />
                         ) : (
                             <div className="w-20 h-20 rounded-xl bg-amber-50 border-2 border-amber-200 border-dashed flex items-center justify-center">
@@ -318,10 +322,12 @@ export function ReviewStep() {
                         {/* Profile Photo */}
                         <div className="flex-shrink-0">
                             {data.profilePhotoUrl ? (
-                                <img
-                                    src={getFileUrl(data.profilePhotoUrl)}
+                                <AuthenticatedImage
+                                    fileKey={data.profilePhotoUrl}
                                     alt={data.displayName}
-                                    className="w-24 h-24 rounded-2xl object-cover border-2 border-primary/20"
+                                    className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-primary/20"
+                                    imageClassName="object-cover"
+                                    showLoader={false}
                                 />
                             ) : (
                                 <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-dashed border-primary/30 flex items-center justify-center">
