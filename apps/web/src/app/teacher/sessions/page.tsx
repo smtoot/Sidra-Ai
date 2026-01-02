@@ -16,7 +16,9 @@ import { SessionCompletionModal } from '@/components/booking/SessionCompletionMo
 
 const ITEMS_PER_PAGE = 10;
 // Default meeting link access time (minutes before session start)
-const DEFAULT_MEETING_LINK_ACCESS_MINUTES = 15;
+// Default meeting link access time (minutes before session start)
+import { MEETING_LINK_ACCESS_MINUTES } from '@/config/meeting';
+const DEFAULT_MEETING_LINK_ACCESS_MINUTES = MEETING_LINK_ACCESS_MINUTES;
 
 type SessionTab = 'upcoming' | 'completed' | 'needs_action' | 'issues';
 

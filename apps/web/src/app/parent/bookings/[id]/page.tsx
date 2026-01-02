@@ -13,6 +13,7 @@ import { RatingModal } from '@/components/booking/RatingModal';
 import { BookingDetailsView } from '@/components/booking/BookingDetailsView';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { MEETING_LINK_ACCESS_MINUTES } from '@/config/meeting';
 
 export default function ParentBookingDetailsPage() {
     const params = useParams();
@@ -151,7 +152,16 @@ export default function ParentBookingDetailsPage() {
     if (booking.status === 'PENDING_TEACHER_APPROVAL') availableActions.push('cancel');
     if (booking.status === 'SCHEDULED') {
         availableActions.push('cancel');
-        if (booking.meetingLink) availableActions.push('join');
+
+        // Check time window
+        const now = new Date();
+        const startTime = new Date(booking.startTime);
+        const accessTime = new Date(startTime.getTime() - MEETING_LINK_ACCESS_MINUTES * 60000); // 15 mins before
+
+        // Allow if current time is after access time
+        if (booking.meetingLink && now >= accessTime) {
+            availableActions.push('join');
+        }
     }
     if (booking.status === 'PENDING_CONFIRMATION') availableActions.push('confirm', 'dispute');
     if (booking.status === 'COMPLETED') {
