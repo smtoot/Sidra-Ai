@@ -79,6 +79,13 @@ export class MarketplaceController {
     return this.marketplaceService.softDeleteCurriculum(id);
   }
 
+  @Delete('curricula/:id/permanent')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  hardDeleteCurriculum(@Param('id') id: string) {
+    return this.marketplaceService.hardDeleteCurriculum(id);
+  }
+
   // --- Subjects ---
 
   @Post('subjects')
@@ -113,6 +120,13 @@ export class MarketplaceController {
   @Roles(UserRole.ADMIN)
   removeSubject(@Param('id') id: string) {
     return this.marketplaceService.softDeleteSubject(id);
+  }
+
+  @Delete('subjects/:id/permanent')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  hardDeleteSubject(@Param('id') id: string) {
+    return this.marketplaceService.hardDeleteSubject(id);
   }
 
   // --- Educational Stages ---
@@ -171,6 +185,13 @@ export class MarketplaceController {
     return this.marketplaceService.softDeleteStage(id);
   }
 
+  @Delete('stages/:id/permanent')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  hardDeleteStage(@Param('id') id: string) {
+    return this.marketplaceService.hardDeleteStage(id);
+  }
+
   // --- Grade Levels ---
 
   @Post('grades')
@@ -227,6 +248,13 @@ export class MarketplaceController {
   @Roles(UserRole.ADMIN)
   removeGrade(@Param('id') id: string) {
     return this.marketplaceService.softDeleteGrade(id);
+  }
+
+  @Delete('grades/:id/permanent')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  hardDeleteGrade(@Param('id') id: string) {
+    return this.marketplaceService.hardDeleteGrade(id);
   }
 
   // --- Teacher Public Profile ---

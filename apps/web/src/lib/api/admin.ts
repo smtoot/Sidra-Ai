@@ -45,6 +45,10 @@ export const adminApi = {
         const response = await api.delete(`/marketplace/curricula/${id}`);
         return response.data;
     },
+    hardDeleteCurriculum: async (id: string) => {
+        const response = await api.delete(`/marketplace/curricula/${id}/permanent`);
+        return response.data;
+    },
 
     getSubjects: async (all = false) => {
         const response = await api.get(`/marketplace/subjects${all ? '?all=true' : ''}`);
@@ -60,6 +64,10 @@ export const adminApi = {
     },
     deleteSubject: async (id: string) => {
         const response = await api.delete(`/marketplace/subjects/${id}`);
+        return response.data;
+    },
+    hardDeleteSubject: async (id: string) => {
+        const response = await api.delete(`/marketplace/subjects/${id}/permanent`);
         return response.data;
     },
 
@@ -83,6 +91,10 @@ export const adminApi = {
         const response = await api.delete(`/marketplace/stages/${id}`);
         return response.data;
     },
+    hardDeleteStage: async (id: string) => {
+        const response = await api.delete(`/marketplace/stages/${id}/permanent`);
+        return response.data;
+    },
 
     // --- Grades ---
     getGrades: async (stageId?: string, all = false) => {
@@ -102,6 +114,10 @@ export const adminApi = {
     },
     deleteGrade: async (id: string) => {
         const response = await api.delete(`/marketplace/grades/${id}`);
+        return response.data;
+    },
+    hardDeleteGrade: async (id: string) => {
+        const response = await api.delete(`/marketplace/grades/${id}/permanent`);
         return response.data;
     },
 
