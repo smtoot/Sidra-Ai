@@ -20,6 +20,7 @@ import {
     isVerifiedTeacher,
     TEACHER_STATUS_LABELS
 } from '@/config/teacher-status';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 // --- Helper Functions & Constants ---
 const DAY_LABELS: Record<string, string> = {
@@ -113,6 +114,7 @@ const EmptyState = ({ message, isPreview }: { message: string, isPreview: boolea
 
 export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfileViewProps) {
     const router = useRouter();
+    const { packagesEnabled, demosEnabled: globalDemosEnabled } = useSystemConfig();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
         teacher.subjects.length > 0 ? teacher.subjects[0].subject.id : null
@@ -390,7 +392,7 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                         const options: SessionOption[] = [];
 
                                         // Demo
-                                        if (teacher.globalSettings.demosEnabled && teacher.teacherSettings.demoEnabled) {
+                                        if (globalDemosEnabled && teacher.teacherSettings.demoEnabled) {
                                             options.push({
                                                 id: 'demo', type: 'DEMO', title: 'حصة تجريبية',
                                                 description: 'مدة 15 دقيقة للتعارف وتحديد المستوى',
@@ -406,7 +408,7 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                         });
 
                                         // Packages
-                                        if (teacher.globalSettings.packagesEnabled) {
+                                        if (packagesEnabled) {
                                             teacher.packageTiers.forEach((tier, index) => {
                                                 const totalPrice = basePrice * tier.sessionCount;
                                                 const discountedPrice = Math.round(totalPrice * (1 - tier.discountPercent / 100));

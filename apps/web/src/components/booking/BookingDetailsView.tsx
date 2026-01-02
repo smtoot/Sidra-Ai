@@ -18,7 +18,9 @@ import {
     ArrowRight,
     ChevronUp,
     Timer,
-    History
+    History,
+    MessageCircleQuestion,
+    RefreshCw
 } from 'lucide-react';
 import { Booking, BookingStatus, BookingAction } from '@/lib/api/booking';
 import { Button } from '@/components/ui/button';
@@ -179,6 +181,70 @@ export function BookingDetailsView({ booking, userRole, availableActions, onActi
                             <p className="text-xs font-bold text-gray-400 border-t pt-3 w-full">
                                 التالي: تأكيد الحصة أو الإبلاغ عن مشكلة
                             </p>
+                        </div>
+                    )}
+
+                    {/* 3.5. DISPUTED */}
+                    {booking.status === 'DISPUTED' && (
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mb-2">
+                                <MessageCircleQuestion className="w-8 h-8 text-orange-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">الطلب قيد المراجعة</h3>
+                                <p className="text-gray-500 text-sm mt-1">
+                                    تم رفع نزاع بخصوص هذه الحصة. يقوم فريق الدعم بمراجعة التفاصيل وسيتم التواصل معك قريباً.
+                                </p>
+                            </div>
+                            <div className="w-full pt-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => onAction('support')}
+                                    className="w-full h-11 border-orange-200 text-orange-700 hover:bg-orange-50"
+                                >
+                                    تواصل مع الدعم الفني
+                                </Button>
+                            </div>
+                            <p className="text-xs font-bold text-orange-400 border-t border-orange-100 pt-3 w-full">
+                                الحالة: بانتظار قرار الإدارة
+                            </p>
+                        </div>
+                    )}
+
+                    {/* 3.6. PAYMENT_REVIEW */}
+                    {booking.status === 'PAYMENT_REVIEW' && (
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2 animate-pulse">
+                                <RefreshCw className="w-8 h-8 text-blue-600 animate-spin-slow" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">جاري التحقق من الدفع</h3>
+                                <p className="text-gray-500 text-sm mt-1">
+                                    نعمل على تأكيد عملية الدفع الخاصة بك. قد يستغرق هذا بضع دقائق.
+                                </p>
+                            </div>
+                            <p className="text-xs font-bold text-blue-400 border-t border-blue-100 pt-3 w-full">
+                                الحالة: قيد المعالجة
+                            </p>
+                        </div>
+                    )}
+
+                    {/* 3.7. RESOLVED DISPUTE (Refunded, Partially Refunded, or Completed via Teacher Win) */}
+                    {/* Check if there was a dispute that is now resolved */}
+                    {(booking.status === 'REFUNDED' || booking.status === 'PARTIALLY_REFUNDED' || (booking.status === 'COMPLETED' && (booking as any).dispute?.status?.startsWith('RESOLVED'))) && (
+                        <div className="flex flex-col items-center text-center space-y-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 mb-2">
+                            <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                                <CheckCircle className="w-5 h-5" />
+                                <h3>تم حل النزاع</h3>
+                            </div>
+                            <p className="text-sm text-gray-700 leading-relaxed">
+                                {(booking as any).dispute?.resolution || 'تم اتخاذ قرار من قبل الإدارة بخصوص النزاع وإغلاق الطلب.'}
+                            </p>
+                            {(booking.status === 'REFUNDED' || booking.status === 'PARTIALLY_REFUNDED') && (
+                                <p className="text-xs font-bold text-emerald-600 border-t border-emerald-200 pt-2 w-full">
+                                    تم إعادة المبلغ (أو جزء منه) إلى المحفظة.
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -582,6 +648,51 @@ function getStatusConfig(status: BookingStatus, booking: Booking) {
                 textClass: 'text-red-800',
                 iconColor: 'bg-red-100/50 text-red-600',
                 icon: XCircle
+            };
+        case 'DISPUTED':
+            return {
+                label: 'قيد المراجعة (نزاع)',
+                description: 'جاري مراجعة الطلب من قبل الإدارة.',
+                bgClass: 'bg-orange-50',
+                textClass: 'text-orange-800',
+                iconColor: 'bg-orange-100/50 text-orange-600',
+                icon: MessageCircleQuestion
+            };
+        case 'CANCELLED_BY_ADMIN':
+            return {
+                label: 'تم إلغاء الحجز بواسطة الإدارة',
+                description: 'تم إلغاء الحجز من قبل إدارة المنصة.',
+                bgClass: 'bg-gray-100',
+                textClass: 'text-gray-600',
+                iconColor: 'bg-gray-200/50 text-gray-500',
+                icon: XCircle
+            };
+        case 'REFUNDED':
+            return {
+                label: 'تم استرداد المبلغ',
+                description: 'تم حل النزاع واسترداد المبلغ للطالب.',
+                bgClass: 'bg-emerald-50',
+                textClass: 'text-emerald-800',
+                iconColor: 'bg-emerald-100/50 text-emerald-600',
+                icon: Wallet
+            };
+        case 'PARTIALLY_REFUNDED':
+            return {
+                label: 'تم استرداد جزء من المبلغ',
+                description: 'تم حل النزاع بتسوية جزئية.',
+                bgClass: 'bg-emerald-50',
+                textClass: 'text-emerald-800',
+                iconColor: 'bg-emerald-100/50 text-emerald-600',
+                icon: Wallet
+            };
+        case 'PAYMENT_REVIEW':
+            return {
+                label: 'جاري مراجعة الدفع',
+                description: 'يتم التحقق من عملية الدفع حالياً.',
+                bgClass: 'bg-blue-50',
+                textClass: 'text-blue-800',
+                iconColor: 'bg-blue-100/50 text-blue-600',
+                icon: RefreshCw
             };
         default:
             return {

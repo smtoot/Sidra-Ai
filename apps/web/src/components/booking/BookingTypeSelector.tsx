@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { packageApi, PackageTier, StudentPackage, DemoEligibility } from '@/lib/api/package';
 import { Play, Package, Clock, Check, AlertCircle, Tag, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 // =====================================================
 // TYPES
@@ -44,6 +45,7 @@ export function BookingTypeSelector({
     onSelect,
     selectedOption  // Changed from selectedType
 }: BookingTypeSelectorProps) {
+    const { demosEnabled: globalDemosEnabled } = useSystemConfig();
     const [loading, setLoading] = useState(true);
     const [demoEnabled, setDemoEnabled] = useState(false);
     const [demoEligibility, setDemoEligibility] = useState<DemoEligibility | null>(null);
@@ -99,7 +101,7 @@ export function BookingTypeSelector({
     }
 
     // 2. Demo option
-    if (demoEnabled) {
+    if (demoEnabled && globalDemosEnabled) {
         options.push({
             type: 'DEMO',
             enabled: demoEligibility?.allowed ?? false,

@@ -1,41 +1,51 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { bookingApi } from '@/lib/api/booking';
-import { Booking, BookingStatus } from '@/lib/api/booking';
+import { useEffect, useState, useMemo } from 'react';
+import { bookingApi, Booking } from '@/lib/api/booking';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
-import { Calendar, Globe, Loader2, Filter, Search, Plus, ArrowUpDown } from 'lucide-react';
+import { Calendar, Loader2, Filter, Search, Plus, ArrowUpDown, AlertTriangle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PaymentConfirmModal } from '@/components/booking/PaymentConfirmModal';
-import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
+import { getUserTimezone } from '@/lib/utils/timezone';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { BookingListCard } from '@/components/booking/BookingListCard';
+import { BookingListCard, BookingCardSkeleton } from '@/components/booking/BookingListCard';
+import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
 
 const BOOKINGS_PER_PAGE = 10;
 
 export default function StudentBookingsPage() {
+    // Data & Loading
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState<string>('ALL');
-    const [timeFilter, setTimeFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL');
+    const [userTimezone, setUserTimezone] = useState<string>('');
+
+    // Filters & Pagination
     const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [timeFilter, setTimeFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL'); // Logic kept, UI removed to match Parent
     const [sortBy, setSortBy] = useState<'DATE_DESC' | 'DATE_ASC'>('DATE_DESC');
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Action States
+    // Modal States
     const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
+    const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<Booking | null>(null);
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+
+    // Confirm Session State
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [selectedBookingForConfirm, setSelectedBookingForConfirm] = useState<Booking | null>(null);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+    // Dispute State
     const [disputeModalOpen, setDisputeModalOpen] = useState(false);
     const [selectedBookingForDispute, setSelectedBookingForDispute] = useState<Booking | null>(null);
     const [disputeType, setDisputeType] = useState<string>('');
     const [disputeDescription, setDisputeDescription] = useState<string>('');
     const [submittingDispute, setSubmittingDispute] = useState(false);
-    const [userTimezone, setUserTimezone] = useState<string | null>(null);
 
-    // Loading Bookings
+    // Load Data
     const loadBookings = async (silent = false) => {
         if (!silent) setLoading(true);
         try {
@@ -43,6 +53,7 @@ export default function StudentBookingsPage() {
             setBookings(data);
         } catch (error) {
             console.error("Failed to load bookings", error);
+            toast.error("فشل تحميل الحجوزات");
         } finally {
             if (!silent) setLoading(false);
         }
@@ -53,12 +64,22 @@ export default function StudentBookingsPage() {
         setUserTimezone(getUserTimezone());
     }, []);
 
-    // Handle session confirmation
-    const handleConfirmSession = async (booking: Booking) => {
-        setConfirmingId(booking.id);
+    // Derived Data: Pending Confirmations
+    const pendingConfirmations = useMemo(() => {
+        return bookings.filter(booking => booking.status === 'PENDING_CONFIRMATION');
+    }, [bookings]);
+
+    // --- Actions ---
+
+    const handleConfirmSession = async () => {
+        if (!selectedBookingForConfirm) return;
+
+        setConfirmingId(selectedBookingForConfirm.id);
         try {
-            await bookingApi.confirmSessionEarly(booking.id);
+            await bookingApi.confirmSessionEarly(selectedBookingForConfirm.id);
             toast.success('تم تأكيد الحصة بنجاح! شكراً لك 🎉');
+            setConfirmModalOpen(false);
+            setSelectedBookingForConfirm(null);
             await loadBookings(true);
         } catch (error) {
             console.error('Failed to confirm session', error);
@@ -68,7 +89,6 @@ export default function StudentBookingsPage() {
         }
     };
 
-    // Submit dispute
     const handleSubmitDispute = async () => {
         if (!selectedBookingForDispute || !disputeType || !disputeDescription.trim()) {
             toast.error('يرجى اختيار نوع المشكلة ووصفها');
@@ -84,7 +104,7 @@ export default function StudentBookingsPage() {
             );
             toast.success('تم إرسال شكواك بنجاح. ستقوم الإدارة بمراجعتها قريباً 📝');
             setDisputeModalOpen(false);
-            loadBookings();
+            await loadBookings(true);
         } catch (error) {
             console.error('Failed to submit dispute', error);
             toast.error('حدث خطأ أثناء إرسال الشكوى');
@@ -93,9 +113,44 @@ export default function StudentBookingsPage() {
         }
     };
 
-    // Filtering Logic
+    const handleBookingAction = (action: string, booking: Booking) => {
+        switch (action) {
+            case 'pay':
+                setSelectedBookingForPayment(booking);
+                break;
+            case 'cancel':
+                setSelectedBookingForCancel(booking);
+                setCancelModalOpen(true);
+                break;
+            case 'confirm':
+                setSelectedBookingForConfirm(booking);
+                setConfirmModalOpen(true);
+                break;
+            case 'dispute':
+                setSelectedBookingForDispute(booking);
+                setDisputeType('');
+                setDisputeDescription('');
+                setDisputeModalOpen(true);
+                break;
+            case 'rate':
+                toast.info('التقييم متاح حالياً من تفاصيل الحصة');
+                break;
+            case 'details':
+                window.location.href = `/student/bookings/${booking.id}`;
+                break;
+            case 'book-new':
+                window.location.href = '/search';
+                break;
+            case 'support':
+                window.location.href = '/support/new';
+                break;
+        }
+    };
+
+    // --- Filtering Logic ---
+
     const filteredBookings = bookings.filter(booking => {
-        // 1. Status Filter
+        // 1. Status
         if (statusFilter !== 'ALL') {
             if (statusFilter === 'PENDING') {
                 if (!['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'PAYMENT_REVIEW'].includes(booking.status)) return false;
@@ -108,19 +163,19 @@ export default function StudentBookingsPage() {
             }
         }
 
-        // 2. Time Filter
+        // 2. Time
         if (timeFilter !== 'ALL') {
             const isPast = new Date(booking.startTime) < new Date();
             if (timeFilter === 'UPCOMING' && isPast) return false;
             if (timeFilter === 'PAST' && !isPast) return false;
         }
 
-        // 3. Search Filter
+        // 3. Search
         if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            const teacherName = booking.teacherProfile?.displayName?.toLowerCase() || '';
-            const subjectName = (booking.subject?.nameAr || booking.subject?.nameEn || '').toLowerCase();
-            if (!teacherName.includes(query) && !subjectName.includes(query)) return false;
+            const q = searchQuery.toLowerCase();
+            const teacher = booking.teacherProfile?.displayName?.toLowerCase() || '';
+            const subject = (booking.subject?.nameAr || booking.subject?.nameEn || '').toLowerCase();
+            if (!teacher.includes(q) && !subject.includes(q)) return false;
         }
 
         return true;
@@ -134,20 +189,6 @@ export default function StudentBookingsPage() {
     const endIndex = startIndex + BOOKINGS_PER_PAGE;
     const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
 
-    // Unified Action Handler
-    const handleBookingAction = (action: string, booking: Booking) => {
-        switch (action) {
-            case 'pay': setSelectedBookingForPayment(booking); break;
-            case 'cancel': toast.info('سيتم إتاحة هذا الإجراء قريباً'); break;
-            case 'confirm': handleConfirmSession(booking); break;
-            case 'dispute': setSelectedBookingForDispute(booking); setDisputeModalOpen(true); break;
-            case 'rate': toast.info('التقييم متاح حالياً للمعلم فقط'); break;
-            case 'details': window.location.href = `/student/bookings/${booking.id}`; break;
-            case 'book-new': window.location.href = '/search'; break;
-            case 'support': window.location.href = '/support/new'; break;
-        }
-    };
-
     return (
         <div className="min-h-screen bg-gray-50/50 p-4 md:p-8" dir="rtl">
             <div className="max-w-5xl mx-auto space-y-8">
@@ -156,7 +197,7 @@ export default function StudentBookingsPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">حجوزاتي</h1>
-                        <p className="text-gray-500 mt-1 text-lg">تابع حالة حصصك، ادفع، أو راجع الحجوزات السابقة</p>
+                        <p className="text-gray-500 mt-1 text-lg">تابع جدول حصصك وقم بإدارتها بسهولة</p>
                     </div>
                     <div>
                         <Link href="/search">
@@ -168,10 +209,41 @@ export default function StudentBookingsPage() {
                     </div>
                 </div>
 
-                {/* 2. Controls & Filters */}
+                {/* 2. Pending Actions Alert */}
+                {pendingConfirmations.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 text-amber-600">
+                                <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-amber-900 text-lg">
+                                    لديك {pendingConfirmations.length} حصص بانتظار التأكيد
+                                </h3>
+                                <p className="text-amber-800/80 mt-1 leading-relaxed">
+                                    يرجى تأكيد اكتمال الحصص المعلقة. سيتم إغلاق الطلبات تلقائياً خلال 48 ساعة.
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                className="bg-white border-amber-200 text-amber-800 hover:bg-amber-100 font-bold"
+                                onClick={() => {
+                                    setStatusFilter('UPCOMING');
+                                    setTimeFilter('ALL');
+                                }}
+                            >
+                                عرض الحصص
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. Filter Bar */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
                     {/* Top Row: Search & Sort */}
-                    <div className="flex flex-col sm:flex-row gap-4 justify-between">
+                    <div className="flex flex-col md:flex-row gap-4 justify-between">
+
+                        {/* Search */}
                         <div className="relative flex-1 max-w-md">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -182,12 +254,14 @@ export default function StudentBookingsPage() {
                                 className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                             />
                         </div>
-                        <div className="flex items-center gap-2">
+
+                        {/* Sort */}
+                        <div className="flex items-center gap-3">
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setSortBy(sortBy === 'DATE_DESC' ? 'DATE_ASC' : 'DATE_DESC')}
-                                className="text-gray-600 border-gray-200"
+                                className="text-gray-600 border-gray-200 h-10 px-4 rounded-xl"
                             >
                                 <ArrowUpDown className="w-4 h-4 ml-2" />
                                 {sortBy === 'DATE_DESC' ? 'الأحدث أولاً' : 'الأقدم أولاً'}
@@ -195,8 +269,9 @@ export default function StudentBookingsPage() {
                         </div>
                     </div>
 
-                    {/* Bottom Row: Filter Tabs (Pills) */}
+                    {/* Tabs */}
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <Filter className="w-5 h-5 text-gray-400 ml-2" />
                         {[
                             { id: 'ALL', label: 'الكل' },
                             { id: 'PENDING', label: 'بانتظار الموافقة/الدفع' },
@@ -217,44 +292,24 @@ export default function StudentBookingsPage() {
                                 {tab.label}
                             </button>
                         ))}
-                        <div className="w-px h-6 bg-gray-200 mx-2 hidden sm:block"></div>
-                        {[
-                            { id: 'ALL', label: 'كل الأوقات' },
-                            { id: 'UPCOMING', label: 'مستقبلية' },
-                            { id: 'PAST', label: 'سابقة' },
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => { setTimeFilter(tab.id as any); setCurrentPage(1); }}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all border",
-                                    timeFilter === tab.id
-                                        ? "border-primary/50 bg-primary/5 text-primary"
-                                        : "border-transparent text-gray-400 hover:text-gray-600"
-                                )}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
                     </div>
                 </div>
 
-                {/* 3. Bookings List */}
+                {/* 4. List */}
                 {loading ? (
-                    <div className="py-20 text-center">
-                        <Loader2 className="w-10 h-10 animate-spin mx-auto text-primary mb-4" />
-                        <p className="text-gray-500">جاري تحميل الحجوزات...</p>
+                    <div className="space-y-4">
+                        {[1, 2, 3].map((i) => <BookingCardSkeleton key={i} />)}
                     </div>
                 ) : filteredBookings.length === 0 ? (
                     <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
                         <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                             <Calendar className="w-8 h-8 text-gray-300" />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد حجوزات مطابقة</h3>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد حجوزات</h3>
                         <p className="text-gray-500 mb-6 max-w-sm mx-auto">
                             {searchQuery || statusFilter !== 'ALL'
-                                ? 'جرب تغيير فلاتر البحث للعثور على ما تبحث عنه'
-                                : 'ابدأ رحلتك التعليمية اليوم واحجز حصتك الأولى مع أفضل المعلمين'
+                                ? 'لم يتم العثور على نتائج تطابق خيارات البحث'
+                                : 'ابدأ رحلتك التعليمية واحجز حصتك الأولى'
                             }
                         </p>
                         {statusFilter === 'ALL' && !searchQuery && (
@@ -287,73 +342,126 @@ export default function StudentBookingsPage() {
                         }}
                     />
                 )}
+
             </div>
 
-            {/* Payment Modal */}
-            {selectedBookingForPayment && (
-                <PaymentConfirmModal
-                    isOpen={!!selectedBookingForPayment}
-                    onClose={() => setSelectedBookingForPayment(null)}
-                    booking={selectedBookingForPayment}
-                    onPaymentSuccess={() => { loadBookings(); }}
-                />
-            )}
+            {/* --- Modals --- */}
 
-            {/* Dispute Modal */}
-            {disputeModalOpen && selectedBookingForDispute && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-                        <h2 className="text-xl font-bold text-gray-900 mb-2">الإبلاغ عن مشكلة</h2>
-                        <p className="text-sm text-gray-500 mb-6">
-                            نأسف لسماع ذلك. يرجى إخبارنا بما حدث لنتمكن من المساعدة.
-                        </p>
+            {
+                selectedBookingForPayment && (
+                    <PaymentConfirmModal
+                        booking={selectedBookingForPayment}
+                        isOpen={!!selectedBookingForPayment}
+                        onClose={() => setSelectedBookingForPayment(null)}
+                        onPaymentSuccess={() => loadBookings()}
+                    />
+                )
+            }
 
-                        <div className="space-y-4 mb-6">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">نوع المشكلة</label>
-                                <select
-                                    value={disputeType}
-                                    onChange={(e) => setDisputeType(e.target.value)}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+            {
+                cancelModalOpen && selectedBookingForCancel && (
+                    <CancelConfirmModal
+                        isOpen={cancelModalOpen}
+                        onClose={() => { setCancelModalOpen(false); setSelectedBookingForCancel(null); }}
+                        bookingId={selectedBookingForCancel.id}
+                        onSuccess={() => { toast.success('تم إلغاء الحجز بنجاح'); loadBookings(); }}
+                    />
+                )
+            }
+
+            {
+                confirmModalOpen && selectedBookingForConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl text-center">
+                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle className="w-8 h-8 text-green-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">تأكيد اكتمال الحصة</h2>
+                            <p className="text-sm text-gray-600 mb-6">
+                                هل أنت متأكد من اكتمال الحصة؟ عند التأكيد سيتم تحويل المبلغ إلى محفظة المعلم مباشرة.
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleConfirmSession}
+                                    disabled={confirmingId === selectedBookingForConfirm.id}
+                                    className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-green-600/20"
                                 >
-                                    <option value="">اختر السبب...</option>
-                                    <option value="TEACHER_NO_SHOW">المعلم لم يحضر في الموعد</option>
-                                    <option value="SESSION_TOO_SHORT">وقت الحصة كان أقصر من المتفق عليه</option>
-                                    <option value="QUALITY_ISSUE">جودة الشرح لم تكن مناسبة</option>
-                                    <option value="TECHNICAL_ISSUE">واجهنا مشاكل تقنية منعت الدرس</option>
-                                    <option value="OTHER">سبب آخر</option>
-                                </select>
+                                    {confirmingId === selectedBookingForConfirm.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        'نعم، تأكيد'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => { setConfirmModalOpen(false); setSelectedBookingForConfirm(null); }}
+                                    disabled={confirmingId === selectedBookingForConfirm.id}
+                                    className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                                >
+                                    إلغاء
+                                </button>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">التفاصيل</label>
-                                <textarea
-                                    value={disputeDescription}
-                                    onChange={(e) => setDisputeDescription(e.target.value)}
-                                    placeholder="اكتب المزيد من التفاصيل هنا..."
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none min-h-[120px] resize-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleSubmitDispute}
-                                disabled={submittingDispute}
-                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20"
-                            >
-                                {submittingDispute ? 'جاري الإرسال...' : 'إرسال البلاغ'}
-                            </button>
-                            <button
-                                onClick={() => setDisputeModalOpen(false)}
-                                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold transition-all"
-                            >
-                                تراجع
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+
+            {
+                disputeModalOpen && selectedBookingForDispute && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">الإبلاغ عن مشكلة</h2>
+                            <p className="text-sm text-gray-500 mb-6">
+                                نأسف لسماع ذلك. يرجى إخبارنا بما حدث لنتمكن من المساعدة.
+                            </p>
+
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">نوع المشكلة</label>
+                                    <select
+                                        value={disputeType}
+                                        onChange={(e) => setDisputeType(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                    >
+                                        <option value="">اختر السبب...</option>
+                                        <option value="TEACHER_NO_SHOW">المعلم لم يحضر في الموعد</option>
+                                        <option value="SESSION_TOO_SHORT">وقت الحصة كان أقصر من المتفق عليه</option>
+                                        <option value="QUALITY_ISSUE">جودة الشرح لم تكن مناسبة</option>
+                                        <option value="TECHNICAL_ISSUE">واجهنا مشاكل تقنية منعت الدرس</option>
+                                        <option value="OTHER">سبب آخر</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">التفاصيل</label>
+                                    <textarea
+                                        value={disputeDescription}
+                                        onChange={(e) => setDisputeDescription(e.target.value)}
+                                        placeholder="اكتب المزيد من التفاصيل هنا..."
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none min-h-[120px] resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleSubmitDispute}
+                                    disabled={submittingDispute}
+                                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20"
+                                >
+                                    {submittingDispute ? 'جاري الإرسال...' : 'إرسال البلاغ'}
+                                </button>
+                                <button
+                                    onClick={() => setDisputeModalOpen(false)}
+                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold transition-all"
+                                >
+                                    تراجع
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

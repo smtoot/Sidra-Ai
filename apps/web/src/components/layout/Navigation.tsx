@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 interface NavItem {
     label: string;
@@ -31,7 +32,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'لوحة التحكم', href: '/parent', icon: Home },
         { label: 'البحث عن معلمين', href: '/search', icon: Search },
         { label: 'حجوزاتي', href: '/parent/bookings', icon: Calendar },
-        { label: 'باقاتي', href: '/parent/packages', icon: Package },
+        { label: 'باقات الدروس', href: '/parent/packages', icon: Package },
         { label: 'أبنائي', href: '/parent/children', icon: Users },
         { label: 'المحفظة', href: '/parent/wallet', icon: Wallet },
         { label: 'الدعم الفني', href: '/support', icon: Headphones },
@@ -43,7 +44,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'ملفي الشخصي', href: '/teacher/profile-hub', icon: User },
         { label: 'طلبات التدريس', href: '/teacher/requests', icon: FileText },
         { label: 'حصصي', href: '/teacher/sessions', icon: Calendar },
-        { label: 'باقات الطلاب', href: '/teacher/packages', icon: Package },
+        { label: 'باقات الدروس', href: '/teacher/packages', icon: Package },
         { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign },
         { label: 'المواعيد', href: '/teacher/availability', icon: Clock },
         { label: 'الدعم الفني', href: '/support', icon: Headphones },
@@ -52,8 +53,8 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
     STUDENT: [
         { label: 'لوحة التحكم', href: '/student', icon: Home },
         { label: 'البحث عن معلمين', href: '/search', icon: Search },
-        { label: 'حصصي', href: '/student/bookings', icon: Calendar },
-        { label: 'باقاتي', href: '/student/packages', icon: Package },
+        { label: 'حجوزاتي', href: '/student/bookings', icon: Calendar },
+        { label: 'باقات الدروس', href: '/student/packages', icon: Package },
         { label: 'المحفظة', href: '/student/wallet', icon: Wallet },
         { label: 'المعلمين المفضلين', href: '/student/favorites', icon: Heart },
         { label: 'الدعم الفني', href: '/support', icon: Headphones },
@@ -128,14 +129,39 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
 };
 
 export function Navigation({ userRole, userName }: NavigationProps) {
+
     const pathname = usePathname();
     const router = useRouter();
     const { logout } = useAuth();
+    const { packagesEnabled } = useSystemConfig();
 
     // Map all admin roles to use ADMIN menu items
     const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
     const effectiveRole = adminRoles.includes(userRole) ? 'ADMIN' : userRole;
-    const items = menuItems[effectiveRole] || [];
+    let items = menuItems[effectiveRole] || [];
+
+    // Filter out Package items if disabled
+    if (!packagesEnabled) {
+        items = items.map(item => {
+            if ('items' in item) { // Check if it's a group
+                // Filter sub-items
+                const filteredSub = item.items.filter(sub =>
+                    !sub.href.includes('/packages') &&
+                    !sub.href.includes('/package-tiers')
+                );
+                return { ...item, items: filteredSub };
+            }
+            return item;
+        }).filter(item => {
+            // Filter top-level items
+            if ('href' in item && typeof item.href === 'string') {
+                if (item.href.includes('/packages')) return false;
+            }
+            // Remove empty groups (optional, but good for UI)
+            if ('items' in item && item.items.length === 0) return false;
+            return true;
+        });
+    }
 
     // State
     const [expandedGroups, setExpandedGroups] = useState<string[]>(['العمليات اليومية', 'الدعم والشكاوى', 'المالية']);
@@ -164,7 +190,7 @@ export function Navigation({ userRole, userName }: NavigationProps) {
 
         // Add badges for Student
         if (userRole === 'STUDENT') {
-            if (item.label === 'حصصي') {
+            if (item.label === 'حجوزاتي') {
                 return { ...item, count: counts.upcoming > 0 ? counts.upcoming : undefined };
             }
             if (item.label === 'الدعم الفني') {
