@@ -99,10 +99,15 @@ export default function StudentBookingDetailsPage() {
                 break;
             case 'cancel':
                 if (window.confirm('هل أنت متأكد من رغبتك في إلغاء الطلب؟')) {
-                    bookingApi.cancelBooking(booking.id).then(() => {
-                        toast.success('تم إلغاء الطلب');
-                        loadBooking();
-                    });
+                    bookingApi.cancelBooking(booking.id)
+                        .then(() => {
+                            toast.success('تم إلغاء الطلب');
+                            loadBooking();
+                        })
+                        .catch((error) => {
+                            console.error('Failed to cancel booking', error);
+                            toast.error('حدث خطأ أثناء إلغاء الطلب');
+                        });
                 }
                 break;
             case 'confirm':
