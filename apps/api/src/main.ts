@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { ValidationPipe } from '@nestjs/common';
 
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -9,6 +10,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+  // SECURITY: Set standard HTTP security headers (HSTS, X-Frame-Options, etc.)
+  app.use(helmet());
 
   // SECURITY: Enable global validation for all DTOs
   app.useGlobalPipes(
