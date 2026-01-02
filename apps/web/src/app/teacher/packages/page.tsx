@@ -229,15 +229,6 @@ export default function TeacherPackagesPage() {
         }
     }, [configLoading, packagesEnabled, router]);
 
-    // Combined loading check
-    if (configLoading || (!packagesEnabled && !configLoading)) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-            </div>
-        );
-    }
-
     useEffect(() => {
         const loadPackages = async () => {
             try {
@@ -251,6 +242,15 @@ export default function TeacherPackagesPage() {
         };
         loadPackages();
     }, []);
+
+    // Combined loading check
+    if (configLoading || (!packagesEnabled && !configLoading)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+            </div>
+        );
+    }
 
     // Filter packages by status
     const filteredPackages = packages.filter(pkg =>

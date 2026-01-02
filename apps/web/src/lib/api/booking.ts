@@ -16,7 +16,7 @@ export type BookingStatus =
     | 'CANCELLED_BY_ADMIN'
     | 'EXPIRED';
 
-export type BookingAction = 'pay' | 'cancel' | 'confirm' | 'dispute' | 'rate' | 'book-new' | 'details';
+export type BookingAction = 'pay' | 'cancel' | 'confirm' | 'dispute' | 'rate' | 'book-new' | 'details' | 'support';
 
 
 export interface CreateBookingRequest {

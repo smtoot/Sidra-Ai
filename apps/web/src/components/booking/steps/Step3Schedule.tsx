@@ -237,7 +237,7 @@ export function Step3Schedule({
                                             <div className="text-sm font-bold text-gray-900">
                                                 {availabilityCalendar.nextAvailableSlot?.startTimeUtc
                                                     ? (() => {
-                                                        const date = parseUtcDate(availabilityCalendar.nextAvailableSlot?.startTimeUtc!);
+                                                        const date = parseUtcDate(availabilityCalendar.nextAvailableSlot!.startTimeUtc);
                                                         const today = new Date();
                                                         const isToday = date.getDate() === today.getDate() && date.getMonth() === today.getMonth();
                                                         const isTomorrow = new Date(today.setDate(today.getDate() + 1)).getDate() === date.getDate();
