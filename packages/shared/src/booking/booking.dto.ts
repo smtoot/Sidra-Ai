@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsUUID, IsNumber, Min, Max, IsOptional, MaxLength, IsBoolean, IsIn, Matches } from 'class-validator';
+import { IsString, IsDateString, IsUUID, IsNumber, Min, Max, IsOptional, MaxLength, IsBoolean, IsIn, Matches, Equals } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateBookingDto {
@@ -70,6 +70,9 @@ export class CreateBookingDto {
         message: 'Time must be in HH:mm format (e.g., 17:00)'
     })
     recurringTime?: string; // Time for recurring sessions in HH:mm format (e.g., "17:00")
+    @IsBoolean()
+    @Equals(true, { message: 'Terms must be accepted to create a booking' })
+    termsAccepted!: boolean;
 }
 
 export class UpdateBookingStatusDto {

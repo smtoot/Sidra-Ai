@@ -45,7 +45,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     // Common public paths that shouldn't show dashboard nav even if logged in:
     const isDashboardRoute =
         pathname.startsWith('/admin') ||
-        pathname.startsWith('/teacher') ||
+        (pathname.startsWith('/teacher') && !pathname.startsWith('/teachers')) ||
         pathname.startsWith('/student') ||
         pathname.startsWith('/parent') ||
         pathname.startsWith('/support');

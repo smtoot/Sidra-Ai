@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Tajawal, Poppins, Cairo } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { SystemConfigProvider } from "@/context/SystemConfigContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QueryProvider } from "@/providers/QueryProvider";
 
@@ -44,14 +45,15 @@ export default function RootLayout({
         className={`${cairo.variable} ${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
       >
         <QueryProvider>
-          <AuthProvider>
-            <DashboardLayout>
-              {children}
-            </DashboardLayout>
-          </AuthProvider>
+          <SystemConfigProvider>
+            <AuthProvider>
+              <DashboardLayout>
+                {children}
+              </DashboardLayout>
+            </AuthProvider>
+          </SystemConfigProvider>
         </QueryProvider>
       </body>
     </html>
   );
 }
-

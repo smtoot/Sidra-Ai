@@ -9,3 +9,5 @@ export { GenderSelector } from './GenderSelector';
 export { IdVerificationSection } from './IdVerificationSection';
 export { CertificatesSection } from './CertificatesSection';
 export { QualificationsManager } from './QualificationsManager';
+export { SkillsManager } from './SkillsManager';
+export { WorkExperienceManager } from './WorkExperienceManager';

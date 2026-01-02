@@ -18,6 +18,7 @@ import {
   Paperclip,
   History
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 interface TicketDetailProps {
   ticket: SupportTicketDetail;
@@ -60,6 +61,11 @@ export function TicketDetail({ ticket, onClose, onReopen, actionLoading }: Ticke
   const canClose = ticket.status !== 'CLOSED' && ticket.status !== 'CANCELLED';
   const canReopen = ticket.status === 'CLOSED' && ticket.type === 'SUPPORT';
 
+  const { user } = useAuth();
+
+  // Only Admin and Support roles should see the deadline
+  const canSeeDeadline = user?.role && ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT', 'FINANCE', 'CONTENT_ADMIN'].includes(user.role);
+
   return (
     <div className="space-y-4">
       {/* Compact Header Card */}
@@ -72,7 +78,7 @@ export function TicketDetail({ ticket, onClose, onReopen, actionLoading }: Ticke
             </span>
             <TicketStatusBadge status={ticket.status} />
             <TicketPriorityBadge priority={ticket.priority} />
-            {ticket.slaBreach && (
+            {ticket.slaBreach && canSeeDeadline && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
                 <AlertCircle className="w-3 h-3" />
                 تجاوز الوقت
@@ -95,7 +101,7 @@ export function TicketDetail({ ticket, onClose, onReopen, actionLoading }: Ticke
                 disabled={actionLoading}
                 className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                إغلاق التذكرة
+                إغلاق الطلب
               </button>
             )}
           </div>
@@ -130,8 +136,8 @@ export function TicketDetail({ ticket, onClose, onReopen, actionLoading }: Ticke
           )}
         </div>
 
-        {/* SLA Deadline if exists */}
-        {ticket.slaDeadline && (
+        {/* SLA Deadline if exists and user is admin/support */}
+        {ticket.slaDeadline && canSeeDeadline && (
           <div className={`px-4 py-2 text-sm border-t ${ticket.slaBreach ? 'bg-red-50 border-red-100 text-red-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />

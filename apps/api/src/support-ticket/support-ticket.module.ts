@@ -7,9 +7,10 @@ import { TicketAccessGuard } from './guards/ticket-access.guard';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ReadableIdService } from '../common/readable-id.service';
 import { PermissionService } from '../auth/permission.service';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationModule],
   controllers: [SupportTicketController, AdminSupportTicketController],
   providers: [
     SupportTicketService,

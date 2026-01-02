@@ -254,7 +254,7 @@ export function MyPackages({ userRole }: MyPackagesProps) {
                         <Package className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-800">باقاتي</h1>
+                        <h1 className="text-xl font-bold text-gray-800">باقات الدروس</h1>
                         <p className="text-sm text-gray-500">{packages.length} باقات</p>
                     </div>
                 </div>

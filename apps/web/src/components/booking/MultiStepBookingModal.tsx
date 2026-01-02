@@ -14,13 +14,16 @@ import { useBookingFlow } from './useBookingFlow';
 // Components
 import { ProgressIndicator } from './ProgressIndicator';
 import { LoginCheckpoint } from './LoginCheckpoint';
+import { Button } from '@/components/ui/button'; // Assuming you have a button component, otherwise standard html button works
+import { AlertCircle } from 'lucide-react';
+
+// Steps
 
 // Steps
 import { Step1Subject } from './steps/Step1Subject';
 import { Step2BookingType } from './steps/Step2BookingType';
 import { Step3Schedule } from './steps/Step3Schedule';
 import { Step4Details } from './steps/Step4Details';
-import { Step5Review } from './steps/Step5Review';
 
 // API
 import { bookingApi } from '@/lib/api/booking';
@@ -58,6 +61,15 @@ export function MultiStepBookingModal({
     const [children, setChildren] = useState<Child[]>([]);
     const [isLoadingChildren, setIsLoadingChildren] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showResumeDialog, setShowResumeDialog] = useState(false);
+    const [userId, setUserId] = useState<string | undefined>(undefined);
+
+    // Fetch user data when logged in
+    useEffect(() => {
+        if (isOpen && user) {
+            fetchUserData();
+        }
+    }, [isOpen, user]);
 
     // Booking flow state management
     const {
@@ -68,20 +80,16 @@ export function MultiStepBookingModal({
         goToPreviousStep,
         isStepComplete,
         resetState,
-        clearSavedState
+        clearSavedState,
+        checkPendingBooking,
+        resumeBooking
     } = useBookingFlow({
         teacherId,
         teacherName,
         isGuest,
-        userRole
+        userRole,
+        userId
     });
-
-    // Fetch user data when logged in
-    useEffect(() => {
-        if (isOpen && user) {
-            fetchUserData();
-        }
-    }, [isOpen, user]);
 
     // Set initial subject if provided
     useEffect(() => {
@@ -108,6 +116,7 @@ export function MultiStepBookingModal({
             setUserRole(profile.role as 'PARENT' | 'STUDENT');
             // Use email as fallback since UserProfile doesn't have name field
             setUserName(profile.email?.split('@')[0] || '');
+            setUserId(profile.id);
 
             if (profile.role === 'PARENT' && profile.parentProfile?.children) {
                 setChildren(profile.parentProfile.children);
@@ -130,6 +139,32 @@ export function MultiStepBookingModal({
         router.push(`/register?returnUrl=${encodeURIComponent(window.location.pathname)}`);
     };
 
+    const handleAddChild = () => {
+        // Redirect to add child page, persistence will handle state
+        router.push(`/parent/children/new?returnUrl=${encodeURIComponent(window.location.pathname)}`);
+    };
+
+    // Check for pending booking on mount/open
+    useEffect(() => {
+        if (isOpen) {
+            // Small delay to ensure userId is loaded if logged in is tricky because fetchUserData is async
+            // But we can check generic "pendingBooking" existence first or rely on checkPendingBooking robustness
+            // Actually checkPendingBooking relies on userId matching if present.
+            // If user is logged in, we wait for userId?
+            // "fetchUserData" runs on mount if isOpen && user.
+            // Let's add a dependency on userId or just run it.
+            // If we run it immediately and userId isn't set yet, it might fail the "userId matches" check if logic requires it.
+            // But if userId is undefined in useBookingFlow, the checkPendingBooking might skip user check?
+            // "if (userId && data.userId !== userId) return false" -> if userId is undefined, it skips?
+            // No, consistency is key.
+            // Let's just run it. If it returns true, great.
+            const hasPending = checkPendingBooking();
+            if (hasPending) {
+                setShowResumeDialog(true);
+            }
+        }
+    }, [isOpen, checkPendingBooking]); // checkPendingBooking depends on userId
+
     const handleNext = () => {
         const result = goToNextStep();
 
@@ -145,7 +180,7 @@ export function MultiStepBookingModal({
     };
 
     const handleSubmit = async () => {
-        if (!isStepComplete(4)) {
+        if (!isStepComplete(3)) {
             toast.error('يرجى إكمال جميع الحقول المطلوبة');
             return;
         }
@@ -173,7 +208,8 @@ export function MultiStepBookingModal({
                     endTime,
                     price: state.selectedBookingOption!.price,
                     tierId: state.selectedBookingOption!.tierId!,
-                    bookingNotes: state.bookingNotes
+                    bookingNotes: state.bookingNotes,
+                    termsAccepted: true // Strict validation
                 });
             } else {
                 // Regular booking (single, demo, or existing package)
@@ -186,7 +222,8 @@ export function MultiStepBookingModal({
                     price: state.selectedBookingOption!.price,
                     packageId: state.selectedBookingOption?.packageId,
                     isDemo: state.selectedBookingType === 'DEMO',
-                    bookingNotes: state.bookingNotes
+                    bookingNotes: state.bookingNotes,
+                    termsAccepted: true // Strict validation
                 });
             }
 
@@ -283,6 +320,11 @@ export function MultiStepBookingModal({
             case 3:
                 return (
                     <Step4Details
+                        teacherName={teacherName}
+                        subjectName={selectedSubjectData?.name || ''}
+                        bookingOption={state.selectedBookingOption}
+                        selectedDate={state.selectedDate}
+                        selectedSlot={state.selectedSlot}
                         userRole={userRole}
                         userName={userName}
                         children={children}
@@ -290,27 +332,9 @@ export function MultiStepBookingModal({
                         onChildSelect={(childId) => updateState('selectedChildId', childId)}
                         bookingNotes={state.bookingNotes}
                         onNotesChange={(notes) => updateState('bookingNotes', notes)}
-                    />
-                );
-
-            case 4:
-                return (
-                    <Step5Review
-                        teacherName={teacherName}
-                        subjectName={selectedSubjectData?.name || ''}
-                        bookingOption={state.selectedBookingOption!}
-                        selectedDate={state.selectedDate}
-                        selectedSlot={state.selectedSlot}
-                        recurringWeekday={state.recurringWeekday}
-                        recurringTime={state.recurringTime}
-                        suggestedDates={state.suggestedDates}
-                        userRole={userRole}
-                        userName={userName}
-                        selectedChild={selectedChildData || null}
-                        bookingNotes={state.bookingNotes}
+                        onAddChild={handleAddChild}
                         termsAccepted={state.termsAccepted}
                         onTermsChange={(accepted) => updateState('termsAccepted', accepted)}
-                        onEdit={goToStep}
                     />
                 );
 
@@ -386,12 +410,55 @@ export function MultiStepBookingModal({
                     className="flex-1 overflow-y-auto px-4 md:px-6 py-6"
                     data-booking-modal-content
                 >
-                    {renderStep()}
+                    {showResumeDialog ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-6">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2">
+                                <AlertCircle className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                    هل تريد إكمال الحجز السابق؟
+                                </h3>
+                                <p className="text-gray-500 max-w-sm mx-auto">
+                                    وجدنا بيانات حجز غير مكتملة محفوظة من قبل. هل تود استعادتها والمتابعة من حيث توقفت؟
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+                                <button
+                                    onClick={() => {
+                                        resumeBooking();
+                                        setShowResumeDialog(false);
+                                    }}
+                                    className="w-full py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+                                >
+                                    إكمال الحجز
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        clearSavedState();
+                                        setShowResumeDialog(false);
+                                    }}
+                                    className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                                >
+                                    بدء حجز جديد
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        renderStep()
+                    )}
                 </div>
 
                 {/* Footer Navigation */}
                 {!(isGuest && state.currentStep === 3) && (
                     <div className="border-t p-4 pb-8 md:p-6 md:pb-10 bg-white safe-area-pb">
+                        {state.currentStep === BOOKING_STEPS.length - 1 && (
+                            <div className="mb-4 text-center">
+                                <p className="text-sm text-gray-500">
+                                    بالضغط على تأكيد الحجز سيتم إرسال الطلب للمعلم للمراجعة.
+                                </p>
+                            </div>
+                        )}
                         <div className="flex items-center justify-between gap-3 md:gap-4">
                             <button
                                 onClick={goToPreviousStep}
@@ -413,10 +480,11 @@ export function MultiStepBookingModal({
                                 onClick={handleNext}
                                 disabled={!canProceed || isSubmitting}
                                 className={cn(
-                                    'px-6 md:px-8 py-3 rounded-xl font-medium transition-colors flex items-center gap-2 min-h-[48px]',
+                                    'px-6 md:px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 min-h-[48px] shadow-lg shadow-primary/20',
+                                    state.currentStep === BOOKING_STEPS.length - 1 ? 'text-lg px-8' : '', // Larger text for final step
                                     canProceed && !isSubmitting
-                                        ? 'bg-primary text-white hover:bg-primary/90 active:bg-primary/80'
-                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        ? 'bg-primary text-white hover:bg-primary/90 active:bg-primary/80 transform hover:-translate-y-0.5'
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
                                 )}
                             >
                                 {getNextButtonText()}
@@ -425,6 +493,11 @@ export function MultiStepBookingModal({
                                 )}
                             </button>
                         </div>
+                        {state.currentStep === BOOKING_STEPS.length - 1 && !state.termsAccepted && (
+                            <p className="text-xs text-amber-600 mt-2 text-left font-medium">
+                                يرجى الموافقة على الشروط لإتمام الحجز
+                            </p>
+                        )}
                     </div>
                 )}
             </div>

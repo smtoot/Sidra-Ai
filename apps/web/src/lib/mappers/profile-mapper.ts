@@ -103,6 +103,31 @@ export function mapHubStateToPublicProfile(hubProfile: any): TeacherPublicProfil
                 fieldOfStudy: q.fieldOfStudy || null,
                 isVerified: q.isVerified || false
             }))
+            : [],
+
+        // Skills - map from hubProfile if available, otherwise empty array
+        skills: Array.isArray(hubProfile.skills)
+            ? hubProfile.skills.map((s: any) => ({
+                id: s.id,
+                name: s.name || '',
+                category: s.category || null,
+                proficiency: s.proficiency || 'INTERMEDIATE'
+            }))
+            : [],
+
+        // Work Experiences - map from hubProfile if available, otherwise empty array
+        workExperiences: Array.isArray(hubProfile.workExperiences)
+            ? hubProfile.workExperiences.map((w: any) => ({
+                id: w.id,
+                title: w.title || '',
+                organization: w.organization || '',
+                experienceType: w.experienceType || 'OTHER',
+                startDate: w.startDate || null,
+                endDate: w.endDate || null,
+                isCurrent: w.isCurrent || false,
+                description: w.description || null,
+                subjects: Array.isArray(w.subjects) ? w.subjects : []
+            }))
             : []
     };
 }

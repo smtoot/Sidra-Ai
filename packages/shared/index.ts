@@ -26,6 +26,8 @@ export * from './src/teacher/propose-interview-slots.dto';
 export * from './src/teacher/accept-terms.dto';
 export * from './src/teacher/qualification.dto';
 export * from './src/teacher/vacation-mode.dto';
+export * from './src/teacher/skill.dto';
+export * from './src/teacher/work-experience.dto';
 
 // Package (Smart Pack)
 export * from './src/package';

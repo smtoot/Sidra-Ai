@@ -18,7 +18,7 @@ export default function NewTicketPage() {
       const ticket = await createSupportTicket(data);
       router.push(`/support/${ticket.id}`);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل في إنشاء التذكرة');
+      setError(err.response?.data?.message || 'فشل في إنشاء طلب المساعدة');
       setSubmitting(false);
     }
   };
@@ -37,9 +37,9 @@ export default function NewTicketPage() {
           <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          العودة للتذاكر
+          العودة لطلبات المساعدة
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">إنشاء تذكرة دعم</h1>
+        <h1 className="text-3xl font-bold text-gray-900">طلب مساعدة جديد</h1>
         <p className="text-gray-600 mt-1">صِف مشكلتك وسنساعدك في حلها</p>
       </div>
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { bookingApi, Booking } from '@/lib/api/booking';
 import { Card, CardContent } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
-import { Calendar, CheckCircle, AlertCircle, Video, Bell, Loader2, Link as LinkIcon, Save } from 'lucide-react';
+import { Calendar, CheckCircle, AlertCircle, Video, Bell, Loader2, Link as LinkIcon, Save, Clock, AlertTriangle, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -16,12 +16,17 @@ import { SessionCompletionModal } from '@/components/booking/SessionCompletionMo
 
 const ITEMS_PER_PAGE = 10;
 // Default meeting link access time (minutes before session start)
-const DEFAULT_MEETING_LINK_ACCESS_MINUTES = 15;
+import { useSystemConfig } from '@/context/SystemConfigContext';
+
+type SessionTab = 'upcoming' | 'completed' | 'needs_action' | 'issues';
 
 export default function TeacherSessionsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
+    const [activeTab, setActiveTab] = useState<SessionTab>('upcoming');
+    const { meetingLinkAccessMinutes } = useSystemConfig();
+
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [selectedBookingForComplete, setSelectedBookingForComplete] = useState<Booking | null>(null);
     const [editingLinkForBooking, setEditingLinkForBooking] = useState<string | null>(null);
@@ -44,25 +49,62 @@ export default function TeacherSessionsPage() {
         loadSessions();
     }, []);
 
-    // Compute sessions that need completion (past end time but still SCHEDULED)
-    const pendingCompletions = useMemo(() => {
+    // Filter Logic
+    const filteredBookings = useMemo(() => {
         const now = new Date();
-        return bookings.filter(booking => {
-            if (booking.status !== 'SCHEDULED') return false;
-            const endTime = new Date(booking.endTime);
-            return now > endTime; // Session has ended but not marked complete
-        });
+
+        // Base filter: Exclude WAITING_FOR_PAYMENT and PENDING_TEACHER_APPROVAL (handled in requests page)
+        // Also exclude cancelled pre-payment items.
+        // We only want: SCHEDULED, COMPLETED, DISPUTED, PENDING_CONFIRMATION
+        const relevant = bookings.filter(b =>
+            ['SCHEDULED', 'COMPLETED', 'PENDING_CONFIRMATION', 'DISPUTED', 'UNDER_REVIEW', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(b.status)
+        );
+
+        switch (activeTab) {
+            case 'upcoming':
+                return relevant.filter(b => b.status === 'SCHEDULED' && new Date(b.endTime) > now)
+                    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+            case 'completed':
+                return relevant.filter(b => ['COMPLETED', 'PENDING_CONFIRMATION'].includes(b.status))
+                    .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime()); // Newest completed first
+
+            case 'needs_action':
+                // SCHEDULED but past endTime (Needs completion) OR Missing Link?
+                // Let's focus on "Needs Completion" primarily
+                return relevant.filter(b => {
+                    const isPastEnd = new Date(b.endTime) < now;
+                    return (b.status === 'SCHEDULED' && isPastEnd);
+                }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+            case 'issues':
+                return relevant.filter(b => ['DISPUTED', 'UNDER_REVIEW', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(b.status));
+
+            default:
+                return [];
+        }
+    }, [bookings, activeTab]);
+
+    // Compute counts for tabs
+    const counts = useMemo(() => {
+        const now = new Date();
+        const relevant = bookings.filter(b =>
+            ['SCHEDULED', 'COMPLETED', 'PENDING_CONFIRMATION', 'DISPUTED', 'UNDER_REVIEW', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(b.status)
+        );
+
+        return {
+            upcoming: relevant.filter(b => b.status === 'SCHEDULED' && new Date(b.endTime) > now).length,
+            completed: relevant.filter(b => ['COMPLETED', 'PENDING_CONFIRMATION'].includes(b.status)).length,
+            needs_action: relevant.filter(b => b.status === 'SCHEDULED' && new Date(b.endTime) < now).length,
+            issues: relevant.filter(b => ['DISPUTED', 'UNDER_REVIEW', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(b.status)).length
+        };
     }, [bookings]);
 
-    // Compute sessions awaiting payment release (PENDING_CONFIRMATION status)
-    const pendingPaymentRelease = useMemo(() => {
-        return bookings.filter(booking => booking.status === 'PENDING_CONFIRMATION');
-    }, [bookings]);
-
-    // Check if there are any scheduled sessions without meeting links
+    // Check if there are scheduled sessions without meeting links (Global check for banner)
     const sessionsWithoutMeetingLink = useMemo(() => {
-        return bookings.filter(booking => booking.status === 'SCHEDULED' && !booking.meetingLink);
+        return bookings.filter(booking => booking.status === 'SCHEDULED' && !booking.meetingLink && new Date(booking.endTime) > new Date());
     }, [bookings]);
+
 
     const handleSaveMeetingLink = async (bookingId: string) => {
         if (!meetingLinkInput.trim()) {
@@ -70,7 +112,6 @@ export default function TeacherSessionsPage() {
             return;
         }
 
-        // Basic URL validation
         try {
             new URL(meetingLinkInput);
         } catch {
@@ -84,7 +125,7 @@ export default function TeacherSessionsPage() {
             toast.success('تم حفظ رابط الاجتماع بنجاح! ✅');
             setEditingLinkForBooking(null);
             setMeetingLinkInput('');
-            await loadSessions(true); // Reload to get updated meeting links
+            await loadSessions(true);
         } catch (error: any) {
             console.error('Failed to save meeting link', error);
             toast.error(error?.response?.data?.message || 'فشل حفظ رابط الاجتماع');
@@ -105,7 +146,8 @@ export default function TeacherSessionsPage() {
         const now = new Date();
 
         // Allow starting X min before (configurable) until session end
-        const minutesBefore = new Date(sessionStart.getTime() - DEFAULT_MEETING_LINK_ACCESS_MINUTES * 60 * 1000);
+        // Allow starting X min before (configurable) until session end
+        const minutesBefore = new Date(sessionStart.getTime() - meetingLinkAccessMinutes * 60 * 1000);
         const thirtyMinutesAfterEnd = new Date(sessionEnd.getTime() + 30 * 60 * 1000);
 
         const canStart = now >= minutesBefore && now <= thirtyMinutesAfterEnd;
@@ -119,22 +161,27 @@ export default function TeacherSessionsPage() {
             const days = Math.floor(hours / 24);
 
             if (days > 0) {
-                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
+                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${meetingLinkAccessMinutes} دقيقة` };
             } else if (hours > 0) {
-                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
+                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${meetingLinkAccessMinutes} دقيقة` };
             } else {
-                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
+                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${meetingLinkAccessMinutes} دقيقة` };
             }
         } else if (sessionInProgress) {
-            // FIXED: Cannot complete during session - only after it ends
             return { canStart: true, canComplete: false, label: '🔴 بدء الاجتماع', sublabel: 'الحصة جارية' };
         } else if (sessionEnded) {
-            // Can complete only AFTER session ends
             return { canStart: false, canComplete: true, label: 'انتهت الحصة', sublabel: 'يرجى إنهاء الحصة لتحويل الأرباح' };
         } else {
             return { canStart: true, canComplete: false, label: 'بدء الاجتماع' };
         }
     };
+
+    const tabs: { id: SessionTab; label: string; icon: any }[] = [
+        { id: 'upcoming', label: 'القادمة', icon: Calendar },
+        { id: 'needs_action', label: 'تحتاج إجراء', icon: Bell },
+        { id: 'completed', label: 'المكتملة', icon: CheckCircle },
+        { id: 'issues', label: 'دعم/مشاكل', icon: AlertTriangle },
+    ];
 
     return (
         <TeacherApprovalGuard>
@@ -144,14 +191,14 @@ export default function TeacherSessionsPage() {
                     <header className="mb-2">
                         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">حصصي</h1>
                         <p className="text-gray-600 flex items-center gap-2">
-                            <Calendar className="w-5 h-5" />
-                            <span>الجدول الدراسي وجميع الحصص</span>
+                            <History className="w-5 h-5" />
+                            <span>جدول الحصص المؤكدة وسجل التدريس</span>
                         </p>
                     </header>
 
-                    {/* Missing Meeting Link Banner */}
+                    {/* Missing Meeting Link Banner (Global Warning) */}
                     {sessionsWithoutMeetingLink.length > 0 && (
-                        <Card className="border-none shadow-md bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-l-amber-500">
+                        <Card className="border-none shadow-md bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-l-amber-500 animate-in fade-in slide-in-from-top-2">
                             <CardContent className="p-5">
                                 <div className="flex items-start gap-3">
                                     <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -159,10 +206,10 @@ export default function TeacherSessionsPage() {
                                     </div>
                                     <div className="flex-1">
                                         <h3 className="font-bold text-amber-900 mb-1">
-                                            حصص بدون رابط اجتماع ({sessionsWithoutMeetingLink.length})
+                                            تنبيه: حصص قادمة بدون رابط ({sessionsWithoutMeetingLink.length})
                                         </h3>
                                         <p className="text-sm text-amber-700">
-                                            أضف رابط الاجتماع لكل حصة أدناه. يمكنك إضافة روابط مختلفة لكل حصة حسب الحاجة.
+                                            يرجى إضافة رابط الاجتماع للحصص القادمة لضمان وصول الطالب في الموعد.
                                         </p>
                                     </div>
                                 </div>
@@ -170,78 +217,46 @@ export default function TeacherSessionsPage() {
                         </Card>
                     )}
 
-                    {/* Pending Completion Banner */}
-                    {pendingCompletions.length > 0 && (
-                        <Card className="border-none shadow-md bg-gradient-to-br from-orange-50 to-red-50 border-l-4 border-l-orange-500">
-                            <CardContent className="p-5">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <Bell className="w-5 h-5 text-orange-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-orange-900 mb-1">
-                                            لديك {pendingCompletions.length} حصة تحتاج إلى إنهاء
-                                        </h3>
-                                        <p className="text-sm text-orange-700 mb-3">
-                                            يرجى تأكيد إنهاء الحصص السابقة لتحويل أرباحك إلى المحفظة
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {pendingCompletions.slice(0, 3).map(booking => (
-                                                <Button
-                                                    key={booking.id}
-                                                    onClick={() => {
-                                                        setSelectedBookingForComplete(booking);
-                                                        setConfirmModalOpen(true);
-                                                    }}
-                                                    size="sm"
-                                                    className="bg-warning-600 hover:bg-warning-700 text-white gap-1"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    إنهاء حصة {new Date(booking.startTime).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
-                                                </Button>
-                                            ))}
-                                            {pendingCompletions.length > 3 && (
-                                                <span className="text-sm text-warning-600 self-center px-2">
-                                                    +{pendingCompletions.length - 3} حصص أخرى
+                    {/* Tabs */}
+                    <Card className="border-none shadow-md">
+                        <CardContent className="p-4">
+                            <div className="flex flex-wrap gap-2">
+                                {tabs.map((tab) => {
+                                    const Icon = tab.icon;
+                                    const count = counts[tab.id];
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            className={cn(
+                                                "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                                                activeTab === tab.id
+                                                    ? "bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg"
+                                                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow-sm"
+                                            )}
+                                            onClick={() => {
+                                                setActiveTab(tab.id);
+                                                setCurrentPage(1);
+                                            }}
+                                        >
+                                            <Icon className="w-4 h-4" />
+                                            <span>{tab.label}</span>
+                                            {count > 0 && (
+                                                <span className={cn(
+                                                    "px-2 py-0.5 rounded-full text-xs font-bold",
+                                                    activeTab === tab.id
+                                                        ? "bg-white/20 text-white"
+                                                        : "bg-gray-200 text-gray-700",
+                                                    (tab.id === 'needs_action' || tab.id === 'issues') && "bg-amber-100 text-amber-800"
+                                                )}>
+                                                    {count}
                                                 </span>
                                             )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Pending Payment Release Banner */}
-                    {pendingPaymentRelease.length > 0 && (
-                        <Card className="border-none shadow-md bg-gradient-to-br from-emerald-50 to-green-50 border-l-4 border-l-emerald-500">
-                            <CardContent className="p-5">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-emerald-900 mb-1">
-                                            {pendingPaymentRelease.length} حصة في انتظار تحويل الدفع
-                                        </h3>
-                                        <p className="text-sm text-emerald-700 mb-2">
-                                            اكتملت الحصص بنجاح! سيتم تحويل الأرباح إلى محفظتك تلقائياً خلال 48 ساعة
-                                        </p>
-                                        <div className="flex flex-wrap gap-2 text-xs text-emerald-700">
-                                            {pendingPaymentRelease.slice(0, 5).map(booking => (
-                                                <span key={booking.id} className="bg-emerald-100 px-2 py-1 rounded-lg font-medium">
-                                                    {new Date(booking.startTime).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })} - {booking.subject?.nameAr || 'مادة'}
-                                                </span>
-                                            ))}
-                                            {pendingPaymentRelease.length > 5 && (
-                                                <span className="self-center">+{pendingPaymentRelease.length - 5} أخرى</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </CardContent>
+                    </Card>
 
                     {/* Sessions List */}
                     {loading ? (
@@ -251,17 +266,24 @@ export default function TeacherSessionsPage() {
                                 <p className="text-gray-500">جاري التحميل...</p>
                             </CardContent>
                         </Card>
-                    ) : bookings.length === 0 ? (
+                    ) : filteredBookings.length === 0 ? (
                         <Card className="border-2 border-dashed border-gray-200">
                             <CardContent className="p-12 text-center">
                                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <Calendar className="w-8 h-8 text-gray-400" />
                                 </div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد حصص مجدولة</h3>
-                                <p className="text-gray-500 mb-4">عندما يتم حجز حصص جديدة ستظهر هنا</p>
-                                <Link href="/teacher/availability">
-                                    <Button variant="outline">إدارة جدول المواعيد</Button>
-                                </Link>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                    {activeTab === 'upcoming' && 'لا توجد حصص قادمة'}
+                                    {activeTab === 'completed' && 'لا توجد حصص مكتملة'}
+                                    {activeTab === 'needs_action' && 'لا يوجد أي إجراء مطلوب حالياً'}
+                                    {activeTab === 'issues' && 'لا توجد حالات دعم أو مشاكل حالياً'}
+                                </h3>
+                                <p className="text-gray-500 mb-4 max-w-sm mx-auto">
+                                    {activeTab === 'upcoming' && 'عندما يتم تأكيد الحجوزات، ستظهر هنا في قائمة الحصص القادمة.'}
+                                    {activeTab === 'completed' && 'سجل الحصص المكتملة فارغ.'}
+                                    {activeTab === 'needs_action' && 'الحصص التي انتهت وتحتاج إلى تأكيد الإتمام، أو الحصص التي ينقصها رابط اجتماع ستظهر هنا.'}
+                                    {activeTab === 'issues' && 'ستظهر هنا أي حجوزات تحت المراجعة أو بها نزاع.'}
+                                </p>
                             </CardContent>
                         </Card>
                     ) : (
@@ -271,8 +293,7 @@ export default function TeacherSessionsPage() {
                                     // Pagination logic
                                     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
                                     const endIndex = startIndex + ITEMS_PER_PAGE;
-                                    const paginatedBookings = bookings.slice(startIndex, endIndex);
-                                    const totalPages = Math.ceil(bookings.length / ITEMS_PER_PAGE);
+                                    const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
 
                                     return (
                                         <>
@@ -289,6 +310,15 @@ export default function TeacherSessionsPage() {
                                                     status={booking.status}
                                                     packageSessionCount={booking.pendingTierSessionCount || undefined}
                                                     isDemo={booking.isDemo}
+                                                    // Alerts for "Needs Action"
+                                                    alert={activeTab === 'needs_action' && booking.status === 'SCHEDULED' ? (
+                                                        <div className="bg-amber-50 text-amber-800 text-sm px-3 py-2 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                                                <span>انتهى وقت الحصة. يرجى تأكيد الإتمام لتحويل الأرباح.</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : undefined}
                                                     actionSlot={
                                                         booking.status === 'SCHEDULED' ? (() => {
                                                             const buttonState = getSessionButtonState(booking);
@@ -338,7 +368,7 @@ export default function TeacherSessionsPage() {
 
                                                                     <div className="flex flex-wrap items-center gap-2 justify-end">
                                                                         {/* Add Meeting Link Button (when missing) */}
-                                                                        {!booking.meetingLink && !isEditingThis && (
+                                                                        {!booking.meetingLink && !isEditingThis && new Date(booking.endTime) > new Date() && (
                                                                             <Button
                                                                                 size="sm"
                                                                                 onClick={() => {
@@ -353,27 +383,29 @@ export default function TeacherSessionsPage() {
                                                                         )}
 
                                                                         {/* Start Meeting Button */}
-                                                                        <button
-                                                                            className={cn(
-                                                                                "px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 shadow-sm text-sm",
-                                                                                buttonState.canStart && booking.meetingLink
-                                                                                    ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200"
-                                                                                    : "bg-gray-100 text-gray-400 cursor-not-allowed",
-                                                                                buttonState.label.includes('🔴') && booking.meetingLink && "animate-pulse"
-                                                                            )}
-                                                                            disabled={!buttonState.canStart || !booking.meetingLink}
-                                                                            onClick={() => {
-                                                                                if (buttonState.canStart && booking.meetingLink) {
-                                                                                    window.open(booking.meetingLink, '_blank');
-                                                                                }
-                                                                            }}
-                                                                            title={!booking.meetingLink ? 'يجب إضافة رابط الاجتماع أولاً' : ''}
-                                                                        >
-                                                                            <Video className="w-4 h-4" />
-                                                                            {buttonState.label}
-                                                                        </button>
+                                                                        {new Date(booking.endTime) > new Date() && (
+                                                                            <button
+                                                                                className={cn(
+                                                                                    "px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 shadow-sm text-sm",
+                                                                                    buttonState.canStart && booking.meetingLink
+                                                                                        ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200"
+                                                                                        : "bg-gray-100 text-gray-400 cursor-not-allowed",
+                                                                                    buttonState.label.includes('🔴') && booking.meetingLink && "animate-pulse"
+                                                                                )}
+                                                                                disabled={!buttonState.canStart || !booking.meetingLink}
+                                                                                onClick={() => {
+                                                                                    if (buttonState.canStart && booking.meetingLink) {
+                                                                                        window.open(booking.meetingLink, '_blank');
+                                                                                    }
+                                                                                }}
+                                                                                title={!booking.meetingLink ? 'يجب إضافة رابط الاجتماع أولاً' : ''}
+                                                                            >
+                                                                                <Video className="w-4 h-4" />
+                                                                                {buttonState.label}
+                                                                            </button>
+                                                                        )}
 
-                                                                        {/* Complete Session Button - only after session starts */}
+                                                                        {/* Complete Session Button - only after session ends */}
                                                                         {buttonState.canComplete && (
                                                                             <button
                                                                                 className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm text-sm shadow-blue-200"
@@ -387,7 +419,7 @@ export default function TeacherSessionsPage() {
                                                                             </button>
                                                                         )}
                                                                     </div>
-                                                                    {buttonState.sublabel && (
+                                                                    {buttonState.sublabel && new Date(booking.endTime) > new Date() && (
                                                                         <span className="text-xs text-gray-400">
                                                                             {buttonState.sublabel}
                                                                         </span>
@@ -404,10 +436,10 @@ export default function TeacherSessionsPage() {
                             </div>
 
                             {/* Pagination */}
-                            {bookings.length > ITEMS_PER_PAGE && (
+                            {filteredBookings.length > ITEMS_PER_PAGE && (
                                 <Pagination
                                     currentPage={currentPage}
-                                    totalPages={Math.ceil(bookings.length / ITEMS_PER_PAGE)}
+                                    totalPages={Math.ceil(filteredBookings.length / ITEMS_PER_PAGE)}
                                     onPageChange={(page) => {
                                         setCurrentPage(page);
                                         window.scrollTo({ top: 0, behavior: 'smooth' });

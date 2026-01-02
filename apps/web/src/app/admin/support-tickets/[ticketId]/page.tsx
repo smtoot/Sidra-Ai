@@ -45,7 +45,7 @@ export default function AdminTicketDetailPage() {
       const data = await getAdminSupportTicket(ticketId);
       setTicket(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل في تحميل التذكرة');
+      setError(err.response?.data?.message || 'فشل في تحميل طلب المساعدة');
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function AdminTicketDetailPage() {
       const updated = await updateSupportTicket(ticketId, data);
       setTicket(updated);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'فشل في تحديث التذكرة');
+      alert(err.response?.data?.message || 'فشل في تحديث طلب المساعدة');
     } finally {
       setActionLoading(false);
     }
@@ -70,21 +70,21 @@ export default function AdminTicketDetailPage() {
       setTicket(updated);
       setShowAssignModal(false);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'فشل في تعيين التذكرة');
+      alert(err.response?.data?.message || 'فشل في تعيين طلب المساعدة');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleEscalate = async () => {
-    if (!confirm('هل أنت متأكد من رغبتك في تصعيد هذه التذكرة؟')) return;
+    if (!confirm('هل أنت متأكد من رغبتك في تصعيد هذا الطلب؟')) return;
 
     try {
       setActionLoading(true);
       const updated = await escalateSupportTicket(ticketId);
       setTicket(updated);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'فشل في تصعيد التذكرة');
+      alert(err.response?.data?.message || 'فشل في تصعيد طلب المساعدة');
     } finally {
       setActionLoading(false);
     }
@@ -126,13 +126,13 @@ export default function AdminTicketDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error || 'التذكرة غير موجودة'}
+          {error || 'طلب المساعدة غير موجود'}
         </div>
         <button
           onClick={handleBack}
           className="mt-4 text-blue-600 hover:text-blue-700"
         >
-          العودة للتذاكر
+          العودة لطلبات المساعدة
         </button>
       </div>
     );
@@ -147,7 +147,7 @@ export default function AdminTicketDetailPage() {
         <svg className="w-5 h-5 ml-1 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        العودة للتذاكر
+        العودة لطلبات المساعدة
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

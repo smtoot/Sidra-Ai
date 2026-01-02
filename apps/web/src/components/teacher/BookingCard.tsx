@@ -1,126 +1,116 @@
 'use client';
 
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, DollarSign, Eye, Check, X, Package } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, DollarSign, Eye, Check, X, Package, Wallet, MoreHorizontal, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
-// Status configuration with colors, gradients, and icons
+// --- CONFIGURATION & TYPES ---
+
+// Status configuration: "Chip" colors and "Accent" bar colors.
+// No full borders.
 const STATUS_CONFIG = {
+    // 1. New Request
     PENDING_TEACHER_APPROVAL: {
         label: 'طلب جديد',
-        gradient: 'from-amber-400 to-orange-500',
-        bgColor: 'bg-amber-50',
-        borderColor: 'border-amber-200',
-        textColor: 'text-amber-700',
+        chipClass: 'bg-amber-100 text-amber-800',
+        accentClass: 'bg-amber-400',
         icon: AlertCircle,
         pulse: true,
     },
+    // 2. Waiting Teacher Approval (Same as pending essentially, but maybe for clarification)
+    // We stick to the main status keys from backend but map labels visually.
+
+    // 3. Waiting for Payment
     WAITING_FOR_PAYMENT: {
         label: 'بانتظار الدفع',
-        gradient: 'from-blue-400 to-indigo-500',
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-200',
-        textColor: 'text-blue-700',
+        chipClass: 'bg-blue-100 text-blue-800',
+        accentClass: 'bg-blue-400',
         icon: Clock,
     },
     PAYMENT_REVIEW: {
         label: 'مراجعة الدفع',
-        gradient: 'from-blue-400 to-indigo-500',
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-200',
-        textColor: 'text-blue-700',
+        chipClass: 'bg-blue-100 text-blue-800',
+        accentClass: 'bg-blue-400',
         icon: AlertCircle,
     },
+    // 4. Scheduled/Upcoming
     SCHEDULED: {
-        label: 'مؤكدة',
-        gradient: 'from-emerald-400 to-teal-500',
-        bgColor: 'bg-emerald-50',
-        borderColor: 'border-emerald-200',
-        textColor: 'text-emerald-700',
-        icon: CheckCircle,
+        label: 'قادمة', // "Scheduled"
+        chipClass: 'bg-emerald-100 text-emerald-800',
+        accentClass: 'bg-emerald-400',
+        icon: Calendar, // Changed to Calendar for "Upcoming" feel or CheckCircle
     },
+    // 5. Completed
     PENDING_CONFIRMATION: {
-        label: 'اكتملت ✓',
-        gradient: 'from-green-400 to-emerald-500',
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-200',
-        textColor: 'text-green-700',
+        label: 'مكتملة',
+        chipClass: 'bg-green-100 text-green-800',
+        accentClass: 'bg-green-500',
         icon: CheckCircle,
         sublabel: 'بانتظار تحويل الأرباح',
     },
     COMPLETED: {
         label: 'مكتملة',
-        gradient: 'from-green-500 to-emerald-600',
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-200',
-        textColor: 'text-green-700',
+        chipClass: 'bg-gray-100 text-gray-800', // Neutral for completed/archived
+        accentClass: 'bg-gray-400',
         icon: CheckCircle,
     },
+    // 6. Dispute
     DISPUTED: {
         label: 'تحت المراجعة',
-        gradient: 'from-orange-400 to-red-500',
-        bgColor: 'bg-orange-50',
-        borderColor: 'border-orange-200',
-        textColor: 'text-orange-700',
+        chipClass: 'bg-orange-100 text-orange-800',
+        accentClass: 'bg-orange-500',
         icon: AlertCircle,
     },
+    UNDER_REVIEW: {
+        label: 'تحت المراجعة',
+        chipClass: 'bg-orange-100 text-orange-800',
+        accentClass: 'bg-orange-500',
+        icon: AlertCircle,
+    },
+    // 7. Cancelled/Refunded
     REFUNDED: {
         label: 'مستردة',
-        gradient: 'from-gray-400 to-slate-500',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-200',
-        textColor: 'text-gray-600',
+        chipClass: 'bg-gray-100 text-gray-500',
+        accentClass: 'bg-gray-300',
         icon: XCircle,
     },
     REJECTED_BY_TEACHER: {
         label: 'مرفوضة',
-        gradient: 'from-red-400 to-rose-500',
-        bgColor: 'bg-red-50',
-        borderColor: 'border-red-200',
-        textColor: 'text-red-700',
+        chipClass: 'bg-red-50 text-red-600',
+        accentClass: 'bg-red-400',
         icon: XCircle,
     },
     CANCELLED_BY_PARENT: {
         label: 'ملغاة',
-        gradient: 'from-gray-400 to-slate-500',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-200',
-        textColor: 'text-gray-600',
+        chipClass: 'bg-gray-100 text-gray-500',
+        accentClass: 'bg-gray-300',
         icon: XCircle,
     },
     CANCELLED_BY_TEACHER: {
-        label: 'ملغاة من المعلم',
-        gradient: 'from-gray-400 to-slate-500',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-200',
-        textColor: 'text-gray-600',
+        label: 'تم الإلغاء',
+        chipClass: 'bg-gray-100 text-gray-500',
+        accentClass: 'bg-gray-300',
         icon: XCircle,
     },
     CANCELLED_BY_ADMIN: {
         label: 'ملغاة',
-        gradient: 'from-gray-400 to-slate-500',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-200',
-        textColor: 'text-gray-600',
+        chipClass: 'bg-gray-100 text-gray-500',
+        accentClass: 'bg-gray-300',
         icon: XCircle,
     },
     EXPIRED: {
         label: 'منتهية',
-        gradient: 'from-gray-400 to-slate-500',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-200',
-        textColor: 'text-gray-600',
+        chipClass: 'bg-gray-100 text-gray-500',
+        accentClass: 'bg-gray-300',
         icon: XCircle,
     },
     PARTIALLY_REFUNDED: {
         label: 'استرداد جزئي',
-        gradient: 'from-orange-400 to-amber-500',
-        bgColor: 'bg-orange-50',
-        borderColor: 'border-orange-200',
-        textColor: 'text-orange-700',
+        chipClass: 'bg-orange-50 text-orange-700',
+        accentClass: 'bg-orange-400',
         icon: AlertCircle,
     },
 } as const;
@@ -129,22 +119,27 @@ type BookingStatus = keyof typeof STATUS_CONFIG;
 
 interface BookingCardProps {
     id: string;
-    readableId?: string | null; // Human-readable ID like BK-2512-0042
+    readableId?: string | null;
     studentName: string;
+    studentAvatar?: string; // Future proofing
     subjectName: string;
     startTime: string;
     endTime: string;
     price: number | string;
     status: BookingStatus;
+
+    // Logic/Actions
     showActions?: boolean;
     onApprove?: () => void;
     onReject?: () => void;
     isProcessing?: boolean;
     variant?: 'session' | 'request';
     actionSlot?: React.ReactNode;
-    // Package indicator
-    packageSessionCount?: number; // If set, shows a badge indicating this is a package booking
-    isDemo?: boolean; // If set, shows a demo badge
+
+    // Meta
+    packageSessionCount?: number;
+    isDemo?: boolean;
+    alert?: React.ReactNode; // Can be used for "helperText"
 }
 
 export function BookingCard({
@@ -164,165 +159,182 @@ export function BookingCard({
     actionSlot,
     packageSessionCount,
     isDemo,
+    alert,
 }: BookingCardProps) {
     const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING_TEACHER_APPROVAL;
     const Icon = config.icon;
     const startDate = new Date(startTime);
     const endDate = new Date(endTime);
 
+    // Determines if this is a "Request" card needing primary Accept/Reject actions
+    const isRequestCard = status === 'PENDING_TEACHER_APPROVAL';
+
     return (
         <div className={cn(
-            "relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group",
-            "border-2",
-            config.borderColor,
+            "relative bg-white rounded-2xl overflow-hidden transition-all duration-200 group",
+            // Clean SaaS Style: 1px gray border, soft shadow on hover only
+            "border border-gray-200 shadow-sm hover:shadow-md",
         )}>
-            {/* Gradient Top Accent Bar */}
+
+            {/* Accent Bar (Left side in RTL layout logic means 'left' CSS property) */}
             <div className={cn(
-                "absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r",
-                config.gradient
+                "absolute left-0 top-0 bottom-0 w-1",
+                config.accentClass
             )} />
 
-            {/* Pulse Animation for Pending Requests */}
-            {'pulse' in config && config.pulse && (
-                <div className="absolute top-4 left-4">
-                    <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                    </span>
-                </div>
-            )}
+            {/* Main Content Container */}
+            <div className="flex flex-col h-full bg-white">
 
-            <div className="p-4 sm:p-5">
-                {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
-                    {/* Student Info */}
-                    <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0",
-                            "bg-gradient-to-br",
-                            config.gradient,
-                            "text-white shadow-lg"
-                        )}>
-                            <User className="w-5 h-5 sm:w-6 sm:h-6" />
+                {/* --- ZONE A: HEADER --- */}
+                <div className="p-5 flex items-start justify-between gap-4">
+
+                    {/* Right Side (RTL Start): Student & Subject */}
+                    <div className="flex items-start gap-3">
+                        {/* Avatar Placeholder */}
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shrink-0 border border-gray-200">
+                            <User className="w-5 h-5" />
                         </div>
+
                         <div>
-                            <Link
-                                href={`/teacher/sessions/${id}`}
-                                className="font-bold text-gray-800 hover:text-primary transition-colors text-base sm:text-lg"
-                            >
+                            <h3 className="font-bold text-gray-900 text-base leading-tight">
                                 {studentName}
-                            </Link>
-                            <p className="text-sm text-gray-500 flex items-center gap-2 flex-wrap">
-                                <span className="flex items-center gap-1">📚 {subjectName}</span>
-                                {readableId && (
-                                    <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
-                                        #{readableId}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                                <span>{subjectName}</span>
+                                {/* Badges */}
+                                {packageSessionCount && packageSessionCount > 1 && (
+                                    <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100">
+                                        باقة
                                     </span>
                                 )}
-                            </p>
-                            {/* Package/Demo indicator */}
-                            {packageSessionCount && packageSessionCount > 1 && (
-                                <div className="flex items-center gap-1 mt-1">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
-                                        <Package className="w-3 h-3" />
-                                        باقة {packageSessionCount} حصص
+                                {isDemo && (
+                                    <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-100">
+                                        تجريبية
                                     </span>
-                                </div>
-                            )}
-                            {isDemo && (
-                                <div className="flex items-center gap-1 mt-1">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
-                                        🎓 حصة تجريبية
-                                    </span>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold w-fit",
-                        config.bgColor,
-                        config.textColor,
-                    )}>
-                        <Icon className="w-4 h-4" />
-                        <span>{config.label}</span>
+                    {/* Left Side (RTL End): Status & ID */}
+                    <div className="flex flex-col items-end gap-1.5">
+                        {/* Status Chip */}
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
+                            config.chipClass
+                        )}>
+                            <Icon className="w-3.5 h-3.5" />
+                            <span>{config.label}</span>
+                        </div>
+
+                        {/* Booking Code - Muted */}
+                        {readableId && (
+                            <div className="flex items-center gap-1 text-[11px] text-gray-400 font-mono" title="رقم الحجز">
+                                <span>{readableId}</span>
+                                {/* Optional: <Copy className="w-2.5 h-2.5 cursor-pointer hover:text-gray-600" /> */}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Date/Time Row */}
-                <div className={cn(
-                    "flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 p-3 rounded-xl mb-4",
-                    config.bgColor,
-                )}>
-                    <div className="flex items-center gap-2">
-                        <Calendar className={cn("w-5 h-5 shrink-0", config.textColor)} />
-                        <div>
-                            <p className="text-xs text-gray-500">التاريخ</p>
-                            <p className="font-semibold text-gray-800 text-sm sm:text-base">
-                                {format(startDate, 'EEEE d MMM', { locale: ar })}
-                            </p>
+                {/* --- ZONE B: META GRID --- */}
+                {/* Separator mostly invisible or very subtle */}
+                <div className="px-5 pb-4">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
+                        {/* Date Col */}
+                        <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 shrink-0">
+                                <Calendar className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-400 font-medium">التاريخ</span>
+                                <span className="text-sm font-semibold text-gray-700">
+                                    {format(startDate, 'EEEE d MMM', { locale: ar })}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Time Col */}
+                        <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 shrink-0">
+                                <Clock className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-400 font-medium">الوقت</span>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-sm font-semibold text-gray-700 -ml-1" dir="ltr">
+                                        {format(startDate, 'h:mm a')}
+                                    </span>
+                                    <span className="text-xs text-gray-400">-</span>
+                                    <span className="text-sm font-semibold text-gray-700" dir="ltr">
+                                        {format(endDate, 'h:mm a')}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div className="hidden sm:block w-px h-10 bg-gray-200" />
-                    <div className="flex items-center gap-2">
-                        <Clock className={cn("w-5 h-5 shrink-0", config.textColor)} />
-                        <div>
-                            <p className="text-xs text-gray-500">الوقت</p>
-                            <p className="font-semibold text-gray-800 text-sm sm:text-base">
-                                {format(startDate, 'h:mm a', { locale: ar })}
-                                <span className="text-gray-400 mx-1">←</span>
-                                {format(endDate, 'h:mm a', { locale: ar })}
-                            </p>
+
+                    {/* Optional Helper/Alert Text (Below Meta) */}
+                    {alert && (
+                        <div className="mt-3 text-sm text-gray-600 px-1">
+                            {alert}
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* Footer Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Price */}
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                            <DollarSign className="w-5 h-5 text-emerald-500" />
-                            <span className="text-xl sm:text-2xl font-bold text-gray-800">{price}</span>
-                            <span className="text-sm text-gray-500">SDG</span>
+                {/* --- ZONE C: FOOTER ACTIONS --- */}
+                <div className="mt-auto px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-white">
+
+                    {/* Right Side (Visual Right in RTL): Price & Hints */}
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-400 font-medium mb-0.5">المبلغ</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-bold text-gray-900">{price}</span>
+                            <span className="text-xs text-gray-500 font-medium">SDG</span>
                         </div>
+                        {/* Payout Hint */}
+                        {'sublabel' in config && config.sublabel && (
+                            <div className="flex items-center gap-1 mt-1 text-green-600 text-[10px] font-medium">
+                                <Wallet className="w-3 h-3" />
+                                <span>{config.sublabel}</span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* Left Side (Visual Left in RTL): Buttons */}
+                    <div className="flex items-center gap-2 justify-end flex-1">
                         {actionSlot ? (
+                            // Custom Actions (e.g. from Sessions page)
                             actionSlot
-                        ) : showActions && status === 'PENDING_TEACHER_APPROVAL' ? (
+                        ) : isRequestCard && showActions ? (
+                            // Default Request Actions (New Request)
                             <>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={onReject}
+                                    disabled={isProcessing}
+                                    className="text-gray-500 hover:text-red-600 hover:bg-red-50 text-sm font-medium px-3 h-9"
+                                >
+                                    رفض
+                                </Button>
                                 <Button
                                     size="sm"
                                     onClick={onApprove}
                                     disabled={isProcessing}
-                                    className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1 px-4 shadow-lg shadow-emerald-500/25"
+                                    className="bg-gray-900 hover:bg-black text-white text-sm font-medium px-5 h-9 shadow-sm"
                                 >
-                                    <Check className="w-4 h-4" />
                                     قبول
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={onReject}
-                                    disabled={isProcessing}
-                                    className="gap-1 px-4 shadow-lg shadow-red-500/25"
-                                >
-                                    <X className="w-4 h-4" />
-                                    رفض
                                 </Button>
                             </>
                         ) : (
-                            <Link href={`/teacher/sessions/${id}`}>
+                            // Default Read-only Action (Details)
+                            <Link href={`/teacher/sessions/${id}`} className="block">
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="gap-1.5 border-2 hover:bg-primary hover:text-white hover:border-primary transition-all"
+                                    className="text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium px-4 h-9"
                                 >
-                                    <Eye className="w-4 h-4" />
                                     عرض التفاصيل
                                 </Button>
                             </Link>
@@ -330,15 +342,6 @@ export function BookingCard({
                     </div>
                 </div>
 
-                {/* Sublabel if exists */}
-                {'sublabel' in config && config.sublabel && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-sm text-gray-500 flex items-center gap-1">
-                            <span>💰</span>
-                            {config.sublabel}
-                        </p>
-                    </div>
-                )}
             </div>
         </div>
     );

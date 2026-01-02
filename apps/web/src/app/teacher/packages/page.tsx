@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 import { teacherApi } from '@/lib/api/teacher';
 import { Card, CardContent } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
@@ -216,10 +217,17 @@ function PackageCard({ pkg, onClick }: { pkg: TeacherPackage; onClick: () => voi
 
 export default function TeacherPackagesPage() {
     const router = useRouter();
+    const { packagesEnabled, isLoading: configLoading } = useSystemConfig();
     const [packages, setPackages] = useState<TeacherPackage[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [currentPage, setCurrentPage] = useState(1);
+
+    useEffect(() => {
+        if (!configLoading && !packagesEnabled) {
+            router.replace('/teacher');
+        }
+    }, [configLoading, packagesEnabled, router]);
 
     useEffect(() => {
         const loadPackages = async () => {
@@ -234,6 +242,15 @@ export default function TeacherPackagesPage() {
         };
         loadPackages();
     }, []);
+
+    // Combined loading check
+    if (configLoading || (!packagesEnabled && !configLoading)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+            </div>
+        );
+    }
 
     // Filter packages by status
     const filteredPackages = packages.filter(pkg =>
@@ -272,7 +289,7 @@ export default function TeacherPackagesPage() {
                 {/* Header */}
                 <header className="mb-2">
                     <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1 flex items-center gap-3">
-                        باقات الطلاب
+                        باقات الدروس
                     </h1>
                     <p className="text-gray-600 flex items-center gap-2">
                         <Package className="w-5 h-5" />

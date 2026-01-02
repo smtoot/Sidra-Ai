@@ -10,7 +10,7 @@ import {
     Calendar, MessageSquare, ChevronDown, Sparkles,
     ShieldCheck, Play, Users, Sun, Sunset, Moon, Gift, Share,
     Award, BookOpen, Building2, Video, BookMarked, Layers, DollarSign, Palmtree,
-    UserPlus
+    UserPlus, Briefcase
 } from 'lucide-react';
 import { ShareModal } from '../ShareModal';
 import { FavoriteButton } from '../FavoriteButton';
@@ -20,6 +20,7 @@ import {
     isVerifiedTeacher,
     TEACHER_STATUS_LABELS
 } from '@/config/teacher-status';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 // --- Helper Functions & Constants ---
 const DAY_LABELS: Record<string, string> = {
@@ -97,6 +98,7 @@ type SessionOption = {
 interface TeacherProfileViewProps {
     teacher: TeacherPublicProfile;
     mode: 'public' | 'preview' | 'admin';
+    slug?: string;
     onBook?: () => void; // Optional callback override
 }
 
@@ -110,8 +112,9 @@ const EmptyState = ({ message, isPreview }: { message: string, isPreview: boolea
     );
 };
 
-export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileViewProps) {
+export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfileViewProps) {
     const router = useRouter();
+    const { packagesEnabled, demosEnabled: globalDemosEnabled } = useSystemConfig();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
         teacher.subjects.length > 0 ? teacher.subjects[0].subject.id : null
@@ -122,9 +125,15 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
     const [ratingsLoading, setRatingsLoading] = useState(false);
     const [showAllRatings, setShowAllRatings] = useState(false);
     const [hasNavigationHistory, setHasNavigationHistory] = useState(false);
+    const [showAllSkills, setShowAllSkills] = useState(false);
+    const [showAllExperiences, setShowAllExperiences] = useState(false);
 
     const isPreview = mode === 'preview';
     const isPublic = mode === 'public';
+
+    // Truncation constants
+    const SKILLS_INITIAL_COUNT = 6;
+    const EXPERIENCES_INITIAL_COUNT = 2;
 
     // Check if user has navigation history (didn't land directly on this page)
     useEffect(() => {
@@ -176,113 +185,173 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                 </div>
             )}
 
-            {/* Header - Centered Hero */}
-            <div className="bg-gradient-to-br from-cream-light to-secondary/30 py-12">
+            {/* Hero Section - Warm gradient background for entire hero */}
+            <div className="bg-gradient-to-b from-cream-light via-secondary/10 to-background">
                 <div className="container mx-auto px-4">
-                    {/* Back Link (Only show if user navigated from another page within the site) */}
+                    {/* Back Link */}
                     {isPublic && hasNavigationHistory && (
-                        <button
-                            onClick={() => router.back()}
-                            className="inline-flex items-center gap-2 text-primary hover:underline mb-6"
-                        >
-                            <ArrowRight className="w-4 h-4" />
-                            رجوع
-                        </button>
+                        <div className="pt-4 pb-2">
+                            <button
+                                onClick={() => router.back()}
+                                className="inline-flex items-center gap-2 text-primary hover:underline text-sm font-medium"
+                            >
+                                <ArrowRight className="w-4 h-4" />
+                                رجوع للبحث
+                            </button>
+                        </div>
                     )}
 
-                    {/* Centered Teacher Info */}
-                    <div className="flex flex-col items-center text-center">
-                        {/* Avatar */}
-                        <div className="w-32 h-32 md:w-40 md:h-40 relative mb-4">
-                            {teacher.profilePhotoUrl ? (
-                                <img
-                                    src={getFileUrl(teacher.profilePhotoUrl)}
-                                    alt={teacher.displayName || 'صورة المعلم'}
-                                    className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
-                                />
-                            ) : (
-                                <div className="w-full h-full rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-5xl border-4 border-white shadow-lg">
-                                    {teacher.displayName ? teacher.displayName.charAt(0) : 'م'}
-                                </div>
-                            )}
-                            <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-2 border-white" title="متاح" />
-                        </div>
+                    {/* Main Profile Content */}
+                    <div className="py-8 md:py-10">
+                        <div className="flex flex-col md:flex-row-reverse items-center md:items-start gap-8 max-w-4xl mx-auto">
 
-                        {/* Name & Title */}
-                        <h1 className="text-3xl lg:text-4xl font-bold text-primary mb-2 flex items-center justify-center gap-2">
-                            {teacher.displayName || (isPreview ? 'الاسم الظاهر' : 'معلم سدرة')}
-                            {teacher.applicationStatus === 'APPROVED' && (
-                                <ShieldCheck className="w-6 h-6 text-blue-500" fill="currentColor" stroke="white" />
-                            )}
-                        </h1>
-                        {/* Highest Qualification Display */}
-                        {teacher.qualifications && teacher.qualifications.length > 0 ? (
-                            <div className="flex items-center justify-center gap-2 text-text-subtle text-lg lg:text-xl font-medium mb-4">
-                                <Award className="w-5 h-5 text-accent" />
-                                <span>{teacher.qualifications[0].degreeName}</span>
-                            </div>
-                        ) : (
-                            <p className="text-text-subtle text-lg lg:text-xl font-medium mb-4">
-                                {teacher.education || (isPreview ? 'المؤهل العلمي' : 'مؤهل غير محدد')}
-                            </p>
-                        )}
-
-                        {/* Trust Signals & Badges */}
-                        <div className="flex flex-wrap justify-center gap-3 text-sm">
-                            {/* Rating / Recently Joined Badge */}
-                            {!isRecentlyJoinedTeacher(teacher.totalReviews) ? (
-                                <div className="flex items-center gap-1 bg-white/80 px-3 py-1.5 rounded-full shadow-sm border border-gray-100">
-                                    <Star className="w-4 h-4 text-accent fill-current" />
-                                    <span className="font-bold">{teacher.averageRating.toFixed(1)}</span>
-                                    <span className="text-text-subtle">({teacher.totalReviews} تقييم)</span>
+                            {/* Avatar */}
+                            <div className="relative flex-shrink-0">
+                                <div className="w-32 h-32 md:w-40 md:h-40 relative">
+                                    {teacher.profilePhotoUrl ? (
+                                        <img
+                                            src={getFileUrl(teacher.profilePhotoUrl)}
+                                            alt={teacher.displayName || 'صورة المعلم'}
+                                            className="w-full h-full rounded-2xl object-cover shadow-xl ring-4 ring-white"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold text-5xl md:text-6xl shadow-xl ring-4 ring-white">
+                                            {teacher.displayName ? teacher.displayName.charAt(0) : 'م'}
+                                        </div>
+                                    )}
+                                    {/* Online Indicator */}
+                                    {!teacher.isOnVacation && (
+                                        <div className="absolute -bottom-2 -left-2 bg-green-500 w-6 h-6 md:w-7 md:h-7 rounded-full ring-4 ring-white shadow-lg flex items-center justify-center">
+                                            <div className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="flex items-center gap-1 bg-accent/10 text-accent-dark px-3 py-1.5 rounded-full shadow-sm border border-accent/20">
-                                    <UserPlus className="w-4 h-4" />
-                                    <span className="font-bold">{TEACHER_STATUS_LABELS.RECENTLY_JOINED}</span>
-                                </div>
-                            )}
-
-                            {/* Students Count */}
-                            <div className="flex items-center gap-1 bg-white/80 px-3 py-1.5 rounded-full shadow-sm border border-gray-100">
-                                <Users className="w-4 h-4 text-primary" />
-                                <span>{Math.max(teacher.totalSessions, 0)}+ طالب</span>
                             </div>
 
-                            {/* Verified Badge */}
-                            {teacher.applicationStatus === 'APPROVED' && (
-                                <div className="flex items-center gap-1 bg-green-50 text-green-700 px-3 py-1.5 rounded-full shadow-sm border border-green-100">
-                                    <ShieldCheck className="w-4 h-4" />
-                                    <span>معلم موثق</span>
+                            {/* Info Content */}
+                            <div className="flex-grow text-center md:text-right space-y-4">
+                                {/* Row 1: Name + Verified Badge */}
+                                <div className="flex flex-col md:flex-row items-center md:items-center gap-3">
+                                    <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+                                        {teacher.displayName || (isPreview ? 'الاسم الظاهر' : 'معلم سدرة')}
+                                    </h1>
+                                    {teacher.applicationStatus === 'APPROVED' && (
+                                        <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">
+                                            <ShieldCheck className="w-4 h-4" />
+                                            موثق
+                                        </span>
+                                    )}
                                 </div>
-                            )}
 
-                            {/* Vacation Badge */}
-                            {teacher.isOnVacation && (
-                                <div className="flex items-center gap-1 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full shadow-sm border border-amber-200">
-                                    <Palmtree className="w-4 h-4" />
-                                    <span>في إجازة</span>
+                                {/* Row 2: Qualification */}
+                                {(teacher.qualifications && teacher.qualifications.length > 0) ? (
+                                    <p className="text-gray-600 text-lg">
+                                        <span className="font-medium">{teacher.qualifications[0].degreeName}</span>
+                                        {teacher.qualifications[0].institution && (
+                                            <span className="text-gray-400"> • {teacher.qualifications[0].institution}</span>
+                                        )}
+                                    </p>
+                                ) : teacher.education ? (
+                                    <p className="text-gray-600 text-lg font-medium">{teacher.education}</p>
+                                ) : null}
+
+                                {/* Row 3: Subject Tags */}
+                                {teacher.subjects.length > 0 && (
+                                    <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                                        {teacher.subjects.slice(0, 4).map(s => (
+                                            <span
+                                                key={s.id}
+                                                className="inline-flex items-center gap-1.5 bg-white/80 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm"
+                                            >
+                                                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                                {s.subject.nameAr}
+                                            </span>
+                                        ))}
+                                        {teacher.subjects.length > 4 && (
+                                            <span className="inline-flex items-center bg-white/60 text-gray-500 px-3 py-1.5 rounded-full text-sm font-medium">
+                                                +{teacher.subjects.length - 4}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Row 4: Stats - Clean inline layout */}
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-gray-600">
+                                    {/* Rating or New Badge */}
+                                    {!isRecentlyJoinedTeacher(teacher.totalReviews) ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <Star className="w-5 h-5 text-accent fill-current" />
+                                            <span className="font-bold text-gray-900 text-base">{teacher.averageRating.toFixed(1)}</span>
+                                            <span className="text-gray-400">({teacher.totalReviews} تقييم)</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 text-accent-dark">
+                                            <Sparkles className="w-5 h-5" />
+                                            <span className="font-bold">{TEACHER_STATUS_LABELS.RECENTLY_JOINED}</span>
+                                        </div>
+                                    )}
+
+                                    {teacher.totalSessions > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Users className="w-4 h-4" />
+                                            <span>{teacher.totalSessions}+ طالب</span>
+                                        </div>
+                                    )}
+
+                                    {teacher.yearsOfExperience && teacher.yearsOfExperience > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="w-4 h-4" />
+                                            <span>{teacher.yearsOfExperience}+ سنة خبرة</span>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-3 mt-6">
-                            {!isPreview && (
-                                <FavoriteButton
-                                    teacherId={teacher.id}
-                                    initialIsFavorited={teacher.isFavorited}
-                                    className="bg-white/90 hover:bg-white shadow-sm border border-gray-100 w-10 h-10 ring-1 ring-gray-200"
-                                />
-                            )}
-                            <Button
-                                variant="outline"
-                                className="bg-white/90 hover:bg-white shadow-sm border border-gray-100 gap-2 rounded-full ring-1 ring-gray-200"
-                                onClick={() => setIsShareModalOpen(true)}
-                            >
-                                <Share className="w-4 h-4" />
-                                <span>مشاركة</span>
-                            </Button>
+                                {/* Row 5: Action Buttons + Status */}
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                                    {/* Availability Status */}
+                                    {teacher.isOnVacation ? (
+                                        <span className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-2 rounded-full font-bold text-sm">
+                                            <Palmtree className="w-4 h-4" />
+                                            في إجازة
+                                            {teacher.vacationEndDate && (
+                                                <span className="font-normal opacity-80">
+                                                    • يعود {new Date(teacher.vacationEndDate).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
+                                                </span>
+                                            )}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full font-bold text-sm">
+                                            <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                                            متاح للحجز
+                                        </span>
+                                    )}
+
+                                    {/* Price */}
+                                    {teacher.subjects.length > 0 && (
+                                        <span className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-full font-bold text-sm shadow-sm">
+                                            <DollarSign className="w-4 h-4 text-primary" />
+                                            يبدأ من {Math.min(...teacher.subjects.map(s => Number(s.pricePerHour)))} SDG
+                                        </span>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    {!isPreview && (
+                                        <FavoriteButton
+                                            teacherId={teacher.id}
+                                            initialIsFavorited={teacher.isFavorited}
+                                            className="bg-white hover:bg-gray-50 shadow-sm w-10 h-10 rounded-full"
+                                        />
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="bg-white hover:bg-gray-50 shadow-sm w-10 h-10 rounded-full"
+                                        onClick={() => setIsShareModalOpen(true)}
+                                    >
+                                        <Share className="w-4 h-4 text-gray-600" />
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -323,7 +392,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                         const options: SessionOption[] = [];
 
                                         // Demo
-                                        if (teacher.globalSettings.demosEnabled && teacher.teacherSettings.demoEnabled) {
+                                        if (globalDemosEnabled && teacher.teacherSettings.demoEnabled) {
                                             options.push({
                                                 id: 'demo', type: 'DEMO', title: 'حصة تجريبية',
                                                 description: 'مدة 15 دقيقة للتعارف وتحديد المستوى',
@@ -339,7 +408,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                         });
 
                                         // Packages
-                                        if (teacher.globalSettings.packagesEnabled) {
+                                        if (packagesEnabled) {
                                             teacher.packageTiers.forEach((tier, index) => {
                                                 const totalPrice = basePrice * tier.sessionCount;
                                                 const discountedPrice = Math.round(totalPrice * (1 - tier.discountPercent / 100));
@@ -565,6 +634,124 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                                     المؤهلات الأكاديمية
                                 </h2>
                                 <EmptyState message="ستظهر مؤهلاتك الأكاديمية هنا بعد إضافتها." isPreview={isPreview} />
+                            </section>
+                        )}
+
+                        {/* Skills */}
+                        {teacher.skills && teacher.skills.length > 0 ? (
+                            <section className="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-xl border border-amber-100">
+                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
+                                    <Award className="w-5 h-5" />
+                                    المهارات
+                                </h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {(showAllSkills ? teacher.skills : teacher.skills.slice(0, SKILLS_INITIAL_COUNT)).map((skill) => (
+                                        <span
+                                            key={skill.id}
+                                            className={cn(
+                                                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium",
+                                                skill.proficiency === 'EXPERT' && "bg-green-100 text-green-700",
+                                                skill.proficiency === 'ADVANCED' && "bg-purple-100 text-purple-700",
+                                                skill.proficiency === 'INTERMEDIATE' && "bg-blue-100 text-blue-700",
+                                                skill.proficiency === 'BEGINNER' && "bg-gray-100 text-gray-700"
+                                            )}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                            {skill.name}
+                                        </span>
+                                    ))}
+                                </div>
+                                {teacher.skills.length > SKILLS_INITIAL_COUNT && !showAllSkills && (
+                                    <button
+                                        onClick={() => setShowAllSkills(true)}
+                                        className="mt-4 text-primary hover:text-primary-hover font-medium text-sm flex items-center gap-1"
+                                    >
+                                        <span>+{teacher.skills.length - SKILLS_INITIAL_COUNT} المزيد</span>
+                                    </button>
+                                )}
+                            </section>
+                        ) : isPreview && (
+                            <section className="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-xl border border-amber-100">
+                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                                    <Award className="w-5 h-5" />
+                                    المهارات
+                                </h2>
+                                <EmptyState message="لم تضف مهاراتك بعد. المهارات تساعد أولياء الأمور على فهم قدراتك." isPreview={isPreview} />
+                            </section>
+                        )}
+
+                        {/* Work Experience */}
+                        {teacher.workExperiences && teacher.workExperiences.length > 0 ? (
+                            <section className="bg-gradient-to-br from-slate-50 to-gray-50 p-6 rounded-xl border border-slate-100">
+                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
+                                    <Briefcase className="w-5 h-5" />
+                                    الخبرات العملية
+                                </h2>
+                                <div className="space-y-4">
+                                    {(showAllExperiences ? teacher.workExperiences : teacher.workExperiences.slice(0, EXPERIENCES_INITIAL_COUNT)).map((exp) => (
+                                        <div key={exp.id} className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                    <Briefcase className="w-5 h-5 text-primary" />
+                                                </div>
+                                                <div className="flex-grow">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="font-bold text-gray-900">{exp.title}</h3>
+                                                        {exp.isCurrent && (
+                                                            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                                                حالياً
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-text-subtle text-sm mb-2">
+                                                        <Building2 className="w-4 h-4 flex-shrink-0" />
+                                                        <span>{exp.organization}</span>
+                                                    </div>
+                                                    {(exp.startDate || exp.endDate) && (
+                                                        <div className="flex items-center gap-2 text-text-subtle text-sm mb-2">
+                                                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                                                            <span>
+                                                                {exp.startDate ? new Date(exp.startDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short' }) : ''}
+                                                                {exp.startDate && (exp.endDate || exp.isCurrent) && ' - '}
+                                                                {exp.isCurrent ? 'حتى الآن' : exp.endDate ? new Date(exp.endDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short' }) : ''}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {exp.description && (
+                                                        <p className="text-text-main text-sm leading-relaxed mt-2">
+                                                            {exp.description}
+                                                        </p>
+                                                    )}
+                                                    {exp.subjects && exp.subjects.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-3">
+                                                            {exp.subjects.map((subject, idx) => (
+                                                                <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                                                    {subject}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {teacher.workExperiences.length > EXPERIENCES_INITIAL_COUNT && !showAllExperiences && (
+                                    <button
+                                        onClick={() => setShowAllExperiences(true)}
+                                        className="w-full mt-4 py-2 text-primary hover:text-primary-hover font-medium text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                    >
+                                        عرض {teacher.workExperiences.length - EXPERIENCES_INITIAL_COUNT} المزيد
+                                    </button>
+                                )}
+                            </section>
+                        ) : isPreview && (
+                            <section className="bg-gradient-to-br from-slate-50 to-gray-50 p-6 rounded-xl border border-slate-100">
+                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                                    <Briefcase className="w-5 h-5" />
+                                    الخبرات العملية
+                                </h2>
+                                <EmptyState message="لم تضف خبراتك العملية بعد. شارك تاريخك المهني لبناء الثقة." isPreview={isPreview} />
                             </section>
                         )}
 
@@ -927,7 +1114,7 @@ export function TeacherProfileView({ teacher, mode, onBook }: TeacherProfileView
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 teacherName={teacher.displayName || 'معلم سدرة'}
-                teacherSlug={teacher.id} // Ideally use slug if available, but id works
+                teacherSlug={slug || teacher.id}
                 bio={teacher.bio || undefined}
             />
         </div>

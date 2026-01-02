@@ -1,47 +1,67 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { bookingApi, Booking, BookingStatus } from '@/lib/api/booking';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, CreditCard, Video, Globe, AlertTriangle, ThumbsUp, Star, XOctagon, Loader2, Package } from 'lucide-react';
+import { bookingApi, Booking } from '@/lib/api/booking';
+import {
+    Calendar,
+    Globe,
+    Loader2,
+    Search,
+    Plus,
+    ArrowUpDown,
+    AlertTriangle,
+    CheckCircle,
+    User,
+    Filter
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/pagination';
+import { BookingListCard, BookingCardSkeleton } from '@/components/booking/BookingListCard';
 import { PaymentModal } from '@/components/booking/PaymentModal';
 import { RatingModal } from '@/components/booking/RatingModal';
 import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
-import { CountdownTimer } from '@/components/booking/CountdownTimer';
 import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
 import { toast } from 'sonner';
+import Link from 'next/link';
+
+const BOOKINGS_PER_PAGE = 10;
 
 export default function ParentBookingsPage() {
+    // Data & Loading
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
-    const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [userTimezone, setUserTimezone] = useState<string>('');
 
-    // Dispute modal state
+    // Filters & Pagination
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [timeFilter, setTimeFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL');
+    const [childFilter, setChildFilter] = useState<string>('ALL');
+    const [sortBy, setSortBy] = useState<'DATE_DESC' | 'DATE_ASC'>('DATE_DESC');
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Modal States
+    const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
+    const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<Booking | null>(null);
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+
+    const [selectedBookingForRating, setSelectedBookingForRating] = useState<Booking | null>(null);
+    const [ratingModalOpen, setRatingModalOpen] = useState(false);
+
+    // Confirm Session State
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [selectedBookingForConfirm, setSelectedBookingForConfirm] = useState<Booking | null>(null);
+    const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+    // Dispute State
     const [disputeModalOpen, setDisputeModalOpen] = useState(false);
     const [selectedBookingForDispute, setSelectedBookingForDispute] = useState<Booking | null>(null);
     const [disputeType, setDisputeType] = useState<string>('');
     const [disputeDescription, setDisputeDescription] = useState<string>('');
     const [submittingDispute, setSubmittingDispute] = useState(false);
 
-    // Rating modal state
-    const [ratingModalOpen, setRatingModalOpen] = useState(false);
-
-    // Cancel modal state
-    const [cancelModalOpen, setCancelModalOpen] = useState(false);
-    const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<Booking | null>(null);
-    const [selectedBookingForRating, setSelectedBookingForRating] = useState<Booking | null>(null);
-
-    // Confirm session modal state
-    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-    const [selectedBookingForConfirm, setSelectedBookingForConfirm] = useState<Booking | null>(null);
-
-    // Compute sessions awaiting confirmation (PENDING_CONFIRMATION status)
-    const pendingConfirmations = useMemo(() => {
-        return bookings.filter(booking => booking.status === 'PENDING_CONFIRMATION');
-    }, [bookings]);
-
+    // Load Data
     const loadBookings = async (silent = false) => {
         if (!silent) setLoading(true);
         try {
@@ -49,6 +69,7 @@ export default function ParentBookingsPage() {
             setBookings(data);
         } catch (error) {
             console.error("Failed to load bookings", error);
+            toast.error("فشل تحميل الحجوزات");
         } finally {
             if (!silent) setLoading(false);
         }
@@ -59,118 +80,23 @@ export default function ParentBookingsPage() {
         setUserTimezone(getUserTimezone());
     }, []);
 
-    const getStatusBadge = (status: BookingStatus) => {
-        // Parent/Student-specific labels (different from teacher view)
-        const statusMap = {
-            PENDING_TEACHER_APPROVAL: { label: 'بانتظار موافقة المعلم', color: 'bg-warning/10 text-warning', icon: Clock },
-            WAITING_FOR_PAYMENT: { label: 'في انتظار الدفع', color: 'bg-blue-100 text-blue-600', icon: AlertCircle },
-            PAYMENT_REVIEW: { label: 'مراجعة الدفع', color: 'bg-blue-100 text-blue-600', icon: AlertCircle },
-            SCHEDULED: { label: 'مجدولة', color: 'bg-green-100 text-green-600', icon: CheckCircle },
-            // Student/Parent sees: Awaiting your confirmation
-            PENDING_CONFIRMATION: { label: 'يرجى التأكيد أو الإبلاغ', color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle, sublabel: 'المعلم أنهى الحصة - يرجى المراجعة' },
-            COMPLETED: { label: 'مكتملة', color: 'bg-success/10 text-success', icon: CheckCircle },
-            DISPUTED: { label: 'تحت المراجعة', color: 'bg-orange-100 text-orange-600', icon: AlertCircle, sublabel: 'الإدارة تراجع شكواك' },
-            REFUNDED: { label: 'تم الاسترداد', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-            PARTIALLY_REFUNDED: { label: 'استرداد جزئي', color: 'bg-orange-100 text-orange-600', icon: AlertCircle },
-            REJECTED_BY_TEACHER: { label: 'مرفوضة', color: 'bg-error/10 text-error', icon: XCircle },
-            CANCELLED_BY_PARENT: { label: 'ملغاة', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-            CANCELLED_BY_TEACHER: { label: 'ملغاة من المعلم', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-            CANCELLED_BY_ADMIN: { label: 'ملغاة من الإدارة', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-            EXPIRED: { label: 'منتهية', color: 'bg-gray-100 text-gray-600', icon: XCircle },
-        };
+    // Derived Data: Pending Confirmations
+    const pendingConfirmations = useMemo(() => {
+        return bookings.filter(booking => booking.status === 'PENDING_CONFIRMATION');
+    }, [bookings]);
 
-        const config = statusMap[status] || statusMap.PENDING_TEACHER_APPROVAL;
-        const Icon = config.icon;
-        const sublabel = 'sublabel' in config ? config.sublabel : undefined;
+    // Derived Data: Unique Children
+    const uniqueChildren = useMemo(() => {
+        const children = bookings.map(b => b.child).filter(Boolean);
+        const unique = new Map();
+        children.forEach(c => {
+            if (c && !unique.has(c.id)) unique.set(c.id, c.name);
+        });
+        return Array.from(unique.entries());
+    }, [bookings]);
 
-        return (
-            <div className="flex flex-col items-end gap-1">
-                <span className={cn("flex items-center gap-1 text-sm px-3 py-1 rounded-full font-medium", config.color)}>
-                    <Icon className="w-4 h-4" />
-                    {config.label}
-                </span>
-                {sublabel && (
-                    <span className="text-xs text-gray-500">{sublabel}</span>
-                )}
-            </div>
-        );
-    };
+    // --- Actions ---
 
-    // Helper function to determine Join button state based on session time
-    const getJoinButtonState = (booking: Booking): {
-        show: boolean;
-        label: string;
-        enabled: boolean;
-        sublabel?: string;
-    } => {
-        if (booking.status !== 'SCHEDULED') return { show: false, label: '', enabled: false };
-
-        const sessionStart = new Date(booking.startTime);
-        const sessionEnd = new Date(booking.endTime);
-        const now = new Date();
-
-        // Allow joining 15 min before until 30 min after session end
-        const fifteenMinutesBefore = new Date(sessionStart.getTime() - 15 * 60 * 1000);
-        const thirtyMinutesAfterEnd = new Date(sessionEnd.getTime() + 30 * 60 * 1000);
-
-        const canJoin = now >= fifteenMinutesBefore && now <= thirtyMinutesAfterEnd;
-        const sessionInProgress = now >= sessionStart && now <= sessionEnd;
-
-        if (now < fifteenMinutesBefore) {
-            // Session is in the future
-            const diff = sessionStart.getTime() - now.getTime();
-            const minutes = Math.floor(diff / 60000);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-
-            if (days > 0) {
-                return {
-                    show: true,
-                    label: `بعد ${days} يوم`,
-                    sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة',
-                    enabled: false
-                };
-            } else if (hours > 0) {
-                return {
-                    show: true,
-                    label: `بعد ${hours} ساعة`,
-                    sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة',
-                    enabled: false
-                };
-            } else {
-                return {
-                    show: true,
-                    label: `بعد ${minutes} دقيقة`,
-                    sublabel: 'سيتم تفعيل الرابط قبل الموعد بـ15 دقيقة',
-                    enabled: false
-                };
-            }
-        } else if (sessionInProgress) {
-            // Session is happening now
-            return {
-                show: true,
-                label: '🔴 انضم الآن',
-                sublabel: 'الحصة جارية',
-                enabled: true
-            };
-        } else if (canJoin) {
-            // Within join window (15 min before or after)
-            return {
-                show: true,
-                label: 'انضم للاجتماع',
-                enabled: true
-            };
-        } else {
-            // Session ended
-            return {
-                show: false,
-                label: 'انتهت الحصة',
-                enabled: false
-            };
-        }
-    };
-
-    // Handle session confirmation
     const handleConfirmSession = async () => {
         if (!selectedBookingForConfirm) return;
 
@@ -180,7 +106,7 @@ export default function ParentBookingsPage() {
             toast.success('تم تأكيد الحصة بنجاح! شكراً لك 🎉');
             setConfirmModalOpen(false);
             setSelectedBookingForConfirm(null);
-            await loadBookings(true); // Silent refresh
+            await loadBookings(true);
         } catch (error) {
             console.error('Failed to confirm session', error);
             toast.error('حدث خطأ أثناء تأكيد الحصة');
@@ -189,15 +115,6 @@ export default function ParentBookingsPage() {
         }
     };
 
-    // Open dispute modal
-    const handleOpenDispute = (booking: Booking) => {
-        setSelectedBookingForDispute(booking);
-        setDisputeType('');
-        setDisputeDescription('');
-        setDisputeModalOpen(true);
-    };
-
-    // Submit dispute
     const handleSubmitDispute = async () => {
         if (!selectedBookingForDispute || !disputeType || !disputeDescription.trim()) {
             toast.error('يرجى اختيار نوع المشكلة ووصفها');
@@ -213,7 +130,7 @@ export default function ParentBookingsPage() {
             );
             toast.success('تم إرسال شكواك بنجاح. ستقوم الإدارة بمراجعتها قريباً 📝');
             setDisputeModalOpen(false);
-            loadBookings();
+            await loadBookings(true);
         } catch (error) {
             console.error('Failed to submit dispute', error);
             toast.error('حدث خطأ أثناء إرسال الشكوى');
@@ -222,414 +139,388 @@ export default function ParentBookingsPage() {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-background font-tajawal rtl p-4 md:p-8">
-            <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
-                <header>
-                    <h1 className="text-2xl md:text-3xl font-bold text-primary">حجوزاتي</h1>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
-                        <p className="text-text-subtle text-sm md:text-base">جميع الحصص المحجوزة</p>
-                        {userTimezone && (
-                            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg w-fit">
-                                <Globe className="w-4 h-4" />
-                                <span>{getTimezoneDisplay(userTimezone)}</span>
-                            </div>
-                        )}
-                    </div>
-                </header>
+    const handleBookingAction = (action: string, booking: Booking) => {
+        switch (action) {
+            case 'pay':
+                setSelectedBookingForPayment(booking);
+                break;
+            case 'cancel':
+                setSelectedBookingForCancel(booking);
+                setCancelModalOpen(true);
+                break;
+            case 'confirm':
+                setSelectedBookingForConfirm(booking);
+                setConfirmModalOpen(true);
+                break;
+            case 'dispute':
+                setSelectedBookingForDispute(booking);
+                setDisputeType('');
+                setDisputeDescription('');
+                setDisputeModalOpen(true);
+                break;
+            case 'rate':
+                setSelectedBookingForRating(booking);
+                setRatingModalOpen(true);
+                break;
+            case 'details':
+                window.location.href = `/parent/bookings/${booking.id}`;
+                break;
+            case 'book-new':
+                window.location.href = '/search';
+                break;
+            case 'support':
+                window.location.href = '/support/new';
+                break;
+        }
+    };
 
-                {/* Pending Confirmation Alert */}
+    // --- Filtering Logic ---
+
+    const filteredBookings = bookings.filter(booking => {
+        // 1. Status
+        if (statusFilter !== 'ALL') {
+            if (statusFilter === 'PENDING') {
+                if (!['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'PAYMENT_REVIEW'].includes(booking.status)) return false;
+            } else if (statusFilter === 'UPCOMING') {
+                if (!['SCHEDULED', 'PENDING_CONFIRMATION'].includes(booking.status)) return false;
+            } else if (statusFilter === 'COMPLETED') {
+                if (booking.status !== 'COMPLETED') return false;
+            } else if (statusFilter === 'CANCELLED') {
+                if (!booking.status.includes('CANCELLED') && booking.status !== 'REJECTED_BY_TEACHER' && booking.status !== 'EXPIRED') return false;
+            }
+        }
+
+        // 2. Time
+        if (timeFilter !== 'ALL') {
+            const isPast = new Date(booking.startTime) < new Date();
+            if (timeFilter === 'UPCOMING' && isPast) return false;
+            if (timeFilter === 'PAST' && !isPast) return false;
+        }
+
+        // 3. Child
+        if (childFilter !== 'ALL') {
+            if (booking.child?.id !== childFilter) return false;
+        }
+
+        // 4. Search
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            const teacher = booking.teacherProfile?.displayName?.toLowerCase() || '';
+            const subject = (booking.subject?.nameAr || booking.subject?.nameEn || '').toLowerCase();
+            const child = booking.child?.name?.toLowerCase() || '';
+            if (!teacher.includes(q) && !subject.includes(q) && !child.includes(q)) return false;
+        }
+
+        return true;
+    }).sort((a, b) => {
+        const dateA = new Date(a.startTime).getTime();
+        const dateB = new Date(b.startTime).getTime();
+        return sortBy === 'DATE_DESC' ? dateB - dateA : dateA - dateB;
+    });
+
+    const startIndex = (currentPage - 1) * BOOKINGS_PER_PAGE;
+    const endIndex = startIndex + BOOKINGS_PER_PAGE;
+    const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
+
+    return (
+        <div className="min-h-screen bg-gray-50/50 p-4 md:p-8" dir="rtl">
+            <div className="max-w-5xl mx-auto space-y-8">
+
+                {/* 1. Page Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">حجوزاتي</h1>
+                        <p className="text-gray-500 mt-1 text-lg">إدارة حجوزات الأبناء ومتابعة المدفوعات</p>
+                    </div>
+                    <div>
+                        <Link href="/search">
+                            <Button size="lg" className="w-full md:w-auto font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
+                                <Plus className="w-5 h-5 ml-2" />
+                                حجز حصة جديدة
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* 2. Pending Actions Alert */}
                 {pendingConfirmations.length > 0 && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 shadow-sm">
-                        <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 text-amber-600">
+                                <AlertTriangle className="w-6 h-6" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-yellow-800">
-                                    ⚠️ {pendingConfirmations.length} حصة بانتظار تأكيدك
+                                <h3 className="font-bold text-amber-900 text-lg">
+                                    لديك {pendingConfirmations.length} حصص بانتظار التأكيد
                                 </h3>
-                                <p className="text-sm text-yellow-700 mt-1">
-                                    يرجى تأكيد اكتمال الحصص أو الإبلاغ عن أي مشكلة خلال 48 ساعة. سيتم إغلاقها تلقائياً بعد ذلك.
+                                <p className="text-amber-800/80 mt-1 leading-relaxed">
+                                    يرجى تأكيد اكتمال الحصص المعلقة أو الإبلاغ عن مشكلة لضمان حقك وحق المعلم.
+                                    سيتم إغلاق الطلبات تلقائياً خلال 48 ساعة.
                                 </p>
                             </div>
-                        </div>
-                    </div>
-                )}
-
-                {loading ? (
-                    <div className="text-center py-12 text-text-subtle">جاري التحميل...</div>
-                ) : bookings.length === 0 ? (
-                    <div className="bg-surface rounded-xl p-12 text-center border border-gray-100">
-                        <Calendar className="w-16 h-16 mx-auto text-text-subtle mb-4" />
-                        <h3 className="text-xl font-bold text-primary mb-2">لا توجد حجوزات</h3>
-                        <p className="text-text-subtle">ابحث عن معلم واحجز حصة جديدة</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {bookings.map((booking) => (
-                            <div key={booking.id} className="bg-surface rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow">
-                                <div className="flex flex-col md:flex-row justify-between items-start gap-4 sm:gap-6">
-                                    <div className="flex-1 space-y-3 w-full">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                    <User className="w-5 h-5 text-primary" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-primary">
-                                                        {booking.teacherProfile?.displayName || booking.teacherProfile?.user?.email}
-                                                    </h3>
-                                                    {booking.readableId && (
-                                                        <div className="mb-1">
-                                                            <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
-                                                                #{booking.readableId}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    <p className="text-sm text-text-subtle">
-                                                        الطالب: {booking.child ? booking.child.name : (booking.student?.name || booking.studentUser?.email)}
-                                                    </p>
-                                                    {/* Package indicator */}
-                                                    {booking.pendingTierSessionCount && booking.pendingTierSessionCount > 1 && (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold mt-1">
-                                                            <Package className="w-3 h-3" />
-                                                            باقة {booking.pendingTierSessionCount} حصص
-                                                        </span>
-                                                    )}
-                                                    {booking.isDemo && (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold mt-1">
-                                                            🎓 حصة تجريبية
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {getStatusBadge(booking.status)}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div className="flex items-center gap-2 text-text-subtle">
-                                                <Calendar className="w-4 h-4" />
-                                                <span>{new Date(booking.startTime).toLocaleDateString('ar-EG')}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-text-subtle">
-                                                <Clock className="w-4 h-4" />
-                                                <span>
-                                                    {new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                                                    {' - '}
-                                                    {new Date(booking.endTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
-                                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                                                <span className="font-bold text-lg text-primary">{booking.price} SDG</span>
-                                                {booking.cancelReason && (
-                                                    <span className="text-xs text-error bg-error/10 px-2 py-1 rounded">
-                                                        سبب الإلغاء: {booking.cancelReason}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Action Buttons */}
-                                            {booking.status === 'WAITING_FOR_PAYMENT' && (
-                                                <div className="flex gap-2 flex-wrap">
-                                                    <button
-                                                        onClick={() => setSelectedBookingForPayment(booking)}
-                                                        className="bg-primary text-white px-4 sm:px-6 py-2 rounded-lg font-bold hover:bg-primary-hover transition-colors flex items-center gap-2 shadow-sm text-sm sm:text-base"
-                                                    >
-                                                        <CreditCard className="w-4 h-4" />
-                                                        ادفع الآن
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedBookingForCancel(booking);
-                                                            setCancelModalOpen(true);
-                                                        }}
-                                                        className="border border-red-300 text-red-600 px-3 sm:px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2 text-sm sm:text-base"
-                                                    >
-                                                        <XOctagon className="w-4 h-4" />
-                                                        إلغاء
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* Cancel button for PENDING_TEACHER_APPROVAL */}
-                                            {booking.status === 'PENDING_TEACHER_APPROVAL' && (
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedBookingForCancel(booking);
-                                                        setCancelModalOpen(true);
-                                                    }}
-                                                    className="border border-red-300 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2"
-                                                >
-                                                    <XOctagon className="w-4 h-4" />
-                                                    إلغاء الطلب
-                                                </button>
-                                            )}
-
-                                            {booking.status === 'SCHEDULED' && (() => {
-                                                const buttonState = getJoinButtonState(booking);
-                                                if (!buttonState.show) return null;
-
-                                                return (
-                                                    <div className="flex flex-col items-end gap-1">
-                                                        <button
-                                                            className={cn(
-                                                                "px-6 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 shadow-sm",
-                                                                buttonState.enabled
-                                                                    ? "bg-green-600 text-white hover:bg-green-700"
-                                                                    : "bg-gray-200 text-gray-500 cursor-not-allowed",
-                                                                buttonState.label.includes('🔴') && "animate-pulse"
-                                                            )}
-                                                            disabled={!buttonState.enabled}
-                                                            onClick={() => {
-                                                                if (buttonState.enabled && booking.meetingLink) {
-                                                                    window.open(booking.meetingLink, '_blank');
-                                                                } else if (buttonState.enabled) {
-                                                                    alert('لم يتم تحديد رابط الاجتماع من قبل المعلم');
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Video className="w-5 h-5" />
-                                                            {buttonState.label}
-                                                        </button>
-                                                        {buttonState.sublabel && (
-                                                            <span className="text-xs text-gray-400">
-                                                                {buttonState.sublabel}
-                                                            </span>
-                                                        )}
-                                                        {/* Cancel button for SCHEDULED (only before session starts) */}
-                                                        {new Date(booking.startTime) > new Date() && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedBookingForCancel(booking);
-                                                                    setCancelModalOpen(true);
-                                                                }}
-                                                                className="text-xs text-red-500 hover:text-red-700 underline"
-                                                            >
-                                                                إلغاء الحجز
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            {/* Confirm/Dispute buttons for PENDING_CONFIRMATION */}
-                                            {booking.status === 'PENDING_CONFIRMATION' && (
-                                                <div className="flex flex-col items-end gap-3">
-                                                    {/* Countdown Timer */}
-                                                    {booking.disputeWindowClosesAt && (
-                                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
-                                                            <p className="text-xs text-yellow-700 mb-1">الوقت المتبقي للمراجعة:</p>
-                                                            <CountdownTimer
-                                                                deadline={booking.disputeWindowClosesAt}
-                                                                className="text-sm font-bold text-yellow-800"
-                                                                onExpire={() => loadBookings(true)}
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    {/* Action Buttons */}
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedBookingForConfirm(booking);
-                                                                setConfirmModalOpen(true);
-                                                            }}
-                                                            disabled={confirmingId === booking.id}
-                                                            className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
-                                                        >
-                                                            {confirmingId === booking.id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <ThumbsUp className="w-4 h-4" />
-                                                            )}
-                                                            {confirmingId === booking.id ? 'جاري التأكيد...' : 'تأكيد الحصة'}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleOpenDispute(booking)}
-                                                            className="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-orange-600 transition-colors flex items-center gap-2 shadow-sm"
-                                                        >
-                                                            <AlertTriangle className="w-4 h-4" />
-                                                            الإبلاغ عن مشكلة
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Rate button for COMPLETED bookings without rating */}
-                                            {booking.status === 'COMPLETED' && !(booking as any).rating && (
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedBookingForRating(booking);
-                                                        setRatingModalOpen(true);
-                                                    }}
-                                                    className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-accent/90 transition-colors flex items-center gap-2 shadow-sm"
-                                                >
-                                                    <Star className="w-4 h-4" />
-                                                    قيّم الحصة
-                                                </button>
-                                            )}
-
-                                            {/* Show rated badge */}
-                                            {booking.status === 'COMPLETED' && (booking as any).rating && (
-                                                <div className="flex items-center gap-1 text-accent bg-accent/10 px-3 py-1.5 rounded-lg">
-                                                    <Star className="w-4 h-4 fill-current" />
-                                                    <span className="font-bold">{(booking as any).rating.score}</span>
-                                                    <span className="text-sm">تم التقييم</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Payment Modal */}
-            {selectedBookingForPayment && (
-                <PaymentModal
-                    booking={selectedBookingForPayment}
-                    isOpen={!!selectedBookingForPayment}
-                    onClose={() => setSelectedBookingForPayment(null)}
-                    onSuccess={() => {
-                        loadBookings(); // Refresh list to show updated status
-                    }}
-                />
-            )}
-
-            {/* Dispute Modal */}
-            {disputeModalOpen && selectedBookingForDispute && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
-                        <h2 className="text-xl font-bold text-primary mb-4">الإبلاغ عن مشكلة</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            اختر نوع المشكلة وصفها لنتمكن من مساعدتك
-                        </p>
-
-                        {/* Dispute Type Selection */}
-                        <div className="mb-4">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">نوع المشكلة</label>
-                            <select
-                                value={disputeType}
-                                onChange={(e) => setDisputeType(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                            <Button
+                                variant="outline"
+                                className="bg-white border-amber-200 text-amber-800 hover:bg-amber-100 font-bold"
+                                onClick={() => {
+                                    setStatusFilter('UPCOMING');
+                                    setTimeFilter('ALL');
+                                }}
                             >
-                                <option value="">اختر نوع المشكلة...</option>
-                                <option value="TEACHER_NO_SHOW">المعلم لم يحضر</option>
-                                <option value="SESSION_TOO_SHORT">الحصة كانت أقصر من المحدد</option>
-                                <option value="QUALITY_ISSUE">مشكلة في جودة التدريس</option>
-                                <option value="TECHNICAL_ISSUE">مشكلة تقنية</option>
-                                <option value="OTHER">أخرى</option>
-                            </select>
+                                عرض الحصص
+                            </Button>
                         </div>
+                    </div>
+                )}
 
-                        {/* Description */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">وصف المشكلة</label>
-                            <textarea
-                                value={disputeDescription}
-                                onChange={(e) => setDisputeDescription(e.target.value)}
-                                placeholder="اشرح المشكلة بالتفصيل..."
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent min-h-[100px] resize-none"
+                {/* 3. Filter Bar */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
+                    {/* Top Row: Search, Child & Sort */}
+                    <div className="flex flex-col md:flex-row gap-4 justify-between">
+
+                        {/* Search */}
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="ابحث باسم المعلم، المادة، أو الابن..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                             />
                         </div>
 
-                        {/* Buttons */}
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleSubmitDispute}
-                                disabled={submittingDispute}
-                                className="flex-1 bg-orange-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-orange-600 transition-colors disabled:opacity-50"
+                        {/* Child Filter & Sort */}
+                        <div className="flex flex-wrap items-center gap-3">
+                            {uniqueChildren.length > 0 && (
+                                <select
+                                    value={childFilter}
+                                    onChange={(e) => { setChildFilter(e.target.value); setCurrentPage(1); }}
+                                    className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                >
+                                    <option value="ALL">جميع الأبناء</option>
+                                    {uniqueChildren.map(([id, name]) => (
+                                        <option key={id} value={id}>{name}</option>
+                                    ))}
+                                </select>
+                            )}
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSortBy(sortBy === 'DATE_DESC' ? 'DATE_ASC' : 'DATE_DESC')}
+                                className="text-gray-600 border-gray-200 h-10 px-4 rounded-xl"
                             >
-                                {submittingDispute ? 'جاري الإرسال...' : 'إرسال الشكوى'}
-                            </button>
-                            <button
-                                onClick={() => setDisputeModalOpen(false)}
-                                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-bold hover:bg-gray-300 transition-colors"
-                            >
-                                إلغاء
-                            </button>
+                                <ArrowUpDown className="w-4 h-4 ml-2" />
+                                {sortBy === 'DATE_DESC' ? 'الأحدث أولاً' : 'الأقدم أولاً'}
+                            </Button>
                         </div>
                     </div>
-                </div>
-            )}
 
-            {/* Rating Modal */}
-            {ratingModalOpen && selectedBookingForRating && (
-                <RatingModal
-                    isOpen={ratingModalOpen}
-                    onClose={() => {
-                        setRatingModalOpen(false);
-                        setSelectedBookingForRating(null);
-                    }}
-                    bookingId={selectedBookingForRating.id}
-                    teacherName={selectedBookingForRating.teacherProfile?.displayName || 'المعلم'}
-                    onSuccess={() => {
-                        toast.success('شكراً على تقييمك! 🌟');
-                        loadBookings();
-                    }}
-                />
-            )}
-
-            {/* Cancel Confirmation Modal */}
-            {cancelModalOpen && selectedBookingForCancel && (
-                <CancelConfirmModal
-                    isOpen={cancelModalOpen}
-                    onClose={() => {
-                        setCancelModalOpen(false);
-                        setSelectedBookingForCancel(null);
-                    }}
-                    bookingId={selectedBookingForCancel.id}
-                    onSuccess={() => {
-                        toast.success('تم إلغاء الحجز بنجاح');
-                        loadBookings();
-                    }}
-                />
-            )}
-
-            {/* Session Confirmation Modal */}
-            {confirmModalOpen && selectedBookingForConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl text-center">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <ThumbsUp className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h2 className="text-xl font-bold text-primary mb-2">تأكيد اكتمال الحصة</h2>
-                        <p className="text-sm text-gray-600 mb-6">
-                            هل أنت متأكد من اكتمال الحصة؟ عند التأكيد سيتم تحويل المبلغ إلى محفظة المعلم مباشرة.
-                        </p>
-
-                        <div className="flex gap-3">
+                    {/* Tabs */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <Filter className="w-5 h-5 text-gray-400 ml-2" />
+                        {[
+                            { id: 'ALL', label: 'الكل' },
+                            { id: 'PENDING', label: 'بانتظار الموافقة/الدفع' },
+                            { id: 'UPCOMING', label: 'القادمة' },
+                            { id: 'COMPLETED', label: 'المكتملة' },
+                            { id: 'CANCELLED', label: 'الملغاة' },
+                        ].map(tab => (
                             <button
-                                onClick={handleConfirmSession}
-                                disabled={confirmingId === selectedBookingForConfirm.id}
-                                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {confirmingId === selectedBookingForConfirm.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    'نعم، تأكيد'
+                                key={tab.id}
+                                onClick={() => { setStatusFilter(tab.id); setCurrentPage(1); }}
+                                className={cn(
+                                    "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all",
+                                    statusFilter === tab.id
+                                        ? "bg-gray-900 text-white shadow-md"
+                                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                                 )}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setConfirmModalOpen(false);
-                                    setSelectedBookingForConfirm(null);
-                                }}
-                                disabled={confirmingId === selectedBookingForConfirm.id}
-                                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-bold hover:bg-gray-300 transition-colors"
                             >
-                                إلغاء
+                                {tab.label}
                             </button>
-                        </div>
+                        ))}
                     </div>
                 </div>
-            )}
-        </div>
+
+                {/* 4. List */}
+                {loading ? (
+                    <div className="space-y-4">
+                        {[1, 2, 3].map((i) => <BookingCardSkeleton key={i} />)}
+                    </div>
+                ) : filteredBookings.length === 0 ? (
+                    <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
+                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Calendar className="w-8 h-8 text-gray-300" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد حجوزات</h3>
+                        <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                            {searchQuery || statusFilter !== 'ALL'
+                                ? 'لم يتم العثور على نتائج تطابق خيارات البحث'
+                                : 'ابدأ بحجز حصص لأبنائك مع أفضل المعلمين'
+                            }
+                        </p>
+                        {statusFilter === 'ALL' && !searchQuery && (
+                            <Link href="/search">
+                                <Button size="lg" className="font-bold">تصفح المعلمين</Button>
+                            </Link>
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {paginatedBookings.map((booking) => (
+                            <BookingListCard
+                                key={booking.id}
+                                booking={booking}
+                                userRole="PARENT"
+                                onAction={handleBookingAction}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {/* Pagination */}
+                {filteredBookings.length > BOOKINGS_PER_PAGE && (
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={Math.ceil(filteredBookings.length / BOOKINGS_PER_PAGE)}
+                        onPageChange={(page) => {
+                            setCurrentPage(page);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                    />
+                )}
+
+            </div>
+
+            {/* --- Modals --- */}
+
+            {
+                selectedBookingForPayment && (
+                    <PaymentModal
+                        booking={selectedBookingForPayment}
+                        isOpen={!!selectedBookingForPayment}
+                        onClose={() => setSelectedBookingForPayment(null)}
+                        onSuccess={() => loadBookings()}
+                    />
+                )
+            }
+
+            {
+                cancelModalOpen && selectedBookingForCancel && (
+                    <CancelConfirmModal
+                        isOpen={cancelModalOpen}
+                        onClose={() => { setCancelModalOpen(false); setSelectedBookingForCancel(null); }}
+                        bookingId={selectedBookingForCancel.id}
+                        onSuccess={() => { toast.success('تم إلغاء الحجز بنجاح'); loadBookings(); }}
+                    />
+                )
+            }
+
+            {
+                ratingModalOpen && selectedBookingForRating && (
+                    <RatingModal
+                        isOpen={ratingModalOpen}
+                        onClose={() => { setRatingModalOpen(false); setSelectedBookingForRating(null); }}
+                        bookingId={selectedBookingForRating.id}
+                        teacherName={selectedBookingForRating.teacherProfile?.displayName || 'المعلم'}
+                        onSuccess={() => { toast.success('شكراً على تقييمك! 🌟'); loadBookings(); }}
+                    />
+                )
+            }
+
+            {
+                confirmModalOpen && selectedBookingForConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl text-center">
+                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle className="w-8 h-8 text-green-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">تأكيد اكتمال الحصة</h2>
+                            <p className="text-sm text-gray-600 mb-6">
+                                هل أنت متأكد من اكتمال الحصة؟ عند التأكيد سيتم تحويل المبلغ إلى محفظة المعلم مباشرة.
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleConfirmSession}
+                                    disabled={confirmingId === selectedBookingForConfirm.id}
+                                    className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-green-600/20"
+                                >
+                                    {confirmingId === selectedBookingForConfirm.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        'نعم، تأكيد'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => { setConfirmModalOpen(false); setSelectedBookingForConfirm(null); }}
+                                    disabled={confirmingId === selectedBookingForConfirm.id}
+                                    className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                                >
+                                    إلغاء
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                disputeModalOpen && selectedBookingForDispute && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">الإبلاغ عن مشكلة</h2>
+                            <p className="text-sm text-gray-500 mb-6">
+                                نأسف لسماع ذلك. يرجى إخبارنا بما حدث لنتمكن من المساعدة.
+                            </p>
+
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">نوع المشكلة</label>
+                                    <select
+                                        value={disputeType}
+                                        onChange={(e) => setDisputeType(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                    >
+                                        <option value="">اختر السبب...</option>
+                                        <option value="TEACHER_NO_SHOW">المعلم لم يحضر في الموعد</option>
+                                        <option value="SESSION_TOO_SHORT">وقت الحصة كان أقصر من المتفق عليه</option>
+                                        <option value="QUALITY_ISSUE">جودة الشرح لم تكن مناسبة</option>
+                                        <option value="TECHNICAL_ISSUE">واجهنا مشاكل تقنية منعت الدرس</option>
+                                        <option value="OTHER">سبب آخر</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">التفاصيل</label>
+                                    <textarea
+                                        value={disputeDescription}
+                                        onChange={(e) => setDisputeDescription(e.target.value)}
+                                        placeholder="اكتب المزيد من التفاصيل هنا..."
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none min-h-[120px] resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleSubmitDispute}
+                                    disabled={submittingDispute}
+                                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20"
+                                >
+                                    {submittingDispute ? 'جاري الإرسال...' : 'إرسال البلاغ'}
+                                </button>
+                                <button
+                                    onClick={() => setDisputeModalOpen(false)}
+                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold transition-all"
+                                >
+                                    تراجع
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

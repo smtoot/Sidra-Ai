@@ -2,32 +2,40 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { bookingApi, Booking } from '@/lib/api/booking';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { bookingApi, Booking, BookingAction } from '@/lib/api/booking';
 import {
-    ArrowRight, Calendar, Clock, CheckCircle, XCircle, AlertCircle,
-    CreditCard, Video, BookOpen, Phone, Mail, Loader2, MapPin, Globe
+    AlertCircle,
+    Loader2
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { PaymentConfirmModal } from '@/components/booking/PaymentConfirmModal';
-import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
+import { RatingModal } from '@/components/booking/RatingModal'; // Assuming students can rate too?
+import { BookingDetailsView } from '@/components/booking/BookingDetailsView';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 export default function StudentBookingDetailsPage() {
     const params = useParams();
     const router = useRouter();
+    const { meetingLinkAccessMinutes } = useSystemConfig();
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
-    const [userTimezone, setUserTimezone] = useState<string>('');
+
+    // Rating modal state
+    const [ratingModalOpen, setRatingModalOpen] = useState(false);
+
+    // Dispute modal state
+    const [disputeModalOpen, setDisputeModalOpen] = useState(false);
+    const [disputeType, setDisputeType] = useState<string>('');
+    const [disputeDescription, setDisputeDescription] = useState<string>('');
+    const [submittingDispute, setSubmittingDispute] = useState(false);
 
     const bookingId = params.id as string;
 
     useEffect(() => {
         loadBooking();
-        setUserTimezone(getUserTimezone());
     }, [bookingId]);
 
     const loadBooking = async () => {
@@ -43,263 +51,210 @@ export default function StudentBookingDetailsPage() {
         }
     };
 
+    const handleConfirmSession = async () => {
+        if (!booking) return;
+
+        try {
+            await bookingApi.confirmSessionEarly(booking.id);
+            toast.success('تم تأكيد الحصة بنجاح! 🎉');
+            await loadBooking();
+            setRatingModalOpen(true);
+        } catch (error) {
+            console.error('Failed to confirm session', error);
+            toast.error('حدث خطأ أثناء تأكيد الحصة');
+        }
+    };
+
+    const handleSubmitDispute = async () => {
+        if (!booking || !disputeType || !disputeDescription.trim()) {
+            toast.error('يرجى اختيار نوع المشكلة ووصفها');
+            return;
+        }
+
+        setSubmittingDispute(true);
+        try {
+            await bookingApi.raiseDispute(
+                booking.id,
+                disputeType,
+                disputeDescription.trim()
+            );
+            toast.success('تم إرسال شكواك بنجاح 📝');
+            setDisputeModalOpen(false);
+            await loadBooking();
+        } catch (error) {
+            console.error('Failed to submit dispute', error);
+            toast.error('حدث خطأ أثناء إرسال الشكوى');
+        } finally {
+            setSubmittingDispute(false);
+        }
+    };
+
+    // --- Actions ---
+    const handleAction = (action: BookingAction) => {
+        if (!booking) return;
+
+        switch (action) {
+            case 'pay':
+                setSelectedBookingForPayment(booking);
+                break;
+            case 'cancel':
+                if (window.confirm('هل أنت متأكد من رغبتك في إلغاء الطلب؟')) {
+                    bookingApi.cancelBooking(booking.id).then(() => {
+                        toast.success('تم إلغاء الطلب');
+                        loadBooking();
+                    });
+                }
+                break;
+            case 'confirm':
+                handleConfirmSession();
+                break;
+            case 'dispute':
+                setDisputeType('');
+                setDisputeDescription('');
+                setDisputeModalOpen(true);
+                break;
+            case 'rate':
+                setRatingModalOpen(true);
+                break;
+            case 'book-new':
+                router.push('/search');
+                break;
+            case 'join':
+                if (booking.meetingLink) window.open(booking.meetingLink, '_blank');
+                break;
+        }
+    };
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
-                <div className="max-w-4xl mx-auto">
-                    <Card>
-                        <CardContent className="p-12 text-center">
-                            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary-600" />
-                            <p className="text-gray-500">جاري التحميل...</p>
-                        </CardContent>
-                    </Card>
-                </div>
+            <div className="flex items-center justify-center min-h-screen">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
 
     if (!booking) {
         return (
-            <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
-                <div className="max-w-4xl mx-auto">
-                    <Card className="border-red-200 bg-red-50">
-                        <CardContent className="p-12 text-center">
-                            <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-400" />
-                            <h2 className="text-xl font-bold text-red-700 mb-4">الحجز غير موجود</h2>
-                            <Link href="/student/bookings">
-                                <Button variant="outline">العودة للحجوزات</Button>
-                            </Link>
-                        </CardContent>
-                    </Card>
-                </div>
+            <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
+                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                <h1 className="text-xl font-bold text-gray-900">الحجز غير موجود</h1>
+                <p className="text-gray-500 mb-6">لم نتمكن من العثور على تفاصيل هذا الحجز.</p>
+                <Link href="/student/bookings">
+                    <Button variant="outline">العودة للحجوزات</Button>
+                </Link>
             </div>
         );
     }
 
-    const getStatusConfig = (status: string) => {
-        const statusMap: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-            PENDING_TEACHER_APPROVAL: { label: 'بانتظار موافقة المعلم', color: 'warning', bgColor: 'bg-warning-100 text-warning-700', icon: Clock },
-            WAITING_FOR_PAYMENT: { label: 'في انتظار الدفع', color: 'blue', bgColor: 'bg-blue-100 text-blue-700', icon: CreditCard },
-            PAYMENT_REVIEW: { label: 'مراجعة الدفع', color: 'blue', bgColor: 'bg-blue-100 text-blue-700', icon: Clock },
-            SCHEDULED: { label: 'مجدولة', color: 'success', bgColor: 'bg-success-100 text-success-700', icon: CheckCircle },
-            PENDING_CONFIRMATION: { label: 'يرجى التأكيد أو الإبلاغ', color: 'warning', bgColor: 'bg-warning-100 text-warning-700', icon: AlertCircle },
-            COMPLETED: { label: 'مكتملة', color: 'success', bgColor: 'bg-success-100 text-success-700', icon: CheckCircle },
-            DISPUTED: { label: 'تحت المراجعة', color: 'warning', bgColor: 'bg-warning-100 text-warning-700', icon: AlertCircle },
-            REFUNDED: { label: 'تم الاسترداد', color: 'gray', bgColor: 'bg-gray-100 text-gray-600', icon: XCircle },
-            REJECTED_BY_TEACHER: { label: 'مرفوضة من المعلم', color: 'error', bgColor: 'bg-red-100 text-red-700', icon: XCircle },
-            CANCELLED_BY_PARENT: { label: 'ملغاة', color: 'gray', bgColor: 'bg-gray-100 text-gray-600', icon: XCircle },
-            CANCELLED_BY_ADMIN: { label: 'ملغاة من الإدارة', color: 'gray', bgColor: 'bg-gray-100 text-gray-600', icon: XCircle },
-        };
-        return statusMap[status] || statusMap.PENDING_TEACHER_APPROVAL;
-    };
+    // Determine available actions based on status logic (Student has same rights as parent for now regarding confirming/paying if self-managed)
+    const availableActions: BookingAction[] = [];
+    if (booking.status === 'WAITING_FOR_PAYMENT') availableActions.push('pay', 'cancel');
+    if (booking.status === 'PENDING_TEACHER_APPROVAL') availableActions.push('cancel');
+    if (booking.status === 'SCHEDULED') {
+        availableActions.push('cancel');
 
-    const statusConfig = getStatusConfig(booking.status);
-    const StatusIcon = statusConfig.icon;
+        // Check time window
+        const now = new Date();
+        const startTime = new Date(booking.startTime);
+        const endTime = new Date(booking.endTime);
+        const accessTime = new Date(startTime.getTime() - meetingLinkAccessMinutes * 60000);
+        const expiryTime = new Date(endTime.getTime() + 30 * 60000); // 30 mins after end
+
+        if (booking.meetingLink && now >= accessTime && now <= expiryTime) {
+            availableActions.push('join');
+        }
+    }
+    if (booking.status === 'PENDING_CONFIRMATION') availableActions.push('confirm', 'dispute');
+    if (booking.status === 'COMPLETED') {
+        if (!booking.rating) availableActions.push('rate');
+        availableActions.push('book-new');
+    }
+    if (booking.status.includes('CANCELLED') ||
+        booking.status.includes('REJECTED') ||
+        booking.status === 'REFUNDED' ||
+        booking.status === 'PARTIALLY_REFUNDED' ||
+        booking.status === 'EXPIRED') availableActions.push('book-new');
+
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
-            <div className="max-w-4xl mx-auto space-y-6">
-                {/* Back Button */}
-                <button
-                    onClick={() => router.push('/student/bookings')}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors group"
-                >
-                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                    <span className="font-medium">العودة للحجوزات</span>
-                </button>
+        <>
+            <BookingDetailsView
+                booking={booking}
+                userRole="STUDENT"
+                availableActions={availableActions}
+                onAction={handleAction}
+            />
 
-                {/* Status Banner */}
-                <Card className="bg-gradient-to-l from-primary-50 to-primary-100 border-primary-200">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900 mb-1">تفاصيل الحجز</h1>
-                                <p className="text-sm text-gray-600">رقم الحجز: {booking.id.slice(0, 8)}</p>
-                            </div>
-                            <div className={cn("px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-sm", statusConfig.bgColor)}>
-                                <StatusIcon className="w-5 h-5" />
-                                <span>{statusConfig.label}</span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Main Content */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Teacher Info */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>معلومات المعلم</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <Avatar
-                                        src={booking.teacherProfile?.user?.photoUrl}
-                                        fallback={booking.teacherProfile?.displayName?.[0] || 'م'}
-                                        size="xl"
-                                    />
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900">
-                                            {booking.teacherProfile?.displayName || 'معلم'}
-                                        </h3>
-                                        <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                                            <BookOpen className="w-4 h-4" />
-                                            <span>{booking.subject?.nameAr}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                {booking.teacherProfile?.user?.email && (
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                                        <Mail className="w-4 h-4" />
-                                        <span>{booking.teacherProfile.user.email}</span>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Session Details */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>تفاصيل الحصة</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                                    <Calendar className="w-5 h-5 text-primary-600 mt-0.5" />
-                                    <div>
-                                        <div className="text-sm text-gray-500 mb-1">التاريخ</div>
-                                        <div className="font-bold text-gray-900">
-                                            {new Date(booking.startTime).toLocaleDateString('ar-SA', {
-                                                weekday: 'long',
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                                    <Clock className="w-5 h-5 text-primary-600 mt-0.5" />
-                                    <div>
-                                        <div className="text-sm text-gray-500 mb-1">الوقت</div>
-                                        <div className="font-bold text-gray-900">
-                                            {new Date(booking.startTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                                            {' - '}
-                                            {new Date(booking.endTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                        {userTimezone && (
-                                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                                <Globe className="w-3 h-3" />
-                                                {getTimezoneDisplay(userTimezone)}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {booking.meetingLink && (
-                                    <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                                        <Video className="w-5 h-5 text-green-600 mt-0.5" />
-                                        <div className="flex-1">
-                                            <div className="text-sm text-green-700 mb-1">رابط الاجتماع</div>
-                                            <a
-                                                href={booking.meetingLink}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm text-blue-600 hover:text-blue-700 underline break-all"
-                                            >
-                                                {booking.meetingLink}
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {booking.bookingNotes && (
-                                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                        <div className="text-sm text-blue-700 font-medium mb-2">ملاحظات</div>
-                                        <p className="text-sm text-gray-700">{booking.bookingNotes}</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Price Card */}
-                        <Card className="sticky top-6 border-primary-200 bg-primary-50/50">
-                            <CardHeader>
-                                <CardTitle>ملخص الدفع</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-center mb-6">
-                                    <div className="text-4xl font-black text-primary-700 mb-1">
-                                        {booking.price}
-                                    </div>
-                                    <div className="text-sm text-gray-600">جنيه سوداني</div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="space-y-3">
-                                    {booking.status === 'WAITING_FOR_PAYMENT' && (
-                                        <Button
-                                            onClick={() => setSelectedBookingForPayment(booking)}
-                                            className="w-full bg-blue-600 hover:bg-blue-700"
-                                            size="lg"
-                                        >
-                                            <CreditCard className="w-5 h-5 ml-2" />
-                                            ادفع الآن
-                                        </Button>
-                                    )}
-                                    {booking.status === 'SCHEDULED' && (
-                                        <Button
-                                            className="w-full bg-success-600 hover:bg-success-700"
-                                            size="lg"
-                                            onClick={() => {
-                                                if (booking.meetingLink) {
-                                                    window.open(booking.meetingLink, '_blank');
-                                                } else {
-                                                    alert('سيتم توجيهك إلى رابط الاجتماع');
-                                                }
-                                            }}
-                                        >
-                                            <Video className="w-5 h-5 ml-2" />
-                                            دخول الحصة
-                                        </Button>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Timeline/History Card */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">سجل الحجز</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3 text-sm">
-                                    <div className="flex items-center gap-2 text-gray-600">
-                                        <div className="w-2 h-2 rounded-full bg-primary-600" />
-                                        <span>تم الحجز: {new Date(booking.createdAt).toLocaleDateString('ar-SA')}</span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-            </div>
-
-            {/* Payment Modal */}
+            {/* --- Modals --- */}
             {selectedBookingForPayment && (
                 <PaymentConfirmModal
                     isOpen={!!selectedBookingForPayment}
                     onClose={() => setSelectedBookingForPayment(null)}
                     booking={selectedBookingForPayment}
-                    onPaymentSuccess={() => {
-                        loadBooking();
-                    }}
+                    onPaymentSuccess={() => { loadBooking(); setSelectedBookingForPayment(null); }}
                 />
             )}
-        </div>
+
+            {ratingModalOpen && (
+                <RatingModal
+                    isOpen={ratingModalOpen}
+                    onClose={() => setRatingModalOpen(false)}
+                    bookingId={booking.id}
+                    teacherName={booking.teacherProfile?.displayName || 'المعلم'}
+                    onSuccess={() => { toast.success('شكراً على تقييمك!'); loadBooking(); }}
+                />
+            )}
+
+            {disputeModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl" dir="rtl">
+                        <h2 className="text-xl font-bold text-gray-900 mb-2">الإبلاغ عن مشكلة</h2>
+                        <p className="text-sm text-gray-500 mb-6">
+                            يرجى إخبارنا بما حدث لنتمكن من المساعدة.
+                        </p>
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">نوع المشكلة</label>
+                                <select
+                                    value={disputeType}
+                                    onChange={(e) => setDisputeType(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none"
+                                >
+                                    <option value="">اختر السبب...</option>
+                                    <option value="TEACHER_NO_SHOW">المعلم لم يحضر في الموعد</option>
+                                    <option value="SESSION_TOO_SHORT">وقت الحصة كان أقصر من المتفق عليه</option>
+                                    <option value="QUALITY_ISSUE">جودة الشرح لم تكن مناسبة</option>
+                                    <option value="OTHER">سبب آخر</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">التفاصيل</label>
+                                <textarea
+                                    value={disputeDescription}
+                                    onChange={(e) => setDisputeDescription(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl min-h-[100px]"
+                                    placeholder="اكتب التفاصيل هنا..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSubmitDispute}
+                                disabled={submittingDispute}
+                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50"
+                            >
+                                {submittingDispute ? 'جاري الإرسال...' : 'إرسال البلاغ'}
+                            </button>
+                            <button
+                                onClick={() => setDisputeModalOpen(false)}
+                                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold"
+                            >
+                                تراجع
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

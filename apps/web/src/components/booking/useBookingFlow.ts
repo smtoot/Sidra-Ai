@@ -9,9 +9,13 @@ interface UseBookingFlowProps {
     teacherName: string;
     isGuest: boolean;
     userRole: 'PARENT' | 'STUDENT' | null;
+    userId?: string;
 }
 
-export function useBookingFlow({ teacherId, teacherName, isGuest, userRole }: UseBookingFlowProps) {
+const STORAGE_KEY = 'pendingBooking';
+const EXPIRY_TIME = 30 * 60 * 1000; // 30 minutes
+
+export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, userId }: UseBookingFlowProps) {
     const [state, setState] = useState<BookingFlowState>({
         currentStep: 0,
         completedSteps: [],
@@ -52,19 +56,18 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole }: Us
             return !!state.selectedDate && !!state.selectedSlot;
         }
 
-        // Step 3: Details (dynamic based on user role)
+        // Step 3: Details & Review (Final Step)
         if (stepIndex === 3) {
+            // Must accept terms
+            if (!state.termsAccepted) return false;
+
             // Parents must select child
             if (userRole === 'PARENT') {
                 return !!state.selectedChildId;
             }
-            // Students don't need to select child
-            return true;
-        }
 
-        // Step 4: Review
-        if (stepIndex === 4) {
-            return state.termsAccepted;
+            // Students: if terms attached, good to go
+            return true;
         }
 
         return false;
@@ -172,67 +175,98 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole }: Us
         }));
     }, []);
 
-    // Save state to localStorage (for guests)
+    // Save state to localStorage (for ALL users)
     useEffect(() => {
-        if (isGuest) {
+        // Only save if we have made some progress (e.g. at least selected a subject)
+        if (state.selectedSubject) {
             const saveTimer = setTimeout(() => {
                 const stateToSave = {
                     ...state,
                     teacherId,
-                    teacherName,
+                    userId: userId || null, // null for guests
                     timestamp: Date.now()
                 };
 
-                localStorage.setItem('pendingBooking', JSON.stringify(stateToSave));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
             }, 500);
 
             return () => clearTimeout(saveTimer);
         }
-    }, [state, isGuest, teacherId, teacherName]);
+    }, [state, teacherId, userId]);
 
-    // Restore state from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('pendingBooking');
-        if (saved && isGuest) {
+    // Check for pending booking
+    const checkPendingBooking = useCallback((): boolean => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return false;
+
+        try {
+            const data = JSON.parse(saved);
+
+            // Validation Checks:
+            // 1. Teacher matches
+            if (data.teacherId !== teacherId) return false;
+
+            // 2. User matches (if logged in)
+            if (userId && data.userId !== userId) return false;
+
+            // 3. Not expired (30 mins)
+            if (Date.now() - data.timestamp > EXPIRY_TIME) {
+                // Expired, clear it
+                localStorage.removeItem(STORAGE_KEY);
+                return false;
+            }
+
+            // 4. Significant progress made (Step >= 3 generally, or at least Step 2 finished)
+            // User requested: currentStep >= 3, or if we want to be generous:
+            // "only restore if all conditions pass... currentStep >= 3"
+            // But let's allow resuming even earlier if it matches exactly, 
+            // BUT strict requirement was "currentStep >= 3".
+            // Let's stick to the user requirement for the "Prompt" but safely restore otherwise?
+            // Actually user said: "Restore booking state ONLY IF... currentStep >= 3"
+            if ((data.currentStep || 0) < 3) return false;
+
+            return true;
+        } catch (err) {
+            return false;
+        }
+    }, [teacherId, userId]);
+
+    // Resume booking from saved state
+    const resumeBooking = useCallback(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
             try {
                 const data = JSON.parse(saved);
-
-                // Check if not expired (24 hours) and for same teacher
-                if (
-                    data.teacherId === teacherId &&
-                    Date.now() - data.timestamp < 24 * 60 * 60 * 1000
-                ) {
-                    setState(prev => ({
-                        ...prev,
-                        selectedSubject: data.selectedSubject || '',
-                        selectedBookingType: data.selectedBookingType || null,
-                        selectedBookingOption: data.selectedBookingOption || null,
-                        selectedDate: data.selectedDate ? new Date(data.selectedDate) : null,
-                        selectedSlot: data.selectedSlot || null,
-                        recurringWeekday: data.recurringWeekday || '',
-                        recurringTime: data.recurringTime || '',
-                        suggestedDates: (data.suggestedDates || []).map((d: string) => new Date(d)),
-                        bookingNotes: data.bookingNotes || ''
-                    }));
-
-                    toast.success('تم استعادة اختياراتك السابقة');
-                } else if (data.teacherId !== teacherId) {
-                    // Different teacher, clear saved state
-                    localStorage.removeItem('pendingBooking');
-                }
+                setState(prev => ({
+                    ...prev,
+                    currentStep: data.currentStep || 0,
+                    completedSteps: data.completedSteps || [],
+                    selectedSubject: data.selectedSubject || '',
+                    selectedBookingType: data.selectedBookingType || null,
+                    selectedBookingOption: data.selectedBookingOption || null,
+                    selectedDate: data.selectedDate ? new Date(data.selectedDate) : null,
+                    selectedSlot: data.selectedSlot || null,
+                    recurringWeekday: data.recurringWeekday || '',
+                    recurringTime: data.recurringTime || '',
+                    suggestedDates: (data.suggestedDates || []).map((d: string) => new Date(d)),
+                    bookingNotes: data.bookingNotes || '',
+                    // Don't restore termsAccepted, user should review again
+                    termsAccepted: false
+                }));
+                toast.success('تم استعادة بيانات الحجز السابق');
             } catch (err) {
-                console.error('Failed to restore booking state', err);
-                localStorage.removeItem('pendingBooking');
+                console.error('Failed to restore booking', err);
+                toast.error('حدث خطأ أثناء استعادة الحجز');
             }
         }
-    }, [teacherId, isGuest]);
-
-    // Clear saved state (called after successful booking or login)
-    const clearSavedState = useCallback(() => {
-        localStorage.removeItem('pendingBooking');
     }, []);
 
-    // Reset state
+    // Clear saved state
+    const clearSavedState = useCallback(() => {
+        localStorage.removeItem(STORAGE_KEY);
+    }, []);
+
+    // Reset state and clear storage
     const resetState = useCallback(() => {
         setState({
             currentStep: 0,
@@ -261,6 +295,8 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole }: Us
         isStepComplete,
         canGoToStep,
         resetState,
+        checkPendingBooking,
+        resumeBooking,
         clearSavedState
     };
 }

@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReadableIdService } from '../common/readable-id.service';
+import { NotificationService } from '../notification/notification.service';
 import {
   CreateSupportTicketDto,
   UpdateSupportTicketDto,
@@ -21,9 +23,12 @@ import {
 
 @Injectable()
 export class SupportTicketService {
+  private readonly logger = new Logger(SupportTicketService.name);
+
   constructor(
     private prisma: PrismaService,
     private readableIdService: ReadableIdService,
+    private notificationService: NotificationService,
   ) {}
 
   /**
@@ -136,7 +141,55 @@ export class SupportTicketService {
       },
     });
 
+    // Notify all support staff about new ticket
+    await this.notifyAdminsAboutNewTicket(ticket);
+
     return this.mapToDetailDto(ticket);
+  }
+
+  /**
+   * Notify admin/support staff about new support ticket
+   */
+  private async notifyAdminsAboutNewTicket(ticket: any): Promise<void> {
+    try {
+      // Get all admin/support users
+      const admins = await this.prisma.user.findMany({
+        where: {
+          role: { in: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'] },
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      const creatorName = ticket.createdBy?.firstName
+        ? `${ticket.createdBy.firstName} ${ticket.createdBy.lastName || ''}`.trim()
+        : 'مستخدم';
+
+      // Send notification to each admin
+      for (const admin of admins) {
+        await this.notificationService.notifyUser({
+          userId: admin.id,
+          type: 'ADMIN_ALERT',
+          title: `طلب مساعدة جديد: ${ticket.readableId}`,
+          message: `طلب جديد من ${creatorName}: ${ticket.subject}`,
+          link: `/admin/support-tickets/${ticket.id}`,
+          metadata: {
+            ticketId: ticket.id,
+            readableId: ticket.readableId,
+            priority: ticket.priority,
+            category: ticket.category,
+          },
+          dedupeKey: `NEW_TICKET:${ticket.id}`,
+        });
+      }
+
+      this.logger.log(
+        `Notified ${admins.length} admins about new ticket ${ticket.readableId}`,
+      );
+    } catch (error) {
+      // Don't fail ticket creation if notification fails
+      this.logger.error('Failed to send admin notifications for new ticket', error);
+    }
   }
 
   /**

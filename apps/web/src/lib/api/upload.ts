@@ -187,11 +187,7 @@ export async function uploadFileWithUrl(
     const formData = new FormData();
     formData.append('file', fileToUpload);
 
-    const response = await api.post(`/storage?folder=${folder}`, formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    });
+    const response = await api.post(`/storage?folder=${folder}`, formData);
 
     return {
         fileKey: response.data.fileKey,

@@ -70,7 +70,7 @@ export default function SupportPage() {
       const data = await getSupportTickets();
       setTickets(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل في تحميل التذاكر');
+      setError(err.response?.data?.message || 'فشل في تحميل طلبات المساعدة');
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export default function SupportPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">تذاكر الدعم</h1>
+          <h1 className="text-3xl font-bold text-gray-900">طلبات المساعدة</h1>
           <p className="text-gray-600 mt-1">عرض وإدارة طلبات الدعم الخاصة بك</p>
         </div>
         <button
@@ -108,7 +108,7 @@ export default function SupportPage() {
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          إنشاء تذكرة
+          طلب مساعدة
         </button>
       </div>
 
@@ -117,7 +117,7 @@ export default function SupportPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatsCard
             icon={Ticket}
-            label="إجمالي التذاكر"
+            label="إجمالي الطلبات"
             value={stats.total}
             color="blue"
           />

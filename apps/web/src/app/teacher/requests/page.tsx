@@ -13,7 +13,7 @@ import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard'
 import Link from 'next/link';
 import { BookingCard } from '@/components/teacher/BookingCard';
 
-type FilterTab = 'all' | 'pending' | 'scheduled' | 'completed' | 'cancelled';
+type FilterTab = 'all' | 'pending' | 'waiting_payment' | 'cancelled';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -52,23 +52,33 @@ export default function TeacherRequestsPage() {
         switch (activeTab) {
             case 'pending':
                 return requests.filter(r => r.status === 'PENDING_TEACHER_APPROVAL');
-            case 'scheduled':
-                return requests.filter(r => ['WAITING_FOR_PAYMENT', 'PAYMENT_REVIEW', 'SCHEDULED', 'PENDING_CONFIRMATION'].includes(r.status));
-            case 'completed':
-                return requests.filter(r => r.status === 'COMPLETED');
+            case 'waiting_payment':
+                return requests.filter(r => r.status === 'WAITING_FOR_PAYMENT');
             case 'cancelled':
                 return requests.filter(r => ['REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status));
-            default:
-                return requests;
+            default: // 'all'
+                return requests.filter(r =>
+                    ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)
+                ).sort((a, b) => {
+                    // Custom Sort: Pending -> Waiting -> Cancelled
+                    const priority = {
+                        PENDING_TEACHER_APPROVAL: 0,
+                        WAITING_FOR_PAYMENT: 1,
+                    };
+                    const pA = priority[a.status as keyof typeof priority] ?? 2;
+                    const pB = priority[b.status as keyof typeof priority] ?? 2;
+                    if (pA !== pB) return pA - pB;
+                    // Then by date desc
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
         }
     }, [requests, activeTab]);
 
     // Count for each tab
     const counts = useMemo(() => ({
-        all: requests.length,
+        all: requests.filter(r => ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)).length,
         pending: requests.filter(r => r.status === 'PENDING_TEACHER_APPROVAL').length,
-        scheduled: requests.filter(r => ['WAITING_FOR_PAYMENT', 'PAYMENT_REVIEW', 'SCHEDULED', 'PENDING_CONFIRMATION'].includes(r.status)).length,
-        completed: requests.filter(r => r.status === 'COMPLETED').length,
+        waiting_payment: requests.filter(r => r.status === 'WAITING_FOR_PAYMENT').length,
         cancelled: requests.filter(r => ['REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)).length,
     }), [requests]);
 
@@ -118,9 +128,8 @@ export default function TeacherRequestsPage() {
 
     const tabs: { id: FilterTab; label: string; icon: any }[] = [
         { id: 'all', label: 'الكل', icon: Calendar },
-        { id: 'pending', label: 'بانتظار الموافقة', icon: Clock },
-        { id: 'scheduled', label: 'مجدولة', icon: CheckCircle },
-        { id: 'completed', label: 'مكتملة', icon: Check },
+        { id: 'pending', label: 'طلبات جديدة', icon: Clock },
+        { id: 'waiting_payment', label: 'بانتظار الدفع', icon: Clock },
         { id: 'cancelled', label: 'ملغية', icon: XCircle },
     ];
 
@@ -133,7 +142,7 @@ export default function TeacherRequestsPage() {
                         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">طلبات التدريس</h1>
                         <p className="text-gray-600 flex items-center gap-2">
                             <Calendar className="w-5 h-5" />
-                            <span>جميع طلبات الحجز الخاصة بك</span>
+                            <span>إدارة طلبات الحجز الجديدة</span>
                         </p>
                     </header>
 
@@ -165,7 +174,7 @@ export default function TeacherRequestsPage() {
                                                     ? "bg-white/20 text-white"
                                                     : "bg-gray-200 text-gray-700"
                                             )}>
-                                                {counts[tab.id]}
+                                                {counts[tab.id as keyof typeof counts] || 0}
                                             </span>
                                         </button>
                                     );
@@ -189,12 +198,20 @@ export default function TeacherRequestsPage() {
                                     <Clock className="w-8 h-8 text-gray-400" />
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">
-                                    {activeTab === 'pending' ? 'لا توجد طلبات معلقة' : 'لا توجد طلبات'}
+                                    {activeTab === 'pending' && 'لا توجد طلبات جديدة حالياً'}
+                                    {activeTab === 'waiting_payment' && 'لا توجد حجوزات بانتظار الدفع'}
+                                    {activeTab === 'cancelled' && 'لا توجد حجوزات ملغية'}
+                                    {activeTab === 'all' && 'لا توجد طلبات'}
                                 </h3>
-                                <p className="text-gray-500 mb-4">سيظهر هنا طلبات الحجز الجديدة</p>
+                                <p className="text-gray-500 mb-4">
+                                    {activeTab === 'pending' && 'عندما يقوم الطلاب بحجز حصص جديدة، ستظهر هنا للموافقة عليها.'}
+                                    {activeTab === 'waiting_payment' && 'الحجوزات التي وافقت عليها وبانتظار دفع الطالب ستظهر هنا.'}
+                                    {activeTab === 'cancelled' && 'سجل الحجوزات الملغية فارغ.'}
+                                    {activeTab === 'all' && 'ليس لديك أي طلبات حجز حالياً.'}
+                                </p>
                                 {activeTab !== 'all' && (
                                     <Button variant="outline" onClick={() => setActiveTab('all')}>
-                                        عرض جميع الطلبات
+                                        عرض الكل
                                     </Button>
                                 )}
                             </CardContent>
@@ -208,25 +225,46 @@ export default function TeacherRequestsPage() {
                                     const endIndex = startIndex + ITEMS_PER_PAGE;
                                     const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
-                                    return paginatedRequests.map((booking) => (
-                                        <BookingCard
-                                            key={booking.id}
-                                            id={booking.id}
-                                            readableId={booking.readableId}
-                                            studentName={booking.child?.name || booking.studentUser?.email || booking.bookedByUser?.email || 'طالب'}
-                                            subjectName={booking.subject?.nameAr || booking.subjectId}
-                                            startTime={booking.startTime}
-                                            endTime={booking.endTime}
-                                            price={booking.price}
-                                            status={booking.status}
-                                            showActions={true}
-                                            isProcessing={processingId === booking.id}
-                                            onApprove={() => handleApproveClick(booking.id)}
-                                            onReject={() => handleRejectClick(booking.id)}
-                                            packageSessionCount={booking.pendingTierSessionCount || undefined}
-                                            isDemo={booking.isDemo}
-                                        />
-                                    ));
+                                    return paginatedRequests.map((booking) => {
+                                        let alertNode: React.ReactNode = null;
+                                        if (booking.status === 'PENDING_TEACHER_APPROVAL') {
+                                            alertNode = (
+                                                <div className="bg-amber-50 text-amber-800 text-sm px-3 py-2 rounded-lg border border-amber-100 flex items-center gap-2">
+                                                    <Clock className="w-4 h-4 text-amber-600" />
+                                                    <span>يرجى الرد خلال 24 ساعة للحفاظ على معدل استجابة مرتفع.</span>
+                                                </div>
+                                            );
+                                        } else if (booking.status === 'WAITING_FOR_PAYMENT') {
+                                            alertNode = (
+                                                <div className="bg-blue-50 text-blue-800 text-sm px-3 py-2 rounded-lg border border-blue-100 flex items-center gap-2">
+                                                    <Clock className="w-4 h-4 text-blue-600" />
+                                                    <span>بانتظار دفع ولي الأمر لتأكيد الحجز.</span>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <BookingCard
+                                                key={booking.id}
+                                                id={booking.id}
+                                                readableId={booking.readableId}
+                                                studentName={booking.child?.name || booking.studentUser?.email || booking.bookedByUser?.email || 'طالب'}
+                                                subjectName={booking.subject?.nameAr || booking.subjectId}
+                                                startTime={booking.startTime}
+                                                endTime={booking.endTime}
+                                                price={booking.price}
+                                                status={booking.status}
+                                                showActions={true}
+                                                isProcessing={processingId === booking.id}
+                                                onApprove={() => handleApproveClick(booking.id)}
+                                                onReject={() => handleRejectClick(booking.id)}
+                                                packageSessionCount={booking.pendingTierSessionCount || undefined}
+                                                isDemo={booking.isDemo}
+                                                alert={alertNode}
+                                                variant="request"
+                                            />
+                                        );
+                                    });
                                 })()}
                             </div>
 
@@ -249,15 +287,15 @@ export default function TeacherRequestsPage() {
                 {/* Confirmation Modal */}
                 {confirmAction && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <Card className="max-w-md w-full">
+                        <Card className="max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
                             <CardContent className="p-6">
                                 <div className="flex items-start gap-4 mb-6">
                                     <div className={cn(
-                                        "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
-                                        confirmAction.type === 'approve' ? "bg-success-100" : "bg-red-100"
+                                        "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 bg-opacity-10",
+                                        confirmAction.type === 'approve' ? "bg-emerald-500" : "bg-red-500"
                                     )}>
                                         {confirmAction.type === 'approve' ? (
-                                            <CheckCircle className="w-6 h-6 text-success-600" />
+                                            <CheckCircle className="w-6 h-6 text-emerald-600" />
                                         ) : (
                                             <XCircle className="w-6 h-6 text-red-600" />
                                         )}
@@ -268,7 +306,7 @@ export default function TeacherRequestsPage() {
                                         </h3>
                                         <p className="text-sm text-gray-600 mb-4">
                                             {confirmAction.type === 'approve'
-                                                ? 'هل أنت متأكد من قبول هذا الطلب؟ سيتم إخطار ولي الأمر فوراً.'
+                                                ? 'هل أنت متأكد من قبول هذا الطلب؟ سيتم إخطار ولي الأمر لاستكمال الدفع.'
                                                 : 'هل أنت متأكد من رفض هذا الطلب؟ يرجى ذكر السبب:'}
                                         </p>
                                         {confirmAction.type === 'reject' && (
@@ -293,9 +331,9 @@ export default function TeacherRequestsPage() {
                                     </Button>
                                     <Button
                                         className={cn(
-                                            "flex-1",
+                                            "flex-1 text-white",
                                             confirmAction.type === 'approve'
-                                                ? "bg-success-600 hover:bg-success-700"
+                                                ? "bg-emerald-600 hover:bg-emerald-700"
                                                 : "bg-red-600 hover:bg-red-700"
                                         )}
                                         onClick={handleConfirm}

@@ -38,21 +38,21 @@ export default function TicketDetailPage() {
       const data = await getSupportTicket(ticketId);
       setTicket(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل في تحميل التذكرة');
+      setError(err.response?.data?.message || 'فشل في تحميل طلب المساعدة');
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = async () => {
-    if (!confirm('هل أنت متأكد من إغلاق هذه التذكرة؟')) return;
+    if (!confirm('هل أنت متأكد من إغلاق هذا الطلب؟')) return;
 
     try {
       setActionLoading(true);
       const updated = await closeSupportTicket(ticketId);
       setTicket(updated);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'فشل في إغلاق التذكرة');
+      alert(err.response?.data?.message || 'فشل في إغلاق طلب المساعدة');
     } finally {
       setActionLoading(false);
     }
@@ -64,7 +64,7 @@ export default function TicketDetailPage() {
       const updated = await reopenSupportTicket(ticketId);
       setTicket(updated);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'فشل في إعادة فتح التذكرة');
+      alert(err.response?.data?.message || 'فشل في إعادة فتح طلب المساعدة');
     } finally {
       setActionLoading(false);
     }
@@ -89,7 +89,7 @@ export default function TicketDetailPage() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-3" />
-          <p className="text-gray-500">جاري تحميل التذكرة...</p>
+          <p className="text-gray-500">جاري تحميل طلب المساعدة...</p>
         </div>
       </div>
     );
@@ -99,13 +99,13 @@ export default function TicketDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <p className="text-red-700 font-medium mb-4">{error || 'التذكرة غير موجودة'}</p>
+          <p className="text-red-700 font-medium mb-4">{error || 'طلب المساعدة غير موجود'}</p>
           <button
             onClick={handleBack}
             className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
           >
             <ArrowRight className="w-4 h-4" />
-            العودة للتذاكر
+            العودة لطلبات المساعدة
           </button>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function TicketDetailPage() {
         className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
       >
         <ArrowRight className="w-5 h-5" />
-        <span>العودة للتذاكر</span>
+        <span>العودة لطلبات المساعدة</span>
       </button>
 
       {/* Main Content */}
@@ -157,7 +157,7 @@ export default function TicketDetailPage() {
           ) : (
             <div className="px-4 py-6 bg-gray-50 border-t border-gray-200 text-center">
               <p className="text-gray-500 text-sm">
-                هذه التذكرة مغلقة. لا يمكن إضافة رسائل جديدة.
+                هذا الطلب مغلق. لا يمكن إضافة رسائل جديدة.
               </p>
               {ticket.type === 'SUPPORT' && (
                 <button
@@ -165,7 +165,7 @@ export default function TicketDetailPage() {
                   disabled={actionLoading}
                   className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium disabled:opacity-50"
                 >
-                  إعادة فتح التذكرة
+                  إعادة فتح الطلب
                 </button>
               )}
             </div>

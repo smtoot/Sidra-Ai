@@ -90,7 +90,7 @@ export function useProfileCompletion(
             },
             {
                 id: 'qualifications',
-                nameAr: 'المؤهلات والخبرات',
+                nameAr: 'المؤهلات الأكاديمية',
                 nameEn: 'Qualifications',
                 // UPDATED: Check for qualifications (at least 1) instead of education field
                 // yearsOfExperience can be 0, so check for undefined/null explicitly
@@ -102,6 +102,16 @@ export function useProfileCompletion(
                 ),
                 isLocked: false,
                 weight: 15,
+            },
+            {
+                id: 'skills-experience',
+                nameAr: 'المهارات والخبرات العملية',
+                nameEn: 'Skills & Experience',
+                // OPTIONAL: Does NOT affect profile completion
+                // Always shows as "complete" so it doesn't show incomplete indicator
+                isComplete: true,
+                isLocked: false,
+                weight: 0,  // Zero weight = doesn't affect completion percentage
             },
             {
                 id: 'teaching-approach',

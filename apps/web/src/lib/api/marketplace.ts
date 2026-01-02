@@ -13,6 +13,25 @@ export interface TeacherQualification {
     verified: boolean;
 }
 
+export interface TeacherSkillPublic {
+    id: string;
+    name: string;
+    category: 'TEACHING_METHOD' | 'TECHNOLOGY' | 'SOFT_SKILL' | 'SUBJECT_SPECIFIC' | null;
+    proficiency: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+}
+
+export interface TeacherWorkExperiencePublic {
+    id: string;
+    title: string;
+    organization: string;
+    experienceType: 'TEACHING' | 'TUTORING' | 'CURRICULUM_DEVELOPMENT' | 'EDUCATIONAL_LEADERSHIP' | 'OTHER';
+    startDate: string | null;
+    endDate: string | null;
+    isCurrent: boolean;
+    description: string | null;
+    subjects: string[];
+}
+
 export interface TeacherPublicProfile {
     id: string;
     userId: string;
@@ -54,6 +73,8 @@ export interface TeacherPublicProfile {
         curriculum: { id: string; nameAr: string; nameEn: string };
     }>;
     qualifications: TeacherQualification[];
+    skills: TeacherSkillPublic[];
+    workExperiences: TeacherWorkExperiencePublic[];
     availability: Array<{
         id: string;
         dayOfWeek: string;
@@ -172,6 +193,7 @@ export interface AvailabilityCalendar {
     nextAvailableSlot: {
         date: string;
         time: string;
+        startTimeUtc?: string; // Added for timezone handling
         display: string;  // "Tomorrow at 3pm"
     } | null;
 }
@@ -197,5 +219,6 @@ export interface TeacherRatingsResponse {
 export interface NextAvailableSlot {
     date: string;  // ISO date string
     time: string;  // Time string
+    startTimeUtc?: string; // User-friendly UTC time
     display: string;  // Human-readable Arabic display (e.g., "غداً الساعة 3م")
 }

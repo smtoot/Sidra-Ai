@@ -73,20 +73,17 @@ export function AuthenticatedImage({
                 const url = URL.createObjectURL(response.data);
                 setBlobUrl(url);
             } catch (err: any) {
-                console.error('Failed to load image:', {
-                    status: err?.response?.status,
-                    message: err?.message,
-                    fileKey,
-                });
-
                 // Provide specific error messages
                 if (err?.response?.status === 401) {
                     setError('غير مصرح - يرجى تسجيل الدخول');
+                    // console.warn(`AuthImage 401: ${fileKey}`);
                 } else if (err?.response?.status === 403) {
                     setError('غير مسموح بالوصول');
+                    // Expected for seed data mismatches or private files
                 } else if (err?.response?.status === 404 || err?.response?.status === 400) {
                     setError('الملف غير موجود');
                 } else {
+                    console.error(`Failed to load image [${fileKey}]:`, err);
                     setError('فشل تحميل الصورة');
                 }
             } finally {

@@ -68,30 +68,23 @@ export const BOOKING_STEPS: BookingStep[] = [
     },
     {
         id: 1,
-        label: 'اختر نوع الحجز',
-        shortLabel: 'النوع',
+        label: 'اختر عدد الحصص',
+        shortLabel: 'عدد الحصص',
         requiredFields: ['selectedBookingType', 'selectedBookingOption'],
         guestAllowed: true
     },
     {
         id: 2,
-        label: 'حدد الموعد',
-        shortLabel: 'الموعد',
+        label: 'حدد التاريخ والوقت',
+        shortLabel: 'التاريخ والوقت',
         requiredFields: [], // Dynamic based on booking type
         guestAllowed: true
     },
     {
         id: 3,
-        label: 'معلوماتك',
-        shortLabel: 'التفاصيل',
-        requiredFields: [], // Dynamic based on user role
-        guestAllowed: false
-    },
-    {
-        id: 4,
-        label: 'المراجعة والتأكيد',
-        shortLabel: 'المراجعة',
-        requiredFields: ['termsAccepted'],
+        label: 'البيانات والتأكيد',
+        shortLabel: 'البيانات والتأكيد',
+        requiredFields: ['termsAccepted'], // Dynamic based on user role + terms
         guestAllowed: false
     }
 ];
