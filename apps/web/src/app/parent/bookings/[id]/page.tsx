@@ -149,7 +149,11 @@ export default function ParentBookingDetailsPage() {
     if (booking.status === 'SCHEDULED') availableActions.push('cancel');
     if (booking.status === 'PENDING_CONFIRMATION') availableActions.push('confirm', 'dispute');
     if (booking.status === 'COMPLETED') availableActions.push('rate', 'book-new');
-    if (booking.status.includes('CANCELLED') || booking.status.includes('REJECTED')) availableActions.push('book-new');
+    if (booking.status.includes('CANCELLED') ||
+        booking.status.includes('REJECTED') ||
+        booking.status === 'REFUNDED' ||
+        booking.status === 'PARTIALLY_REFUNDED' ||
+        booking.status === 'EXPIRED') availableActions.push('book-new');
 
 
     return (
