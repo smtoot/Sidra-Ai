@@ -19,6 +19,7 @@ export interface OnboardingData {
     bio: string;
     // NOTE: education field REMOVED - replaced by QualificationsManager component
     // Qualifications are now managed separately via teacherApi.getQualifications()
+    qualifications: any[];
 
     // Step 3: Subjects (managed separately via API)
     subjects: any[];
@@ -64,6 +65,7 @@ const defaultData: OnboardingData = {
     yearsOfExperience: 0,
     bio: '',
     // education field REMOVED
+    qualifications: [],
     subjects: [],
     idType: null,
     idNumber: '',
@@ -90,9 +92,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const loadProfile = useCallback(async () => {
         setLoading(true);
         try {
-            const [profile, status] = await Promise.all([
+            const [profile, status, qualifications] = await Promise.all([
                 teacherApi.getProfile(),
                 teacherApi.getApplicationStatus().catch(() => null),
+                teacherApi.getQualifications().catch(() => []),
             ]);
 
             if (profile) {
@@ -111,9 +114,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                     idImageUrl: profile.idImageUrl || null,
                     documents: profile.documents || [],
                     applicationStatus: status,
+                    qualifications: qualifications, // Add qualifications to data
                 });
 
-                // Determine starting step based on completion
+                // Determine starting step based on strict completion
                 if (status?.applicationStatus === 'SUBMITTED' ||
                     status?.applicationStatus === 'APPROVED' ||
                     status?.applicationStatus === 'REJECTED' ||
@@ -121,12 +125,35 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                     status?.applicationStatus === 'INTERVIEW_REQUIRED' ||
                     status?.applicationStatus === 'INTERVIEW_SCHEDULED') {
                     setCurrentStep(6); // Status dashboard
+                } else if (profile.idNumber && profile.idImageUrl && profile.subjects?.length > 0) {
+                    setCurrentStep(5); // Review (All previous steps done)
                 } else if (profile.subjects?.length > 0) {
-                    setCurrentStep(4); // Documents
-                } else if (profile.bio) {
+                    // Check if previous steps (Experience/Qualifications) are actually done?
+                    // Ideally we should checks qualifications here too, but if subjects are present, 
+                    // users likely passed step 2. However, strictly:
+                    if (qualifications.length > 0) {
+                        setCurrentStep(4); // Documents/Identity
+                    } else {
+                        setCurrentStep(2); // Back to Experience if no quals
+                    }
+                } else if (profile.bio && qualifications.length > 0) {
                     setCurrentStep(3); // Subjects
-                } else if (profile.displayName) {
+                } else if (profile.displayName && profile.profilePhotoUrl) {
                     setCurrentStep(2); // Experience
+                } else if (profile.displayName) {
+                    setCurrentStep(1); // Photo Step (Step 1 is Photo, Step 0 is Welcome)
+                    // Wait, Welcome is 0. Photo is 1.
+                    // If they have nothing, they go to 0 or 1? 
+                    // Usually Welcome (0) -> Click 'Start' -> Photo (1).
+                    // If they have registration data, maybe 1. 
+                    // Let's stick to:
+                    // 0: Welcome
+                    // 1: Photo
+                    // 2: Experience
+                    // 3: Subjects
+                    // 4: Identity
+                    // 5: Review
+
                 } else {
                     setCurrentStep(0); // Welcome
                 }

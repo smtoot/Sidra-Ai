@@ -43,9 +43,9 @@ export class CreateQualificationDto {
   @IsOptional()
   graduationYear?: number;
 
-  @IsUrl()
+  @IsString()
   @IsNotEmpty()
-  certificateUrl!: string; // REQUIRED - S3 URL to certificate
+  certificateUrl!: string; // REQUIRED - S3 Key (path) to certificate
 }
 
 /**
@@ -83,7 +83,7 @@ export class UpdateQualificationDto {
   @IsOptional()
   graduationYear?: number;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
-  certificateUrl?: string;
+  certificateUrl?: string; // S3 Key (path)
 }
