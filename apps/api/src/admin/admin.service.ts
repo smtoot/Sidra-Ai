@@ -17,7 +17,7 @@ export class AdminService {
     private prisma: PrismaService,
     private walletService: WalletService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async getDashboardStats() {
     const [
@@ -162,8 +162,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-            previousCompletedBookings) *
-          100
+          previousCompletedBookings) *
+        100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -646,6 +646,7 @@ export class AdminService {
         },
         documents: true,
         subjects: { include: { subject: true, curriculum: true } },
+        qualifications: true,
       },
     });
 
