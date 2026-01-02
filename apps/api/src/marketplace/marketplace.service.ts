@@ -381,6 +381,18 @@ export class MarketplaceService {
           where: { verified: true },
           orderBy: { graduationYear: 'desc' },
         },
+        // Skills sorted by proficiency DESC, name ASC for public profile
+        skills: {
+          orderBy: [{ proficiency: 'desc' }, { name: 'asc' }],
+        },
+        // Work experiences sorted by current first, then by start date
+        workExperiences: {
+          orderBy: [
+            { isCurrent: 'desc' },
+            { startDate: 'desc' },
+            { createdAt: 'desc' },
+          ],
+        },
         availability: true,
         // Include demo settings
         demoSettings: true,
@@ -476,6 +488,29 @@ export class MarketplaceService {
             startDate: q.startDate,
             endDate: q.endDate,
             verified: q.verified,
+          })) || [],
+
+        // Skills (sorted by proficiency DESC, name ASC)
+        skills:
+          (teacher as any).skills?.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            category: s.category,
+            proficiency: s.proficiency,
+          })) || [],
+
+        // Work experiences (sorted by isCurrent DESC, startDate DESC)
+        workExperiences:
+          (teacher as any).workExperiences?.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            organization: e.organization,
+            experienceType: e.experienceType,
+            startDate: e.startDate,
+            endDate: e.endDate,
+            isCurrent: e.isCurrent,
+            description: e.description,
+            subjects: e.subjects,
           })) || [],
 
         availability: (teacher as any).availability,

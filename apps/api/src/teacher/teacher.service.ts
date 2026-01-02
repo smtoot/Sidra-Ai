@@ -37,6 +37,14 @@ export class TeacherService {
         availability: true,
         documents: true,
         qualifications: true, // Include qualifications
+        skills: { orderBy: { createdAt: 'desc' } }, // Include skills
+        workExperiences: {
+          orderBy: [
+            { isCurrent: 'desc' },
+            { startDate: 'desc' },
+            { createdAt: 'desc' },
+          ],
+        }, // Include work experiences
         user: true, // Include User for firstName/lastName
       },
     });

@@ -6,7 +6,14 @@ import {
     AcceptTermsDto,
     CreateQualificationDto,
     UpdateQualificationDto,
-    QualificationStatus
+    QualificationStatus,
+    CreateSkillDto,
+    UpdateSkillDto,
+    SkillCategory,
+    SkillProficiency,
+    CreateWorkExperienceDto,
+    UpdateWorkExperienceDto,
+    ExperienceType,
 } from '@sidra/shared';
 
 export type DocumentType = 'ID_CARD' | 'CERTIFICATE' | 'DEGREE' | 'OTHER';
@@ -60,6 +67,30 @@ export interface TeacherQualification {
     updatedAt: string;
 }
 
+// Re-export enums for convenience
+export { SkillCategory, SkillProficiency, ExperienceType };
+
+export interface TeacherSkill {
+    id: string;
+    name: string;
+    category?: SkillCategory;
+    proficiency: SkillProficiency;
+    createdAt: string;
+}
+
+export interface TeacherWorkExperience {
+    id: string;
+    title: string;
+    organization: string;
+    experienceType: ExperienceType;
+    startDate?: string;
+    endDate?: string;
+    isCurrent: boolean;
+    description?: string;
+    subjects: string[];
+    createdAt: string;
+}
+
 export const teacherApi = {
     getProfile: async () => {
         const response = await api.get('/teacher/me');
@@ -93,6 +124,42 @@ export const teacherApi = {
     },
     removeQualification: async (id: string) => {
         const response = await api.delete(`/teacher/me/qualifications/${id}`);
+        return response.data;
+    },
+
+    // --- Skills ---
+    getSkills: async (): Promise<TeacherSkill[]> => {
+        const response = await api.get('/teacher/skills');
+        return response.data;
+    },
+    addSkill: async (data: CreateSkillDto): Promise<TeacherSkill> => {
+        const response = await api.post('/teacher/skills', data);
+        return response.data;
+    },
+    updateSkill: async (id: string, data: UpdateSkillDto): Promise<TeacherSkill> => {
+        const response = await api.patch(`/teacher/skills/${id}`, data);
+        return response.data;
+    },
+    removeSkill: async (id: string) => {
+        const response = await api.delete(`/teacher/skills/${id}`);
+        return response.data;
+    },
+
+    // --- Work Experience ---
+    getWorkExperiences: async (): Promise<TeacherWorkExperience[]> => {
+        const response = await api.get('/teacher/work-experiences');
+        return response.data;
+    },
+    addWorkExperience: async (data: CreateWorkExperienceDto): Promise<TeacherWorkExperience> => {
+        const response = await api.post('/teacher/work-experiences', data);
+        return response.data;
+    },
+    updateWorkExperience: async (id: string, data: UpdateWorkExperienceDto): Promise<TeacherWorkExperience> => {
+        const response = await api.patch(`/teacher/work-experiences/${id}`, data);
+        return response.data;
+    },
+    removeWorkExperience: async (id: string) => {
+        const response = await api.delete(`/teacher/work-experiences/${id}`);
         return response.data;
     },
 

@@ -10,6 +10,7 @@ import { useBreakpoint } from '@/hooks/useMediaQuery';
 import { ProfileSection } from '@/components/teacher/profile-hub/ProfileSection';
 import { ProfileBasicsSection } from '@/components/teacher/profile-hub/sections/ProfileBasicsSection';
 import { QualificationsSection } from '@/components/teacher/profile-hub/sections/QualificationsSection';
+import { SkillsExperienceSection } from '@/components/teacher/profile-hub/sections/SkillsExperienceSection';
 import { TeacherDocumentUpload } from '@/components/teacher/TeacherDocumentUpload';
 import { IdVerificationSection } from '@/components/teacher/shared';
 import { SubjectsManager } from '@/components/teacher/profile-hub/sections/SubjectsManager';
@@ -258,7 +259,7 @@ export default function ProfileHubPage() {
                         {activeSection === 'qualifications' && (
                             <ProfileSection
                                 id="qualifications"
-                                title="المؤهلات والخبرات"
+                                title="المؤهلات الأكاديمية"
                                 isLocked={false}
                                 isSaving={saving}
                                 onSave={() => handleSaveSection('qualifications')}
@@ -269,6 +270,17 @@ export default function ProfileHubPage() {
                                     isReadOnly={isReadOnly}
                                     onUpdate={handleUpdateProfile}
                                 />
+                            </ProfileSection>
+                        )}
+
+                        {/* Skills & Work Experience (Optional) */}
+                        {activeSection === 'skills-experience' && (
+                            <ProfileSection
+                                id="skills-experience"
+                                title="المهارات والخبرات العملية"
+                                isLocked={false}
+                            >
+                                <SkillsExperienceSection isReadOnly={isReadOnly} />
                             </ProfileSection>
                         )}
 

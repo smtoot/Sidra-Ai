@@ -10,7 +10,7 @@ import {
     Calendar, MessageSquare, ChevronDown, Sparkles,
     ShieldCheck, Play, Users, Sun, Sunset, Moon, Gift, Share,
     Award, BookOpen, Building2, Video, BookMarked, Layers, DollarSign, Palmtree,
-    UserPlus
+    UserPlus, Briefcase
 } from 'lucide-react';
 import { ShareModal } from '../ShareModal';
 import { FavoriteButton } from '../FavoriteButton';
@@ -123,9 +123,15 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
     const [ratingsLoading, setRatingsLoading] = useState(false);
     const [showAllRatings, setShowAllRatings] = useState(false);
     const [hasNavigationHistory, setHasNavigationHistory] = useState(false);
+    const [showAllSkills, setShowAllSkills] = useState(false);
+    const [showAllExperiences, setShowAllExperiences] = useState(false);
 
     const isPreview = mode === 'preview';
     const isPublic = mode === 'public';
+
+    // Truncation constants
+    const SKILLS_INITIAL_COUNT = 6;
+    const EXPERIENCES_INITIAL_COUNT = 2;
 
     // Check if user has navigation history (didn't land directly on this page)
     useEffect(() => {
@@ -626,6 +632,124 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                     المؤهلات الأكاديمية
                                 </h2>
                                 <EmptyState message="ستظهر مؤهلاتك الأكاديمية هنا بعد إضافتها." isPreview={isPreview} />
+                            </section>
+                        )}
+
+                        {/* Skills */}
+                        {teacher.skills && teacher.skills.length > 0 ? (
+                            <section className="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-xl border border-amber-100">
+                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
+                                    <Award className="w-5 h-5" />
+                                    المهارات
+                                </h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {(showAllSkills ? teacher.skills : teacher.skills.slice(0, SKILLS_INITIAL_COUNT)).map((skill) => (
+                                        <span
+                                            key={skill.id}
+                                            className={cn(
+                                                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium",
+                                                skill.proficiency === 'EXPERT' && "bg-green-100 text-green-700",
+                                                skill.proficiency === 'ADVANCED' && "bg-purple-100 text-purple-700",
+                                                skill.proficiency === 'INTERMEDIATE' && "bg-blue-100 text-blue-700",
+                                                skill.proficiency === 'BEGINNER' && "bg-gray-100 text-gray-700"
+                                            )}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                            {skill.name}
+                                        </span>
+                                    ))}
+                                </div>
+                                {teacher.skills.length > SKILLS_INITIAL_COUNT && !showAllSkills && (
+                                    <button
+                                        onClick={() => setShowAllSkills(true)}
+                                        className="mt-4 text-primary hover:text-primary-hover font-medium text-sm flex items-center gap-1"
+                                    >
+                                        <span>+{teacher.skills.length - SKILLS_INITIAL_COUNT} المزيد</span>
+                                    </button>
+                                )}
+                            </section>
+                        ) : isPreview && (
+                            <section className="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-xl border border-amber-100">
+                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                                    <Award className="w-5 h-5" />
+                                    المهارات
+                                </h2>
+                                <EmptyState message="لم تضف مهاراتك بعد. المهارات تساعد أولياء الأمور على فهم قدراتك." isPreview={isPreview} />
+                            </section>
+                        )}
+
+                        {/* Work Experience */}
+                        {teacher.workExperiences && teacher.workExperiences.length > 0 ? (
+                            <section className="bg-gradient-to-br from-slate-50 to-gray-50 p-6 rounded-xl border border-slate-100">
+                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
+                                    <Briefcase className="w-5 h-5" />
+                                    الخبرات العملية
+                                </h2>
+                                <div className="space-y-4">
+                                    {(showAllExperiences ? teacher.workExperiences : teacher.workExperiences.slice(0, EXPERIENCES_INITIAL_COUNT)).map((exp) => (
+                                        <div key={exp.id} className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                    <Briefcase className="w-5 h-5 text-primary" />
+                                                </div>
+                                                <div className="flex-grow">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="font-bold text-gray-900">{exp.title}</h3>
+                                                        {exp.isCurrent && (
+                                                            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                                                حالياً
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-text-subtle text-sm mb-2">
+                                                        <Building2 className="w-4 h-4 flex-shrink-0" />
+                                                        <span>{exp.organization}</span>
+                                                    </div>
+                                                    {(exp.startDate || exp.endDate) && (
+                                                        <div className="flex items-center gap-2 text-text-subtle text-sm mb-2">
+                                                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                                                            <span>
+                                                                {exp.startDate ? new Date(exp.startDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short' }) : ''}
+                                                                {exp.startDate && (exp.endDate || exp.isCurrent) && ' - '}
+                                                                {exp.isCurrent ? 'حتى الآن' : exp.endDate ? new Date(exp.endDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short' }) : ''}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {exp.description && (
+                                                        <p className="text-text-main text-sm leading-relaxed mt-2">
+                                                            {exp.description}
+                                                        </p>
+                                                    )}
+                                                    {exp.subjects && exp.subjects.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-3">
+                                                            {exp.subjects.map((subject, idx) => (
+                                                                <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                                                    {subject}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {teacher.workExperiences.length > EXPERIENCES_INITIAL_COUNT && !showAllExperiences && (
+                                    <button
+                                        onClick={() => setShowAllExperiences(true)}
+                                        className="w-full mt-4 py-2 text-primary hover:text-primary-hover font-medium text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                    >
+                                        عرض {teacher.workExperiences.length - EXPERIENCES_INITIAL_COUNT} المزيد
+                                    </button>
+                                )}
+                            </section>
+                        ) : isPreview && (
+                            <section className="bg-gradient-to-br from-slate-50 to-gray-50 p-6 rounded-xl border border-slate-100">
+                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                                    <Briefcase className="w-5 h-5" />
+                                    الخبرات العملية
+                                </h2>
+                                <EmptyState message="لم تضف خبراتك العملية بعد. شارك تاريخك المهني لبناء الثقة." isPreview={isPreview} />
                             </section>
                         )}
 

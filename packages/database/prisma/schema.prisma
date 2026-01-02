@@ -170,6 +170,10 @@ model TeacherProfile {
   qualifications     TeacherQualification[]
   supportTickets     SupportTicket[] // Support tickets about this teacher
 
+  // Skills & Work Experience
+  skills          TeacherSkill[]
+  workExperiences TeacherWorkExperience[]
+
   @@map("teacher_profiles")
 }
 
@@ -216,6 +220,52 @@ model TeacherQualification {
 
   @@index([teacherId])
   @@map("teacher_qualifications")
+}
+
+// Teacher's professional skills
+model TeacherSkill {
+  id             String           @id @default(uuid())
+  teacherId      String
+  teacherProfile TeacherProfile   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // Skill data
+  name        String           // Stored as-is, normalized for comparison only
+  category    SkillCategory?   // Optional categorization
+  proficiency SkillProficiency @default(INTERMEDIATE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId])
+  @@map("teacher_skills")
+}
+
+// Teacher's work/teaching experience history
+model TeacherWorkExperience {
+  id             String         @id @default(uuid())
+  teacherId      String
+  teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // Experience data
+  title          String         // e.g., "معلم رياضيات"
+  organization   String         // e.g., "مدرسة الخرطوم الثانوية"
+  experienceType ExperienceType
+
+  // Duration
+  startDate DateTime?
+  endDate   DateTime? // Must be NULL if isCurrent=true
+  isCurrent Boolean   @default(false)
+
+  // Details
+  description String?  @db.Text
+  subjects    String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId])
+  @@index([teacherId, isCurrent, startDate])
+  @@map("teacher_work_experiences")
 }
 
 model StudentProfile {
@@ -640,6 +690,31 @@ enum DocumentType {
   CERTIFICATE
   DEGREE
   OTHER
+}
+
+// Skill category for teacher skills
+enum SkillCategory {
+  TEACHING_METHOD  // طرق التدريس
+  TECHNOLOGY       // التقنيات
+  SOFT_SKILL       // المهارات الشخصية
+  SUBJECT_SPECIFIC // تخصصية
+}
+
+// Skill proficiency level
+enum SkillProficiency {
+  BEGINNER     // مبتدئ
+  INTERMEDIATE // متوسط
+  ADVANCED     // متقدم
+  EXPERT       // خبير
+}
+
+// Work experience type
+enum ExperienceType {
+  SCHOOL          // مدرسة
+  TUTORING_CENTER // مركز تعليمي
+  ONLINE_PLATFORM // منصة إلكترونية
+  PRIVATE         // دروس خصوصية
+  OTHER           // أخرى
 }
 
 // Type of ID for teacher verification

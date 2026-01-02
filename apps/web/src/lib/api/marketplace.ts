@@ -13,6 +13,25 @@ export interface TeacherQualification {
     verified: boolean;
 }
 
+export interface TeacherSkillPublic {
+    id: string;
+    name: string;
+    category: 'TEACHING_METHOD' | 'TECHNOLOGY' | 'SOFT_SKILL' | 'SUBJECT_SPECIFIC' | null;
+    proficiency: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+}
+
+export interface TeacherWorkExperiencePublic {
+    id: string;
+    title: string;
+    organization: string;
+    experienceType: 'TEACHING' | 'TUTORING' | 'CURRICULUM_DEVELOPMENT' | 'EDUCATIONAL_LEADERSHIP' | 'OTHER';
+    startDate: string | null;
+    endDate: string | null;
+    isCurrent: boolean;
+    description: string | null;
+    subjects: string[];
+}
+
 export interface TeacherPublicProfile {
     id: string;
     userId: string;
@@ -54,6 +73,8 @@ export interface TeacherPublicProfile {
         curriculum: { id: string; nameAr: string; nameEn: string };
     }>;
     qualifications: TeacherQualification[];
+    skills: TeacherSkillPublic[];
+    workExperiences: TeacherWorkExperiencePublic[];
     availability: Array<{
         id: string;
         dayOfWeek: string;

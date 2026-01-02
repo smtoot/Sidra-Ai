@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { TeacherService } from './teacher.service';
 import { TeacherController } from './teacher.controller';
 import { TeacherAdminController } from './teacher.admin.controller';
+import { SkillsController } from './skills.controller';
+import { SkillsService } from './skills.service';
+import { WorkExperienceController } from './work-experience.controller';
+import { WorkExperienceService } from './work-experience.service';
 import { VacationScheduler } from './vacation.scheduler';
 import { PrismaModule } from '../prisma/prisma.module'; // Assuming path for PrismaModule
 import { WalletModule } from '../wallet/wallet.module'; // Assuming path for WalletModule
@@ -17,7 +21,17 @@ import { NotificationModule } from '../notification/notification.module'; // For
     PackageModule,
     NotificationModule,
   ],
-  controllers: [TeacherController, TeacherAdminController],
-  providers: [TeacherService, VacationScheduler],
+  controllers: [
+    TeacherController,
+    TeacherAdminController,
+    SkillsController,
+    WorkExperienceController,
+  ],
+  providers: [
+    TeacherService,
+    SkillsService,
+    WorkExperienceService,
+    VacationScheduler,
+  ],
 })
 export class TeacherModule {}
