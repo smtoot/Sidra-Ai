@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -127,14 +129,23 @@ export class MarketplaceService {
 
   // --- Curricula ---
   async createCurriculum(dto: CreateCurriculumDto) {
-    return this.prisma.curriculum.create({
-      data: {
-        code: dto.code,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        isActive: dto.isActive ?? true,
-      },
-    });
+    try {
+      return await this.prisma.curriculum.create({
+        data: {
+          code: dto.code,
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          isActive: dto.isActive ?? true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد منهج بنفس الرمز. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllCurricula(includeInactive = false) {
@@ -152,10 +163,19 @@ export class MarketplaceService {
 
   async updateCurriculum(id: string, dto: UpdateCurriculumDto) {
     await this.findOneCurriculum(id);
-    return this.prisma.curriculum.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.curriculum.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد منهج بنفس الرمز. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteCurriculum(id: string) {
@@ -168,13 +188,22 @@ export class MarketplaceService {
 
   // --- Subjects ---
   async createSubject(dto: CreateSubjectDto) {
-    return this.prisma.subject.create({
-      data: {
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        isActive: dto.isActive ?? true,
-      },
-    });
+    try {
+      return await this.prisma.subject.create({
+        data: {
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          isActive: dto.isActive ?? true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مادة بنفس الاسم. الرجاء استخدام اسم مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllSubjects(includeInactive = false) {
@@ -191,10 +220,19 @@ export class MarketplaceService {
 
   async updateSubject(id: string, dto: UpdateSubjectDto) {
     await this.findOneSubject(id);
-    return this.prisma.subject.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.subject.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مادة بنفس الاسم. الرجاء استخدام اسم مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteSubject(id: string) {
@@ -214,15 +252,24 @@ export class MarketplaceService {
   }) {
     // Verify curriculum exists
     await this.findOneCurriculum(dto.curriculumId);
-    return this.prisma.educationalStage.create({
-      data: {
-        curriculumId: dto.curriculumId,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        sequence: dto.sequence,
-        isActive: true,
-      },
-    });
+    try {
+      return await this.prisma.educationalStage.create({
+        data: {
+          curriculumId: dto.curriculumId,
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          sequence: dto.sequence,
+          isActive: true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مرحلة تعليمية بنفس البيانات. الرجاء التحقق من المدخلات.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllStages(curriculumId?: string, includeInactive = false) {
@@ -262,10 +309,19 @@ export class MarketplaceService {
     },
   ) {
     await this.findOneStage(id);
-    return this.prisma.educationalStage.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.educationalStage.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مرحلة تعليمية بنفس البيانات. الرجاء التحقق من المدخلات.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteStage(id: string) {
@@ -286,16 +342,25 @@ export class MarketplaceService {
   }) {
     // Verify stage exists
     await this.findOneStage(dto.stageId);
-    return this.prisma.gradeLevel.create({
-      data: {
-        stageId: dto.stageId,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        code: dto.code,
-        sequence: dto.sequence,
-        isActive: true,
-      },
-    });
+    try {
+      return await this.prisma.gradeLevel.create({
+        data: {
+          stageId: dto.stageId,
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          code: dto.code,
+          sequence: dto.sequence,
+          isActive: true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد صف آخر بنفس الرمز في هذه المرحلة. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllGrades(stageId?: string, includeInactive = false) {
@@ -334,10 +399,19 @@ export class MarketplaceService {
     },
   ) {
     await this.findOneGrade(id);
-    return this.prisma.gradeLevel.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.gradeLevel.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد صف آخر بنفس الرمز في هذه المرحلة. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteGrade(id: string) {
