@@ -156,9 +156,11 @@ export default function StudentBookingDetailsPage() {
         // Check time window
         const now = new Date();
         const startTime = new Date(booking.startTime);
+        const endTime = new Date(booking.endTime);
         const accessTime = new Date(startTime.getTime() - meetingLinkAccessMinutes * 60000);
+        const expiryTime = new Date(endTime.getTime() + 30 * 60000); // 30 mins after end
 
-        if (booking.meetingLink && now >= accessTime) {
+        if (booking.meetingLink && now >= accessTime && now <= expiryTime) {
             availableActions.push('join');
         }
     }
