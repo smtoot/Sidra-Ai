@@ -199,6 +199,24 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                                 {config.primaryAction.label}
                             </Button>
                         )}
+
+                        {/* Secondary Button */}
+                        {config.secondaryAction && config.secondaryAction.actionType !== 'details' && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className={cn(
+                                    "w-full md:w-auto h-8 text-xs font-medium hover:bg-gray-50 transition-colors",
+                                    config.secondaryAction.className
+                                )}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAction(config.secondaryAction!.actionType, booking);
+                                }}
+                            >
+                                {config.secondaryAction.label}
+                            </Button>
+                        )}
                     </div>
 
                     {/* Persistent "View Details" Affordance */}
