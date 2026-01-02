@@ -33,6 +33,7 @@ export class AppController {
       demosEnabled: settings.demosEnabled,
       maintenanceMode: settings.maintenanceMode,
       currency: settings.currency,
+      meetingLinkAccessMinutes: settings.meetingLinkAccessMinutesBefore,
     };
   }
 }

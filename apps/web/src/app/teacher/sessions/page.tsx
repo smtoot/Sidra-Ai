@@ -16,9 +16,7 @@ import { SessionCompletionModal } from '@/components/booking/SessionCompletionMo
 
 const ITEMS_PER_PAGE = 10;
 // Default meeting link access time (minutes before session start)
-// Default meeting link access time (minutes before session start)
-import { MEETING_LINK_ACCESS_MINUTES } from '@/config/meeting';
-const DEFAULT_MEETING_LINK_ACCESS_MINUTES = MEETING_LINK_ACCESS_MINUTES;
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 type SessionTab = 'upcoming' | 'completed' | 'needs_action' | 'issues';
 
@@ -27,6 +25,7 @@ export default function TeacherSessionsPage() {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [activeTab, setActiveTab] = useState<SessionTab>('upcoming');
+    const { meetingLinkAccessMinutes } = useSystemConfig();
 
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [selectedBookingForComplete, setSelectedBookingForComplete] = useState<Booking | null>(null);
@@ -147,7 +146,8 @@ export default function TeacherSessionsPage() {
         const now = new Date();
 
         // Allow starting X min before (configurable) until session end
-        const minutesBefore = new Date(sessionStart.getTime() - DEFAULT_MEETING_LINK_ACCESS_MINUTES * 60 * 1000);
+        // Allow starting X min before (configurable) until session end
+        const minutesBefore = new Date(sessionStart.getTime() - meetingLinkAccessMinutes * 60 * 1000);
         const thirtyMinutesAfterEnd = new Date(sessionEnd.getTime() + 30 * 60 * 1000);
 
         const canStart = now >= minutesBefore && now <= thirtyMinutesAfterEnd;
@@ -161,11 +161,11 @@ export default function TeacherSessionsPage() {
             const days = Math.floor(hours / 24);
 
             if (days > 0) {
-                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
+                return { canStart: false, canComplete: false, label: `بعد ${days} يوم`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${meetingLinkAccessMinutes} دقيقة` };
             } else if (hours > 0) {
-                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
+                return { canStart: false, canComplete: false, label: `بعد ${hours} ساعة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${meetingLinkAccessMinutes} دقيقة` };
             } else {
-                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${DEFAULT_MEETING_LINK_ACCESS_MINUTES} دقيقة` };
+                return { canStart: false, canComplete: false, label: `بعد ${minutes} دقيقة`, sublabel: `سيتم تفعيل الرابط قبل الموعد بـ${meetingLinkAccessMinutes} دقيقة` };
             }
         } else if (sessionInProgress) {
             return { canStart: true, canComplete: false, label: '🔴 بدء الاجتماع', sublabel: 'الحصة جارية' };

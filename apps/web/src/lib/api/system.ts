@@ -5,6 +5,7 @@ export interface SystemConfig {
     demosEnabled: boolean;
     maintenanceMode: boolean;
     currency: string;
+    meetingLinkAccessMinutes: number;
 }
 
 export const systemApi = {

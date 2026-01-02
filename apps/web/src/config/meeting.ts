@@ -1,1 +1,0 @@
-export const MEETING_LINK_ACCESS_MINUTES = 15;

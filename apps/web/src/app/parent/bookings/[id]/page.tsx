@@ -13,11 +13,12 @@ import { RatingModal } from '@/components/booking/RatingModal';
 import { BookingDetailsView } from '@/components/booking/BookingDetailsView';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { MEETING_LINK_ACCESS_MINUTES } from '@/config/meeting';
+import { useSystemConfig } from '@/context/SystemConfigContext';
 
 export default function ParentBookingDetailsPage() {
     const params = useParams();
     const router = useRouter();
+    const { meetingLinkAccessMinutes } = useSystemConfig();
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<Booking | null>(null);
@@ -156,7 +157,7 @@ export default function ParentBookingDetailsPage() {
         // Check time window
         const now = new Date();
         const startTime = new Date(booking.startTime);
-        const accessTime = new Date(startTime.getTime() - MEETING_LINK_ACCESS_MINUTES * 60000); // 15 mins before
+        const accessTime = new Date(startTime.getTime() - meetingLinkAccessMinutes * 60000); // Configured window
 
         // Allow if current time is after access time
         if (booking.meetingLink && now >= accessTime) {
