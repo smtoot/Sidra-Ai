@@ -262,8 +262,6 @@ export default function ParentBookingsPage() {
                                 variant="outline"
                                 className="bg-white border-amber-200 text-amber-800 hover:bg-amber-100 font-bold"
                                 onClick={() => {
-                                    setStatusFilter('UPCOMING'); // Or PENDING logic? Actually UPCOMING usually has Pending Confirmed
-                                    // PENDING_CONFIRMATION is technically "Past" time-wise but "Active" status-wise
                                     setStatusFilter('UPCOMING');
                                     setTimeFilter('ALL');
                                 }}
