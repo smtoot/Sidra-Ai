@@ -267,4 +267,16 @@ export class AdminController {
   async getStudentPackageById(@Param('id') id: string) {
     return this.packageService.getPackageById(id);
   }
+
+  // =================== USER MANAGEMENT ===================
+
+  @Get('users')
+  getAllUsers(@Query('role') role?: string, @Query('search') search?: string) {
+    return this.adminService.getAllUsers(role, search);
+  }
+
+  @Delete('users/:id/permanent')
+  hardDeleteUser(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.adminService.hardDeleteUser(req.user.userId, id);
+  }
 }

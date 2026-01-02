@@ -18,13 +18,21 @@ export const adminApi = {
     },
 
     // Users
-    getUsers: async (query?: string) => {
-        const response = await api.get('/admin/users', { params: { query } });
+    getUsers: async (role?: string, search?: string) => {
+        const params: any = {};
+        if (role) params.role = role;
+        if (search) params.search = search;
+        const response = await api.get('/admin/users', { params });
         return response.data;
     },
 
     toggleBan: async (id: string) => {
         const response = await api.patch(`/admin/users/${id}/ban`);
+        return response.data;
+    },
+
+    hardDeleteUser: async (id: string) => {
+        const response = await api.delete(`/admin/users/${id}/permanent`);
         return response.data;
     },
 

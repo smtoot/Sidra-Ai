@@ -8,7 +8,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Ban, CheckCircle, User as UserIcon, Shield, Loader2 } from 'lucide-react';
+import { Search, Ban, CheckCircle, User as UserIcon, Shield, Loader2, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 
 export default function AdminUsersPage() {
@@ -48,8 +49,29 @@ export default function AdminUsersPage() {
             setUsers(prev => prev.map(u =>
                 u.id === id ? { ...u, isActive: !u.isActive } : u
             ));
+            toast.success(`تم ${action} المستخدم بنجاح`);
         } catch (error) {
-            alert("فشل تنفيذ الإجراء");
+            toast.error("فشل تنفيذ الإجراء");
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleHardDelete = async (id: string, role: string) => {
+        if (role === 'ADMIN') {
+            toast.error('لا يمكن حذف حساب مدير');
+            return;
+        }
+
+        if (!confirm("⚠️ تحذير: سيتم حذف هذا المستخدم نهائياً مع جميع بياناته ولا يمكن استرجاعه. هل أنت متأكد؟")) return;
+
+        setProcessingId(id);
+        try {
+            await adminApi.hardDeleteUser(id);
+            setUsers(prev => prev.filter(u => u.id !== id));
+            toast.success('تم حذف المستخدم نهائياً');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل حذف المستخدم');
         } finally {
             setProcessingId(null);
         }
@@ -168,17 +190,25 @@ export default function AdminUsersPage() {
                                                     variant={user.isActive ? "destructive" : "default"}
                                                     onClick={() => handleToggleBan(user.id, user.isActive)}
                                                     disabled={!!processingId}
+                                                    title={user.isActive ? 'حظر' : 'إلغاء الحظر'}
                                                 >
                                                     {user.isActive ? (
-                                                        <>
-                                                            <Ban className="w-4 h-4" />
-                                                        </>
+                                                        <Ban className="w-4 h-4" />
                                                     ) : (
-                                                        <>
-                                                            <CheckCircle className="w-4 h-4" />
-                                                        </>
+                                                        <CheckCircle className="w-4 h-4" />
                                                     )}
                                                 </Button>
+                                                {user.role !== 'ADMIN' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => handleHardDelete(user.id, user.role)}
+                                                        disabled={!!processingId}
+                                                        title="حذف نهائي"
+                                                    >
+                                                        <XCircle className="w-4 h-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>
