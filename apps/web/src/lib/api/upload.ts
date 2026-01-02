@@ -187,7 +187,11 @@ export async function uploadFileWithUrl(
     const formData = new FormData();
     formData.append('file', fileToUpload);
 
-    const response = await api.post(`/storage?folder=${folder}`, formData);
+    const response = await api.post(`/storage?folder=${folder}`, formData, {
+        headers: {
+            'Content-Type': undefined as unknown as string, // Force unset to let browser handle boundary
+        },
+    });
 
     return {
         fileKey: response.data.fileKey,

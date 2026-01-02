@@ -67,7 +67,8 @@ export function PhotoUploadField({
             toast.success('تم رفع الصورة بنجاح');
         } catch (error: any) {
             console.error('Failed to upload photo:', error);
-            const message = error?.message || error?.response?.data?.message || 'فشل رفع الصورة';
+            // Prioritize server error message (e.g. "File too large") over generic axios error ("Request failed with status code 400")
+            const message = error?.response?.data?.message || error?.message || 'فشل رفع الصورة';
             toast.error(message);
         } finally {
             setUploading(false);

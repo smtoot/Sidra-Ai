@@ -102,12 +102,17 @@ const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'video/mp4',
   'video/webm',
+  'video/quicktime',
 ];
 
 /**
- * Maximum file size in bytes (5MB).
+ * Maximum file sizes in bytes.
  */
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZES = {
+  image: 5 * 1024 * 1024, // 5MB
+  document: 10 * 1024 * 1024, // 10MB
+  video: 50 * 1024 * 1024, // 50MB
+};
 
 /**
  * Storage type enum for provider selection
@@ -196,16 +201,27 @@ export class StorageService {
    * Throws error if validation fails.
    */
   validateFile(buffer: Buffer, mimeType: string): void {
-    if (buffer.length > MAX_FILE_SIZE) {
-      throw new Error(
-        `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      );
-    }
-
     if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
       throw new Error(
         `File type not allowed. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
       );
+    }
+
+    // Determine max size based on file type
+    let maxSize: number;
+    if (mimeType.startsWith('image/')) {
+      maxSize = MAX_FILE_SIZES.image;
+    } else if (mimeType.startsWith('video/')) {
+      maxSize = MAX_FILE_SIZES.video;
+    } else if (mimeType === 'application/pdf') {
+      maxSize = MAX_FILE_SIZES.document;
+    } else {
+      maxSize = MAX_FILE_SIZES.document; // Default to document limit
+    }
+
+    if (buffer.length > maxSize) {
+      const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1);
+      throw new Error(`File too large. Maximum size is ${maxSizeMB}MB`);
     }
   }
 

@@ -59,7 +59,7 @@ export class StorageController {
   constructor(
     private readonly storageService: StorageService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Upload a file.
@@ -137,6 +137,10 @@ export class StorageController {
         message: 'File uploaded successfully',
       };
     } catch (error: any) {
+      this.logger.error(
+        `Upload failed for user ${userId}: ${error.message}`,
+        error.stack,
+      );
       throw new BadRequestException(error.message || 'File upload failed');
     }
   }
