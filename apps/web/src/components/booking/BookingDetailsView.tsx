@@ -20,7 +20,8 @@ import {
     Timer,
     History,
     MessageCircleQuestion,
-    RefreshCw
+    RefreshCw,
+    Video
 } from 'lucide-react';
 import { Booking, BookingStatus, BookingAction } from '@/lib/api/booking';
 import { Button } from '@/components/ui/button';
@@ -315,10 +316,20 @@ export function BookingDetailsView({ booking, userRole, availableActions, onActi
                             <p className="text-sm text-gray-500">
                                 استعد للحصة في الموعد المحدد.
                             </p>
+                            {availableActions.includes('join') && (
+                                <Button
+                                    onClick={() => onAction('join')}
+                                    className="w-full h-11 bg-primary hover:bg-primary/90 shadow-md shadow-primary/20 mb-2 animate-in zoom-in-50"
+                                >
+                                    <Video className="w-5 h-5 ml-2" />
+                                    دخول الحصة الآن
+                                </Button>
+                            )}
+
                             {availableActions.includes('cancel') && (
                                 <button
                                     onClick={() => onAction('cancel')}
-                                    className="text-red-500 hover:text-red-700 text-xs mt-2 font-medium"
+                                    className="text-red-500 hover:text-red-700 text-xs mt-1 font-medium"
                                 >
                                     إلغاء الحجز
                                 </button>

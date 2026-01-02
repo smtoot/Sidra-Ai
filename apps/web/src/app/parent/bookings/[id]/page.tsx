@@ -118,6 +118,9 @@ export default function ParentBookingDetailsPage() {
             case 'book-new':
                 router.push('/search');
                 break;
+            case 'join':
+                if (booking.meetingLink) window.open(booking.meetingLink, '_blank');
+                break;
         }
     };
 
@@ -146,7 +149,10 @@ export default function ParentBookingDetailsPage() {
     const availableActions: BookingAction[] = [];
     if (booking.status === 'WAITING_FOR_PAYMENT') availableActions.push('pay', 'cancel');
     if (booking.status === 'PENDING_TEACHER_APPROVAL') availableActions.push('cancel');
-    if (booking.status === 'SCHEDULED') availableActions.push('cancel');
+    if (booking.status === 'SCHEDULED') {
+        availableActions.push('cancel');
+        if (booking.meetingLink) availableActions.push('join');
+    }
     if (booking.status === 'PENDING_CONFIRMATION') availableActions.push('confirm', 'dispute');
     if (booking.status === 'COMPLETED') {
         if (!booking.rating) availableActions.push('rate');
