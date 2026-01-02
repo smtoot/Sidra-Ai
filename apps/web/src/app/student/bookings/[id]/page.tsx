@@ -147,7 +147,10 @@ export default function StudentBookingDetailsPage() {
     if (booking.status === 'PENDING_TEACHER_APPROVAL') availableActions.push('cancel');
     if (booking.status === 'SCHEDULED') availableActions.push('cancel');
     if (booking.status === 'PENDING_CONFIRMATION') availableActions.push('confirm', 'dispute');
-    if (booking.status === 'COMPLETED') availableActions.push('rate', 'book-new');
+    if (booking.status === 'COMPLETED') {
+        if (!booking.rating) availableActions.push('rate');
+        availableActions.push('book-new');
+    }
     if (booking.status.includes('CANCELLED') ||
         booking.status.includes('REJECTED') ||
         booking.status === 'REFUNDED' ||

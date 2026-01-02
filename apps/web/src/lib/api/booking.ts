@@ -84,6 +84,7 @@ export interface Booking {
     pendingTierId?: string | null; // Tier ID for pending package purchase
     pendingTierSessionCount?: number | null; // Number of sessions in the pending tier
     isDemo?: boolean; // If this is a demo session
+    rating?: number | null; // Review rating if exists
 }
 
 export const bookingApi = {
