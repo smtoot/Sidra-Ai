@@ -56,7 +56,12 @@ export default function AdminSettingsPage() {
 
             setMaxVacationDays((data.maxVacationDays || 21).toString());
             if (data.cancellationPolicies) {
-                setCancellationForm(data.cancellationPolicies);
+                const policies = data.cancellationPolicies;
+                setCancellationForm({
+                    flexible: { cutoffHours: policies.flexible?.cutoffHours ?? policies.flexible?.fullRefundHours ?? 12 },
+                    moderate: { cutoffHours: policies.moderate?.cutoffHours ?? policies.moderate?.fullRefundHours ?? 24 },
+                    strict: { cutoffHours: policies.strict?.cutoffHours ?? policies.strict?.fullRefundHours ?? 48 },
+                });
             }
         } catch (error) {
             console.error(error);
