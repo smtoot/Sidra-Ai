@@ -264,6 +264,19 @@ export const adminApi = {
         return response.data;
     },
 
+    updateTeacherProfile: async (profileId: string, data: {
+        displayName?: string;
+        fullName?: string;
+        bio?: string;
+        introVideoUrl?: string;
+        whatsappNumber?: string;
+        city?: string;
+        country?: string;
+    }) => {
+        const response = await api.patch(`/admin/teachers/${profileId}/profile`, data);
+        return response.data;
+    },
+
     // =================== PACKAGES & DEMOS ===================
 
     // Smart Pack Tier Management

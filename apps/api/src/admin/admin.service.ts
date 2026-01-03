@@ -850,6 +850,131 @@ export class AdminService {
   }
 
   /**
+   * Admin updates a teacher's profile directly
+   * Used to help non-tech-savvy teachers with profile modifications
+   * Only allowed fields are editable (not pricing or verified documents)
+   */
+  async updateTeacherProfile(
+    adminUserId: string,
+    profileId: string,
+    dto: {
+      displayName?: string;
+      fullName?: string;
+      bio?: string;
+      introVideoUrl?: string;
+      whatsappNumber?: string;
+      city?: string;
+      country?: string;
+    },
+  ) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { id: profileId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Teacher profile not found');
+    }
+
+    // Build update data with only provided fields
+    const updateData: Record<string, string | null> = {};
+    const changedFields: string[] = [];
+
+    if (dto.displayName !== undefined && dto.displayName !== profile.displayName) {
+      updateData.displayName = dto.displayName;
+      changedFields.push('displayName');
+    }
+    if (dto.fullName !== undefined && dto.fullName !== profile.fullName) {
+      updateData.fullName = dto.fullName;
+      changedFields.push('fullName');
+    }
+    if (dto.bio !== undefined && dto.bio !== profile.bio) {
+      updateData.bio = dto.bio;
+      changedFields.push('bio');
+    }
+    if (dto.introVideoUrl !== undefined && dto.introVideoUrl !== profile.introVideoUrl) {
+      updateData.introVideoUrl = dto.introVideoUrl;
+      changedFields.push('introVideoUrl');
+    }
+    if (dto.whatsappNumber !== undefined && dto.whatsappNumber !== profile.whatsappNumber) {
+      updateData.whatsappNumber = dto.whatsappNumber;
+      changedFields.push('whatsappNumber');
+    }
+    if (dto.city !== undefined && dto.city !== profile.city) {
+      updateData.city = dto.city;
+      changedFields.push('city');
+    }
+    if (dto.country !== undefined && dto.country !== profile.country) {
+      updateData.country = dto.country;
+      changedFields.push('country');
+    }
+
+    // No changes detected
+    if (Object.keys(updateData).length === 0) {
+      return { profile, changesApplied: false, changedFields: [] };
+    }
+
+    // Apply updates in transaction with audit log
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update profile
+      const updatedProfile = await tx.teacherProfile.update({
+        where: { id: profileId },
+        data: updateData,
+        include: { user: { select: { id: true, email: true, phoneNumber: true } } },
+      });
+
+      // Create audit log entry
+      await tx.auditLog.create({
+        data: {
+          action: 'SETTINGS_UPDATE',
+          actorId: adminUserId,
+          targetId: profile.userId,
+          payload: {
+            type: 'ADMIN_PROFILE_EDIT',
+            teacherProfileId: profileId,
+            changedFields,
+            changes: updateData,
+          },
+        },
+      });
+
+      return updatedProfile;
+    });
+
+    // Notify teacher of changes
+    if (changedFields.length > 0) {
+      const fieldLabels: Record<string, string> = {
+        displayName: 'الاسم المعروض',
+        fullName: 'الاسم الكامل',
+        bio: 'النبذة التعريفية',
+        introVideoUrl: 'رابط الفيديو التعريفي',
+        whatsappNumber: 'رقم واتساب',
+        city: 'المدينة',
+        country: 'الدولة',
+      };
+
+      const changedFieldsArabic = changedFields
+        .map((f) => fieldLabels[f] || f)
+        .join('، ');
+
+      await this.notificationService.notifyUser({
+        userId: profile.userId,
+        type: 'ACCOUNT_UPDATE',
+        title: 'تم تحديث ملفك الشخصي',
+        message: `تم تحديث الحقول التالية بواسطة فريق الدعم: ${changedFieldsArabic}`,
+        link: '/teacher/profile',
+        dedupeKey: `ADMIN_PROFILE_EDIT:${profileId}:${Date.now()}`,
+      });
+    }
+
+    return {
+      profile: result,
+      changesApplied: true,
+      changedFields,
+    };
+  }
+
+  /**
    * Propose interview time slots to teacher (NEW WORKFLOW)
    * Admin proposes multiple time slots, teacher selects one
    */

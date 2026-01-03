@@ -184,6 +184,23 @@ export class AdminController {
     return this.adminService.requestChanges(req.user.userId, id, dto.reason);
   }
 
+  @Patch('teachers/:id/profile')
+  updateTeacherProfile(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: {
+      displayName?: string;
+      fullName?: string;
+      bio?: string;
+      introVideoUrl?: string;
+      whatsappNumber?: string;
+      city?: string;
+      country?: string;
+    },
+  ) {
+    return this.adminService.updateTeacherProfile(req.user.userId, id, dto);
+  }
+
   @Post('teacher-applications/:id/propose-interview-slots')
   proposeInterviewSlots(
     @Req() req: AuthRequest,
