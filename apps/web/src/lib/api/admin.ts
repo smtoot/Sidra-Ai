@@ -158,9 +158,16 @@ export const adminApi = {
     },
 
     completeBooking: async (id: string) => {
-        const response = await api.patch(`/bookings/${id}/complete`);
+        const response = await api.post(`/admin/bookings/${id}/complete`);
         return response.data;
     },
+
+    rescheduleBooking: async (id: string, newStartTime: Date) => {
+        const response = await api.patch(`/admin/bookings/${id}/reschedule`, { newStartTime: newStartTime.toISOString() });
+        return response.data;
+    },
+
+
 
     // =================== DISPUTES ===================
 

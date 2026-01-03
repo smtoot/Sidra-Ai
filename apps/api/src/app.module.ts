@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { CsrfGuard } from './auth/csrf.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
 import { FavoritesModule } from './favorites/favorites.module';
@@ -70,6 +71,12 @@ import { PostHogModule } from './common/posthog/posthog.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // SECURITY FIX: Global CSRF guard for state-changing requests
+    // Validates X-CSRF-Token header matches csrf_token cookie
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
   ],
 })

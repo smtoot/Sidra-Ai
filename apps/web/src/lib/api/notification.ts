@@ -43,10 +43,15 @@ export const notificationApi = {
      * Get paginated notifications for current user
      */
     async getNotifications(page = 1, limit = 10): Promise<NotificationListResponse> {
-        const response = await api.get('/notifications', {
-            params: { page, limit }
-        });
-        return response.data;
+        try {
+            const response = await api.get('/notifications', {
+                params: { page, limit }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to load notifications', error);
+            return { items: [], meta: { total: 0, page, limit, pages: 0 } };
+        }
     },
 
     /**

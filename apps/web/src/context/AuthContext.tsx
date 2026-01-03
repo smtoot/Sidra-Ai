@@ -20,7 +20,7 @@ interface AuthContextType {
     user: User | null;
     login: (dto: LoginDto) => Promise<void>;
     register: (dto: RegisterDto) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     updateUser: (updates: Partial<User>) => void;
     isLoading: boolean;
 }
@@ -97,16 +97,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (dto: LoginDto) => {
         const { data } = await api.post('/auth/login', dto);
+        // BACKWARDS COMPAT: Store tokens in localStorage during transition to httpOnly cookies
         localStorage.setItem('token', data.access_token);
         if (data.refresh_token) {
             localStorage.setItem('refresh_token', data.refresh_token);
         }
         const payload = parseJwt(data.access_token);
 
-        // Store user info for Navigation
+        // SECURITY FIX: Remove role from localStorage - use context only
+        // This prevents client-side role tampering
         const displayName = payload.displayName || payload.firstName || payload.phoneNumber || payload.email?.split('@')[0] || 'User';
-        localStorage.setItem('userRole', payload.role);
-        localStorage.setItem('userName', displayName);
+        localStorage.setItem('userName', displayName); // Display name is non-sensitive
 
         setUser({
             id: payload.sub,
@@ -142,16 +143,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const register = async (dto: RegisterDto) => {
         const { data } = await api.post('/auth/register', dto);
+        // BACKWARDS COMPAT: Store tokens in localStorage during transition to httpOnly cookies
         localStorage.setItem('token', data.access_token);
         if (data.refresh_token) {
             localStorage.setItem('refresh_token', data.refresh_token);
         }
         const payload = parseJwt(data.access_token);
 
-        // Store user info for Navigation
+        // SECURITY FIX: Remove role from localStorage - use context only
         const displayName = payload.displayName || payload.firstName || payload.phoneNumber || payload.email?.split('@')[0] || 'User';
-        localStorage.setItem('userRole', payload.role);
-        localStorage.setItem('userName', displayName);
+        localStorage.setItem('userName', displayName); // Display name is non-sensitive
 
         setUser({
             id: payload.sub,
@@ -190,9 +191,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            // SECURITY FIX: Call logout API to clear httpOnly cookies
+            await api.post('/auth/logout', {});
+        } catch (e) {
+            // Ignore errors - still clear local state
+            console.debug('Logout API call failed, clearing local state anyway');
+        }
+        // Clear localStorage during transition period
         localStorage.removeItem('token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('userName');
         resetUser(); // Reset PostHog identification
         setUser(null);
         router.push('/login');

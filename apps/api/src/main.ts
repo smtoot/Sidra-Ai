@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 
 import { NestExpressApplication } from '@nestjs/platform-express';
 
@@ -10,6 +11,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+
+  // SECURITY FIX: Enable cookie parsing for httpOnly auth tokens
+  app.use(cookieParser());
+
   // SECURITY: Set standard HTTP security headers (HSTS, X-Frame-Options, etc.)
   // Configure helmet to allow cross-origin resources for API endpoints
   app.use(
@@ -33,10 +38,12 @@ async function bootstrap() {
 
   // SECURITY: Restrict CORS to allowed origins only
   // Default includes common Next.js dev ports (3000, 3001, 3002)
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+  const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
+    'https://sidra-staging.up.railway.app',
+    ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
   ];
   app.enableCors({
     origin: (origin, callback) => {

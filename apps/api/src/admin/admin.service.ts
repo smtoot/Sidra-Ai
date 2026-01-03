@@ -4,10 +4,13 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
+import { BookingService } from '../booking/booking.service';
 import { normalizeMoney } from '../utils/money';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -21,6 +24,8 @@ export class AdminService {
     private prisma: PrismaService,
     private walletService: WalletService,
     private notificationService: NotificationService,
+    @Inject(forwardRef(() => BookingService))
+    private bookingService: BookingService,
   ) { }
 
   async getDashboardStats() {
@@ -241,22 +246,26 @@ export class AdminService {
     return result;
   }
 
-  async cancelBooking(bookingId: string, reason?: string) {
-    const booking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
-    });
+  async cancelBooking(bookingId: string, adminUserId: string, reason?: string) {
+    return this.bookingService.cancelBooking(
+      adminUserId,
+      'ADMIN',
+      bookingId,
+      reason,
+    );
+  }
 
-    if (!booking) {
-      throw new NotFoundException('Booking not found');
-    }
+  async completeBooking(bookingId: string, adminUserId: string) {
+    return this.bookingService.confirmSessionEarly(
+      adminUserId,
+      bookingId,
+      undefined,
+      'ADMIN',
+    );
+  }
 
-    return this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'CANCELLED_BY_ADMIN',
-        cancelReason: reason || 'ملغى بواسطة الإدارة',
-      },
-    });
+  async rescheduleBooking(bookingId: string, newStartTime: Date) {
+    return this.bookingService.adminReschedule(bookingId, newStartTime);
   }
 
   // =================== DISPUTE MANAGEMENT ===================

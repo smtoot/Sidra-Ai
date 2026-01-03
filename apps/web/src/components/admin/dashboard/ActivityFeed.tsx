@@ -13,7 +13,7 @@ interface AuditLog {
     action: string;
     details: string;
     createdAt: string;
-    actor: {
+    actor?: {
         email: string;
         role: string;
     };

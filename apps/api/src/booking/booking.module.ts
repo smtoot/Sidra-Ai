@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
 import { EscrowSchedulerService } from './escrow-scheduler.service';
@@ -10,7 +10,14 @@ import { TeacherModule } from '../teacher/teacher.module';
 import { AdminModule } from '../admin/admin.module';
 
 @Module({
-  imports: [WalletModule, NotificationModule, PackageModule, ReadableIdModule, TeacherModule, AdminModule],
+  imports: [
+    WalletModule,
+    NotificationModule,
+    PackageModule,
+    ReadableIdModule,
+    TeacherModule,
+    forwardRef(() => AdminModule),
+  ],
   controllers: [BookingController],
   providers: [BookingService, EscrowSchedulerService],
   exports: [BookingService],

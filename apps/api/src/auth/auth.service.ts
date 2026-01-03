@@ -213,7 +213,8 @@ export class AuthService {
   }
 
   /**
-   * Generates a pair of Access and Refresh tokens
+   * Generates a pair of Access and Refresh tokens plus CSRF token
+   * SECURITY FIX: Added CSRF token generation for state-changing requests
    */
   private async signToken(
     userId: string,
@@ -258,11 +259,16 @@ export class AuthService {
       },
     });
 
+    // SECURITY FIX: Generate CSRF token - tied to user session
+    // This is a random token the frontend must include in headers for state-changing requests
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+
     return {
       access_token: accessToken,
       // Format: {id}:{secret}
       // This allows efficient lookup by ID and secure verification by secret
       refresh_token: `${tokenRecord.id}:${refreshTokenPlain}`,
+      csrf_token: csrfToken,
     };
   }
 

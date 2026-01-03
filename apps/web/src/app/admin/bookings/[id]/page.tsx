@@ -148,6 +148,38 @@ export default function AdminBookingDetailPage() {
     const params = useParams();
     const router = useRouter();
     const bookingId = params.id as string;
+    const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+    const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
+    const [rescheduleDate, setRescheduleDate] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const handleComplete = async () => {
+        if (!confirm('هل أنت متأكد من إكمال هذه الحصة يدوياً؟ سيتم تحويل المبلغ للمعلم.')) return;
+        setActionLoading(true);
+        try {
+            await adminApi.completeBooking(bookingId);
+            alert('تم إكمال الحصة بنجاح');
+            window.location.reload();
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'فشل إكمال الحصة');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleReschedule = async () => {
+        if (!rescheduleDate) return;
+        setActionLoading(true);
+        try {
+            await adminApi.rescheduleBooking(bookingId, new Date(rescheduleDate));
+            alert('تم تغيير الموعد بنجاح');
+            window.location.reload();
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'فشل تغيير الموعد');
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
     const [booking, setBooking] = useState<BookingDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -598,6 +630,22 @@ export default function AdminBookingDetailPage() {
                                 </Button>
                             </Link>
                         )}
+
+                        {/* Force Complete */}
+                        {(booking.status === 'SCHEDULED' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'PENDING_TEACHER_APPROVAL') && (
+                            <Button variant="outline" onClick={handleComplete} disabled={actionLoading}>
+                                <CheckCircle className="w-4 h-4 ml-2 text-green-600" />
+                                إكمال بالقوة
+                            </Button>
+                        )}
+
+                        {/* Force Reschedule */}
+                        {!['COMPLETED', 'CANCELLED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'REJECTED_BY_TEACHER'].includes(booking.status) && (
+                            <Button variant="outline" onClick={() => setShowRescheduleDialog(true)}>
+                                <Calendar className="w-4 h-4 ml-2 text-blue-600" />
+                                تغيير الموعد
+                            </Button>
+                        )}
                     </div>
                 </Card>
 
@@ -614,38 +662,40 @@ export default function AdminBookingDetailPage() {
                                 onChange={(e) => setCancelReason(e.target.value)}
                                 placeholder="اكتب سبب الإلغاء هنا..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-4"
-                                rows={4}
                             />
-                            <div className="flex gap-3 justify-end">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowCancelDialog(false)}
-                                    disabled={processing}
-                                >
-                                    إلغاء
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={handleCancelBooking}
-                                    disabled={processing || !cancelReason.trim()}
-                                >
-                                    {processing ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-                                            جاري الإلغاء...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <XCircle className="w-4 h-4 ml-2" />
-                                            تأكيد الإلغاء
-                                        </>
-                                    )}
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" onClick={() => setShowCancelDialog(false)}>إلغاء</Button>
+                                <Button variant="destructive" onClick={handleCancelBooking}>تأكيد الإلغاء</Button>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Reschedule Dialog */}
+                {showRescheduleDialog && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <Card padding="lg" className="max-w-md w-full">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">تغيير موعد الحصة</h3>
+                            <p className="text-gray-600 mb-4 text-sm">
+                                تجاوز القواعد وسياسات الإلغاء. يرجى التأكد من اتفاق الطرفين.
+                            </p>
+                            <input
+                                type="datetime-local"
+                                className="w-full px-3 py-2 border rounded-lg mb-4"
+                                value={rescheduleDate}
+                                onChange={(e) => setRescheduleDate(e.target.value)}
+                            />
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" onClick={() => setShowRescheduleDialog(false)}>إلغاء</Button>
+                                <Button onClick={handleReschedule} disabled={actionLoading || !rescheduleDate}>
+                                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ التغيير'}
                                 </Button>
                             </div>
                         </Card>
                     </div>
                 )}
-            </div>
-        </div>
+
+            </div >
+        </div >
     );
 }

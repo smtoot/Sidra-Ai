@@ -79,8 +79,8 @@ export function CancellationPolicySettings({ isReadOnly = false }: CancellationP
                         <p className="font-bold">مرنة</p>
                         <p className="text-sm text-text-subtle">
                             {config?.flexible
-                                ? `إلغاء مجاني حتى ${config.flexible.cutoffHours} ساعة قبل الحصة`
-                                : 'إلغاء مجاني حتى 12 ساعة قبل الحصة'}
+                                ? `إلغاء مجاني حتى ${config.flexible.fullRefundHours} ساعة قبل الحصة`
+                                : 'إلغاء مجاني حتى 24 ساعة قبل الحصة'}
                         </p>
                     </div>
                 </label>
@@ -102,8 +102,8 @@ export function CancellationPolicySettings({ isReadOnly = false }: CancellationP
                         <p className="font-bold">معتدلة</p>
                         <p className="text-sm text-text-subtle">
                             {config?.moderate
-                                ? `إلغاء مجاني حتى ${config.moderate.cutoffHours} ساعة قبل الحصة`
-                                : 'إلغاء مجاني حتى 24 ساعة قبل الحصة'}
+                                ? `إلغاء مجاني حتى ${config.moderate.fullRefundHours} ساعة قبل الحصة`
+                                : 'إلغاء مجاني حتى 48 ساعة قبل الحصة'}
                         </p>
                     </div>
                 </label>
@@ -125,8 +125,8 @@ export function CancellationPolicySettings({ isReadOnly = false }: CancellationP
                         <p className="font-bold">صارمة</p>
                         <p className="text-sm text-text-subtle">
                             {config?.strict
-                                ? `إلغاء مجاني حتى ${config.strict.cutoffHours} ساعة قبل الحصة`
-                                : 'إلغاء مجاني حتى 48 ساعة قبل الحصة'}
+                                ? `إلغاء مجاني حتى ${config.strict.fullRefundHours} ساعة قبل الحصة`
+                                : 'إلغاء مجاني حتى 7 أيام قبل الحصة'}
                         </p>
                     </div>
                 </label>

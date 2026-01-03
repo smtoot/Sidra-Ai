@@ -9,6 +9,7 @@ import {
   Body,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -69,8 +70,26 @@ export class AdminController {
   }
 
   @Patch('bookings/:id/cancel')
-  cancelBooking(@Param('id') id: string, @Body() dto: { reason?: string }) {
-    return this.adminService.cancelBooking(id, dto.reason);
+  cancelBooking(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: { reason?: string },
+  ) {
+    return this.adminService.cancelBooking(id, req.user.userId, dto.reason);
+  }
+
+  @Post('bookings/:id/complete')
+  completeBooking(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.adminService.completeBooking(id, req.user.userId);
+  }
+
+  @Patch('bookings/:id/reschedule')
+  rescheduleBooking(@Param('id') id: string, @Body() dto: { newStartTime: string }) {
+    const date = new Date(dto.newStartTime);
+    if (isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+    return this.adminService.rescheduleBooking(id, date);
   }
 
   // =================== DISPUTE MANAGEMENT ===================

@@ -1266,6 +1266,7 @@ export class BookingService {
     userId: string,
     bookingId: string,
     rating?: number,
+    userRole: string = 'STUDENT',
   ) {
     const result = await this.prisma.$transaction(
       async (tx) => {
@@ -1282,7 +1283,7 @@ export class BookingService {
         if (!booking) throw new NotFoundException('Booking not found');
 
         // Auth check
-        if (booking.bookedByUserId !== userId) {
+        if (userRole !== 'ADMIN' && booking.bookedByUserId !== userId) {
           throw new ForbiddenException(
             'Not authorized to confirm this session',
           );
@@ -2668,5 +2669,92 @@ export class BookingService {
 
     logger.log(`Successfully sent ${remindersSent} meeting link reminders`);
     return { remindersSent };
+  }
+  /**
+   * Admin-forced reschedule.
+   * Checks availability but bypasses policy windows.
+   */
+  async adminReschedule(bookingId: string, newStartTime: Date) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        teacherProfile: { include: { user: true } },
+        bookedByUser: true,
+        studentUser: true,
+        child: true,
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const durationMs = booking.endTime.getTime() - booking.startTime.getTime();
+    const newEndTime = new Date(newStartTime.getTime() + durationMs);
+
+    // 1. Check Teacher Schedule (Working Hours)
+    const isWorking = await this.teacherService.isSlotAvailable(
+      booking.teacherId,
+      newStartTime,
+    );
+    if (!isWorking) {
+      throw new BadRequestException(
+        'Teacher is not available (outside working hours/exceptions).',
+      );
+    }
+
+    // 2. Check Conflicts (Other Bookings)
+    const conflict = await this.prisma.booking.findFirst({
+      where: {
+        teacherId: booking.teacherId,
+        id: { not: bookingId }, // Exclude self
+        status: {
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
+        },
+        startTime: { lt: newEndTime },
+        endTime: { gt: newStartTime },
+      },
+    });
+
+    if (conflict) {
+      throw new BadRequestException(
+        'Teacher has another booking overlapping this time.',
+      );
+    }
+
+    // 3. Update
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        rescheduledByRole: 'ADMIN',
+        rescheduleCount: { increment: 1 },
+        status: 'SCHEDULED', // Force to SCHEDULED
+      },
+    });
+
+    // 4. Notifications
+    const dateStr = formatInTimezone(
+      newStartTime,
+      booking.teacherProfile.timezone,
+      'yyyy-MM-dd HH:mm',
+    );
+
+    // Notify Teacher
+    await this.notificationService.notifyUser({
+      userId: booking.teacherProfile.userId,
+      title: 'تم تغيير موعد الحصة بواسطة الإدارة',
+      message: `تم تغيير موعد الحصة مع ${booking.studentUser?.name || booking.child?.name || 'الطالب'} إلى ${dateStr}`,
+      type: 'BOOKING_RESCHEDULED',
+    });
+
+    // Notify Student/Parent
+    await this.notificationService.notifyUser({
+      userId: booking.bookedByUserId,
+      title: 'تم تغيير موعد الحصة بواسطة الإدارة',
+      message: `تم تغيير موعد الحصة مع المعلم ${booking.teacherProfile.displayName} إلى ${dateStr}`,
+      type: 'BOOKING_RESCHEDULED',
+    });
+
+    return updated;
   }
 }
