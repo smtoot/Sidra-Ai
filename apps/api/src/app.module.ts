@@ -24,6 +24,7 @@ import { ConfigValidationService } from './common/config/config-validation.servi
 import { PackageModule } from './package/package.module';
 import { TeachingApproachModule } from './teaching-approach/teaching-approach.module';
 import { SupportTicketModule } from './support-ticket/support-ticket.module';
+import { PostHogModule } from './common/posthog/posthog.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { SupportTicketModule } from './support-ticket/support-ticket.module';
     TeachingApproachModule,
     FavoritesModule,
     SupportTicketModule,
+    PostHogModule,
   ],
   controllers: [AppController],
   providers: [
@@ -65,4 +67,4 @@ import { SupportTicketModule } from './support-ticket/support-ticket.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

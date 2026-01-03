@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '@/lib/api';
-import { LoginDto, RegisterDto } from '@sidra/shared';
+import { LoginDto, RegisterDto, TEACHER_EVENTS, STUDENT_EVENTS } from '@sidra/shared';
 import { useRouter } from 'next/navigation';
+import { aliasUser, identifyUser, resetUser, getDeviceType, trackEvent } from '@/lib/analytics';
 
 interface User {
     id: string;
@@ -117,6 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             displayName: payload.displayName
         });
 
+        // PostHog: Alias anonymous user to identified user, then identify
+        aliasUser(payload.sub);
+        identifyUser(payload.sub, {
+            user_role: payload.role,
+            device_type: getDeviceType(),
+        });
+
         // Role-based redirect
         if (payload.role === 'PARENT') {
             router.push('/parent');
@@ -155,6 +163,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             displayName: payload.displayName
         });
 
+        // PostHog: Alias, track signup, and identify
+        aliasUser(payload.sub);
+        if (payload.role === 'TEACHER') {
+            trackEvent(TEACHER_EVENTS.SIGNUP_COMPLETED);
+        } else {
+            trackEvent(STUDENT_EVENTS.SIGNUP_COMPLETED);
+        }
+        identifyUser(payload.sub, {
+            user_role: payload.role,
+            device_type: getDeviceType(),
+        });
+
         // Role-based redirect
         if (payload.role === 'PARENT') {
             router.push('/parent');
@@ -173,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('refresh_token');
+        resetUser(); // Reset PostHog identification
         setUser(null);
         router.push('/login');
     };

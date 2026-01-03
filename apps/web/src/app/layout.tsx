@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { SystemConfigProvider } from "@/context/SystemConfigContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QueryProvider } from "@/providers/QueryProvider";
+import { PostHogProvider } from "@/providers/PostHogProvider";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -44,15 +45,17 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${cairo.variable} ${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
       >
-        <QueryProvider>
-          <SystemConfigProvider>
-            <AuthProvider>
-              <DashboardLayout>
-                {children}
-              </DashboardLayout>
-            </AuthProvider>
-          </SystemConfigProvider>
-        </QueryProvider>
+        <PostHogProvider>
+          <QueryProvider>
+            <SystemConfigProvider>
+              <AuthProvider>
+                <DashboardLayout>
+                  {children}
+                </DashboardLayout>
+              </AuthProvider>
+            </SystemConfigProvider>
+          </QueryProvider>
+        </PostHogProvider>
       </body>
     </html>
   );
