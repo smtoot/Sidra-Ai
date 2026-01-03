@@ -171,11 +171,13 @@ export function TabletSlideDrawer({
                         ))}
                     </div>
 
-                    {/* Locked Items Tooltip */}
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700">
-                        <Lock className="w-3 h-3 inline ml-1" />
-                        العناصر المقفلة ستفتح بعد موافقة الإدارة
-                    </div>
+                    {/* Locked Items Tooltip - Only show if there are locked items */}
+                    {items.some(item => item.isLocked) && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700">
+                            <Lock className="w-3 h-3 inline ml-1" />
+                            العناصر المقفلة ستفتح بعد موافقة الإدارة
+                        </div>
+                    )}
                 </div>
             </div>
         </>

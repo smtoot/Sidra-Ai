@@ -187,7 +187,6 @@ export default function ProfileHubPage() {
                             displayName={profile?.displayName}
                             hasAvailability={(profile?.availability?.length || 0) > 0}
                             hasBankInfo={walletData.hasBankInfo}
-                            hasMeetingLink={Boolean(profile?.meetingLink || profile?.encryptedMeetingLink)}
                             onDismiss={() => setShowWelcomeBanner(false)}
                         />
                     )}
