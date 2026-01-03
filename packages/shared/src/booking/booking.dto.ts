@@ -21,10 +21,13 @@ export class CreateBookingDto {
     @IsDateString()
     endTime!: string; // ISO 8601
 
+    // Note: Price is calculated server-side based on teacher's rate and duration.
+    // This field is kept for backwards compatibility but ignored by the backend.
     @Type(() => Number)
     @IsNumber()
-    @Min(0) // Allow 0 for demo sessions
-    price!: number;
+    @IsOptional()
+    @Min(0)
+    price?: number;
 
     @IsString()
     @IsOptional()

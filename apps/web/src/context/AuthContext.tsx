@@ -97,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (dto: LoginDto) => {
         const { data } = await api.post('/auth/login', dto);
         localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) {
+            localStorage.setItem('refresh_token', data.refresh_token);
+        }
         const payload = parseJwt(data.access_token);
 
         // Store user info for Navigation
@@ -132,6 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const register = async (dto: RegisterDto) => {
         const { data } = await api.post('/auth/register', dto);
         localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) {
+            localStorage.setItem('refresh_token', data.refresh_token);
+        }
         const payload = parseJwt(data.access_token);
 
         // Store user info for Navigation
@@ -166,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         setUser(null);
         router.push('/login');
     };
