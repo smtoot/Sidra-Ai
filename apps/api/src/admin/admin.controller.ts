@@ -63,6 +63,11 @@ export class AdminController {
     return this.adminService.getAllBookings(status);
   }
 
+  @Get('bookings/:id')
+  getBooking(@Param('id') id: string) {
+    return this.adminService.getBookingById(id);
+  }
+
   @Patch('bookings/:id/cancel')
   cancelBooking(@Param('id') id: string, @Body() dto: { reason?: string }) {
     return this.adminService.cancelBooking(id, dto.reason);

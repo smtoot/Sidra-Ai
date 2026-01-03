@@ -204,6 +204,43 @@ export class AdminService {
     });
   }
 
+  async getBookingById(id: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        teacherProfile: {
+          include: { user: true },
+        },
+        bookedByUser: {
+          include: { parentProfile: { include: { user: true } } }
+        },
+        studentUser: true,
+        child: true,
+        subject: true,
+        packageRedemption: {
+          include: {
+            package: {
+              include: { packageTier: true }
+            }
+          }
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    const result: any = booking;
+
+    // Map package if exists
+    if (booking.packageRedemption?.package) {
+      result.package = booking.packageRedemption.package;
+    }
+
+    return result;
+  }
+
   async cancelBooking(bookingId: string, reason?: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },

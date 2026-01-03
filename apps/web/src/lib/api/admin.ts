@@ -148,7 +148,7 @@ export const adminApi = {
     },
 
     getBookingById: async (id: string) => {
-        const response = await api.get(`/bookings/${id}`);
+        const response = await api.get(`/admin/bookings/${id}`);
         return response.data;
     },
 
