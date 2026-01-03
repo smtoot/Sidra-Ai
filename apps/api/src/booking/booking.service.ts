@@ -2743,7 +2743,7 @@ export class BookingService {
     await this.notificationService.notifyUser({
       userId: booking.teacherProfile.userId,
       title: 'تم تغيير موعد الحصة بواسطة الإدارة',
-      message: `تم تغيير موعد الحصة مع ${booking.studentUser?.name || booking.child?.name || 'الطالب'} إلى ${dateStr}`,
+      message: `تم تغيير موعد الحصة مع ${booking.studentUser?.firstName || booking.child?.name || 'الطالب'} إلى ${dateStr}`,
       type: 'BOOKING_RESCHEDULED',
     });
 

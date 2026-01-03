@@ -93,8 +93,8 @@ export function ActivityFeed() {
                                     <TableCell className="font-medium text-gray-900">
                                         {formatAction(log.action)}
                                     </TableCell>
-                                    <TableCell className="text-gray-600 text-sm truncate max-w-[200px]" title={log.actor.email}>
-                                        {log.actor.email}
+                                    <TableCell className="text-gray-600 text-sm truncate max-w-[200px]" title={log.actor?.email || 'System'}>
+                                        {log.actor?.email || 'System'}
                                     </TableCell>
                                     <TableCell>
                                         <button className="text-sm text-primary-600 hover:underline">

@@ -5,6 +5,7 @@ export type NotificationType =
     | 'BOOKING_APPROVED'
     | 'BOOKING_REJECTED'
     | 'BOOKING_CANCELLED'
+    | 'BOOKING_RESCHEDULED'
     | 'PAYMENT_SUCCESS'
     | 'PAYMENT_RELEASED'
     | 'ESCROW_REMINDER'
