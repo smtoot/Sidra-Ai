@@ -16,20 +16,21 @@ jobs:
       - name: Install PostgreSQL 17 client
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget ca-certificates
+          sudo apt-get install -y wget ca-certificates gzip
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
-      - name: Verify pg_dump version
-        run: |
-          /usr/lib/postgresql/17/bin/pg_dump --version
-
-      - name: Create backup
+      - name: Create compressed backup
         run: |
           mkdir -p backups
-          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > backups/backup_$(date +%Y-%m-%d).sql
+          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" \
+            | gzip > backups/backup_$(date +%Y-%m-%d).sql.gz
+
+      - name: Cleanup old backups (keep last 7 days)
+        run: |
+          find backups -type f -name "backup_*.sql.gz" -mtime +7 -delete
 
       - name: Commit and push backup
         run: |
