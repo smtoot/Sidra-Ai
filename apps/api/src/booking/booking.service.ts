@@ -603,9 +603,11 @@ export class BookingService {
         bookedByUser: {
           include: { parentProfile: { include: { user: true } } },
         },
-        studentUser: true,
+        studentUser: {
+          include: { studentProfile: { include: { curriculum: true } } },
+        },
         subject: true,
-        child: true,
+        child: { include: { curriculum: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -626,9 +628,11 @@ export class BookingService {
         bookedByUser: {
           include: { parentProfile: { include: { user: true } } },
         },
-        studentUser: true,
+        studentUser: {
+          include: { studentProfile: { include: { curriculum: true } } },
+        },
         subject: true,
-        child: true,
+        child: { include: { curriculum: true } },
       },
       orderBy: { startTime: 'desc' },
     });
@@ -662,9 +666,11 @@ export class BookingService {
         bookedByUser: {
           include: { parentProfile: { include: { user: true } } },
         },
-        studentUser: true,
+        studentUser: {
+          include: { studentProfile: { include: { curriculum: true } } },
+        },
         subject: true,
-        child: true,
+        child: { include: { curriculum: true } },
       },
       orderBy: { createdAt: 'desc' }, // Newest requests first
       skip,

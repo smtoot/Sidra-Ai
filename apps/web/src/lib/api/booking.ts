@@ -68,8 +68,26 @@ export interface Booking {
     child?: { // Child entity for parent bookings
         id: string;
         name: string;
+        gradeLevel?: string;
+        curriculum?: {
+            id: string;
+            nameAr: string;
+            nameEn: string;
+        };
     };
     student?: any; // Legacy compatibility
+    studentUser?: { // Independent student user
+        id: string;
+        email?: string;
+        studentProfile?: {
+            gradeLevel?: string;
+            curriculum?: {
+                id: string;
+                nameAr: string;
+                nameEn: string;
+            };
+        };
+    };
     meetingLink?: string;
     subject?: {
         id: string;

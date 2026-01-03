@@ -11,7 +11,13 @@ async function bootstrap() {
     bodyParser: false,
   });
   // SECURITY: Set standard HTTP security headers (HSTS, X-Frame-Options, etc.)
-  app.use(helmet());
+  // Configure helmet to allow cross-origin resources for API endpoints
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow files to be loaded cross-origin
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, // Allow popups for OAuth flows
+    }),
+  );
 
   // SECURITY: Enable global validation for all DTOs
   app.useGlobalPipes(

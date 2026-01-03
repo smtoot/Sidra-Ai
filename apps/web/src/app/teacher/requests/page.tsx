@@ -249,6 +249,8 @@ export default function TeacherRequestsPage() {
                                                 id={booking.id}
                                                 readableId={booking.readableId}
                                                 studentName={booking.child?.name || booking.studentUser?.email || booking.bookedByUser?.email || 'طالب'}
+                                                studentGrade={booking.child?.gradeLevel || booking.studentUser?.studentProfile?.gradeLevel}
+                                                studentCurriculum={booking.child?.curriculum?.nameAr || booking.studentUser?.studentProfile?.curriculum?.nameAr}
                                                 subjectName={booking.subject?.nameAr || booking.subjectId}
                                                 startTime={booking.startTime}
                                                 endTime={booking.endTime}
