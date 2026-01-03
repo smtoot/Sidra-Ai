@@ -6,6 +6,7 @@ import { useSystemConfig } from '@/context/SystemConfigContext';
 import { teacherApi } from '@/lib/api/teacher';
 import { Card, CardContent } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
+import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard';
 import {
     Package, User, Calendar, Clock, CheckCircle, XCircle,
     Timer, BookOpen, ChevronLeft, DollarSign, Eye, Loader2
@@ -284,146 +285,148 @@ export default function TeacherPackagesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
-            <div className="max-w-6xl mx-auto space-y-6">
-                {/* Header */}
-                <header className="mb-2">
-                    <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1 flex items-center gap-3">
-                        باقات الدروس
-                    </h1>
-                    <p className="text-gray-600 flex items-center gap-2">
-                        <Package className="w-5 h-5" />
-                        <span>متابعة الباقات المشتراة وحصص الطلاب</span>
-                    </p>
-                </header>
+        <TeacherApprovalGuard>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-8" dir="rtl">
+                <div className="max-w-6xl mx-auto space-y-6">
+                    {/* Header */}
+                    <header className="mb-2">
+                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1 flex items-center gap-3">
+                            باقات الدروس
+                        </h1>
+                        <p className="text-gray-600 flex items-center gap-2">
+                            <Package className="w-5 h-5" />
+                            <span>متابعة الباقات المشتراة وحصص الطلاب</span>
+                        </p>
+                    </header>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Active Packages */}
-                    <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 shadow-lg">
-                                    <Package className="w-6 h-6 text-white" />
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Active Packages */}
+                        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="p-3 rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 shadow-lg">
+                                        <Package className="w-6 h-6 text-white" />
+                                    </div>
                                 </div>
+                                <div className="text-sm text-gray-600 mb-1">باقات نشطة</div>
+                                <div className="text-3xl font-bold text-gray-900">{activeCount}</div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Completed Packages */}
+                        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 shadow-lg">
+                                        <CheckCircle className="w-6 h-6 text-white" />
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-600 mb-1">باقات مكتملة</div>
+                                <div className="text-3xl font-bold text-gray-900">{completedCount}</div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Remaining Sessions */}
+                        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+                                        <BookOpen className="w-6 h-6 text-white" />
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-600 mb-1">حصص متبقية</div>
+                                <div className="text-3xl font-bold text-gray-900">{totalRemainingSessions}</div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Filter Tabs */}
+                    <Card className="border-none shadow-md">
+                        <CardContent className="p-4">
+                            <div className="flex gap-2 overflow-x-auto">
+                                {[
+                                    { key: 'ALL', label: 'الكل', count: packages.length },
+                                    { key: 'ACTIVE', label: 'نشط', count: activeCount },
+                                    { key: 'COMPLETED', label: 'مكتمل', count: completedCount },
+                                    { key: 'EXPIRED', label: 'منتهي', count: packages.filter(p => p.status === 'EXPIRED').length }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => {
+                                            setStatusFilter(tab.key);
+                                            setCurrentPage(1); // Reset to page 1
+                                        }}
+                                        className={cn(
+                                            "px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all flex items-center gap-2",
+                                            statusFilter === tab.key
+                                                ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg"
+                                                : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow-sm"
+                                        )}
+                                    >
+                                        {tab.label}
+                                        <span className={cn(
+                                            "px-2 py-0.5 rounded-full text-xs font-bold",
+                                            statusFilter === tab.key ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"
+                                        )}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
-                            <div className="text-sm text-gray-600 mb-1">باقات نشطة</div>
-                            <div className="text-3xl font-bold text-gray-900">{activeCount}</div>
                         </CardContent>
                     </Card>
 
-                    {/* Completed Packages */}
-                    <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-600 to-green-700 shadow-lg">
-                                    <CheckCircle className="w-6 h-6 text-white" />
+                    {/* Packages List */}
+                    {filteredPackages.length === 0 ? (
+                        <Card className="border-2 border-dashed border-gray-200">
+                            <CardContent className="p-12 text-center">
+                                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Package className="w-10 h-10 text-gray-400" />
                                 </div>
-                            </div>
-                            <div className="text-sm text-gray-600 mb-1">باقات مكتملة</div>
-                            <div className="text-3xl font-bold text-gray-900">{completedCount}</div>
-                        </CardContent>
-                    </Card>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                    {statusFilter === 'ALL' ? 'لا توجد باقات' : `لا توجد باقات ${statusFilter === 'ACTIVE' ? 'نشطة' : statusFilter === 'COMPLETED' ? 'مكتملة' : 'منتهية'}`}
+                                </h3>
+                                <p className="text-gray-500">
+                                    عندما يشتري الطلاب باقات حصص معك، ستظهر هنا.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <>
+                            <div className="space-y-4">
+                                {(() => {
+                                    // Pagination logic
+                                    const startIndex = (currentPage - 1) * PACKAGES_PER_PAGE;
+                                    const endIndex = startIndex + PACKAGES_PER_PAGE;
+                                    const paginatedPackages = filteredPackages.slice(startIndex, endIndex);
 
-                    {/* Remaining Sessions */}
-                    <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
-                                    <BookOpen className="w-6 h-6 text-white" />
-                                </div>
+                                    return paginatedPackages.map(pkg => (
+                                        <PackageCard
+                                            key={pkg.id}
+                                            pkg={pkg}
+                                            onClick={() => router.push(`/teacher/packages/${pkg.id}`)}
+                                        />
+                                    ));
+                                })()}
                             </div>
-                            <div className="text-sm text-gray-600 mb-1">حصص متبقية</div>
-                            <div className="text-3xl font-bold text-gray-900">{totalRemainingSessions}</div>
-                        </CardContent>
-                    </Card>
-                </div>
 
-                {/* Filter Tabs */}
-                <Card className="border-none shadow-md">
-                    <CardContent className="p-4">
-                        <div className="flex gap-2 overflow-x-auto">
-                            {[
-                                { key: 'ALL', label: 'الكل', count: packages.length },
-                                { key: 'ACTIVE', label: 'نشط', count: activeCount },
-                                { key: 'COMPLETED', label: 'مكتمل', count: completedCount },
-                                { key: 'EXPIRED', label: 'منتهي', count: packages.filter(p => p.status === 'EXPIRED').length }
-                            ].map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => {
-                                        setStatusFilter(tab.key);
-                                        setCurrentPage(1); // Reset to page 1
+                            {/* Pagination */}
+                            {filteredPackages.length > PACKAGES_PER_PAGE && (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalPages={Math.ceil(filteredPackages.length / PACKAGES_PER_PAGE)}
+                                    onPageChange={(page) => {
+                                        setCurrentPage(page);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
                                     }}
-                                    className={cn(
-                                        "px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all flex items-center gap-2",
-                                        statusFilter === tab.key
-                                            ? "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg"
-                                            : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow-sm"
-                                    )}
-                                >
-                                    {tab.label}
-                                    <span className={cn(
-                                        "px-2 py-0.5 rounded-full text-xs font-bold",
-                                        statusFilter === tab.key ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"
-                                    )}>
-                                        {tab.count}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Packages List */}
-                {filteredPackages.length === 0 ? (
-                    <Card className="border-2 border-dashed border-gray-200">
-                        <CardContent className="p-12 text-center">
-                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Package className="w-10 h-10 text-gray-400" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
-                                {statusFilter === 'ALL' ? 'لا توجد باقات' : `لا توجد باقات ${statusFilter === 'ACTIVE' ? 'نشطة' : statusFilter === 'COMPLETED' ? 'مكتملة' : 'منتهية'}`}
-                            </h3>
-                            <p className="text-gray-500">
-                                عندما يشتري الطلاب باقات حصص معك، ستظهر هنا.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <>
-                        <div className="space-y-4">
-                            {(() => {
-                                // Pagination logic
-                                const startIndex = (currentPage - 1) * PACKAGES_PER_PAGE;
-                                const endIndex = startIndex + PACKAGES_PER_PAGE;
-                                const paginatedPackages = filteredPackages.slice(startIndex, endIndex);
-
-                                return paginatedPackages.map(pkg => (
-                                    <PackageCard
-                                        key={pkg.id}
-                                        pkg={pkg}
-                                        onClick={() => router.push(`/teacher/packages/${pkg.id}`)}
-                                    />
-                                ));
-                            })()}
-                        </div>
-
-                        {/* Pagination */}
-                        {filteredPackages.length > PACKAGES_PER_PAGE && (
-                            <Pagination
-                                currentPage={currentPage}
-                                totalPages={Math.ceil(filteredPackages.length / PACKAGES_PER_PAGE)}
-                                onPageChange={(page) => {
-                                    setCurrentPage(page);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="mt-6"
-                            />
-                        )}
-                    </>
-                )}
+                                    className="mt-6"
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+        </TeacherApprovalGuard>
     );
 }

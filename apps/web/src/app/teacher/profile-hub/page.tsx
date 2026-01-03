@@ -19,6 +19,7 @@ import { TeachingPoliciesSection } from '@/components/teacher/profile-hub/sectio
 import { ProfilePreviewPage } from '@/components/teacher/profile-hub/ProfilePreviewModal';
 import { PersonalInfoSection } from '@/components/teacher/profile-hub/sections/PersonalInfoSection';
 import { NewTeacherWelcomeBanner } from '@/components/teacher/profile-hub/NewTeacherWelcomeBanner';
+import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard';
 import { toast } from 'sonner';
 import { Loader2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -153,237 +154,239 @@ export default function ProfileHubPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background font-tajawal rtl p-8">
-            <div className="max-w-6xl mx-auto space-y-8">
-                {/* Header */}
-                <header className="mb-8 flex items-start justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-primary mb-2">ملفي الشخصي</h1>
-                        <p className="text-text-subtle">أكمل بياناتك لتظهر بأفضل صورة للطلاب وأولياء الأمور</p>
-                    </div>
-                    {/* Only show preview when profile is at least 35% complete (profile basics done) */}
-                    {percentage >= 35 ? (
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowPreview(true)}
-                            className="gap-2"
-                        >
-                            <Eye className="w-4 h-4" />
-                            معاينة الملف
-                        </Button>
-                    ) : (
-                        <div className="text-xs text-gray-400 text-left max-w-[200px]">
-                            <p className="font-medium text-gray-500">معاينة الملف</p>
-                            <p>أكمل البروفايل أولاً لتتمكن من معاينة ملفك</p>
+        <TeacherApprovalGuard>
+            <div className="min-h-screen bg-background font-tajawal rtl p-8">
+                <div className="max-w-6xl mx-auto space-y-8">
+                    {/* Header */}
+                    <header className="mb-8 flex items-start justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-primary mb-2">ملفي الشخصي</h1>
+                            <p className="text-text-subtle">أكمل بياناتك لتظهر بأفضل صورة للطلاب وأولياء الأمور</p>
+                        </div>
+                        {/* Only show preview when profile is at least 35% complete (profile basics done) */}
+                        {percentage >= 35 ? (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowPreview(true)}
+                                className="gap-2"
+                            >
+                                <Eye className="w-4 h-4" />
+                                معاينة الملف
+                            </Button>
+                        ) : (
+                            <div className="text-xs text-gray-400 text-left max-w-[200px]">
+                                <p className="font-medium text-gray-500">معاينة الملف</p>
+                                <p>أكمل البروفايل أولاً لتتمكن من معاينة ملفك</p>
+                            </div>
+                        )}
+                    </header>
+
+                    {/* Welcome Banner for Newly Approved Teachers */}
+                    {isApproved && showWelcomeBanner && (
+                        <NewTeacherWelcomeBanner
+                            displayName={profile?.displayName}
+                            hasAvailability={(profile?.availability?.length || 0) > 0}
+                            hasBankInfo={walletData.hasBankInfo}
+                            hasMeetingLink={Boolean(profile?.meetingLink || profile?.encryptedMeetingLink)}
+                            onDismiss={() => setShowWelcomeBanner(false)}
+                        />
+                    )}
+
+                    {/* Application Status Banner (for non-approved states) */}
+                    {!isApproved && (
+                        <div className="mb-6">
+                            <ApplicationStatusBanner />
                         </div>
                     )}
-                </header>
 
-                {/* Welcome Banner for Newly Approved Teachers */}
-                {isApproved && showWelcomeBanner && (
-                    <NewTeacherWelcomeBanner
-                        displayName={profile?.displayName}
-                        hasAvailability={(profile?.availability?.length || 0) > 0}
-                        hasBankInfo={walletData.hasBankInfo}
-                        hasMeetingLink={Boolean(profile?.meetingLink || profile?.encryptedMeetingLink)}
-                        onDismiss={() => setShowWelcomeBanner(false)}
-                    />
-                )}
+                    {/* Main Layout */}
+                    <div className="flex gap-6 relative">
+                        {/* Responsive Sidebar - Hide percentage before approval */}
+                        <ResponsiveSidebar
+                            percentage={isApproved ? percentage : 0}
+                            items={items}
+                            activeSection={activeSection}
+                            onSectionClick={setActiveSection}
+                            showPercentage={isApproved}
+                        />
 
-                {/* Application Status Banner (for non-approved states) */}
-                {!isApproved && (
-                    <div className="mb-6">
-                        <ApplicationStatusBanner />
-                    </div>
-                )}
+                        {/* Content Area */}
+                        <div className="flex-1 space-y-6 pb-24 lg:pb-0">
+                            {/* Profile Basics */}
+                            {activeSection === 'profile' && (
+                                <ProfileSection
+                                    id="profile"
+                                    title="البروفايل"
+                                    isLocked={false}
+                                    isSaving={saving}
+                                    onSave={() => handleSaveSection('profile')}
+                                >
+                                    <ProfileBasicsSection
+                                        displayName={profile?.displayName || ''}
+                                        bio={profile?.bio || ''}
+                                        profilePhotoUrl={profile?.profilePhotoUrl}
+                                        introVideoUrl={profile?.introVideoUrl}
+                                        isReadOnly={isReadOnly}
+                                        onUpdate={handleUpdateProfile}
+                                    />
+                                </ProfileSection>
+                            )}
 
-                {/* Main Layout */}
-                <div className="flex gap-6 relative">
-                    {/* Responsive Sidebar - Hide percentage before approval */}
-                    <ResponsiveSidebar
-                        percentage={isApproved ? percentage : 0}
-                        items={items}
-                        activeSection={activeSection}
-                        onSectionClick={setActiveSection}
-                        showPercentage={isApproved}
-                    />
+                            {/* Personal Information */}
+                            {activeSection === 'personal-info' && (
+                                <ProfileSection
+                                    id="personal-info"
+                                    title="المعلومات الشخصية"
+                                    isLocked={false}
+                                    isSaving={saving}
+                                    onSave={() => handleSaveSection('personal-info')}
+                                >
+                                    <PersonalInfoSection
+                                        firstName={profile?.firstName ?? profile?.user?.firstName ?? ''}
+                                        lastName={profile?.lastName ?? profile?.user?.lastName ?? ''}
+                                        displayName={profile?.displayName || ''}
+                                        slug={profile?.slug} // Pass slug
+                                        phoneNumber={profile?.user?.phoneNumber} // From user registration
+                                        whatsappNumber={profile?.whatsappNumber || ''}
+                                        city={profile?.city || ''}
+                                        country={profile?.country || ''}
+                                        dateOfBirth={profile?.dateOfBirth || ''}
+                                        isReadOnly={isReadOnly}
+                                        onUpdate={handleUpdateProfile}
+                                    />
+                                </ProfileSection>
+                            )}
 
-                    {/* Content Area */}
-                    <div className="flex-1 space-y-6 pb-24 lg:pb-0">
-                        {/* Profile Basics */}
-                        {activeSection === 'profile' && (
-                            <ProfileSection
-                                id="profile"
-                                title="البروفايل"
-                                isLocked={false}
-                                isSaving={saving}
-                                onSave={() => handleSaveSection('profile')}
-                            >
-                                <ProfileBasicsSection
-                                    displayName={profile?.displayName || ''}
-                                    bio={profile?.bio || ''}
-                                    profilePhotoUrl={profile?.profilePhotoUrl}
-                                    introVideoUrl={profile?.introVideoUrl}
-                                    isReadOnly={isReadOnly}
-                                    onUpdate={handleUpdateProfile}
-                                />
-                            </ProfileSection>
-                        )}
+                            {/* Qualifications */}
+                            {activeSection === 'qualifications' && (
+                                <ProfileSection
+                                    id="qualifications"
+                                    title="المؤهلات الأكاديمية"
+                                    isLocked={false}
+                                    isSaving={saving}
+                                    onSave={() => handleSaveSection('qualifications')}
+                                >
+                                    <QualificationsSection
+                                        yearsOfExperience={profile?.yearsOfExperience || 0}
+                                        gender={profile?.gender}
+                                        isReadOnly={isReadOnly}
+                                        onUpdate={handleUpdateProfile}
+                                    />
+                                </ProfileSection>
+                            )}
 
-                        {/* Personal Information */}
-                        {activeSection === 'personal-info' && (
-                            <ProfileSection
-                                id="personal-info"
-                                title="المعلومات الشخصية"
-                                isLocked={false}
-                                isSaving={saving}
-                                onSave={() => handleSaveSection('personal-info')}
-                            >
-                                <PersonalInfoSection
-                                    firstName={profile?.firstName ?? profile?.user?.firstName ?? ''}
-                                    lastName={profile?.lastName ?? profile?.user?.lastName ?? ''}
-                                    displayName={profile?.displayName || ''}
-                                    slug={profile?.slug} // Pass slug
-                                    phoneNumber={profile?.user?.phoneNumber} // From user registration
-                                    whatsappNumber={profile?.whatsappNumber || ''}
-                                    city={profile?.city || ''}
-                                    country={profile?.country || ''}
-                                    dateOfBirth={profile?.dateOfBirth || ''}
-                                    isReadOnly={isReadOnly}
-                                    onUpdate={handleUpdateProfile}
-                                />
-                            </ProfileSection>
-                        )}
+                            {/* Skills & Work Experience (Optional) */}
+                            {activeSection === 'skills-experience' && (
+                                <ProfileSection
+                                    id="skills-experience"
+                                    title="المهارات والخبرات العملية"
+                                    isLocked={false}
+                                >
+                                    <SkillsExperienceSection isReadOnly={isReadOnly} />
+                                </ProfileSection>
+                            )}
 
-                        {/* Qualifications */}
-                        {activeSection === 'qualifications' && (
-                            <ProfileSection
-                                id="qualifications"
-                                title="المؤهلات الأكاديمية"
-                                isLocked={false}
-                                isSaving={saving}
-                                onSave={() => handleSaveSection('qualifications')}
-                            >
-                                <QualificationsSection
-                                    yearsOfExperience={profile?.yearsOfExperience || 0}
-                                    gender={profile?.gender}
-                                    isReadOnly={isReadOnly}
-                                    onUpdate={handleUpdateProfile}
-                                />
-                            </ProfileSection>
-                        )}
+                            {/* Teaching Approach */}
+                            {activeSection === 'teaching-approach' && (
+                                <ProfileSection
+                                    id="teaching-approach"
+                                    title="أسلوب التدريس"
+                                    isLocked={false}
+                                    isSaving={saving}
+                                    onSave={handleSaveTeachingApproach}
+                                >
+                                    <TeachingApproachSection
+                                        teachingStyle={profile?.teachingStyle || ''}
+                                        currentTags={profile?.teachingTagIds || profile?.teachingTags?.map((t: any) => t.tagId) || []}
+                                        isReadOnly={isReadOnly}
+                                        onUpdate={handleUpdateProfile}
+                                    />
+                                </ProfileSection>
+                            )}
 
-                        {/* Skills & Work Experience (Optional) */}
-                        {activeSection === 'skills-experience' && (
-                            <ProfileSection
-                                id="skills-experience"
-                                title="المهارات والخبرات العملية"
-                                isLocked={false}
-                            >
-                                <SkillsExperienceSection isReadOnly={isReadOnly} />
-                            </ProfileSection>
-                        )}
+                            {/* Subjects */}
+                            {activeSection === 'subjects' && (
+                                <ProfileSection
+                                    id="subjects"
+                                    title="المواد والتسعيرة"
+                                    isLocked={false}
+                                >
+                                    <SubjectsManager isReadOnly={isReadOnly} />
+                                </ProfileSection>
+                            )}
 
-                        {/* Teaching Approach */}
-                        {activeSection === 'teaching-approach' && (
-                            <ProfileSection
-                                id="teaching-approach"
-                                title="أسلوب التدريس"
-                                isLocked={false}
-                                isSaving={saving}
-                                onSave={handleSaveTeachingApproach}
-                            >
-                                <TeachingApproachSection
-                                    teachingStyle={profile?.teachingStyle || ''}
-                                    currentTags={profile?.teachingTagIds || profile?.teachingTags?.map((t: any) => t.tagId) || []}
-                                    isReadOnly={isReadOnly}
-                                    onUpdate={handleUpdateProfile}
-                                />
-                            </ProfileSection>
-                        )}
+                            {/* Documents/ID Verification - Read-only after onboarding */}
+                            {activeSection === 'documents' && (
+                                <ProfileSection
+                                    id="documents"
+                                    title="تأكيد الهوية"
+                                    isLocked={false}
+                                >
+                                    {/* Show info message if ID verification is complete */}
+                                    {profile?.idType && profile?.idNumber && profile?.idImageUrl && (
+                                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm">
+                                            <p className="font-medium">✓ تم التحقق من هويتك</p>
+                                            <p className="text-green-600 mt-1">
+                                                تأكيد الهوية هو إجراء لمرة واحدة. إذا كنت بحاجة لتحديث بياناتك، يرجى التواصل مع الدعم.
+                                            </p>
+                                        </div>
+                                    )}
+                                    <IdVerificationSection
+                                        idType={profile?.idType}
+                                        idNumber={profile?.idNumber || ''}
+                                        idImageUrl={profile?.idImageUrl}
+                                        onChange={handleUpdateProfile}
+                                        disabled={Boolean(profile?.idType && profile?.idNumber && profile?.idImageUrl)}
+                                    />
+                                </ProfileSection>
+                            )}
 
-                        {/* Subjects */}
-                        {activeSection === 'subjects' && (
-                            <ProfileSection
-                                id="subjects"
-                                title="المواد والتسعيرة"
-                                isLocked={false}
-                            >
-                                <SubjectsManager isReadOnly={isReadOnly} />
-                            </ProfileSection>
-                        )}
-
-                        {/* Documents/ID Verification - Read-only after onboarding */}
-                        {activeSection === 'documents' && (
-                            <ProfileSection
-                                id="documents"
-                                title="تأكيد الهوية"
-                                isLocked={false}
-                            >
-                                {/* Show info message if ID verification is complete */}
-                                {profile?.idType && profile?.idNumber && profile?.idImageUrl && (
-                                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm">
-                                        <p className="font-medium">✓ تم التحقق من هويتك</p>
-                                        <p className="text-green-600 mt-1">
-                                            تأكيد الهوية هو إجراء لمرة واحدة. إذا كنت بحاجة لتحديث بياناتك، يرجى التواصل مع الدعم.
+                            {/* Availability - Links to full page with all features */}
+                            {activeSection === 'availability' && (
+                                <ProfileSection
+                                    id="availability"
+                                    title="الأوقات المتاحة"
+                                    isLocked={false}
+                                >
+                                    <div className="space-y-4">
+                                        <p className="text-gray-600">
+                                            إدارة مواعيدك الأسبوعية والأيام المحظورة (الإجازات، المناسبات) من صفحة المواعيد الكاملة.
                                         </p>
+                                        <a
+                                            href="/teacher/availability"
+                                            className="inline-flex items-center gap-2 bg-primary px-6 py-3 rounded-lg hover:bg-primary-hover transition-colors"
+                                            style={{ color: 'white' }}
+                                        >
+                                            <span>إدارة المواعيد</span>
+                                            <span>←</span>
+                                        </a>
                                     </div>
-                                )}
-                                <IdVerificationSection
-                                    idType={profile?.idType}
-                                    idNumber={profile?.idNumber || ''}
-                                    idImageUrl={profile?.idImageUrl}
-                                    onChange={handleUpdateProfile}
-                                    disabled={Boolean(profile?.idType && profile?.idNumber && profile?.idImageUrl)}
-                                />
-                            </ProfileSection>
-                        )}
+                                </ProfileSection>
+                            )}
 
-                        {/* Availability - Links to full page with all features */}
-                        {activeSection === 'availability' && (
-                            <ProfileSection
-                                id="availability"
-                                title="الأوقات المتاحة"
-                                isLocked={false}
-                            >
-                                <div className="space-y-4">
-                                    <p className="text-gray-600">
-                                        إدارة مواعيدك الأسبوعية والأيام المحظورة (الإجازات، المناسبات) من صفحة المواعيد الكاملة.
-                                    </p>
-                                    <a
-                                        href="/teacher/availability"
-                                        className="inline-flex items-center gap-2 bg-primary px-6 py-3 rounded-lg hover:bg-primary-hover transition-colors"
-                                        style={{ color: 'white' }}
-                                    >
-                                        <span>إدارة المواعيد</span>
-                                        <span>←</span>
-                                    </a>
-                                </div>
-                            </ProfileSection>
-                        )}
+                            {/* Note: Bank info section removed - managed in Wallet page only */}
 
-                        {/* Note: Bank info section removed - managed in Wallet page only */}
-
-                        {/* Teaching Options */}
-                        {activeSection === 'policies' && (
-                            <ProfileSection
-                                id="policies"
-                                title="خيارات التدريس"
-                                isLocked={false}
-                            >
-                                <TeachingPoliciesSection isReadOnly={false} />
-                            </ProfileSection>
-                        )}
+                            {/* Teaching Options */}
+                            {activeSection === 'policies' && (
+                                <ProfileSection
+                                    id="policies"
+                                    title="خيارات التدريس"
+                                    isLocked={false}
+                                >
+                                    <TeachingPoliciesSection isReadOnly={false} />
+                                </ProfileSection>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Profile Preview Page */}
-            <ProfilePreviewPage
-                open={showPreview}
-                onClose={() => setShowPreview(false)}
-                profile={profile || {}}
-            />
-        </div>
+                {/* Profile Preview Page */}
+                <ProfilePreviewPage
+                    open={showPreview}
+                    onClose={() => setShowPreview(false)}
+                    profile={profile || {}}
+                />
+            </div>
+        </TeacherApprovalGuard>
     );
 }
