@@ -1029,7 +1029,7 @@ export class PackageService {
       throw new BadRequestException('Package has expired');
     }
 
-    // Verify floating sessions available
+    // Verify floating sessions available (preliminary check - final check inside TX)
     if (pkg.floatingSessionsUsed >= pkg.floatingSessionCount!) {
       throw new BadRequestException('No floating sessions remaining');
     }
@@ -1042,7 +1042,7 @@ export class PackageService {
     const endTime = new Date(sessionDate);
     endTime.setHours(endTime.getHours() + 1);
 
-    // Check 1: Teacher Availability (Schedule & Exceptions)
+    // Check 1: Teacher Availability (Schedule & Exceptions) - preliminary check
     const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       pkg.teacherId,
       sessionDate,
@@ -1054,35 +1054,55 @@ export class PackageService {
       );
     }
 
-    // Check 2: Booking Conflicts
-    const conflict = await this.prisma.booking.findFirst({
-      where: {
-        teacherId: pkg.teacherId,
-        status: 'SCHEDULED',
-        OR: [
-          {
-            AND: [
-              { startTime: { lte: sessionDate } },
-              { endTime: { gt: sessionDate } },
-            ],
-          },
-          {
-            AND: [
-              { startTime: { lt: endTime } },
-              { endTime: { gte: endTime } },
-            ],
-          },
-        ],
-      },
-    });
-
-    if (conflict) {
-      throw new BadRequestException('Teacher is not available at this time');
-    }
-
-    // Create booking in transaction
+    // Create booking in transaction with all critical checks INSIDE
+    // SECURITY: All race-condition-prone checks are inside the SERIALIZABLE transaction
     return this.prisma.$transaction(
       async (tx) => {
+        // P0 FIX: Re-check floating sessions inside transaction with conditional update
+        const updateResult = await tx.studentPackage.updateMany({
+          where: {
+            id: packageId,
+            status: 'ACTIVE',
+            floatingSessionsUsed: { lt: pkg.floatingSessionCount! },
+          },
+          data: {
+            floatingSessionsUsed: { increment: 1 },
+            sessionsUsed: { increment: 1 },
+          },
+        });
+
+        if (updateResult.count === 0) {
+          throw new ConflictException(
+            'No floating sessions remaining or package is no longer active',
+          );
+        }
+
+        // P0 FIX: Check booking conflicts INSIDE the transaction
+        const conflict = await tx.booking.findFirst({
+          where: {
+            teacherId: pkg.teacherId,
+            status: 'SCHEDULED',
+            OR: [
+              {
+                AND: [
+                  { startTime: { lte: sessionDate } },
+                  { endTime: { gt: sessionDate } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { lt: endTime } },
+                  { endTime: { gte: endTime } },
+                ],
+              },
+            ],
+          },
+        });
+
+        if (conflict) {
+          throw new ConflictException('Teacher is not available at this time');
+        }
+
         // Create booking
         const booking = await tx.booking.create({
           data: {
@@ -1110,15 +1130,6 @@ export class PackageService {
             packageId,
             bookingId: booking.id,
             status: 'RESERVED',
-          },
-        });
-
-        // Increment floating sessions used and total sessions used
-        await tx.studentPackage.update({
-          where: { id: packageId },
-          data: {
-            floatingSessionsUsed: { increment: 1 },
-            sessionsUsed: { increment: 1 },
           },
         });
 
@@ -1186,7 +1197,7 @@ export class PackageService {
     const newEndTime = new Date(newDate);
     newEndTime.setHours(newEndTime.getHours() + 1);
 
-    // Check 1: Teacher Availability at new time
+    // Check 1: Teacher Availability at new time (preliminary check)
     const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       booking.teacherId,
       newDate,
@@ -1198,42 +1209,67 @@ export class PackageService {
       );
     }
 
-    // Check 2: Booking Conflicts
-    const conflict = await this.prisma.booking.findFirst({
-      where: {
-        teacherId: booking.teacherId,
-        id: { not: bookingId }, // Exclude current booking
-        status: 'SCHEDULED',
-        OR: [
-          {
-            AND: [
-              { startTime: { lte: newDate } },
-              { endTime: { gt: newDate } },
+    // P0 FIX: Use SERIALIZABLE transaction with conditional update to prevent race conditions
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Check booking conflicts INSIDE the transaction
+        const conflict = await tx.booking.findFirst({
+          where: {
+            teacherId: booking.teacherId,
+            id: { not: bookingId }, // Exclude current booking
+            status: 'SCHEDULED',
+            OR: [
+              {
+                AND: [
+                  { startTime: { lte: newDate } },
+                  { endTime: { gt: newDate } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { lt: newEndTime } },
+                  { endTime: { gte: newEndTime } },
+                ],
+              },
             ],
           },
-          {
-            AND: [
-              { startTime: { lt: newEndTime } },
-              { endTime: { gte: newEndTime } },
-            ],
+        });
+
+        if (conflict) {
+          throw new ConflictException(
+            'Teacher is not available at the new time',
+          );
+        }
+
+        // Use conditional update to detect if booking was modified concurrently
+        const updateResult = await tx.booking.updateMany({
+          where: {
+            id: bookingId,
+            status: 'SCHEDULED',
+            rescheduleCount: booking.rescheduleCount, // Optimistic lock
           },
-        ],
-      },
-    });
+          data: {
+            startTime: newDate,
+            endTime: newEndTime,
+            rescheduleCount: { increment: 1 },
+          },
+        });
 
-    if (conflict) {
-      throw new BadRequestException('Teacher is not available at the new time');
-    }
+        if (updateResult.count === 0) {
+          throw new ConflictException(
+            'Booking was modified by another request. Please refresh and try again.',
+          );
+        }
 
-    // Update booking
-    return this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        startTime: newDate,
-        endTime: newEndTime,
-        rescheduleCount: { increment: 1 },
+        // Return the updated booking
+        return tx.booking.findUnique({
+          where: { id: bookingId },
+        });
       },
-    });
+      {
+        isolationLevel: 'Serializable',
+      },
+    );
   }
 
   // =====================================================
@@ -1631,57 +1667,72 @@ export class PackageService {
       });
       if (existingTx) continue;
 
-      await this.prisma.$transaction(async (tx) => {
-        // 1. Refund remaining escrow to payer
-        await tx.wallet.update({
-          where: { userId: pkg.payerId },
-          data: { balance: { increment: pkg.escrowRemaining } },
-        });
+      // P0 FIX: Use SERIALIZABLE isolation to prevent double-refund on multi-instance deployments
+      await this.prisma.$transaction(
+        async (tx) => {
+          // Re-verify package status inside transaction (double-check with idempotency)
+          const currentPkg = await tx.studentPackage.findUnique({
+            where: { id: pkg.id },
+          });
+          if (!currentPkg || currentPkg.status !== 'ACTIVE') {
+            // Already processed by another instance
+            return;
+          }
 
-        // 1.1 Create Refund Transaction
-        const wallet = await tx.wallet.findUnique({
-          where: { userId: pkg.payerId },
-        });
-        if (wallet) {
-          const refundTxId =
-            await this.readableIdService.generate('TRANSACTION');
-          await tx.transaction.create({
+          // 1. Refund remaining escrow to payer
+          await tx.wallet.update({
+            where: { userId: pkg.payerId },
+            data: { balance: { increment: pkg.escrowRemaining } },
+          });
+
+          // 1.1 Create Refund Transaction
+          const wallet = await tx.wallet.findUnique({
+            where: { userId: pkg.payerId },
+          });
+          if (wallet) {
+            const refundTxId =
+              await this.readableIdService.generate('TRANSACTION');
+            await tx.transaction.create({
+              data: {
+                readableId: refundTxId,
+                walletId: wallet.id,
+                amount: pkg.escrowRemaining,
+                type: 'REFUND',
+                status: 'APPROVED',
+                adminNote: `Package ${pkg.id} expired - auto refund`,
+              },
+            });
+          }
+
+          // 2. Cancel pending redemptions
+          await tx.packageRedemption.updateMany({
+            where: { packageId: pkg.id, status: 'RESERVED' },
+            data: { status: 'CANCELLED' },
+          });
+
+          // 3. Mark package as expired
+          await tx.studentPackage.update({
+            where: { id: pkg.id },
             data: {
-              readableId: refundTxId,
-              walletId: wallet.id,
-              amount: pkg.escrowRemaining,
-              type: 'REFUND',
-              status: 'APPROVED',
-              adminNote: `Package ${pkg.id} expired - auto refund`,
+              status: 'EXPIRED',
+              escrowRemaining: new Decimal(0),
             },
           });
-        }
 
-        // 2. Cancel pending redemptions
-        await tx.packageRedemption.updateMany({
-          where: { packageId: pkg.id, status: 'RESERVED' },
-          data: { status: 'CANCELLED' },
-        });
-
-        // 3. Mark package as expired
-        await tx.studentPackage.update({
-          where: { id: pkg.id },
-          data: {
-            status: 'EXPIRED',
-            escrowRemaining: new Decimal(0),
-          },
-        });
-
-        // 4. Record transaction
-        await tx.packageTransaction.create({
-          data: {
-            idempotencyKey,
-            type: 'EXPIRE',
-            packageId: pkg.id,
-            amount: pkg.escrowRemaining,
-          },
-        });
-      });
+          // 4. Record transaction
+          await tx.packageTransaction.create({
+            data: {
+              idempotencyKey,
+              type: 'EXPIRE',
+              packageId: pkg.id,
+              amount: pkg.escrowRemaining,
+            },
+          });
+        },
+        {
+          isolationLevel: 'Serializable',
+        },
+      );
     }
 
     return { expiredCount: expiredPackages.length };
