@@ -179,7 +179,10 @@ export class BookingService {
     // Let's use Number() for simplicity in this logic, but ideally Decimal.js.
     const pricePerHour = Number(teacherSubject.pricePerHour);
     const rawPrice = pricePerHour * durationHours;
-    const calculatedPrice = normalizeMoney(rawPrice); // MONEY NORMALIZATION: Round to integer
+
+    // DEMO LOGIC: Demo sessions are free (Price = 0)
+    // NOTE: Requires dto.isDemo to be trusted (Teacher/Student Guard or logic handles abuse)
+    const calculatedPrice = dto.isDemo ? 0 : normalizeMoney(rawPrice);
 
     // Snapshot commission rate (from system settings or default)
     // Hardcoded default for now or fetch settings. Using 0.18 as per schema default.

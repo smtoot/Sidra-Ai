@@ -25,6 +25,7 @@ import {
     Video,
     FileText,
     History,
+    TrendingUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -492,36 +493,51 @@ export default function AdminBookingDetailPage() {
                 </div>
 
                 {/* Payment Info */}
-                {booking.payment && (
+                {(booking.payment || Number(booking.price) === 0) && (
                     <Card padding="lg">
                         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <DollarSign className="w-5 h-5 text-primary" />
                             معلومات الدفع
                         </h2>
-                        <div className="grid grid-cols-4 gap-4">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">المبلغ</p>
-                                <p className="font-bold text-primary text-lg">{booking.payment.amount} SDG</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">حالة الدفع</p>
-                                <StatusBadge variant={booking.payment.status === 'PAID' ? 'success' : 'warning'}>
-                                    {booking.payment.status === 'PAID' ? 'مدفوع' : booking.payment.status}
-                                </StatusBadge>
-                            </div>
-                            {booking.payment.paymentMethod && (
-                                <div>
-                                    <p className="text-sm text-gray-500 mb-1">طريقة الدفع</p>
-                                    <p className="font-medium text-gray-900">{booking.payment.paymentMethod}</p>
+                        {Number(booking.price) === 0 ? (
+                            <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                        <TrendingUp className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-purple-900 text-lg">حصة تجريبية (مجانية)</p>
+                                        <p className="text-sm text-purple-700">لا يتطلب دفع رسوم</p>
+                                    </div>
                                 </div>
-                            )}
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">تاريخ الدفع</p>
-                                <p className="font-medium text-gray-900">
-                                    {format(new Date(booking.payment.createdAt), 'dd MMM yyyy', { locale: ar })}
-                                </p>
+                                <div className="text-xl font-bold text-gray-900">0.00 SDG</div>
                             </div>
-                        </div>
+                        ) : booking.payment ? (
+                            <div className="grid grid-cols-4 gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">المبلغ</p>
+                                    <p className="font-bold text-primary text-lg">{booking.payment.amount} SDG</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">حالة الدفع</p>
+                                    <StatusBadge variant={booking.payment.status === 'PAID' ? 'success' : 'warning'}>
+                                        {booking.payment.status === 'PAID' ? 'مدفوع' : booking.payment.status}
+                                    </StatusBadge>
+                                </div>
+                                {booking.payment.paymentMethod && (
+                                    <div>
+                                        <p className="text-sm text-gray-500 mb-1">طريقة الدفع</p>
+                                        <p className="font-medium text-gray-900">{booking.payment.paymentMethod}</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">تاريخ الدفع</p>
+                                    <p className="font-medium text-gray-900">
+                                        {format(new Date(booking.payment.createdAt), 'dd MMM yyyy', { locale: ar })}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : null}
                     </Card>
                 )}
 
