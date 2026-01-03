@@ -22,10 +22,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
+      - name: Verify pg_dump version
+        run: |
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
       - name: Create backup
         run: |
           mkdir -p backups
-          pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > backups/backup_$(date +%Y-%m-%d).sql
+          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" > backups/backup_$(date +%Y-%m-%d).sql
 
       - name: Commit and push backup
         run: |
