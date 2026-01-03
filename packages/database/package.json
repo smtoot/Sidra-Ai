@@ -11,7 +11,7 @@
         "db:migrate": "prisma migrate deploy",
         "db:migrate:dev": "prisma migrate dev",
         "db:generate": "prisma generate",
-        "postinstall": "prisma generate"
+        "postinstall": "prisma generate --schema=./prisma/schema.prisma || true"
     },
     "dependencies": {
         "@prisma/client": "^5.22.0",
