@@ -1739,7 +1739,7 @@ export class BookingService {
           refundAmount = (paidAmount * refundPercent) / 100;
           teacherCompAmount = paidAmount - refundAmount;
 
-          // Settle via wallet
+          // Settle via wallet (atomic with booking update)
           await this.walletService.settleCancellation(
             booking.bookedByUserId,
             booking.teacherProfile.user.id,
@@ -1747,6 +1747,7 @@ export class BookingService {
             paidAmount,
             refundAmount,
             teacherCompAmount,
+            tx, // Pass transaction client for atomicity
           );
         }
 
