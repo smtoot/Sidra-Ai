@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { UserRole } from '@sidra/shared';
+import { UserRole, TEACHER_EVENTS, STUDENT_EVENTS } from '@sidra/shared';
 import Link from 'next/link';
 import { Home, Search, Info, HelpCircle } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
 
 // Country codes - MENA region first (Sudan priority), then international
 import { COUNTRY_CODES } from '@/lib/constants/country-codes';
@@ -159,7 +160,10 @@ export default function RegisterPage() {
                                         name="role"
                                         value="TEACHER"
                                         checked={role === 'TEACHER'}
-                                        onChange={() => setRole('TEACHER')}
+                                        onChange={() => {
+                                            setRole('TEACHER');
+                                            trackEvent(TEACHER_EVENTS.SIGNUP_STARTED);
+                                        }}
                                         className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <span className="text-gray-900 dark:text-gray-100">معلم</span>
