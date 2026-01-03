@@ -59,6 +59,10 @@ export class MarketplaceService {
       // CRITICAL: Only show approved teachers in search results
       teacherProfile: {
         applicationStatus: 'APPROVED',
+        // Only show teachers with at least one availability slot
+        availability: {
+          some: {},
+        },
       },
     };
 
