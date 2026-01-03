@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { walletApi } from '@/lib/api/wallet';
+import { api } from '@/lib/api';
 import { Upload, X, Copy, Check, AlertCircle, ChevronLeft, Building2, Smartphone, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -15,6 +16,12 @@ interface DepositModalProps {
     onSuccess: () => void;
 }
 
+// SECURITY FIX: Bank config type from API
+interface BankConfig {
+    bankName: string;
+    accountHolderName: string;
+    accountNumber: string;
+}
 
 export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) {
     const [activeTab, setActiveTab] = useState<'qr' | 'transfer'>('qr');
@@ -26,11 +33,27 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
     const [errors, setErrors] = useState<{ amount?: string; receipt?: string }>({});
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
-    // Updated Bank Config
-    const BANK_CONFIG = {
-        bankName: 'بنك الخرطوم',
-        accountHolderName: 'عمر محمد عبدالرحيم عبيشي',
-        accountNumber: '1401733',
+    // SECURITY FIX: Fetch bank config from API instead of hardcoding
+    const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
+    const [loadingConfig, setLoadingConfig] = useState(true);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchBankConfig();
+        }
+    }, [isOpen]);
+
+    const fetchBankConfig = async () => {
+        try {
+            setLoadingConfig(true);
+            const { data } = await api.get('/system-settings/deposit-info');
+            setBankConfig(data);
+        } catch (error) {
+            console.error('Failed to fetch bank config:', error);
+            toast.error('فشل في تحميل بيانات الحساب البنكي');
+        } finally {
+            setLoadingConfig(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -214,28 +237,38 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
                                         <span className="text-xs text-[#C8102E] font-bold bg-red-50 px-2 py-1 rounded-full">بنك الخرطوم</span>
                                     </div>
                                     <div className="p-4 space-y-4">
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-gray-500">رقم الحساب</p>
-                                            <div className="flex items-center gap-2 justify-between bg-gray-50 p-3 rounded-xl border border-gray-100 hover:border-gray-300 transition-colors group">
-                                                <span className="font-mono font-bold text-lg text-gray-800">{BANK_CONFIG.accountNumber}</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleCopy(BANK_CONFIG.accountNumber, 'account')}
-                                                    className="h-8 px-3 hover:bg-white hover:shadow-sm"
-                                                >
-                                                    {copiedField === 'account' ? (
-                                                        <span className="text-green-600 font-bold text-xs">تم النسخ</span>
-                                                    ) : (
-                                                        <span className="text-primary text-xs font-bold">نسخ</span>
-                                                    )}
-                                                </Button>
+                                        {loadingConfig ? (
+                                            <div className="flex items-center justify-center py-4">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                                             </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-gray-500">اسم الحساب</p>
-                                            <p className="font-bold text-gray-900 text-sm">{BANK_CONFIG.accountHolderName}</p>
-                                        </div>
+                                        ) : bankConfig ? (
+                                            <>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-gray-500">رقم الحساب</p>
+                                                    <div className="flex items-center gap-2 justify-between bg-gray-50 p-3 rounded-xl border border-gray-100 hover:border-gray-300 transition-colors group">
+                                                        <span className="font-mono font-bold text-lg text-gray-800">{bankConfig.accountNumber}</span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleCopy(bankConfig.accountNumber, 'account')}
+                                                            className="h-8 px-3 hover:bg-white hover:shadow-sm"
+                                                        >
+                                                            {copiedField === 'account' ? (
+                                                                <span className="text-green-600 font-bold text-xs">تم النسخ</span>
+                                                            ) : (
+                                                                <span className="text-primary text-xs font-bold">نسخ</span>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-gray-500">اسم الحساب</p>
+                                                    <p className="font-bold text-gray-900 text-sm">{bankConfig.accountHolderName}</p>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p className="text-red-500 text-sm text-center py-4">فشل في تحميل بيانات الحساب</p>
+                                        )}
                                     </div>
                                 </div>
 

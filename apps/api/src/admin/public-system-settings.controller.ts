@@ -21,4 +21,19 @@ export class PublicSystemSettingsController {
             meetingLinkAccessMinutes: settings.meetingLinkAccessMinutesBefore,
         };
     }
+
+    /**
+     * SECURITY FIX: Fetch deposit bank info from database instead of hardcoding in frontend
+     * This endpoint is public but only returns deposit-related info
+     */
+    @Public()
+    @Get('deposit-info')
+    async getDepositBankInfo() {
+        const settings = await this.settingsService.getSettings();
+        return {
+            bankName: settings.depositBankName,
+            accountHolderName: settings.depositAccountHolderName,
+            accountNumber: settings.depositAccountNumber,
+        };
+    }
 }

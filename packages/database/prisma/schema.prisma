@@ -945,6 +945,11 @@ model SystemSettings {
   // Vacation Mode Settings
   maxVacationDays Int @default(21) // Maximum allowed vacation period in days
 
+  // SECURITY FIX: Deposit Bank Info (moved from hardcoded frontend)
+  depositBankName          String @default("بنك الخرطوم")
+  depositAccountHolderName String @default("عمر محمد عبدالرحيم عبيشي")
+  depositAccountNumber     String @default("1401733")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
