@@ -15,7 +15,7 @@ import { AdminModule } from '../admin/admin.module';
     NotificationModule,
     PackageModule,
     ReadableIdModule,
-    TeacherModule,
+    forwardRef(() => TeacherModule),
     forwardRef(() => AdminModule),
   ],
   controllers: [BookingController],
