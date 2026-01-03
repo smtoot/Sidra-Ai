@@ -20,7 +20,7 @@ import {
 import { formatInTimezone } from '../common/utils/timezone.util';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { normalizeMoney } from '../utils/money';
-import { BOOKING_POLICY } from './booking-policy.constants';
+import { BOOKING_POLICY, isValidStatusTransition, getAllowedTransitions } from './booking-policy.constants';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { TeacherService } from '../teacher/teacher.service';
 
@@ -1170,10 +1170,12 @@ export class BookingService {
       throw new BadRequestException('Not authorized to complete this session');
     }
 
-    // Only SCHEDULED sessions can be marked complete
-    if (booking.status !== 'SCHEDULED') {
+    // P1 FIX: State machine validation for status transition
+    const targetStatus = 'PENDING_CONFIRMATION';
+    if (!isValidStatusTransition(booking.status, targetStatus)) {
+      const allowed = getAllowedTransitions(booking.status);
       throw new BadRequestException(
-        'Session must be SCHEDULED to mark complete',
+        `Cannot transition from ${booking.status} to ${targetStatus}. Allowed: ${allowed.join(', ') || 'none'}`,
       );
     }
 
@@ -1284,9 +1286,13 @@ export class BookingService {
           };
         }
 
-        // Status check
-        if (booking.status !== 'PENDING_CONFIRMATION') {
-          throw new BadRequestException('Session is not pending confirmation');
+        // P1 FIX: State machine validation for status transition
+        const targetStatus = 'COMPLETED';
+        if (!isValidStatusTransition(booking.status, targetStatus)) {
+          const allowed = getAllowedTransitions(booking.status);
+          throw new BadRequestException(
+            `Cannot transition from ${booking.status} to ${targetStatus}. Allowed: ${allowed.join(', ') || 'none'}`,
+          );
         }
 
         // Dispute window check
