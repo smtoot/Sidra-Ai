@@ -19,7 +19,7 @@ jobs:
       - name: Create backup
         run: |
           mkdir -p backups
-          pg_dump "${{ secrets.DATABASE_URL }}" > backups/backup_$(date +%Y-%m-%d).sql
+          pg_dump "${{ secrets.DATABASE_URL }}" > backups/backup_$(date +%Y-%m-%d).s/backup_$(date +%Y-%m-%d).sql
 
       - name: Commit backup
         run: |
