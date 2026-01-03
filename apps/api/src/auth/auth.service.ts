@@ -351,7 +351,8 @@ export class AuthService {
         data: { revoked: true, revokedAt: new Date() }
       });
     } catch (e) {
-      // Ignore if not found
+      // Token not found or already revoked - log but don't fail logout
+      this.logger.debug(`Logout: token ${tokenId.slice(0, 8)}... not found or already revoked`);
     }
     return { message: 'Logged out successfully' };
   }

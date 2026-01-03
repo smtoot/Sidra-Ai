@@ -507,8 +507,10 @@ export class BookingService {
             } catch (error: any) {
               this.logger.error(
                 `Package purchase failed in approveRequest: ${error.message}`,
+                error.stack,
               );
-              throw new BadRequestException(error.message || 'فشل شراء الباقة');
+              // Don't expose internal error details to client
+              throw new BadRequestException('فشل شراء الباقة');
             }
           }
 

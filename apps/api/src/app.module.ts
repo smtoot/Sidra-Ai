@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -59,6 +60,11 @@ import { PostHogModule } from './common/posthog/posthog.module';
   providers: [
     AppService,
     ConfigValidationService,
+    // SECURITY: Global exception filter - sanitizes all error responses
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
     // SECURITY: Global authentication guard - all routes require JWT by default
     // Use @Public() decorator to mark routes as public
     {

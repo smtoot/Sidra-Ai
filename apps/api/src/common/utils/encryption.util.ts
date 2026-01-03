@@ -1,8 +1,10 @@
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
 import { promisify } from 'util';
+import { Logger } from '@nestjs/common';
 
 const ivLength = 16;
 const algorithm = 'aes-256-cbc';
+const logger = new Logger('EncryptionUtil');
 
 // SECURITY: ENCRYPTION_KEY must be provided via environment variable in production
 // Generate using: openssl rand -base64 32 | tr -d '\n'
@@ -20,7 +22,7 @@ function getEncryptionKey(): string {
         'ENCRYPTION_KEY environment variable is required in production. Generate with: openssl rand -base64 32',
       );
     }
-    console.warn('⚠️  ENCRYPTION_KEY not set, using development fallback. Set ENCRYPTION_KEY in production!');
+    logger.warn('⚠️  ENCRYPTION_KEY not set, using development fallback. Set ENCRYPTION_KEY in production!');
     return fallbackKey;
   }
 

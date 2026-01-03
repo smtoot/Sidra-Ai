@@ -81,7 +81,8 @@ export class R2StorageProvider implements StorageProvider {
         `Failed to save file to R2: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException(`R2 upload failed: ${error.message}`);
+      // Don't expose internal storage details to client
+      throw new InternalServerErrorException('File upload failed. Please try again.');
     }
   }
 
@@ -140,7 +141,8 @@ export class R2StorageProvider implements StorageProvider {
         `Failed to delete file from R2: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException(`R2 delete failed: ${error.message}`);
+      // Don't expose internal storage details to client
+      throw new InternalServerErrorException('File deletion failed. Please try again.');
     }
   }
 
