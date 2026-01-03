@@ -136,7 +136,7 @@ export default function AdminSettingsPage() {
                 defaultSessionDurationMinutes: duration,
                 meetingLinkAccessMinutesBefore: linkAccessMinutes,
                 maxVacationDays: vacationDays,
-
+                searchConfig: settings.searchConfig,
                 cancellationPolicies: cancellationForm
             });
             toast.success('تم تحديث الإعدادات بنجاح');
