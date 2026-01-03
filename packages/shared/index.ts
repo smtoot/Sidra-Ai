@@ -44,6 +44,9 @@ export * from './src/validators/password.validator';
 // Enums
 export * from './src/enums';
 
+// Common
+export * from './src/common/pagination';
+
 
 // Global enums
 export enum UserRole {

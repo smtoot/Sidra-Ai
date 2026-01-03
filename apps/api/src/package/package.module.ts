@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { TeacherModule } from '../teacher/teacher.module';
 import { PackageService } from './package.service';
 import { DemoService } from './demo.service';
 import { PackageController } from './package.controller';
@@ -8,9 +9,14 @@ import { NotificationModule } from '../notification/notification.module';
 import { ReadableIdModule } from '../common/readable-id/readable-id.module';
 
 @Module({
-  imports: [PrismaModule, ReadableIdModule, NotificationModule],
+  imports: [
+    PrismaModule,
+    ReadableIdModule,
+    NotificationModule,
+    forwardRef(() => TeacherModule),
+  ],
   controllers: [PackageController],
   providers: [PackageService, DemoService, PackageScheduler],
   exports: [PackageService, DemoService],
 })
-export class PackageModule {}
+export class PackageModule { }

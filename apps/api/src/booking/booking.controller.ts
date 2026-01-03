@@ -7,6 +7,9 @@ import {
   Body,
   UseGuards,
   Request,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { BookingService } from './booking.service';
@@ -23,7 +26,7 @@ import {
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(private readonly bookingService: BookingService) { }
 
   // Parent creates a booking request
   // SECURITY: Rate limit to prevent booking spam
@@ -75,20 +78,28 @@ export class BookingController {
     return this.bookingService.getTeacherSessions(req.user.userId);
   }
 
-  // Get ALL teacher bookings (all statuses - for requests page)
+  // Get ALL teacher bookings (all statuses - for requests page) (PAGINATED)
   @Get('teacher/all')
   @UseGuards(RolesGuard)
   @Roles(UserRole.TEACHER)
-  getAllTeacherBookings(@Request() req: any) {
-    return this.bookingService.getAllTeacherBookings(req.user.userId);
+  getAllTeacherBookings(
+    @Request() req: any,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.bookingService.getAllTeacherBookings(req.user.userId, page, limit);
   }
 
-  // Get parent's bookings
+  // Get parent's bookings (PAGINATED)
   @Get('parent/my-bookings')
   @UseGuards(RolesGuard)
   @Roles(UserRole.PARENT)
-  getParentBookings(@Request() req: any) {
-    return this.bookingService.getParentBookings(req.user.userId);
+  getParentBookings(
+    @Request() req: any,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.bookingService.getParentBookings(req.user.userId, page, limit);
   }
 
   // Get student's bookings

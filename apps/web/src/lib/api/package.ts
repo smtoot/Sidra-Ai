@@ -1,4 +1,5 @@
 import { api } from '../api';
+import type { RecurringPattern, MultiSlotAvailabilityResponse, Weekday } from '@/components/booking/types';
 
 // =====================================================
 // TYPES
@@ -142,7 +143,37 @@ export const packageApi = {
     // SMART PACK APIs
     // =====================================================
 
-    // Purchase Smart Pack with recurring pattern
+    /**
+     * NEW: Check multi-slot recurring availability
+     * Validates that teacher can accommodate multiple weekly patterns
+     */
+    checkMultiSlotAvailability: async (data: {
+        teacherId: string;
+        patterns: RecurringPattern[];
+        recurringSessionCount: number;
+        duration?: number;
+    }): Promise<MultiSlotAvailabilityResponse> => {
+        const response = await api.post('/packages/smart-pack/check-multi-slot-availability', data);
+        return response.data;
+    },
+
+    /**
+     * NEW: Purchase Smart Pack with multi-slot recurring patterns
+     */
+    purchaseSmartPackMultiSlot: async (data: {
+        studentId: string;
+        teacherId: string;
+        subjectId: string;
+        tierId: string;
+        recurringPatterns: RecurringPattern[];
+        idempotencyKey: string;
+        timezone?: string;
+    }): Promise<StudentPackage> => {
+        const response = await api.post('/packages/smart-pack/purchase', data);
+        return response.data;
+    },
+
+    // DEPRECATED: Legacy single-pattern purchase
     purchaseSmartPack: async (data: {
         teacherId: string;
         subjectId: string;
@@ -159,7 +190,7 @@ export const packageApi = {
         return response.data;
     },
 
-    // Check recurring availability
+    // DEPRECATED: Legacy single-pattern availability check
     checkRecurringAvailability: async (data: {
         teacherId: string;
         subjectId: string;

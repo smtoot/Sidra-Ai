@@ -19,6 +19,7 @@ import {
   UserRole,
   PurchaseSmartPackDto,
   CheckRecurringAvailabilityDto,
+  CheckMultiSlotAvailabilityDto,
   BookFloatingSessionDto,
   RescheduleSessionDto,
   CreatePackageTierDto,
@@ -70,7 +71,7 @@ export class PackageController {
   constructor(
     private packageService: PackageService,
     private demoService: DemoService,
-  ) {}
+  ) { }
 
   // =====================================================
   // ADMIN: Manage Tiers & Stats
@@ -311,17 +312,24 @@ export class PackageController {
 
   @Post('smart-pack/purchase')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT)
+  @Roles(UserRole.STUDENT, UserRole.PARENT)
   async purchaseSmartPack(@Req() req: any, @Body() dto: PurchaseSmartPackDto) {
-    // Student is both payer and beneficiary for Smart Packs
+    // payerId is always the logged-in user (who pays)
+    const payerId = req.user.userId;
+
+    // For students, they are both payer and beneficiary
+    // For parents, studentId should be provided (their child's ID)
+    const studentId = req.user.role === 'STUDENT' ? req.user.userId : dto.studentId;
+
     return this.packageService.purchaseSmartPackage({
       ...dto,
-      studentId: req.user.userId,
+      studentId,
+      payerId, // Add payerId for wallet operations
     });
   }
 
   // =====================================================
-  // SMART PACK: Check Recurring Availability
+  // SMART PACK: Check Recurring Availability (Legacy - Single Pattern)
   // =====================================================
 
   @Post('smart-pack/check-availability')
@@ -329,6 +337,17 @@ export class PackageController {
   @Roles(UserRole.STUDENT)
   async checkRecurringAvailability(@Body() dto: CheckRecurringAvailabilityDto) {
     return this.packageService.checkRecurringAvailability(dto);
+  }
+
+  // =====================================================
+  // SMART PACK: Check Multi-Slot Availability (NEW)
+  // Supports 1-4 weekly patterns for faster package completion
+  // =====================================================
+
+  @Post('smart-pack/check-multi-slot-availability')
+  @Public() // SECURITY: Public endpoint - guests can check availability before logging in
+  async checkMultiSlotAvailability(@Body() dto: CheckMultiSlotAvailabilityDto) {
+    return this.packageService.checkMultiSlotAvailability(dto);
   }
 
   // =====================================================

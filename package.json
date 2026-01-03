@@ -18,6 +18,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "@prisma/client": "^5.22.0"
+    "@prisma/client": "^5.22.0",
+    "node-fetch": "^2.7.0"
   }
 }

@@ -1,11 +1,32 @@
 'use client';
 
-import { Check, Plus, Info } from 'lucide-react';
+import { Check, Plus, Info, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 import { Child } from '@/lib/api/auth';
 import { BookingSummaryCard } from '../BookingSummaryCard';
-import { BookingTypeOption, SlotWithTimezone } from '../types';
+import { BookingTypeOption, SlotWithTimezone, RecurringPattern, ScheduledSession, MultiSlotAvailabilityResponse, Weekday } from '../types';
 import { formatTime, parseUtcDate } from '../formatUtils';
+
+// Arabic weekday labels
+const WEEKDAY_LABELS: Record<Weekday, string> = {
+    SUNDAY: 'الأحد',
+    MONDAY: 'الاثنين',
+    TUESDAY: 'الثلاثاء',
+    WEDNESDAY: 'الأربعاء',
+    THURSDAY: 'الخميس',
+    FRIDAY: 'الجمعة',
+    SATURDAY: 'السبت',
+};
+
+// Format time for display (24h -> 12h with Arabic AM/PM)
+function formatTimeDisplay(time: string): string {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'م' : 'ص';
+    const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
 
 interface Step4DetailsProps {
     teacherName: string;
@@ -13,6 +34,10 @@ interface Step4DetailsProps {
     bookingOption: BookingTypeOption | null;
     selectedDate: Date | null;
     selectedSlot: SlotWithTimezone | null;
+    // NEW: Multi-slot recurring patterns
+    recurringPatterns?: RecurringPattern[];
+    scheduledSessions?: ScheduledSession[];
+    availabilityResponse?: MultiSlotAvailabilityResponse | null;
     userRole: 'PARENT' | 'STUDENT' | null;
     userName: string;
     children: Child[];
@@ -31,6 +56,10 @@ export function Step4Details({
     bookingOption,
     selectedDate,
     selectedSlot,
+    // NEW: Multi-slot recurring patterns
+    recurringPatterns = [],
+    scheduledSessions = [],
+    availabilityResponse,
     userRole,
     userName,
     children,
@@ -42,10 +71,91 @@ export function Step4Details({
     termsAccepted,
     onTermsChange
 }: Step4DetailsProps) {
+    // Check if this is a new package purchase with multi-slot patterns
+    const isNewPackagePurchase = bookingOption?.tierId !== undefined;
+    const hasMultiSlotPatterns = recurringPatterns.length > 0;
+
     return (
         <div className="space-y-6">
-            {/* Booking Summary - Secondary Priority */}
-            {selectedDate && selectedSlot && bookingOption && (
+            {/* NEW PACKAGE PURCHASE - Multi-slot Summary */}
+            {isNewPackagePurchase && hasMultiSlotPatterns && availabilityResponse?.available && (
+                <div className="bg-emerald-50/50 rounded-xl border border-emerald-100 overflow-hidden">
+                    <div className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Calendar className="w-5 h-5 text-emerald-600" />
+                            <h3 className="font-semibold text-gray-900">ملخص الباقة</h3>
+                        </div>
+
+                        {/* Package Info */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                                <p className="text-xs text-gray-500 mb-1">المعلم</p>
+                                <p className="font-medium text-gray-900">{teacherName}</p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                                <p className="text-xs text-gray-500 mb-1">المادة</p>
+                                <p className="font-medium text-gray-900">{subjectName}</p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                                <p className="text-xs text-gray-500 mb-1">عدد الحصص</p>
+                                <p className="font-medium text-gray-900">{bookingOption?.sessionCount} حصص</p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                                <p className="text-xs text-gray-500 mb-1">المدة الإجمالية</p>
+                                <p className="font-medium text-gray-900">{availabilityResponse.totalWeeksNeeded} أسابيع</p>
+                            </div>
+                        </div>
+
+                        {/* Weekly Patterns */}
+                        <div className="mb-4">
+                            <p className="text-xs text-gray-500 mb-2">المواعيد الأسبوعية:</p>
+                            <div className="flex flex-wrap gap-2">
+                                {recurringPatterns.map((pattern, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border border-emerald-100 text-sm"
+                                    >
+                                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span className="font-medium">{WEEKDAY_LABELS[pattern.weekday]}</span>
+                                        <span className="text-gray-500">{formatTimeDisplay(pattern.time)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Date Range */}
+                        {availabilityResponse.firstSession && availabilityResponse.lastSession && (
+                            <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                                <div className="flex justify-between text-sm">
+                                    <div>
+                                        <p className="text-xs text-gray-500">أول حصة</p>
+                                        <p className="font-medium text-gray-900">
+                                            {format(new Date(availabilityResponse.firstSession), 'EEEE، d MMM yyyy', { locale: ar })}
+                                        </p>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs text-gray-500">آخر حصة</p>
+                                        <p className="font-medium text-gray-900">
+                                            {format(new Date(availabilityResponse.lastSession), 'EEEE، d MMM yyyy', { locale: ar })}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Primary Price Display */}
+                    <div className="bg-white border-t border-emerald-100 p-4 flex items-center justify-between">
+                        <span className="text-gray-600 font-medium">الإجمالي المطلوب:</span>
+                        <div className="text-xl md:text-2xl font-bold text-primary">
+                            {bookingOption.price === 0 ? 'مجاناً' : `${bookingOption.price.toLocaleString('en-US')} SDG`}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SINGLE SESSION / DEMO / EXISTING PACKAGE - Booking Summary */}
+            {!isNewPackagePurchase && selectedDate && selectedSlot && bookingOption && (
                 <div className="bg-gray-50/50 rounded-xl border border-gray-100 overflow-hidden">
                     <div className="p-4 opacity-75 hover:opacity-100 transition-opacity">
                         <BookingSummaryCard
