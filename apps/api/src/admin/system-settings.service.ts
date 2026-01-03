@@ -12,7 +12,7 @@ export class SystemSettingsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   /**
    * Get settings with safe upsert
@@ -125,7 +125,7 @@ export class SystemSettingsService {
     });
 
     // Log the change
-    console.log(`[DEBUG] Logging action for user ${adminUserId}`, {
+    this.logger.debug(`Logging settings update for user ${adminUserId}`, {
       action: AuditAction.SETTINGS_UPDATE,
       targetId: this.SETTINGS_ID,
     });
@@ -147,9 +147,9 @@ export class SystemSettingsService {
           },
         },
       });
-      console.log('[DEBUG] Audit log created successfully');
+      this.logger.debug('Audit log created successfully');
     } catch (e) {
-      console.error('[DEBUG] Audit log creation failed', e);
+      this.logger.error('Audit log creation failed', e);
     }
 
     return newSettings;

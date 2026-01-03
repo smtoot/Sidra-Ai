@@ -708,7 +708,7 @@ export class TeacherService {
     const profile = await this.getProfile(userId);
     if (!profile) throw new NotFoundException('Teacher profile not found');
 
-    console.log(
+    this.logger.debug(
       `DEBUG: getDashboardStats userId=${userId} displayName="${profile.displayName}"`,
     );
 

@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,6 +13,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -107,7 +110,7 @@ export class AuthService {
     const phoneNumber = dto.phoneNumber?.trim();
     const email = dto.email?.trim().toLowerCase();
 
-    console.log(`Login attempt for: phone=${phoneNumber}, email=${email}`);
+    this.logger.log(`Login attempt for: phone=${phoneNumber ? '***' + phoneNumber.slice(-4) : 'N/A'}, email=${email || 'N/A'}`);
 
     // PHONE-FIRST: Try phone number first, fallback to email
     let user = null;
@@ -141,19 +144,19 @@ export class AuthService {
     }
 
     if (!user) {
-      console.log('User not found');
+      this.logger.warn(`Login failed: user not found`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    console.log('User found, verifying password...');
+    this.logger.debug('User found, verifying password...');
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
-      console.log('Password mismatch');
+      this.logger.warn(`Login failed: password mismatch for user ${user.id}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    console.log('Login successful');
+    this.logger.log(`Login successful for user ${user.id}`);
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,

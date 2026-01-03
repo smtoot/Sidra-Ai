@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -32,6 +33,8 @@ import {
 
 @Injectable()
 export class PackageService {
+  private readonly logger = new Logger(PackageService.name);
+
   constructor(
     private prisma: PrismaService,
     private readableIdService: ReadableIdService,
@@ -2136,8 +2139,8 @@ export class PackageService {
         },
       });
 
-      console.log(
-        `[PackageService] Scheduled session from package ${packageId}, booking ${booking.id}`,
+      this.logger.log(
+        `Scheduled session from package ${packageId}, booking ${booking.id}`,
       );
 
       return {
