@@ -67,6 +67,9 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
                 },
 
                 loaded: (ph) => {
+                    // Attach to window for console testing
+                    (window as any).posthog = ph;
+
                     if (!IS_PRODUCTION) {
                         ph.debug();
                         console.log('[PostHog] Initialized in debug mode');
