@@ -64,9 +64,8 @@ export class TeacherService {
         );
       } catch (error) {
         // If decryption fails, log error but don't break the profile fetch
-        console.error(
-          'Failed to decrypt meeting link for teacher:',
-          userId,
+        this.logger.error(
+          `Failed to decrypt meeting link for teacher: ${userId}`,
           error,
         );
       }

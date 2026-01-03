@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PassportModule } from '@nestjs/passport';
@@ -7,6 +7,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { PermissionService } from './permission.service';
 import { PermissionsGuard } from './permissions.guard';
+
+const logger = new Logger('AuthModule');
 
 @Module({
   imports: [
@@ -29,7 +31,7 @@ import { PermissionsGuard } from './permissions.guard';
           secret === 'test-secret-key-for-development' ||
           secret === 'dev_secret'
         ) {
-          console.warn(
+          logger.warn(
             '⚠️  WARNING: Using development JWT_SECRET in production is INSECURE! ' +
               'Generate a strong secret with: openssl rand -base64 64',
           );

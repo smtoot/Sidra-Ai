@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
@@ -14,6 +15,8 @@ import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
@@ -403,7 +406,7 @@ export class AdminService {
           totalDistributed,
           diff: totalDistributed - lockedAmountGross,
         };
-        console.error(
+        this.logger.error(
           'CRITICAL FINANCIAL INVARIANT VIOLATED:',
           JSON.stringify(errorDetails, null, 2),
         );
@@ -556,7 +559,7 @@ export class AdminService {
 
       return result;
     } catch (e: any) {
-      console.error('Resolve Dispute Error:', e);
+      this.logger.error('Resolve Dispute Error:', e);
       // Rethrow proper HTTP exceptions, wrap others
       if (e instanceof NotFoundException || e instanceof BadRequestException) {
         throw e;
@@ -606,7 +609,7 @@ export class AdminService {
       });
     } catch (error) {
       // Log error but don't fail the status update
-      console.error('Failed to send dispute under review notification:', error);
+      this.logger.error('Failed to send dispute under review notification:', error);
     }
 
     return updatedDispute;

@@ -320,6 +320,7 @@ model Child {
   parent       ParentProfile @relation(fields: [parentId], references: [id])
   curriculum   Curriculum?   @relation(fields: [curriculumId], references: [id])
 
+  @@index([parentId])
   @@map("children")
 }
 
@@ -401,6 +402,7 @@ model TeacherSubject {
   subject        Subject               @relation(fields: [subjectId], references: [id])
   teacherProfile TeacherProfile        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
+  @@index([teacherId])
   @@map("teacher_subjects")
 }
 
@@ -430,6 +432,7 @@ model Availability {
   isRecurring    Boolean        @default(true)
   teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
+  @@index([teacherId])
   @@map("availability")
 }
 

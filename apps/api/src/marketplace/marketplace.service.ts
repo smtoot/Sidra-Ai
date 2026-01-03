@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -28,6 +29,8 @@ import { toZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class MarketplaceService {
+  private readonly logger = new Logger(MarketplaceService.name);
+
   constructor(private prisma: PrismaService) { }
 
   /**
@@ -714,7 +717,7 @@ export class MarketplaceService {
             : null,
       };
     } catch (error) {
-      console.error(
+      this.logger.error(
         'CRITICAL ERROR in getTeacherPublicProfile mapping:',
         error,
       );
@@ -1438,7 +1441,7 @@ export class MarketplaceService {
             break;
           }
         } catch (error) {
-          console.error(`Failed to check slots for date ${dateStr}:`, error);
+          this.logger.error(`Failed to check slots for date ${dateStr}:`, error);
         }
       }
     }

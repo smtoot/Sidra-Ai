@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +23,8 @@ import { PERMISSIONS_KEY } from './permissions.decorator';
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
+  private readonly logger = new Logger(PermissionsGuard.name);
+
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
@@ -77,7 +80,7 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasAllPermissions) {
-      console.warn(
+      this.logger.warn(
         `PermissionsGuard Denied: User ${fullUser.id} (${fullUser.role}) ` +
           `lacks permissions: ${requiredPermissions.join(', ')}`,
       );

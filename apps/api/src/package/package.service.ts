@@ -335,7 +335,7 @@ export class PackageService {
           });
         } catch (error) {
           // Log error but don't fail the purchase
-          console.error('Failed to send package purchase notification:', error);
+          this.logger.error('Failed to send package purchase notification:', error);
         }
 
         return studentPackage;
@@ -638,7 +638,7 @@ export class PackageService {
           });
         } catch (error) {
           // Log error but don't fail the purchase
-          console.error(
+          this.logger.error(
             'Failed to send Smart Pack purchase notification:',
             error,
           );

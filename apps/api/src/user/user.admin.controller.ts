@@ -6,6 +6,7 @@ import {
   UseGuards,
   Query,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -17,11 +18,13 @@ import { UserRole } from '@sidra/shared';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UserAdminController {
+  private readonly logger = new Logger(UserAdminController.name);
+
   constructor(private readonly userService: UserService) {}
 
   @Get()
   getUsers(@Query('query') query: string) {
-    console.log('GET /admin/users hit', { query });
+    this.logger.debug('GET /admin/users hit', { query });
     return this.userService.getUsers(query);
   }
 
