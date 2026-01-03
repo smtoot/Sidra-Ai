@@ -49,15 +49,16 @@ export default function TeacherRequestsPage() {
 
     // Filter requests based on active tab
     const filteredRequests = useMemo(() => {
+        const safeRequests = Array.isArray(requests) ? requests : [];
         switch (activeTab) {
             case 'pending':
-                return requests.filter(r => r.status === 'PENDING_TEACHER_APPROVAL');
+                return safeRequests.filter(r => r.status === 'PENDING_TEACHER_APPROVAL');
             case 'waiting_payment':
-                return requests.filter(r => r.status === 'WAITING_FOR_PAYMENT');
+                return safeRequests.filter(r => r.status === 'WAITING_FOR_PAYMENT');
             case 'cancelled':
-                return requests.filter(r => ['REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status));
+                return safeRequests.filter(r => ['REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status));
             default: // 'all'
-                return requests.filter(r =>
+                return safeRequests.filter(r =>
                     ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)
                 ).sort((a, b) => {
                     // Custom Sort: Pending -> Waiting -> Cancelled
@@ -75,12 +76,15 @@ export default function TeacherRequestsPage() {
     }, [requests, activeTab]);
 
     // Count for each tab
-    const counts = useMemo(() => ({
-        all: requests.filter(r => ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)).length,
-        pending: requests.filter(r => r.status === 'PENDING_TEACHER_APPROVAL').length,
-        waiting_payment: requests.filter(r => r.status === 'WAITING_FOR_PAYMENT').length,
-        cancelled: requests.filter(r => ['REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)).length,
-    }), [requests]);
+    const counts = useMemo(() => {
+        const safeRequests = Array.isArray(requests) ? requests : [];
+        return {
+            all: safeRequests.filter(r => ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)).length,
+            pending: safeRequests.filter(r => r.status === 'PENDING_TEACHER_APPROVAL').length,
+            waiting_payment: safeRequests.filter(r => r.status === 'WAITING_FOR_PAYMENT').length,
+            cancelled: safeRequests.filter(r => ['REJECTED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'EXPIRED', 'REFUNDED'].includes(r.status)).length,
+        };
+    }, [requests]);
 
     const handleApproveClick = (id: string) => {
         setConfirmAction({ id, type: 'approve' });

@@ -147,8 +147,13 @@ export const bookingApi = {
 
     // Get all teacher bookings (for requests page - shows all statuses)
     getAllTeacherBookings: async (): Promise<Booking[]> => {
-        const response = await api.get('/bookings/teacher/all');
-        return response.data;
+        try {
+            const response = await api.get('/bookings/teacher/all');
+            return Array.isArray(response.data) ? response.data : [];
+        } catch (error) {
+            console.error('Failed to load teacher bookings', error);
+            return [];
+        }
     },
 
     getBookingById: async (id: string): Promise<Booking> => {
