@@ -262,7 +262,7 @@ export function MultiStepBookingModal({
             onClose();
 
             // Redirect to bookings page
-            router.push(userRole === 'PARENT' ? '/parent/bookings' : '/student/sessions');
+            router.push(userRole === 'PARENT' ? '/parent/bookings' : '/student/bookings');
         } catch (error: any) {
             console.error('Failed to create booking:', error);
             console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));

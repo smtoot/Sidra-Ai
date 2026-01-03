@@ -314,7 +314,7 @@ export function CreateBookingModal({
 
             toast.success('تم إرسال طلب الحجز بنجاح!');
             onClose();
-            router.push(userRole === 'PARENT' ? '/parent/bookings' : '/student/sessions');
+            router.push(userRole === 'PARENT' ? '/parent/bookings' : '/student/bookings');
         } catch (error: any) {
             console.error('Booking failed:', error);
             const errorMessage = error?.response?.data?.message || error?.message || 'فشل إنشاء الحجز';
