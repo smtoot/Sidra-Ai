@@ -67,6 +67,7 @@ export interface Booking {
     studentUser?: { // Independent student user
         id: string;
         email?: string;
+        displayName?: string;
         studentProfile?: {
             gradeLevel?: string;
             curriculum?: {
