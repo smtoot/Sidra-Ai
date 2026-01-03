@@ -4,11 +4,23 @@ import { promisify } from 'util';
 const ivLength = 16;
 const algorithm = 'aes-256-cbc';
 
-// In production, this keys should proveided by environment variable mechanism
-// For MVP, we derive it or use a fixed one if ENV is set.
-// Ideally ENCRYPTION_KEY should be 32 bytes hex string.
-const ENCRYPTION_KEY =
-  process.env.ENCRYPTION_KEY || 'vOVH6sdmpNWjRRIqCc7rdxs01lwHzfr3'; // 32 chars for demo
+// SECURITY: ENCRYPTION_KEY must be provided via environment variable
+// Generate using: openssl rand -base64 32 | tr -d '\n'
+// Must be exactly 32 characters for AES-256
+function getEncryptionKey(): string {
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key) {
+    throw new Error(
+      'ENCRYPTION_KEY environment variable is required. Generate with: openssl rand -base64 32',
+    );
+  }
+  if (key.length !== 32) {
+    throw new Error('ENCRYPTION_KEY must be exactly 32 characters for AES-256');
+  }
+  return key;
+}
+
+const ENCRYPTION_KEY = getEncryptionKey();
 
 export class EncryptionUtil {
   static async encrypt(text: string): Promise<string> {
