@@ -1,0 +1,30 @@
+name: Daily Postgres Backup
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create backup
+        run: |
+          mkdir -p backups
+          pg_dump "${{ secrets.DATABASE_URL }}" > backups/backup_$(date +%Y-%m-%d).sql
+
+      - name: Commit backup
+        run: |
+          git config user.name "backup-bot"
+          git config user.email "backup@github.com"
+          git add backups
+          git commit -m "Daily DB backup $(date +%Y-%m-%d)" || echo "No changes"
+          git push
