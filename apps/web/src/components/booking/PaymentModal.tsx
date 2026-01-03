@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { bookingApi, Booking } from '@/lib/api/booking';
 import { walletApi, Wallet } from '@/lib/api/wallet';
@@ -24,6 +24,9 @@ export function PaymentModal({ booking, isOpen, onClose, onSuccess }: PaymentMod
     const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
     const [showDepositSuccess, setShowDepositSuccess] = useState(false);
 
+    // P0 FIX: Prevent double-click on payment button
+    const paymentInProgressRef = useRef(false);
+
     useEffect(() => {
         if (isOpen && booking) {
             loadWallet();
@@ -44,8 +47,15 @@ export function PaymentModal({ booking, isOpen, onClose, onSuccess }: PaymentMod
         }
     };
 
-    const handlePayment = async () => {
+    // P0 FIX: Use useCallback with ref guard to prevent double-click
+    const handlePayment = useCallback(async () => {
         if (!booking || !wallet) return;
+
+        // Double-click prevention: Check if payment is already in progress
+        if (paymentInProgressRef.current) {
+            console.log('Payment already in progress, ignoring duplicate click');
+            return;
+        }
 
         const balance = Number(wallet.balance);
         const price = Number(booking.price);
@@ -55,7 +65,10 @@ export function PaymentModal({ booking, isOpen, onClose, onSuccess }: PaymentMod
             return;
         }
 
+        // Lock immediately with ref (synchronous, not affected by React batching)
+        paymentInProgressRef.current = true;
         setProcessing(true);
+
         try {
             await bookingApi.payBooking(booking.id);
             toast.success('تم الدفع بنجاح! ✅');
@@ -65,9 +78,10 @@ export function PaymentModal({ booking, isOpen, onClose, onSuccess }: PaymentMod
             console.error('Payment failed:', error);
             toast.error(error?.response?.data?.message || 'فشل الدفع. حاول مرة أخرى.');
         } finally {
+            paymentInProgressRef.current = false;
             setProcessing(false);
         }
-    };
+    }, [booking, wallet, onSuccess, onClose]);
 
     const handleDepositSuccess = () => {
         setIsDepositModalOpen(false);

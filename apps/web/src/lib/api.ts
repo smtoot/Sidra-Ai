@@ -11,6 +11,12 @@ export const api = axios.create({
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
 
+// P1 FIX: Add retry limit to prevent infinite refresh loops
+const MAX_REFRESH_RETRIES = 3;
+let refreshRetryCount = 0;
+let lastRefreshAttempt = 0;
+const REFRESH_COOLDOWN_MS = 5000; // 5 seconds cooldown between retry counts reset
+
 const subscribeTokenRefresh = (cb: (token: string) => void) => {
     refreshSubscribers.push(cb);
 };
@@ -70,6 +76,25 @@ api.interceptors.response.use(
             // Attempt token refresh
             const refreshToken = localStorage.getItem('refresh_token');
             if (refreshToken) {
+                // P1 FIX: Check retry limit before attempting refresh
+                const now = Date.now();
+                if (now - lastRefreshAttempt > REFRESH_COOLDOWN_MS) {
+                    // Reset retry count if enough time has passed
+                    refreshRetryCount = 0;
+                }
+
+                if (refreshRetryCount >= MAX_REFRESH_RETRIES) {
+                    console.warn('Max refresh retries exceeded, logging out');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('userRole');
+                    localStorage.removeItem('userName');
+                    if (!isPublicPage && !isOptionalAuthRequest) {
+                        window.location.href = '/login';
+                    }
+                    return Promise.reject(new Error('Max refresh retries exceeded'));
+                }
+
                 // If already refreshing, queue this request
                 if (isRefreshing) {
                     return new Promise((resolve) => {
@@ -82,6 +107,8 @@ api.interceptors.response.use(
 
                 originalRequest._retry = true;
                 isRefreshing = true;
+                lastRefreshAttempt = now;
+                refreshRetryCount++;
 
                 try {
                     const response = await axios.post(
@@ -96,6 +123,8 @@ api.interceptors.response.use(
                     // Notify all queued requests
                     onRefreshed(access_token);
                     isRefreshing = false;
+                    // Reset retry count on successful refresh
+                    refreshRetryCount = 0;
 
                     // Retry original request with new token
                     originalRequest.headers.Authorization = `Bearer ${access_token}`;
