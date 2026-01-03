@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 
 import { useState, useEffect } from 'react';
 import { teacherApi } from '@/lib/api/teacher';
+import { systemApi } from '@/lib/api/system';
 import { toast } from 'sonner';
 
 interface CancellationPolicySettingsProps {
@@ -25,12 +26,21 @@ interface CancellationPolicySettingsProps {
 
 export function CancellationPolicySettings({ isReadOnly = false }: CancellationPolicySettingsProps) {
     const [policy, setPolicy] = useState('FLEXIBLE');
+    const [config, setConfig] = useState<any>(null); // Store fetched config
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        // Load policy? The original code didn't load it.
-        // Assuming profile has it.
-        // loadProfile();
+        const loadConfig = async () => {
+            try {
+                const data = await systemApi.getPublicConfig();
+                if (data && data.cancellationPolicies) {
+                    setConfig(data.cancellationPolicies);
+                }
+            } catch (error) {
+                console.error('Failed to load system config', error);
+            }
+        };
+        loadConfig();
     }, []);
 
     const handleChange = async (newPolicy: string) => {
@@ -67,7 +77,11 @@ export function CancellationPolicySettings({ isReadOnly = false }: CancellationP
                     />
                     <div>
                         <p className="font-bold">مرنة</p>
-                        <p className="text-sm text-text-subtle">إلغاء مجاني حتى 24 ساعة قبل الحصة</p>
+                        <p className="text-sm text-text-subtle">
+                            {config?.flexible
+                                ? `إلغاء مجاني حتى ${config.flexible.cutoffHours} ساعة قبل الحصة`
+                                : 'إلغاء مجاني حتى 12 ساعة قبل الحصة'}
+                        </p>
                     </div>
                 </label>
                 <label className={cn(
@@ -86,7 +100,11 @@ export function CancellationPolicySettings({ isReadOnly = false }: CancellationP
                     />
                     <div>
                         <p className="font-bold">معتدلة</p>
-                        <p className="text-sm text-text-subtle">إلغاء مجاني حتى 48 ساعة، بعدها 50% رسوم</p>
+                        <p className="text-sm text-text-subtle">
+                            {config?.moderate
+                                ? `إلغاء مجاني حتى ${config.moderate.cutoffHours} ساعة قبل الحصة`
+                                : 'إلغاء مجاني حتى 24 ساعة قبل الحصة'}
+                        </p>
                     </div>
                 </label>
                 <label className={cn(
@@ -105,7 +123,11 @@ export function CancellationPolicySettings({ isReadOnly = false }: CancellationP
                     />
                     <div>
                         <p className="font-bold">صارمة</p>
-                        <p className="text-sm text-text-subtle">إلغاء مجاني حتى 7 أيام، بعدها لا استرداد</p>
+                        <p className="text-sm text-text-subtle">
+                            {config?.strict
+                                ? `إلغاء مجاني حتى ${config.strict.cutoffHours} ساعة قبل الحصة`
+                                : 'إلغاء مجاني حتى 48 ساعة قبل الحصة'}
+                        </p>
                     </div>
                 </label>
             </div>

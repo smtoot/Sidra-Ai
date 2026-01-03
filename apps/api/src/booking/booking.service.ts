@@ -23,6 +23,7 @@ import { normalizeMoney } from '../utils/money';
 import { BOOKING_POLICY, isValidStatusTransition, getAllowedTransitions } from './booking-policy.constants';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { TeacherService } from '../teacher/teacher.service';
+import { SystemSettingsService } from '../admin/system-settings.service';
 
 @Injectable()
 export class BookingService {
@@ -36,6 +37,7 @@ export class BookingService {
     private demoService: DemoService,
     private readableIdService: ReadableIdService,
     private teacherService: TeacherService,
+    private systemSettingsService: SystemSettingsService,
   ) { }
 
   // Create a booking request (Parent or Student)
@@ -1742,7 +1744,11 @@ export class BookingService {
           // Only calculate policy-based refund for SCHEDULED bookings
           if (booking.status === 'SCHEDULED') {
             const policy = booking.teacherProfile.cancellationPolicy;
-            const refund = this.calculateRefund(booking, policy, userRole);
+            // Fetch global cancellation policies
+            const systemSettings = await this.systemSettingsService.getSettings();
+            const config = systemSettings.cancellationPolicies;
+
+            const refund = this.calculateRefund(booking, policy, userRole, config);
             refundPercent = refund.percent;
           }
         }
@@ -1751,7 +1757,22 @@ export class BookingService {
         const paidAmount = Number(booking.price);
         if (booking.status === 'SCHEDULED' && paidAmount > 0) {
           refundAmount = (paidAmount * refundPercent) / 100;
-          teacherCompAmount = paidAmount - refundAmount;
+
+          // Calculate Platform Fee on Retained Amount
+          // Retained = Paid - Refund.
+          // Teacher gets (Retained * (1 - Commission))
+          // Platform gets (Retained * Commission)
+          const retainedAmount = paidAmount - refundAmount;
+          let platformRevenue = 0;
+
+          if (retainedAmount > 0) {
+            const systemSettings = await this.systemSettingsService.getSettings(); // Re-fetch to be safe or reuse
+            const commissionRate = systemSettings.defaultCommissionRate || 0.18;
+            platformRevenue = retainedAmount * commissionRate;
+            teacherCompAmount = retainedAmount - platformRevenue;
+          } else {
+            teacherCompAmount = 0;
+          }
 
           // Settle via wallet (atomic with booking update)
           await this.walletService.settleCancellation(
@@ -1761,6 +1782,7 @@ export class BookingService {
             paidAmount,
             refundAmount,
             teacherCompAmount,
+            platformRevenue,
             tx, // Pass transaction client for atomicity
           );
         }
@@ -1893,8 +1915,20 @@ export class BookingService {
     booking: any,
     policy: string,
     userRole: string,
+    config?: any,
   ): { percent: number; amount: number; message: string } {
     const paidAmount = Number(booking.price);
+
+    // Default Configuration (Binary Cutoff)
+    const defaults = {
+      flexible: { cutoffHours: 12 },
+      moderate: { cutoffHours: 24 },
+      strict: { cutoffHours: 48 },
+    };
+
+    const flexibleConfig = config?.flexible || defaults.flexible;
+    const moderateConfig = config?.moderate || defaults.moderate;
+    const strictConfig = config?.strict || defaults.strict;
 
     // Teacher cancellation = always 100% refund
     if (userRole === 'TEACHER') {
@@ -1924,48 +1958,28 @@ export class BookingService {
 
     let percent: number;
     let message: string;
+    let cutoff: number;
 
     switch (policy) {
       case 'FLEXIBLE':
-        if (hoursUntilSession > 24) {
-          percent = 100;
-          message = 'قبل ٢٤ ساعة - استرداد كامل';
-        } else {
-          percent = 50;
-          message = 'أقل من ٢٤ ساعة - استرداد ٥٠٪';
-        }
+        cutoff = flexibleConfig.cutoffHours || 12;
         break;
-
       case 'MODERATE':
-        if (hoursUntilSession > 48) {
-          percent = 100;
-          message = 'قبل ٤٨ ساعة - استرداد كامل';
-        } else if (hoursUntilSession > 24) {
-          percent = 50;
-          message = 'بين ٢٤-٤٨ ساعة - استرداد ٥٠٪';
-        } else {
-          percent = 0;
-          message = 'أقل من ٢٤ ساعة - لا استرداد';
-        }
+        cutoff = moderateConfig.cutoffHours || 24;
         break;
-
       case 'STRICT':
-        if (hoursUntilSession > 72) {
-          percent = 100;
-          message = 'قبل ٧٢ ساعة - استرداد كامل';
-        } else if (hoursUntilSession > 48) {
-          percent = 50;
-          message = 'بين ٤٨-٧٢ ساعة - استرداد ٥٠٪';
-        } else {
-          percent = 0;
-          message = 'أقل من ٤٨ ساعة - لا استرداد';
-        }
+        cutoff = strictConfig.cutoffHours || 48;
         break;
-
       default:
-        // Default to FLEXIBLE if unknown
-        percent = hoursUntilSession > 24 ? 100 : 50;
-        message = 'سياسة افتراضية';
+        cutoff = 24;
+    }
+
+    if (hoursUntilSession > cutoff) {
+      percent = 100;
+      message = `قبل ${cutoff} ساعة - استرداد كامل`;
+    } else {
+      percent = 0;
+      message = `بعد تجاوز مهلة الإلغاء (${cutoff} ساعة) - لا استرداد`;
     }
 
     return { percent, amount: (paidAmount * percent) / 100, message };

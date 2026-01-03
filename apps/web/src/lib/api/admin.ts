@@ -213,7 +213,9 @@ export const adminApi = {
         allowedSessionDurations?: number[];
         meetingLinkAccessMinutesBefore?: number;
         maxVacationDays?: number;
+
         searchConfig?: any;
+        cancellationPolicies?: any;
     }) => {
         const response = await api.patch('/admin/settings', data);
         return response.data;

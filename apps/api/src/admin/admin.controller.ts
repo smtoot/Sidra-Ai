@@ -127,6 +127,7 @@ export class AdminController {
       defaultSessionDurationMinutes?: number;
       allowedSessionDurations?: number[];
       searchConfig?: Record<string, unknown>; // JSON object for dynamic search configuration
+      cancellationPolicies?: Record<string, unknown>; // JSON object for policy config
     },
   ) {
     return this.settingsService.updateSettings(req.user.userId, dto);

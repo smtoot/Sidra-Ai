@@ -30,7 +30,13 @@ export default function AdminSettingsPage() {
     const [maxPricePerHour, setMaxPricePerHour] = useState('50000');
     const [sessionDuration, setSessionDuration] = useState('60');
     const [meetingLinkAccessMinutes, setMeetingLinkAccessMinutes] = useState('15');
+
     const [maxVacationDays, setMaxVacationDays] = useState('21');
+    const [cancellationForm, setCancellationForm] = useState({
+        flexible: { cutoffHours: 12 },
+        moderate: { cutoffHours: 24 },
+        strict: { cutoffHours: 48 }
+    });
 
     useEffect(() => {
         loadSettings();
@@ -47,7 +53,11 @@ export default function AdminSettingsPage() {
             setMaxPricePerHour((data.maxPricePerHour || 50000).toString());
             setSessionDuration((data.defaultSessionDurationMinutes || 60).toString());
             setMeetingLinkAccessMinutes((data.meetingLinkAccessMinutesBefore || 15).toString());
+
             setMaxVacationDays((data.maxVacationDays || 21).toString());
+            if (data.cancellationPolicies) {
+                setCancellationForm(data.cancellationPolicies);
+            }
         } catch (error) {
             console.error(error);
             toast.error('فشل تحميل الإعدادات');
@@ -121,7 +131,8 @@ export default function AdminSettingsPage() {
                 defaultSessionDurationMinutes: duration,
                 meetingLinkAccessMinutesBefore: linkAccessMinutes,
                 maxVacationDays: vacationDays,
-                searchConfig: settings.searchConfig
+
+                cancellationPolicies: cancellationForm
             });
             toast.success('تم تحديث الإعدادات بنجاح');
             loadSettings(); // Reload to confirm
@@ -407,6 +418,58 @@ export default function AdminSettingsPage() {
                                 >
                                     <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.demosEnabled ? 'right-8' : 'right-1'}`} />
                                 </button>
+                            </div>
+                        </div>
+
+                        <hr className="border-gray-100" />
+
+                        {/* Cancellation Policies */}
+                        <div className="space-y-6">
+                            <h3 className="text-lg font-bold text-gray-900">سياسات الإلغاء</h3>
+                            <p className="text-sm text-text-subtle">
+                                تحديد مهلة الإلغاء بالساعات. قبل المهلة: استرداد كامل (100%). بعد المهلة: لا استرداد (0%).
+                            </p>
+
+                            {/* Flexible */}
+                            <div className="bg-gray-50 p-4 rounded-lg space-y-4 border border-gray-200">
+                                <h4 className="font-bold text-primary">سياسة مرنة (Flexible)</h4>
+                                <div className="space-y-2">
+                                    <label className="text-sm">مهلة الإلغاء (ساعات)</label>
+                                    <Input
+                                        type="number"
+                                        value={cancellationForm.flexible.cutoffHours}
+                                        onChange={(e) => setCancellationForm({ ...cancellationForm, flexible: { ...cancellationForm.flexible, cutoffHours: Number(e.target.value) } })}
+                                    />
+                                    <p className="text-xs text-text-subtle">مجاني حتى X ساعة قبل الحصة</p>
+                                </div>
+                            </div>
+
+                            {/* Moderate */}
+                            <div className="bg-gray-50 p-4 rounded-lg space-y-4 border border-gray-200">
+                                <h4 className="font-bold text-primary">سياسة متوسطة (Moderate)</h4>
+                                <div className="space-y-2">
+                                    <label className="text-sm">مهلة الإلغاء (ساعات)</label>
+                                    <Input
+                                        type="number"
+                                        value={cancellationForm.moderate.cutoffHours}
+                                        onChange={(e) => setCancellationForm({ ...cancellationForm, moderate: { ...cancellationForm.moderate, cutoffHours: Number(e.target.value) } })}
+                                    />
+                                    <p className="text-xs text-text-subtle">مجاني حتى X ساعة قبل الحصة</p>
+                                </div>
+                            </div>
+
+                            {/* Strict */}
+                            <div className="bg-gray-50 p-4 rounded-lg space-y-4 border border-gray-200">
+                                <h4 className="font-bold text-primary">سياسة صارمة (Strict)</h4>
+                                <div className="space-y-2">
+                                    <label className="text-sm">مهلة الإلغاء (ساعات)</label>
+                                    <Input
+                                        type="number"
+                                        value={cancellationForm.strict.cutoffHours}
+                                        onChange={(e) => setCancellationForm({ ...cancellationForm, strict: { ...cancellationForm.strict, cutoffHours: Number(e.target.value) } })}
+                                    />
+                                    <p className="text-xs text-text-subtle">مجاني حتى X ساعة قبل الحصة</p>
+                                </div>
                             </div>
                         </div>
 

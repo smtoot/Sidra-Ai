@@ -9,10 +9,11 @@ import { WalletModule } from '../wallet/wallet.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PackageModule } from '../package/package.module';
 import { AuthModule } from '../auth/auth.module';
+import { PublicSystemSettingsController } from './public-system-settings.controller';
 
 @Module({
   imports: [WalletModule, NotificationModule, PackageModule, AuthModule],
-  controllers: [AdminController, AdminTeamController],
+  controllers: [AdminController, AdminTeamController, PublicSystemSettingsController],
   providers: [
     AdminService,
     AuditService,
@@ -21,4 +22,4 @@ import { AuthModule } from '../auth/auth.module';
   ],
   exports: [SystemSettingsService], // Export for use in other modules
 })
-export class AdminModule {}
+export class AdminModule { }

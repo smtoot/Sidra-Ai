@@ -7,9 +7,10 @@ import { NotificationModule } from '../notification/notification.module';
 import { PackageModule } from '../package/package.module';
 import { ReadableIdModule } from '../common/readable-id/readable-id.module';
 import { TeacherModule } from '../teacher/teacher.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
-  imports: [WalletModule, NotificationModule, PackageModule, ReadableIdModule, TeacherModule],
+  imports: [WalletModule, NotificationModule, PackageModule, ReadableIdModule, TeacherModule, AdminModule],
   controllers: [BookingController],
   providers: [BookingService, EscrowSchedulerService],
   exports: [BookingService],

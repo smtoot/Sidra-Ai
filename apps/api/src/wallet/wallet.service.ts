@@ -34,7 +34,7 @@ export class WalletService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private readableIdService: ReadableIdService,
-  ) {}
+  ) { }
 
   // Circular dependency fix: Use forwardRef or inject dynamically
   // We'll add the auto-payment logic without circular dependency by using Prisma directly
@@ -69,13 +69,13 @@ export class WalletService {
       ...wallet,
       bankInfo: profile?.bankInfo
         ? {
-            bankName: profile.bankInfo.bankName,
-            accountHolder: profile.bankInfo.accountHolderName,
-            accountNumberMasked: `***${profile.bankInfo.accountNumber.slice(-4)}`,
-            ibanMasked: profile.bankInfo.iban
-              ? `***${profile.bankInfo.iban.slice(-4)}`
-              : undefined,
-          }
+          bankName: profile.bankInfo.bankName,
+          accountHolder: profile.bankInfo.accountHolderName,
+          accountNumberMasked: `***${profile.bankInfo.accountNumber.slice(-4)}`,
+          ibanMasked: profile.bankInfo.iban
+            ? `***${profile.bankInfo.iban.slice(-4)}`
+            : undefined,
+        }
         : null,
     };
   }
@@ -689,6 +689,7 @@ export class WalletService {
     totalLockedAmount: number,
     refundAmount: number,
     teacherCompAmount: number,
+    platformRevenue: number = 0,
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
@@ -696,9 +697,9 @@ export class WalletService {
     const teacherWallet = await this.getBalance(teacherUserId, prisma);
 
     // Validate the amounts add up
-    if (Math.abs(refundAmount + teacherCompAmount - totalLockedAmount) > 0.01) {
+    if (Math.abs(refundAmount + teacherCompAmount + platformRevenue - totalLockedAmount) > 0.01) {
       throw new BadRequestException(
-        'Refund + teacher compensation must equal locked amount',
+        'Refund + teacher compensation + platform revenue must equal locked amount',
       );
     }
 
@@ -796,12 +797,12 @@ export class WalletService {
     // 3. Audit Logging (Redact full numbers)
     const redactedOld = teacher.bankInfo
       ? {
-          ...teacher.bankInfo,
-          accountNumber: `***${teacher.bankInfo.accountNumber.slice(-4)}`,
-          iban: teacher.bankInfo.iban
-            ? `***${teacher.bankInfo.iban.slice(-4)}`
-            : undefined,
-        }
+        ...teacher.bankInfo,
+        accountNumber: `***${teacher.bankInfo.accountNumber.slice(-4)}`,
+        iban: teacher.bankInfo.iban
+          ? `***${teacher.bankInfo.iban.slice(-4)}`
+          : undefined,
+      }
       : null;
 
     const redactedNew = {

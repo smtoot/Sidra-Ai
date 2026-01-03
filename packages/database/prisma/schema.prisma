@@ -931,6 +931,9 @@ model SystemSettings {
 
   // NEW: Search Configuration (Dynamic Filters)
   searchConfig    Json?   // { enableGenderFilter: boolean, enablePriceFilter: boolean, ... }
+  
+  // NEW: Cancellation Policy Configuration
+  cancellationPolicies Json? // { flexible: {...}, moderate: {...}, strict: {...} }
 
   // Session Duration Configuration (Future-proof design)
   defaultSessionDurationMinutes Int   @default(60) // Default session length (currently platform-wide)
