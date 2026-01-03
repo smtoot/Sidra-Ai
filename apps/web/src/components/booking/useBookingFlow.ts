@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { BookingFlowState, BOOKING_STEPS, BookingType, BookingTypeOption, SlotWithTimezone } from './types';
+import { BookingFlowState, BOOKING_STEPS, BookingType, BookingTypeOption, SlotWithTimezone, RecurringPattern, ScheduledSession, MultiSlotAvailabilityResponse } from './types';
 import { toast } from 'sonner';
 
 interface UseBookingFlowProps {
@@ -24,6 +24,11 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
         selectedBookingOption: null,
         selectedDate: null,
         selectedSlot: null,
+        // NEW: Multi-slot recurring patterns
+        recurringPatterns: [],
+        scheduledSessions: [],
+        availabilityResponse: null,
+        // DEPRECATED: Legacy single-pattern fields
         recurringWeekday: '',
         recurringTime: '',
         suggestedDates: [],
@@ -48,8 +53,13 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
 
         // Step 2: Schedule (dynamic based on booking type)
         if (stepIndex === 2) {
-            // New package purchase - requires recurring pattern
+            // New package purchase - requires recurring patterns with availability check
             if (state.selectedBookingOption?.tierId) {
+                // NEW: Multi-slot validation - must have patterns selected and availability confirmed
+                if (state.recurringPatterns.length > 0 && state.availabilityResponse?.available) {
+                    return true;
+                }
+                // DEPRECATED: Legacy single-pattern fallback
                 return !!state.recurringWeekday && !!state.recurringTime && state.suggestedDates.length > 0;
             }
             // Single/Demo/Existing Package - requires date and slot
@@ -246,6 +256,11 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
                     selectedBookingOption: data.selectedBookingOption || null,
                     selectedDate: data.selectedDate ? new Date(data.selectedDate) : null,
                     selectedSlot: data.selectedSlot || null,
+                    // NEW: Multi-slot recurring patterns
+                    recurringPatterns: data.recurringPatterns || [],
+                    scheduledSessions: data.scheduledSessions || [],
+                    availabilityResponse: data.availabilityResponse || null,
+                    // DEPRECATED: Legacy single-pattern fields
                     recurringWeekday: data.recurringWeekday || '',
                     recurringTime: data.recurringTime || '',
                     suggestedDates: (data.suggestedDates || []).map((d: string) => new Date(d)),
@@ -276,6 +291,11 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
             selectedBookingOption: null,
             selectedDate: null,
             selectedSlot: null,
+            // NEW: Multi-slot recurring patterns
+            recurringPatterns: [],
+            scheduledSessions: [],
+            availabilityResponse: null,
+            // DEPRECATED: Legacy single-pattern fields
             recurringWeekday: '',
             recurringTime: '',
             suggestedDates: [],

@@ -3,14 +3,18 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -106,7 +110,7 @@ export class AuthService {
     const phoneNumber = dto.phoneNumber?.trim();
     const email = dto.email?.trim().toLowerCase();
 
-    console.log(`Login attempt for: phone=${phoneNumber}, email=${email}`);
+    this.logger.log(`Login attempt for: phone=${phoneNumber ? '***' + phoneNumber.slice(-4) : 'N/A'}, email=${email || 'N/A'}`);
 
     // PHONE-FIRST: Try phone number first, fallback to email
     let user = null;
@@ -140,19 +144,19 @@ export class AuthService {
     }
 
     if (!user) {
-      console.log('User not found');
+      this.logger.warn(`Login failed: user not found`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    console.log('User found, verifying password...');
+    this.logger.debug('User found, verifying password...');
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
-      console.log('Password mismatch');
+      this.logger.warn(`Login failed: password mismatch for user ${user.id}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    console.log('Login successful');
+    this.logger.log(`Login successful for user ${user.id}`);
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,
@@ -208,15 +212,19 @@ export class AuthService {
     return { message: 'تم تغيير كلمة المرور بنجاح' };
   }
 
+  /**
+   * Generates a pair of Access and Refresh tokens
+   */
   private async signToken(
     userId: string,
-    email: string | undefined,
+    email: string | undefined, // Keeping email due to existing method signature logic
     role: string,
     profileData?: {
       firstName?: string | null;
       lastName?: string | null;
       displayName?: string | null;
     },
+    deviceInfo?: string,
   ) {
     const payload = {
       sub: userId,
@@ -224,13 +232,127 @@ export class AuthService {
       role,
       firstName: profileData?.firstName || undefined,
       lastName: profileData?.lastName || undefined,
-      // If a specific displayName is provided (e.g. from teacher profile), use it.
-      // Otherwise frontend can construct it from firstName/lastName.
       displayName: profileData?.displayName || undefined,
     };
 
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    // Generate Refresh Token
+    // 1. Create a random string (the actual token)
+    const refreshTokenPlain = crypto.randomUUID();
+
+    // 2. Hash it for storage
+    const refreshTokenHash = await bcrypt.hash(refreshTokenPlain, 10);
+
+    // 3. Set expiration (7 days)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    // 4. Store in DB
+    const tokenRecord = await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: refreshTokenHash,
+        expiresAt,
+        deviceInfo: deviceInfo || 'Unknown Device',
+      },
+    });
+
     return {
-      access_token: await this.jwtService.signAsync(payload),
+      access_token: accessToken,
+      // Format: {id}:{secret}
+      // This allows efficient lookup by ID and secure verification by secret
+      refresh_token: `${tokenRecord.id}:${refreshTokenPlain}`,
     };
+  }
+
+  // --- REFRESH TOKEN ROTATION ---
+
+  async refreshToken(oldRefreshToken: string, deviceInfo?: string) {
+    // 1. Find all tokens for this user that match the hash? 
+    // Wait, we can't find by hash because it's bcrypt (salted).
+    // We ideally should have sent an ID + Token, OR we have to iterate? 
+    // Iterating is bad. 
+    // Better strategy for MVP: Send UUID as token? No, if leaked DB is compromised.
+    // Correction: We can store a 'tokenFamily' ID in the JWT? No, refresh token is opaque.
+    // Standard approach with bcrypt: You can't lookup by plain token.
+    // Revised Approach: The 'refresh_token' Sent to client is:  `{id}:{secret}`.
+    // We look up by ID, verify secret with bcrypt.
+
+    const [tokenId, tokenSecret] = oldRefreshToken.split(':');
+
+    if (!tokenId || !tokenSecret) {
+      throw new UnauthorizedException('Invalid token format');
+    }
+
+    const tokenRecord = await this.prisma.refreshToken.findUnique({
+      where: { id: tokenId },
+    });
+
+    if (!tokenRecord) {
+      // Token not found - possibly deleted or fake
+      throw new UnauthorizedException('Token invalid');
+    }
+
+    // 2. Check Reuse Detection (The "Token Family" safeguard)
+    if (tokenRecord.revoked) {
+      // SECURITY ALARM: Attempt to use a revoked token!
+      // This implies the user OR an attacker is retrying an old token.
+      // We must REVOKE ALL tokens for this user to be safe.
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: tokenRecord.userId },
+        data: { revoked: true },
+      });
+      throw new UnauthorizedException('Security Alert: Token reuse detected. All sessions revoked.');
+    }
+
+    // 3. Verify Hash
+    const isMatch = await bcrypt.compare(tokenSecret, tokenRecord.tokenHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // 4. Verify Expiry
+    if (tokenRecord.expiresAt < new Date()) {
+      throw new UnauthorizedException('Token expired');
+    }
+
+    // 5. ROTATION: Revoke the old token
+    // We replace it with a new one. valid usage consumes the token.
+    await this.prisma.refreshToken.update({
+      where: { id: tokenId },
+      data: { revoked: true, revokedAt: new Date(), replacedByToken: 'ROTATED' }, // Ideally store new ID but we create it next
+    });
+
+    // 6. Issue New Pair
+    const user = await this.prisma.user.findUnique({ where: { id: tokenRecord.userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    // Generating new token requires calling signToken, but signToken creates a DB entry.
+    // We need to modify signToken to return the formatted `{id}:{secret}` string.
+
+    // Refactored logic inline to avoid cyclic dependency or deep refactor of signToken signature mismatch
+    // Actually, let's just call signToken. It works.
+
+    return this.signToken(user.id, user.email || undefined, user.role, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+    }, deviceInfo);
+  }
+
+  async logout(refreshToken: string) {
+    const [tokenId, tokenSecret] = refreshToken.split(':');
+    if (!tokenId) return; // Invalid format, ignore
+
+    // Just revoke it
+    try {
+      await this.prisma.refreshToken.update({
+        where: { id: tokenId },
+        data: { revoked: true, revokedAt: new Date() }
+      });
+    } catch (e) {
+      // Ignore if not found
+    }
+    return { message: 'Logged out successfully' };
   }
 }

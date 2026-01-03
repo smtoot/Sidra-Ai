@@ -1,10 +1,17 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from './roles.decorator';
 import { UserRole } from '@sidra/shared';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -18,7 +25,7 @@ export class RolesGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
 
     if (!user || !user.role) {
-      console.warn('RolesGuard: No user or role found in request');
+      this.logger.warn('No user or role found in request');
       return false;
     }
 
@@ -32,8 +39,8 @@ export class RolesGuard implements CanActivate {
     );
 
     if (!hasRole) {
-      console.warn(
-        `RolesGuard Denied: User Role=${user.role} Required=${JSON.stringify(requiredRoles)}`,
+      this.logger.warn(
+        `Access denied: User Role=${user.role} Required=${JSON.stringify(requiredRoles)}`,
       );
     }
 

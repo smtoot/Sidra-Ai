@@ -25,6 +25,7 @@ export interface BookingTypeOption {
     sessionsRemaining?: number;
     expiresAt?: string;
     isRecommended?: boolean;
+    recurringRatio?: number; // From tier, e.g., 0.8 for 80% recurring
 }
 
 interface BookingTypeSelectorV2Props {
@@ -121,7 +122,8 @@ export function BookingTypeSelectorV2({
                 displayPrice: formatCurrency(discountedTotal),
                 sessionCount: bestTier.sessionCount,
                 savings: `${formatCurrency(savings).replace(' SDG', '')} (${bestTier.discountPercent}%)`,
-                isRecommended: true
+                isRecommended: true,
+                recurringRatio: bestTier.recurringRatio
             };
         }
 
@@ -167,7 +169,8 @@ export function BookingTypeSelectorV2({
             price: discountedTotal,
             displayPrice: formatCurrency(discountedTotal),
             sessionCount: tier.sessionCount,
-            savings: `${formatCurrency(savings).replace(' SDG', '')} (${tier.discountPercent}%)`
+            savings: `${formatCurrency(savings).replace(' SDG', '')} (${tier.discountPercent}%)`,
+            recurringRatio: tier.recurringRatio
         });
     });
 

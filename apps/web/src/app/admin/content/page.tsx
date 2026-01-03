@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/api/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Edit, Trash2, ChevronRight, BookOpen, Layers, GraduationCap, FileText } from 'lucide-react';
+import { Plus, Edit, Trash2, ChevronRight, BookOpen, Layers, GraduationCap, FileText, Power, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from 'sonner';
 
@@ -171,27 +171,53 @@ export default function AdminContentPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("هل أنت متأكد من الإيقاف؟")) return;
+    const handleToggleActive = async (id: string, currentlyActive: boolean) => {
+        const action = currentlyActive ? 'إيقاف' : 'تفعيل';
+        if (!confirm(`هل أنت متأكد من ${action} هذا العنصر؟`)) return;
         try {
             switch (activeTab) {
                 case 'CURRICULA':
-                    await adminApi.deleteCurriculum(id);
+                    await adminApi.updateCurriculum(id, { isActive: !currentlyActive });
                     break;
                 case 'STAGES':
-                    await adminApi.deleteStage(id);
+                    await adminApi.updateStage(id, { isActive: !currentlyActive });
                     break;
                 case 'GRADES':
-                    await adminApi.deleteGrade(id);
+                    await adminApi.updateGrade(id, { isActive: !currentlyActive });
                     break;
                 case 'SUBJECTS':
-                    await adminApi.deleteSubject(id);
+                    await adminApi.updateSubject(id, { isActive: !currentlyActive });
                     break;
             }
-            toast.success('تم الإيقاف');
+            toast.success(`تم ${action} العنصر بنجاح`);
             loadData();
-        } catch (error) {
-            toast.error('فشل الإيقاف');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || `فشل ${action}`);
+        }
+    };
+
+    const handleHardDelete = async (id: string) => {
+        if (!confirm("⚠️ تحذير: سيتم حذف هذا العنصر نهائياً ولا يمكن استرجاعه. هل أنت متأكد؟")) return;
+        try {
+            switch (activeTab) {
+                case 'CURRICULA':
+                    await adminApi.hardDeleteCurriculum(id);
+                    break;
+                case 'STAGES':
+                    await adminApi.hardDeleteStage(id);
+                    break;
+                case 'GRADES':
+                    await adminApi.hardDeleteGrade(id);
+                    break;
+                case 'SUBJECTS':
+                    await adminApi.hardDeleteSubject(id);
+                    break;
+            }
+            toast.success('تم الحذف نهائياً');
+            loadData();
+            loadLookups();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل الحذف');
         }
     };
 
@@ -333,11 +359,25 @@ export default function AdminContentPage() {
 
     const ActionButtons = ({ item }: { item: any }) => (
         <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => openModal(item)}>
+            <Button size="sm" variant="outline" onClick={() => openModal(item)} title="تعديل">
                 <Edit className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant="destructive" onClick={() => handleDelete(item.id)}>
-                <Trash2 className="w-4 h-4" />
+            <Button
+                size="sm"
+                variant={item.isActive ? "outline" : "default"}
+                onClick={() => handleToggleActive(item.id, item.isActive)}
+                title={item.isActive ? 'إيقاف' : 'تفعيل'}
+                className={item.isActive ? "text-orange-600 border-orange-300 hover:bg-orange-50" : "bg-green-600 hover:bg-green-700"}
+            >
+                <Power className="w-4 h-4" />
+            </Button>
+            <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleHardDelete(item.id)}
+                title="حذف نهائي"
+            >
+                <XCircle className="w-4 h-4" />
             </Button>
         </div>
     );

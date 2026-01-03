@@ -8,6 +8,7 @@ import {
   Param,
   UseGuards,
   Req,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -84,7 +85,7 @@ export class AdminTeamController {
     private adminTeamService: AdminTeamService,
     private permissionService: PermissionService,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * List all admin users
@@ -135,7 +136,7 @@ export class AdminTeamController {
     });
 
     if (!actor) {
-      throw new Error('Actor not found');
+      throw new NotFoundException('Actor not found');
     }
 
     return this.adminTeamService.createAdminUser(actorId, actor.role, dto);
@@ -160,7 +161,7 @@ export class AdminTeamController {
     });
 
     if (!actor) {
-      throw new Error('Actor not found');
+      throw new NotFoundException('Actor not found');
     }
 
     return this.adminTeamService.updatePermissionOverrides(
@@ -189,7 +190,7 @@ export class AdminTeamController {
     });
 
     if (!actor) {
-      throw new Error('Actor not found');
+      throw new NotFoundException('Actor not found');
     }
 
     return this.adminTeamService.deactivateAdminUser(
@@ -214,7 +215,7 @@ export class AdminTeamController {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return {

@@ -17,7 +17,7 @@ interface AuthRequest {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('register')
@@ -51,5 +51,23 @@ export class AuthController {
       body.currentPassword,
       body.newPassword,
     );
+  }
+
+  @Public()
+  @Post('refresh')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // higher limit for auto-refresh
+  refreshToken(
+    @Body() body: { refresh_token: string },
+    @Req() req: any, // To get IP/User Agent
+  ) {
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const ip = req.ip || 'Unknown';
+    const deviceInfo = `${userAgent} (${ip})`;
+    return this.authService.refreshToken(body.refresh_token, deviceInfo);
+  }
+
+  @Post('logout')
+  logout(@Body() body: { refresh_token: string }) {
+    return this.authService.logout(body.refresh_token);
   }
 }

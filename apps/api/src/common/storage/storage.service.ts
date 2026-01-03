@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -202,7 +202,7 @@ export class StorageService {
    */
   validateFile(buffer: Buffer, mimeType: string): void {
     if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-      throw new Error(
+      throw new BadRequestException(
         `File type not allowed. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
       );
     }
@@ -221,7 +221,7 @@ export class StorageService {
 
     if (buffer.length > maxSize) {
       const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1);
-      throw new Error(`File too large. Maximum size is ${maxSizeMB}MB`);
+      throw new BadRequestException(`File too large. Maximum size is ${maxSizeMB}MB`);
     }
   }
 

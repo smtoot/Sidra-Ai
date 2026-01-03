@@ -2,6 +2,9 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  BadRequestException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -26,6 +29,8 @@ import { toZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class MarketplaceService {
+  private readonly logger = new Logger(MarketplaceService.name);
+
   constructor(private prisma: PrismaService) { }
 
   /**
@@ -127,14 +132,23 @@ export class MarketplaceService {
 
   // --- Curricula ---
   async createCurriculum(dto: CreateCurriculumDto) {
-    return this.prisma.curriculum.create({
-      data: {
-        code: dto.code,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        isActive: dto.isActive ?? true,
-      },
-    });
+    try {
+      return await this.prisma.curriculum.create({
+        data: {
+          code: dto.code,
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          isActive: dto.isActive ?? true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد منهج بنفس الرمز. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllCurricula(includeInactive = false) {
@@ -152,10 +166,19 @@ export class MarketplaceService {
 
   async updateCurriculum(id: string, dto: UpdateCurriculumDto) {
     await this.findOneCurriculum(id);
-    return this.prisma.curriculum.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.curriculum.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد منهج بنفس الرمز. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteCurriculum(id: string) {
@@ -166,15 +189,61 @@ export class MarketplaceService {
     });
   }
 
+  async hardDeleteCurriculum(id: string) {
+    await this.findOneCurriculum(id);
+
+    // Check if curriculum is being used
+    const [stagesCount, teacherSubjectsCount, studentsCount, childrenCount] =
+      await Promise.all([
+        this.prisma.educationalStage.count({ where: { curriculumId: id } }),
+        this.prisma.teacherSubject.count({ where: { curriculumId: id } }),
+        this.prisma.studentProfile.count({ where: { curriculumId: id } }),
+        this.prisma.child.count({ where: { curriculumId: id } }),
+      ]);
+
+    if (stagesCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المنهج لأنه يحتوي على ${stagesCount} مرحلة تعليمية. قم بحذف المراحل أولاً.`,
+      );
+    }
+    if (teacherSubjectsCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المنهج لأنه مرتبط بـ ${teacherSubjectsCount} معلم. قم بإزالة ارتباط المعلمين أولاً.`,
+      );
+    }
+    if (studentsCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المنهج لأنه مرتبط بـ ${studentsCount} طالب.`,
+      );
+    }
+    if (childrenCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المنهج لأنه مرتبط بـ ${childrenCount} طفل.`,
+      );
+    }
+
+    await this.prisma.curriculum.delete({ where: { id } });
+    return { deleted: true, message: 'تم حذف المنهج نهائياً' };
+  }
+
   // --- Subjects ---
   async createSubject(dto: CreateSubjectDto) {
-    return this.prisma.subject.create({
-      data: {
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        isActive: dto.isActive ?? true,
-      },
-    });
+    try {
+      return await this.prisma.subject.create({
+        data: {
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          isActive: dto.isActive ?? true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مادة بنفس الاسم. الرجاء استخدام اسم مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllSubjects(includeInactive = false) {
@@ -191,10 +260,19 @@ export class MarketplaceService {
 
   async updateSubject(id: string, dto: UpdateSubjectDto) {
     await this.findOneSubject(id);
-    return this.prisma.subject.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.subject.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مادة بنفس الاسم. الرجاء استخدام اسم مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteSubject(id: string) {
@@ -203,6 +281,39 @@ export class MarketplaceService {
       where: { id },
       data: { isActive: false },
     });
+  }
+
+  async hardDeleteSubject(id: string) {
+    await this.findOneSubject(id);
+
+    // Check if subject is being used
+    const [teacherSubjectsCount, bookingsCount, packagesCount] =
+      await Promise.all([
+        this.prisma.teacherSubject.count({ where: { subjectId: id } }),
+        this.prisma.booking.count({ where: { subjectId: id } }),
+        this.prisma.studentPackage.count({ where: { subjectId: id } }),
+      ]);
+
+    if (teacherSubjectsCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المادة لأنها مرتبطة بـ ${teacherSubjectsCount} معلم.`,
+      );
+    }
+    if (bookingsCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المادة لأنها مرتبطة بـ ${bookingsCount} حجز.`,
+      );
+    }
+    if (packagesCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المادة لأنها مرتبطة بـ ${packagesCount} باقة طالب.`,
+      );
+    }
+
+    // Also delete curriculum-subject associations
+    await this.prisma.curriculumSubject.deleteMany({ where: { subjectId: id } });
+    await this.prisma.subject.delete({ where: { id } });
+    return { deleted: true, message: 'تم حذف المادة نهائياً' };
   }
 
   // --- Educational Stages ---
@@ -214,15 +325,24 @@ export class MarketplaceService {
   }) {
     // Verify curriculum exists
     await this.findOneCurriculum(dto.curriculumId);
-    return this.prisma.educationalStage.create({
-      data: {
-        curriculumId: dto.curriculumId,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        sequence: dto.sequence,
-        isActive: true,
-      },
-    });
+    try {
+      return await this.prisma.educationalStage.create({
+        data: {
+          curriculumId: dto.curriculumId,
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          sequence: dto.sequence,
+          isActive: true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مرحلة تعليمية بنفس البيانات. الرجاء التحقق من المدخلات.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllStages(curriculumId?: string, includeInactive = false) {
@@ -262,10 +382,19 @@ export class MarketplaceService {
     },
   ) {
     await this.findOneStage(id);
-    return this.prisma.educationalStage.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.educationalStage.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد مرحلة تعليمية بنفس البيانات. الرجاء التحقق من المدخلات.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteStage(id: string) {
@@ -274,6 +403,24 @@ export class MarketplaceService {
       where: { id },
       data: { isActive: false },
     });
+  }
+
+  async hardDeleteStage(id: string) {
+    await this.findOneStage(id);
+
+    // Check if stage has grades
+    const gradesCount = await this.prisma.gradeLevel.count({
+      where: { stageId: id },
+    });
+
+    if (gradesCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المرحلة لأنها تحتوي على ${gradesCount} صف دراسي. قم بحذف الصفوف أولاً.`,
+      );
+    }
+
+    await this.prisma.educationalStage.delete({ where: { id } });
+    return { deleted: true, message: 'تم حذف المرحلة التعليمية نهائياً' };
   }
 
   // --- Grade Levels ---
@@ -286,16 +433,25 @@ export class MarketplaceService {
   }) {
     // Verify stage exists
     await this.findOneStage(dto.stageId);
-    return this.prisma.gradeLevel.create({
-      data: {
-        stageId: dto.stageId,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn,
-        code: dto.code,
-        sequence: dto.sequence,
-        isActive: true,
-      },
-    });
+    try {
+      return await this.prisma.gradeLevel.create({
+        data: {
+          stageId: dto.stageId,
+          nameAr: dto.nameAr,
+          nameEn: dto.nameEn,
+          code: dto.code,
+          sequence: dto.sequence,
+          isActive: true,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد صف آخر بنفس الرمز في هذه المرحلة. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllGrades(stageId?: string, includeInactive = false) {
@@ -334,10 +490,19 @@ export class MarketplaceService {
     },
   ) {
     await this.findOneGrade(id);
-    return this.prisma.gradeLevel.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.gradeLevel.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'يوجد صف آخر بنفس الرمز في هذه المرحلة. الرجاء استخدام رمز مختلف.',
+        );
+      }
+      throw error;
+    }
   }
 
   async softDeleteGrade(id: string) {
@@ -347,6 +512,25 @@ export class MarketplaceService {
       data: { isActive: false },
     });
   }
+
+  async hardDeleteGrade(id: string) {
+    await this.findOneGrade(id);
+
+    // Check if grade is being used by teachers
+    const teacherGradesCount = await this.prisma.teacherSubjectGrade.count({
+      where: { gradeLevelId: id },
+    });
+
+    if (teacherGradesCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف الصف لأنه مرتبط بـ ${teacherGradesCount} معلم. قم بإزالة ارتباط المعلمين أولاً.`,
+      );
+    }
+
+    await this.prisma.gradeLevel.delete({ where: { id } });
+    return { deleted: true, message: 'تم حذف الصف الدراسي نهائياً' };
+  }
+
   async getTeacherPublicProfile(idOrSlug: string) {
     // Determine if it's a UUID or slug
     const isUUID =
@@ -533,7 +717,7 @@ export class MarketplaceService {
             : null,
       };
     } catch (error) {
-      console.error(
+      this.logger.error(
         'CRITICAL ERROR in getTeacherPublicProfile mapping:',
         error,
       );
@@ -1257,7 +1441,7 @@ export class MarketplaceService {
             break;
           }
         } catch (error) {
-          console.error(`Failed to check slots for date ${dateStr}:`, error);
+          this.logger.error(`Failed to check slots for date ${dateStr}:`, error);
         }
       }
     }

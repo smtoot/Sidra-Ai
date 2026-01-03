@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
+import { PackageService } from '../package/package.service';
 import { normalizeMoney } from '../utils/money';
 
 @Injectable()
@@ -13,7 +14,8 @@ export class EscrowSchedulerService {
     private prisma: PrismaService,
     private walletService: WalletService,
     private notificationService: NotificationService,
-  ) {}
+    private packageService: PackageService,
+  ) { }
 
   /**
    * Auto-release job: Runs every 15 minutes
@@ -35,6 +37,7 @@ export class EscrowSchedulerService {
         include: {
           teacherProfile: { include: { user: true } },
           bookedByUser: true,
+          packageRedemption: true, // FIX P1: Needed to detect package bookings
         },
       });
 
@@ -59,22 +62,32 @@ export class EscrowSchedulerService {
                 status: 'COMPLETED',
                 paymentReleasedAt: now,
               },
-            }); // Will throw if record check fails or already updated? No, standard update throws if not found?
-            // Actually, update throws 'Record to update not found.' if condition fails.
-            // This is exactly what we want for concurrency safety.
+            });
 
-            // 2. Release payment to teacher (atomic with status update)
-            const price = Number(booking.price);
-            const commissionRate = Number(booking.commissionRate);
+            // 2. Release payment (atomic with status update)
+            if (booking.packageRedemption) {
+              // --- Package Release ---
+              // Auto-release for packages transfers from escrow to teacher
+              const idempotencyKey = `AUTO_RELEASE_${booking.id}`;
+              await this.packageService.releaseSession(
+                booking.id,
+                idempotencyKey,
+                tx,
+              );
+            } else {
+              // --- Single Session Release ---
+              const price = Number(booking.price);
+              const commissionRate = Number(booking.commissionRate);
 
-            await this.walletService.releaseFundsOnCompletion(
-              booking.bookedByUserId,
-              booking.teacherProfile.userId,
-              booking.id,
-              price,
-              commissionRate,
-              tx, // Pass transaction
-            );
+              await this.walletService.releaseFundsOnCompletion(
+                booking.bookedByUserId,
+                booking.teacherProfile.userId,
+                booking.id,
+                price,
+                commissionRate,
+                tx, // Pass transaction
+              );
+            }
           });
 
           releasedCount++;
@@ -185,9 +198,9 @@ export class EscrowSchedulerService {
             // Calculate hours remaining until auto-release
             const hoursRemaining = booking.disputeWindowClosesAt
               ? Math.round(
-                  (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
-                    (1000 * 60 * 60),
-                )
+                (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
+                (1000 * 60 * 60),
+              )
               : 0;
 
             if (hoursRemaining > 0) {
@@ -354,7 +367,7 @@ export class EscrowSchedulerService {
         try {
           const hoursStale = Math.round(
             (now.getTime() - new Date(booking.endTime).getTime()) /
-              (1000 * 60 * 60),
+            (1000 * 60 * 60),
           );
 
           // Alert all admins

@@ -7,11 +7,11 @@ import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { Clock, Calendar, CheckCircle2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SlotWithTimezone, BookingTypeOption } from '../types';
+import { SlotWithTimezone, BookingTypeOption, RecurringPattern, MultiSlotAvailabilityResponse } from '../types';
 import { marketplaceApi, AvailabilityCalendar } from '@/lib/api/marketplace';
 import { getUserTimezone, getTimezoneDisplay } from '@/lib/utils/timezone';
 import { formatTime, formatTimezone, parseUtcDate } from '../formatUtils';
-import { RecurringPatternSelector } from '../RecurringPatternSelector';
+import { WeeklyAvailabilityGrid } from '../WeeklyAvailabilityGrid';
 
 interface Step3ScheduleProps {
     teacherId: string;
@@ -22,7 +22,11 @@ interface Step3ScheduleProps {
     selectedSlot: SlotWithTimezone | null;
     onDateSelect: (date: Date | null) => void;
     onSlotSelect: (slot: SlotWithTimezone | null) => void;
-    // New package purchase
+    // NEW: Multi-slot recurring patterns
+    recurringPatterns: RecurringPattern[];
+    onRecurringPatternsChange: (patterns: RecurringPattern[]) => void;
+    onAvailabilityCheck: (response: MultiSlotAvailabilityResponse) => void;
+    // DEPRECATED: Legacy single-pattern fields (kept for backward compatibility)
     recurringWeekday: string;
     recurringTime: string;
     suggestedDates: Date[];
@@ -39,6 +43,11 @@ export function Step3Schedule({
     selectedSlot,
     onDateSelect,
     onSlotSelect,
+    // NEW: Multi-slot patterns
+    recurringPatterns,
+    onRecurringPatternsChange,
+    onAvailabilityCheck,
+    // DEPRECATED: Legacy single-pattern fields
     recurringWeekday,
     recurringTime,
     suggestedDates,
@@ -121,28 +130,22 @@ export function Step3Schedule({
     const availableDates = availabilityCalendar?.availableDates.map(d => new Date(d)) || [];
     const fullyBookedDates = availabilityCalendar?.fullyBookedDates.map(d => new Date(d)) || [];
 
-    // NEW PACKAGE PURCHASE - Recurring pattern
+    // NEW PACKAGE PURCHASE - Multi-slot recurring pattern selection
     if (isNewPackagePurchase) {
+        // Calculate recurring session count from tier's actual recurringRatio
+        const totalSessions = bookingOption?.sessionCount || 0;
+        const ratio = bookingOption?.recurringRatio ?? 0.8; // Use tier ratio, default 80% if not set
+        const recurringSessionCount = Math.ceil(totalSessions * ratio);
+
         return (
             <div>
-                <div className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-1">
-                        حدد النمط الأسبوعي للحصص
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                        اختر يوم ووقت ثابت للحصص الأسبوعية
-                    </p>
-                </div>
-
-                <RecurringPatternSelector
+                <WeeklyAvailabilityGrid
                     teacherId={teacherId}
-                    sessionCount={bookingOption?.sessionCount || 0}
+                    recurringSessionCount={recurringSessionCount}
                     sessionDuration={60}
-                    onPatternSelect={(weekday, time, dates) => {
-                        onRecurringWeekdayChange(weekday);
-                        onRecurringTimeChange(time);
-                        onSuggestedDatesChange(dates);
-                    }}
+                    maxSlots={4}
+                    onPatternsChange={onRecurringPatternsChange}
+                    onAvailabilityCheck={onAvailabilityCheck}
                 />
             </div>
         );

@@ -1,12 +1,14 @@
-import { IsBoolean } from 'class-validator';
+import { IsBoolean, IsOptional } from 'class-validator';
 
 /**
  * DTO for updating teacher's demo and package settings
  */
 export class UpdateTeacherDemoSettingsDto {
+  @IsOptional()
   @IsBoolean()
   demoEnabled?: boolean;
 
+  @IsOptional()
   @IsBoolean()
   packagesEnabled?: boolean; // Master toggle for all packages
 }

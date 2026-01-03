@@ -46,7 +46,7 @@ export default function TeacherApplicationsPage() {
     const [showChangesModal, setShowChangesModal] = useState(false);
     const [showInterviewModal, setShowInterviewModal] = useState(false);
     const [reason, setReason] = useState('');
-    const [interviewSlots, setInterviewSlots] = useState<{dateTime: string; meetingLink: string}[]>([
+    const [interviewSlots, setInterviewSlots] = useState<{ dateTime: string; meetingLink: string }[]>([
         { dateTime: '', meetingLink: '' },
         { dateTime: '', meetingLink: '' }
     ]);
@@ -501,27 +501,67 @@ export default function TeacherApplicationsPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {selectedApp.documents && selectedApp.documents.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {selectedApp.documents.map((doc: any) => (
-                                                <button
-                                                    key={doc.id}
-                                                    onClick={() => handleViewDocument(doc.fileUrl, doc.fileName)}
-                                                    className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all group text-right"
-                                                >
-                                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
-                                                        <FileText className="w-5 h-5 text-gray-600 group-hover:text-primary-600" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className=" text-sm font-medium truncate">{doc.fileName}</p>
-                                                        <p className="text-xs text-gray-500">{doc.type}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-400 italic text-sm py-4">لا توجد مستندات مرفقة</p>
-                                    )}
+                                    {(() => {
+                                        // Aggregate all documents from different sources
+                                        const allDocs: any[] = [];
+
+                                        // 1. ID Verification Image
+                                        if (selectedApp.idImageUrl) {
+                                            allDocs.push({
+                                                id: 'identity-doc',
+                                                fileName: `Identity - ${selectedApp.idType || 'Document'}`,
+                                                fileUrl: selectedApp.idImageUrl,
+                                                type: 'IDENTITY_VERIFICATION'
+                                            });
+                                        }
+
+                                        // 2. Qualifications (Certificates)
+                                        if (selectedApp.qualifications && selectedApp.qualifications.length > 0) {
+                                            selectedApp.qualifications.forEach((q: any, idx: number) => {
+                                                if (q.certificateUrl) {
+                                                    allDocs.push({
+                                                        id: `qual-${q.id}`,
+                                                        fileName: `Certificate - ${q.degree || 'Qualification'} ${idx + 1}`,
+                                                        fileUrl: q.certificateUrl,
+                                                        type: 'ACADEMIC_CERTIFICATE'
+                                                    });
+                                                }
+                                            });
+                                        }
+
+                                        // 3. Legacy Documents
+                                        if (selectedApp.documents && selectedApp.documents.length > 0) {
+                                            allDocs.push(...selectedApp.documents);
+                                        }
+
+                                        return allDocs.length > 0 ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {allDocs.map((doc: any, index: number) => (
+                                                    <button
+                                                        key={doc.id || index}
+                                                        onClick={() => handleViewDocument(doc.fileUrl, doc.fileName)}
+                                                        className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all group text-right"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-primary-100 transition-colors flex-shrink-0">
+                                                            {doc.type === 'IDENTITY_VERIFICATION' ? (
+                                                                <User className="w-5 h-5 text-gray-600 group-hover:text-primary-600" />
+                                                            ) : doc.type === 'ACADEMIC_CERTIFICATE' ? (
+                                                                <Award className="w-5 h-5 text-gray-600 group-hover:text-primary-600" />
+                                                            ) : (
+                                                                <FileText className="w-5 h-5 text-gray-600 group-hover:text-primary-600" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium truncate" title={doc.fileName}>{doc.fileName}</p>
+                                                            <p className="text-xs text-gray-500 truncate">{doc.type}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-400 italic text-sm py-4">لا توجد مستندات مرفقة</p>
+                                        );
+                                    })()}
                                 </CardContent>
                             </Card>
                         </div>

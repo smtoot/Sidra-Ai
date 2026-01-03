@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
@@ -81,7 +81,7 @@ export class R2StorageProvider implements StorageProvider {
         `Failed to save file to R2: ${error.message}`,
         error.stack,
       );
-      throw new Error(`R2 upload failed: ${error.message}`);
+      throw new InternalServerErrorException(`R2 upload failed: ${error.message}`);
     }
   }
 
@@ -140,7 +140,7 @@ export class R2StorageProvider implements StorageProvider {
         `Failed to delete file from R2: ${error.message}`,
         error.stack,
       );
-      throw new Error(`R2 delete failed: ${error.message}`);
+      throw new InternalServerErrorException(`R2 delete failed: ${error.message}`);
     }
   }
 

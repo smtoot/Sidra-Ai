@@ -65,7 +65,28 @@ model User {
   ticketAccessControls    TicketAccessControl[]
   ticketAccessRevocations TicketAccessControl[] @relation("AccessRevoker")
 
+  // Refresh Tokens (Phase 10)
+  refreshTokens RefreshToken[]
+
   @@map("users")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  revoked     Boolean  @default(false)
+  revokedAt   DateTime?
+  replacedByToken   String? // For detecting reuse chains
+  deviceInfo  String?  // User Agent / IP (optional)
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash]) // For lookup
+  @@map("refresh_tokens")
 }
 
 model SavedTeacher {
@@ -174,6 +195,8 @@ model TeacherProfile {
   skills          TeacherSkill[]
   workExperiences TeacherWorkExperience[]
 
+  @@index([applicationStatus])
+  @@index([isOnVacation])
   @@map("teacher_profiles")
 }
 
@@ -297,6 +320,7 @@ model Child {
   parent       ParentProfile @relation(fields: [parentId], references: [id])
   curriculum   Curriculum?   @relation(fields: [curriculumId], references: [id])
 
+  @@index([parentId])
   @@map("children")
 }
 
@@ -378,6 +402,7 @@ model TeacherSubject {
   subject        Subject               @relation(fields: [subjectId], references: [id])
   teacherProfile TeacherProfile        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
+  @@index([teacherId])
   @@map("teacher_subjects")
 }
 
@@ -407,6 +432,7 @@ model Availability {
   isRecurring    Boolean        @default(true)
   teacherProfile TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
+  @@index([teacherId])
   @@map("availability")
 }
 
@@ -497,8 +523,30 @@ model Transaction {
   // Since 'in' within 'where' for unique constraints is limited in some Prisma versions,
   // we will enforce this via application logic (locked reads) if valid schema deploy fails,
   // but attempt the constraint here for best practice.
+  // but attempt the constraint here for best practice.
 
+  @@index([type])
+  @@index([status])
   @@map("transactions")
+}
+
+/// Ledger Audit Log - Stores results of double-entry verification jobs
+model LedgerAuditLog {
+  id                String   @id @default(uuid())
+  runAt             DateTime @default(now())
+  totalWallets      Int
+  walletsChecked    Int
+  discrepancyCount  Int      @default(0)
+  status            String   // 'SUCCESS', 'DISCREPANCY_FOUND', 'ERROR'
+  durationMs        Int      // How long the audit took
+  details           Json?    // Array of discrepancy details if any
+  resolvedAt        DateTime?
+  resolvedByUserId  String?
+  resolutionNote    String?
+
+  @@index([runAt])
+  @@index([status])
+  @@map("ledger_audit_logs")
 }
 
 model Booking {
@@ -596,6 +644,8 @@ model Booking {
   @@index([startTime])
   @@index([beneficiaryType])
   @@index([autoReleaseAt]) // For efficient auto-release job queries
+  @@index([status])
+  @@index([paymentReleasedAt])
 
   // SECURITY: Prevent double-booking (Race Condition Mitigation)
   // Ensure a teacher cannot have two active bookings starting at the same time

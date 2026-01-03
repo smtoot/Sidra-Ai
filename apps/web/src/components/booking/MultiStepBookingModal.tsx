@@ -189,17 +189,40 @@ export function MultiStepBookingModal({
 
         try {
             const isNewPackagePurchase = state.selectedBookingOption?.tierId !== undefined;
+            const hasMultiSlotPatterns = state.recurringPatterns.length > 0;
 
-            // Get the first suggested date or selected slot for end time calculation
-            const startTime = isNewPackagePurchase && state.suggestedDates.length > 0
-                ? state.suggestedDates[0].toISOString()
-                : state.selectedSlot!.startTimeUtc;
+            if (isNewPackagePurchase && hasMultiSlotPatterns) {
+                // NEW: Multi-slot package purchase
+                // Import packageApi dynamically to avoid circular deps
+                const { packageApi } = await import('@/lib/api/package');
 
-            // Calculate end time (assuming 1 hour sessions)
-            const endTime = new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
+                // Generate idempotency key to prevent double-charging
+                const idempotencyKey = `${userId}-${teacherId}-${state.selectedSubject}-${state.selectedBookingOption!.tierId}-${Date.now()}`;
 
-            if (isNewPackagePurchase) {
-                // Create new package purchase + first booking
+                // Determine studentId based on user role
+                const studentId = userRole === 'PARENT' ? state.selectedChildId : userId!;
+
+                await packageApi.purchaseSmartPackMultiSlot({
+                    studentId,
+                    teacherId,
+                    subjectId: state.selectedSubject,
+                    tierId: state.selectedBookingOption!.tierId!,
+                    recurringPatterns: state.recurringPatterns,
+                    idempotencyKey,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                });
+
+                toast.success('تم شراء الباقة بنجاح! تم جدولة جميع الحصص المتكررة');
+            } else if (isNewPackagePurchase) {
+                // DEPRECATED: Legacy single-pattern package purchase
+                // Get the first suggested date for start time
+                const startTime = state.suggestedDates.length > 0
+                    ? state.suggestedDates[0].toISOString()
+                    : new Date().toISOString();
+
+                // Calculate end time (assuming 1 hour sessions)
+                const endTime = new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
+
                 await bookingApi.createRequest({
                     teacherId,
                     subjectId: state.selectedSubject,
@@ -209,10 +232,15 @@ export function MultiStepBookingModal({
                     price: state.selectedBookingOption!.price,
                     tierId: state.selectedBookingOption!.tierId!,
                     bookingNotes: state.bookingNotes,
-                    termsAccepted: true // Strict validation
+                    termsAccepted: true
                 });
+
+                toast.success('تم إنشاء الحجز بنجاح! في انتظار موافقة المعلم');
             } else {
                 // Regular booking (single, demo, or existing package)
+                const startTime = state.selectedSlot!.startTimeUtc;
+                const endTime = new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
+
                 await bookingApi.createRequest({
                     teacherId,
                     subjectId: state.selectedSubject,
@@ -223,11 +251,12 @@ export function MultiStepBookingModal({
                     packageId: state.selectedBookingOption?.packageId,
                     isDemo: state.selectedBookingType === 'DEMO',
                     bookingNotes: state.bookingNotes,
-                    termsAccepted: true // Strict validation
+                    termsAccepted: true
                 });
+
+                toast.success('تم إنشاء الحجز بنجاح! في انتظار موافقة المعلم');
             }
 
-            toast.success('تم إنشاء الحجز بنجاح! في انتظار موافقة المعلم');
             clearSavedState();
             resetState();
             onClose();
@@ -236,6 +265,7 @@ export function MultiStepBookingModal({
             router.push(userRole === 'PARENT' ? '/parent/bookings' : '/student/sessions');
         } catch (error: any) {
             console.error('Failed to create booking:', error);
+            console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
             toast.error(error.response?.data?.message || 'فشل إنشاء الحجز. يرجى المحاولة مرة أخرى');
         } finally {
             setIsSubmitting(false);
@@ -308,6 +338,16 @@ export function MultiStepBookingModal({
                         selectedSlot={state.selectedSlot}
                         onDateSelect={(date) => updateState('selectedDate', date)}
                         onSlotSelect={(slot) => updateState('selectedSlot', slot)}
+                        // NEW: Multi-slot recurring patterns
+                        recurringPatterns={state.recurringPatterns}
+                        onRecurringPatternsChange={(patterns) => updateState('recurringPatterns', patterns)}
+                        onAvailabilityCheck={(response) => {
+                            updateState('availabilityResponse', response);
+                            if (response.scheduledSessions) {
+                                updateState('scheduledSessions', response.scheduledSessions);
+                            }
+                        }}
+                        // DEPRECATED: Legacy single-pattern fields
                         recurringWeekday={state.recurringWeekday}
                         recurringTime={state.recurringTime}
                         suggestedDates={state.suggestedDates}
@@ -325,6 +365,10 @@ export function MultiStepBookingModal({
                         bookingOption={state.selectedBookingOption}
                         selectedDate={state.selectedDate}
                         selectedSlot={state.selectedSlot}
+                        // NEW: Multi-slot recurring patterns
+                        recurringPatterns={state.recurringPatterns}
+                        scheduledSessions={state.scheduledSessions}
+                        availabilityResponse={state.availabilityResponse}
                         userRole={userRole}
                         userName={userName}
                         children={children}

@@ -23,6 +23,7 @@ import { AuditService } from '../common/audit/audit.service';
 import { SystemSettingsService } from './system-settings.service';
 import { AuditAction } from '@prisma/client';
 import { PackageService } from '../package/package.service';
+import { LedgerAuditService } from '../wallet/ledger-audit.service';
 
 /**
  * Authenticated request interface for JWT-protected endpoints
@@ -44,7 +45,8 @@ export class AdminController {
     private readonly settingsService: SystemSettingsService,
     private readonly auditService: AuditService,
     private readonly packageService: PackageService,
-  ) {}
+    private readonly ledgerAuditService: LedgerAuditService,
+  ) { }
 
   @Get('dashboard')
   getDashboardStats() {
@@ -266,5 +268,47 @@ export class AdminController {
   @Get('student-packages/:id')
   async getStudentPackageById(@Param('id') id: string) {
     return this.packageService.getPackageById(id);
+  }
+
+  // =================== USER MANAGEMENT ===================
+
+  @Get('users')
+  getAllUsers(@Query('role') role?: string, @Query('search') search?: string) {
+    return this.adminService.getAllUsers(role, search);
+  }
+
+  @Delete('users/:id/permanent')
+  hardDeleteUser(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.adminService.hardDeleteUser(req.user.userId, id);
+  }
+
+  // =================== LEDGER AUDIT ===================
+
+  @Get('ledger-audit')
+  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  getLedgerAudits(@Query('limit') limit?: string) {
+    return this.ledgerAuditService.getRecentAudits(limit ? parseInt(limit) : 10);
+  }
+
+  @Get('ledger-audit/:id')
+  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  getLedgerAuditById(@Param('id') id: string) {
+    return this.ledgerAuditService.getAuditById(id);
+  }
+
+  @Post('ledger-audit/run')
+  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  runLedgerAudit() {
+    return this.ledgerAuditService.runAudit();
+  }
+
+  @Patch('ledger-audit/:id/resolve')
+  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  resolveLedgerAudit(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: { note: string },
+  ) {
+    return this.ledgerAuditService.resolveAudit(id, req.user.userId, body.note);
   }
 }

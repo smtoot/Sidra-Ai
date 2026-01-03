@@ -22,6 +22,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { normalizeMoney } from '../utils/money';
 import { BOOKING_POLICY } from './booking-policy.constants';
 import { EncryptionUtil } from '../common/utils/encryption.util';
+import { TeacherService } from '../teacher/teacher.service';
 
 @Injectable()
 export class BookingService {
@@ -34,6 +35,7 @@ export class BookingService {
     private packageService: PackageService,
     private demoService: DemoService,
     private readableIdService: ReadableIdService,
+    private teacherService: TeacherService,
   ) { }
 
   // Create a booking request (Parent or Student)
@@ -115,12 +117,36 @@ export class BookingService {
     }
 
     // **VALIDATION**: Check if the slot is actually available
-    const isAvailable = await this.validateSlotAvailability(
+
+    // 1. Check teacher's schedule (Weekly + Exceptions)
+    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       dto.teacherId,
       new Date(dto.startTime),
     );
 
-    if (!isAvailable) {
+    if (!isTeacherAvailable) {
+      throw new BadRequestException(
+        'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
+      );
+    }
+
+    // 2. Check for existing booking conflicts
+    const bookingConflict = await this.prisma.booking.findFirst({
+      where: {
+        teacherId: dto.teacherId,
+        startTime: { lte: new Date(dto.startTime) },
+        endTime: { gt: new Date(dto.startTime) },
+        status: {
+          in: [
+            'SCHEDULED',
+            'PENDING_TEACHER_APPROVAL',
+            'WAITING_FOR_PAYMENT',
+          ],
+        },
+      },
+    });
+
+    if (bookingConflict) {
       throw new BadRequestException(
         'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
       );
@@ -606,14 +632,27 @@ export class BookingService {
     });
   }
 
-  // Get ALL teacher bookings (for requests page - shows all statuses)
-  async getAllTeacherBookings(teacherUserId: string) {
+  // Get ALL teacher bookings (for requests page - shows all statuses) (PAGINATED)
+  async getAllTeacherBookings(
+    teacherUserId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     const teacherProfile = await this.prisma.teacherProfile.findUnique({
       where: { userId: teacherUserId },
     });
 
     if (!teacherProfile)
       throw new NotFoundException('Teacher profile not found');
+
+    // Cap limit to prevent abuse
+    const safeLimit = Math.min(limit, 100);
+    const skip = (page - 1) * safeLimit;
+
+    // Get total count for pagination meta
+    const total = await this.prisma.booking.count({
+      where: { teacherId: teacherProfile.id },
+    });
 
     const bookings = await this.prisma.booking.findMany({
       where: { teacherId: teacherProfile.id },
@@ -626,38 +665,65 @@ export class BookingService {
         child: true,
       },
       orderBy: { createdAt: 'desc' }, // Newest requests first
+      skip,
+      take: safeLimit,
     });
 
     // Enrich with tier session count for package bookings
-    const enrichedBookings = await Promise.all(
-      bookings.map(async (booking) => {
-        let pendingTierSessionCount: number | null = null;
+    const pendingTierIds = [
+      ...new Set(
+        bookings
+          .map((b) => b.pendingTierId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
 
-        if (booking.pendingTierId) {
-          const tier = await this.prisma.packageTier.findUnique({
-            where: { id: booking.pendingTierId },
-          });
-          if (tier) {
-            pendingTierSessionCount = tier.sessionCount;
-          }
-        }
+    const tiers =
+      pendingTierIds.length > 0
+        ? await this.prisma.packageTier.findMany({
+          where: { id: { in: pendingTierIds } },
+        })
+        : [];
 
-        return {
-          ...booking,
-          pendingTierSessionCount,
-        };
-      }),
-    );
+    const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
 
-    return enrichedBookings;
+    const enrichedBookings = bookings.map((booking) => ({
+      ...booking,
+      pendingTierSessionCount: booking.pendingTierId
+        ? tierMap.get(booking.pendingTierId) || null
+        : null,
+    }));
+
+    return {
+      data: enrichedBookings,
+      meta: {
+        total,
+        page,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
+      },
+    };
   }
-  // Get parent's bookings
-  async getParentBookings(parentUserId: string) {
+  // Get parent's bookings (PAGINATED)
+  async getParentBookings(
+    parentUserId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     const parentProfile = await this.prisma.parentProfile.findUnique({
       where: { userId: parentUserId },
     });
 
     if (!parentProfile) throw new NotFoundException('Parent profile not found');
+
+    // Cap limit to prevent abuse
+    const safeLimit = Math.min(limit, 100);
+    const skip = (page - 1) * safeLimit;
+
+    // Get total count for pagination meta
+    const total = await this.prisma.booking.count({
+      where: { bookedByUserId: parentUserId },
+    });
 
     const bookings = await this.prisma.booking.findMany({
       where: { bookedByUserId: parentUserId },
@@ -672,30 +738,44 @@ export class BookingService {
         rating: true, // Include rating to show if booking has been rated
       },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: safeLimit,
     });
 
     // Enrich with tier session count for package bookings
-    const enrichedBookings = await Promise.all(
-      bookings.map(async (booking) => {
-        let pendingTierSessionCount: number | null = null;
+    const pendingTierIds = [
+      ...new Set(
+        bookings
+          .map((b) => b.pendingTierId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
 
-        if (booking.pendingTierId) {
-          const tier = await this.prisma.packageTier.findUnique({
-            where: { id: booking.pendingTierId },
-          });
-          if (tier) {
-            pendingTierSessionCount = tier.sessionCount;
-          }
-        }
+    const tiers =
+      pendingTierIds.length > 0
+        ? await this.prisma.packageTier.findMany({
+          where: { id: { in: pendingTierIds } },
+        })
+        : [];
 
-        return {
-          ...booking,
-          pendingTierSessionCount,
-        };
-      }),
-    );
+    const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
 
-    return enrichedBookings;
+    const enrichedBookings = bookings.map((booking) => ({
+      ...booking,
+      pendingTierSessionCount: booking.pendingTierId
+        ? tierMap.get(booking.pendingTierId) || null
+        : null,
+    }));
+
+    return {
+      data: enrichedBookings,
+      meta: {
+        total,
+        page,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
+      },
+    };
   }
 
   // Get student's bookings
@@ -962,7 +1042,7 @@ export class BookingService {
           booking.teacherId,
           booking.subjectId,
           booking.pendingTierId,
-          `pkgpurchase:${bookingId}:${Date.now()}`,
+          `pkgpurchase:${bookingId}`,
         );
         if (!studentPackage)
           throw new BadRequestException('Package purchase failed');
@@ -971,6 +1051,8 @@ export class BookingService {
           studentPackage.id,
           bookingId,
         );
+
+
 
         updatedBooking = await this.prisma.booking.update({
           where: { id: bookingId },
@@ -1231,18 +1313,31 @@ export class BookingService {
           },
         });
 
-        // 3. Release Funds (Atomically inside TX) - use normalizeMoney for price
-        const price = normalizeMoney(booking.price);
-        const commissionRate = Number(booking.commissionRate);
+        // 3. Release Funds (Atomically inside TX)
+        // FIX P1: Separate logic for Package vs Single Session.
+        // Packages hold funds in escrow in StudentPackage entity, not Wallet.
+        // Single sessions hold funds in locked Wallet balance.
 
-        await this.walletService.releaseFundsOnCompletion(
-          booking.bookedByUserId,
-          booking.teacherProfile.userId,
-          booking.id,
-          price,
-          commissionRate,
-          tx, // Pass transaction client
-        );
+        if (booking.packageRedemption) {
+          // --- Package Release ---
+          // Atomic call to PackageService with this transaction client
+          const idempotencyKey = `RELEASE_${bookingId}`;
+          await this.packageService.releaseSession(bookingId, idempotencyKey, tx);
+        } else {
+          // --- Single Session Release ---
+          // Release from locked wallet funds
+          const price = normalizeMoney(booking.price);
+          const commissionRate = Number(booking.commissionRate);
+
+          await this.walletService.releaseFundsOnCompletion(
+            booking.bookedByUserId,
+            booking.teacherProfile.userId,
+            booking.id,
+            price,
+            commissionRate,
+            tx, // Pass transaction client
+          );
+        }
 
         return {
           updatedBooking,
@@ -1264,19 +1359,7 @@ export class BookingService {
     // 4. Post-Transaction: Best-effort side effects
     const { updatedBooking, bookingContext } = result;
 
-    // Package Release
-    if (bookingContext.packageRedemption) {
-      try {
-        const idempotencyKey = `RELEASE_${bookingId}_${Date.now()}`;
-        await this.packageService.releaseSession(bookingId, idempotencyKey);
-        this.logger.log(`Package session released for booking ${bookingId}`);
-      } catch (err) {
-        this.logger.error(
-          `Failed to release package session for booking ${bookingId}`,
-          err,
-        );
-      }
-    }
+    // Package Release call REMOVED (Moved inside atomic transaction above)
 
     // Demo Complete
     const isDemo = normalizeMoney(bookingContext.price) === 0;
@@ -1507,145 +1590,8 @@ export class BookingService {
   // (Existing payment methods are above)
 
   // --- Phase 3: Booking Validation ---
+  // validateSlotAvailability logic moved to TeacherService.isSlotAvailable
 
-  /**
-   * Validate that a time slot is actually available for booking
-   * Checks: 1) Weekly availability, 2) Exceptions, 3) Existing bookings
-   *
-   * IMPORTANT: startTime is in UTC. Teacher's availability is stored in their local timezone.
-   * We must convert UTC to teacher's timezone before comparing.
-   */
-  async validateSlotAvailability(
-    teacherId: string,
-    startTime: Date,
-  ): Promise<boolean> {
-    // Get teacher's timezone
-    const teacherProfile = await this.prisma.teacherProfile.findUnique({
-      where: { id: teacherId },
-      select: { timezone: true },
-    });
-    const teacherTimezone = teacherProfile?.timezone || 'UTC';
-
-    // Get day and time in teacher's timezone (using correct utility)
-    const dayOfWeek = this.getDayOfWeekFromZoned(startTime, teacherTimezone);
-    const timeStr = formatInTimezone(startTime, teacherTimezone, 'HH:mm');
-
-    // For date comparisons, normalize to start of day in teacher's timezone
-    const dateStr = formatInTimezone(startTime, teacherTimezone, 'yyyy-MM-dd');
-    const dateForComparison = new Date(dateStr + 'T00:00:00.000Z');
-
-    // DEBUG LOGGING
-    console.log(`[Validation DEBUG] Input UTC: ${startTime.toISOString()}`);
-    console.log(`[Validation DEBUG] Teacher TZ: ${teacherTimezone}`);
-    console.log(
-      `[Validation DEBUG] Computed Day: ${dayOfWeek}, Time: ${timeStr}`,
-    );
-
-    // Get ALL availability for this teacher to see what exists
-    const allAvailability = await this.prisma.availability.findMany({
-      where: { teacherId },
-      select: { dayOfWeek: true, startTime: true, endTime: true },
-    });
-    console.log(
-      `[Validation DEBUG] Teacher's availability:`,
-      JSON.stringify(allAvailability),
-    );
-
-    // 1. Check weekly availability exists
-    const weeklySlot = await this.prisma.availability.findFirst({
-      where: {
-        teacherId,
-        dayOfWeek: dayOfWeek as any,
-        startTime: { lte: timeStr },
-        endTime: { gt: timeStr },
-      },
-    });
-
-    if (!weeklySlot) {
-      console.log(
-        `[Validation FAIL] No weekly slot for ${dayOfWeek} at ${timeStr}`,
-      );
-      console.log(
-        `[Validation FAIL] Expected: dayOfWeek=${dayOfWeek}, startTime<=${timeStr}, endTime>${timeStr}`,
-      );
-      return false; // Teacher not available on this day/time weekly
-    }
-
-    // 2. Check for ALL_DAY exceptions
-    const allDayException = await this.prisma.availabilityException.findFirst({
-      where: {
-        teacherId,
-        type: 'ALL_DAY',
-        startDate: { lte: dateForComparison },
-        endDate: { gte: dateForComparison },
-      },
-    });
-
-    if (allDayException) {
-      return false; // Entire day is blocked
-    }
-
-    // 3. Check for PARTIAL_DAY exceptions
-    const partialException = await this.prisma.availabilityException.findFirst({
-      where: {
-        teacherId,
-        type: 'PARTIAL_DAY',
-        startDate: { lte: dateForComparison },
-        endDate: { gte: dateForComparison },
-        startTime: { lte: timeStr },
-        endTime: { gt: timeStr },
-      },
-    });
-
-    if (partialException) {
-      return false; // This specific time is blocked
-    }
-
-    // 4. Check for existing bookings (use UTC times directly for booking comparison)
-    const existingBooking = await this.prisma.booking.findFirst({
-      where: {
-        teacherId,
-        startTime: { lte: startTime },
-        endTime: { gt: startTime },
-        status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ] as any,
-        },
-      },
-    });
-
-    if (existingBooking) {
-      return false; // Slot already booked
-    }
-
-    console.log(
-      `[Validation] Slot available: ${dayOfWeek} at ${timeStr} (UTC: ${startTime.toISOString()})`,
-    );
-    return true; // Slot is available!
-  }
-
-  /**
-   * Get day of week from a date in a specific timezone
-   * Uses formatInTimezone to get the correct day name
-   */
-  private getDayOfWeekFromZoned(date: Date, timezone: string): string {
-    // Get the day name using formatInTimezone (e.g., "TUESDAY")
-    const dayName = formatInTimezone(date, timezone, 'EEEE').toUpperCase();
-    // Map to our enum format
-    const dayMap: { [key: string]: string } = {
-      SUNDAY: 'SUNDAY',
-      MONDAY: 'MONDAY',
-      TUESDAY: 'TUESDAY',
-      WEDNESDAY: 'WEDNESDAY',
-      THURSDAY: 'THURSDAY',
-      FRIDAY: 'FRIDAY',
-      SATURDAY: 'SATURDAY',
-    };
-    return dayMap[dayName] || dayName;
-  }
 
   private formatTime(date: Date): string {
     const hours = date.getHours().toString().padStart(2, '0');
@@ -1793,7 +1739,7 @@ export class BookingService {
           refundAmount = (paidAmount * refundPercent) / 100;
           teacherCompAmount = paidAmount - refundAmount;
 
-          // Settle via wallet
+          // Settle via wallet (atomic with booking update)
           await this.walletService.settleCancellation(
             booking.bookedByUserId,
             booking.teacherProfile.user.id,
@@ -1801,6 +1747,7 @@ export class BookingService {
             paidAmount,
             refundAmount,
             teacherCompAmount,
+            tx, // Pass transaction client for atomicity
           );
         }
 
@@ -2116,13 +2063,38 @@ export class BookingService {
     }
 
     // 7. Availability conflict check
-    const isAvailable = await this.validateSlotAvailability(
+    // 7. Availability conflict check
+    // 7.1 Check teacher availability (working hours)
+    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       booking.teacherId,
       newStartTime,
     );
-    if (!isAvailable) {
+    if (!isTeacherAvailable) {
       throw new ConflictException(
-        'Teacher is not available at the requested time',
+        'Teacher is not available at the requested time (Out of hours)',
+      );
+    }
+
+    // 7.2 Check for booking conflicts (excluding this booking)
+    const conflict = await this.prisma.booking.findFirst({
+      where: {
+        teacherId: booking.teacherId,
+        id: { not: bookingId }, // Exclude current booking
+        startTime: { lte: newStartTime },
+        endTime: { gt: newStartTime },
+        status: {
+          in: [
+            'SCHEDULED',
+            'PENDING_TEACHER_APPROVAL',
+            'WAITING_FOR_PAYMENT',
+          ],
+        },
+      },
+    });
+
+    if (conflict) {
+      throw new ConflictException(
+        'Teacher is not available at the requested time (Slot booked)',
       );
     }
 
@@ -2384,11 +2356,36 @@ export class BookingService {
     }
 
     // 7. Availability check
-    const isAvailable = await this.validateSlotAvailability(
+    // 7. Availability check
+    // 7.1 Teacher schedule
+    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       request.booking.teacherId,
       newStartTime,
     );
-    if (!isAvailable) {
+    if (!isTeacherAvailable) {
+      throw new ConflictException(
+        'Teacher is not available at the requested time',
+      );
+    }
+
+    // 7.2 Booking conflicts (exclude current)
+    const conflict = await this.prisma.booking.findFirst({
+      where: {
+        teacherId: request.booking.teacherId,
+        id: { not: request.bookingId },
+        startTime: { lte: newStartTime },
+        endTime: { gt: newStartTime },
+        status: {
+          in: [
+            'SCHEDULED',
+            'PENDING_TEACHER_APPROVAL',
+            'WAITING_FOR_PAYMENT',
+          ],
+        },
+      },
+    });
+
+    if (conflict) {
       throw new ConflictException(
         'Teacher is not available at the requested time',
       );

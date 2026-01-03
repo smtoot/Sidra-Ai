@@ -3,16 +3,26 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 import { normalizeMoney } from '../utils/money';
 import { ReadableIdService } from '../common/readable-id/readable-id.service';
 import { NotificationService } from '../notification/notification.service';
+import { TeacherService } from '../teacher/teacher.service';
+import { fromZonedTime } from 'date-fns-tz';
 import {
   PurchaseSmartPackDto,
   CheckRecurringAvailabilityDto,
   RecurringAvailabilityResponse,
+  CheckMultiSlotAvailabilityDto,
+  MultiSlotAvailabilityResponse,
+  ScheduledSession,
+  PatternAvailability,
+  RecurringPattern,
+  Weekday,
   BookFloatingSessionDto,
   RescheduleSessionDto,
   CreatePackageTierDto,
@@ -23,11 +33,14 @@ import {
 
 @Injectable()
 export class PackageService {
+  private readonly logger = new Logger(PackageService.name);
+
   constructor(
     private prisma: PrismaService,
     private readableIdService: ReadableIdService,
     private notificationService: NotificationService,
-  ) {}
+    private teacherService: TeacherService,
+  ) { }
 
   // =====================================================
   // PACKAGE TIERS (Admin config)
@@ -322,7 +335,7 @@ export class PackageService {
           });
         } catch (error) {
           // Log error but don't fail the purchase
-          console.error('Failed to send package purchase notification:', error);
+          this.logger.error('Failed to send package purchase notification:', error);
         }
 
         return studentPackage;
@@ -334,6 +347,12 @@ export class PackageService {
   // =====================================================
 
   async purchaseSmartPackage(data: PurchaseSmartPackDto) {
+    // Ensure studentId is provided (controller sets this from JWT for students)
+    if (!data.studentId) {
+      throw new BadRequestException('Student ID is required');
+    }
+    const studentId = data.studentId; // Now guaranteed to be string
+
     // 1. Check if packages are globally enabled
     const settings = await this.prisma.systemSettings.findFirst();
     if (settings && !settings.packagesEnabled) {
@@ -403,17 +422,36 @@ export class PackageService {
     );
     const floatingSessionCount = tier.sessionCount - recurringSessionCount;
 
-    // 7. Validate recurring availability
-    const availabilityCheck = await this.checkRecurringAvailability({
+    // 6.5. Normalize recurring patterns (support both legacy and new format)
+    let recurringPatterns: RecurringPattern[];
+    if (data.recurringPatterns && data.recurringPatterns.length > 0) {
+      // New multi-slot format
+      recurringPatterns = data.recurringPatterns.map((p) => ({
+        weekday: p.weekday,
+        time: p.time,
+      }));
+    } else if (data.recurringWeekday && data.recurringTime) {
+      // Legacy single-pattern format - convert to array
+      recurringPatterns = [
+        { weekday: data.recurringWeekday, time: data.recurringTime },
+      ];
+    } else {
+      throw new BadRequestException(
+        'يجب تحديد مواعيد الحصص المتكررة',
+      );
+    }
+
+    // 7. Validate recurring availability using multi-slot checker
+    const availabilityCheck = await this.checkMultiSlotAvailability({
       teacherId: data.teacherId,
-      weekday: data.recurringWeekday,
-      time: data.recurringTime,
-      sessionCount: recurringSessionCount,
+      patterns: recurringPatterns,
+      recurringSessionCount,
     });
 
     if (!availabilityCheck.available) {
       throw new BadRequestException(
-        `Teacher is not available for ${recurringSessionCount} consecutive ${data.recurringWeekday}s at ${data.recurringTime}. Conflicts: ${availabilityCheck.conflicts.length}`,
+        availabilityCheck.message ||
+        `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
       );
     }
 
@@ -426,18 +464,30 @@ export class PackageService {
     const totalPaid = normalizeMoney(discountedPrice * tier.sessionCount);
     const perSessionRelease = discountedPrice;
 
-    // 9. Calculate expiry dates
-    const firstScheduledSession = availabilityCheck.firstSession;
-    const lastScheduledSession = availabilityCheck.lastSession;
-    const gracePeriodEnds = new Date(lastScheduledSession!);
-    gracePeriodEnds.setDate(gracePeriodEnds.getDate() + tier.gracePeriodDays);
+    // 9. Calculate expiry dates (using multi-slot response)
+    const firstScheduledSession = availabilityCheck.firstSession
+      ? new Date(availabilityCheck.firstSession)
+      : null;
+    const lastScheduledSession = availabilityCheck.lastSession
+      ? new Date(availabilityCheck.lastSession)
+      : null;
+    const gracePeriodEnds = availabilityCheck.packageEndDate
+      ? new Date(availabilityCheck.packageEndDate)
+      : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // Default 90 days
 
-    // 10. Verify payer has sufficient balance
-    const payerWallet = await this.prisma.wallet.findUnique({
-      where: { userId: data.studentId },
+    // 10. Verify payer has sufficient balance (auto-create wallet if needed)
+    // payerId is the logged-in user (parent or student), studentId may be a child ID
+    const walletUserId = data.payerId || studentId; // payerId for parents, studentId for students
+
+    let payerWallet = await this.prisma.wallet.findUnique({
+      where: { userId: walletUserId },
     });
     if (!payerWallet) {
-      throw new BadRequestException('Student wallet not found');
+      // Auto-create wallet with zero balance (same pattern as WalletService.getBalance)
+      const walletReadableId = await this.readableIdService.generate('WALLET');
+      payerWallet = await this.prisma.wallet.create({
+        data: { userId: walletUserId, readableId: walletReadableId },
+      });
     }
     if (payerWallet.balance.lessThan(totalPaid)) {
       throw new BadRequestException(
@@ -449,9 +499,9 @@ export class PackageService {
     return this.prisma
       .$transaction(
         async (tx) => {
-          // Debit student wallet
+          // Debit payer wallet
           await tx.wallet.update({
-            where: { userId: data.studentId },
+            where: { userId: walletUserId },
             data: { balance: { decrement: totalPaid } },
           });
 
@@ -475,8 +525,8 @@ export class PackageService {
           const studentPackage = await tx.studentPackage.create({
             data: {
               readableId: packageReadableId,
-              payerId: data.studentId,
-              studentId: data.studentId,
+              payerId: studentId,
+              studentId: studentId,
               teacherId: data.teacherId,
               subjectId: data.subjectId,
               tierId: data.tierId,
@@ -489,8 +539,11 @@ export class PackageService {
               escrowRemaining: totalPaid,
               status: 'ACTIVE',
               isSmartPack: true,
-              recurringWeekday: data.recurringWeekday,
-              recurringTime: data.recurringTime,
+              // NEW: Store multi-slot patterns as JSON
+              recurringPatterns: JSON.parse(JSON.stringify(recurringPatterns)),
+              // DEPRECATED: Keep for backward compatibility (use first pattern)
+              recurringWeekday: recurringPatterns[0]?.weekday,
+              recurringTime: recurringPatterns[0]?.time,
               recurringSessionCount,
               floatingSessionCount,
               floatingSessionsUsed: 0,
@@ -516,25 +569,21 @@ export class PackageService {
             },
           });
 
-          // Auto-schedule the recurring sessions
-          for (let i = 0; i < recurringSessionCount; i++) {
-            const sessionDate = new Date(availabilityCheck.suggestedDates[i]);
-            const [hours, minutes] = data.recurringTime.split(':').map(Number);
-            sessionDate.setHours(hours, minutes, 0, 0);
-
-            const endTime = new Date(sessionDate);
-            endTime.setHours(endTime.getHours() + 1); // Assuming 1-hour sessions
+          // Auto-schedule the recurring sessions using multi-slot scheduled sessions
+          for (const scheduledSession of availabilityCheck.scheduledSessions) {
+            const sessionDate = new Date(scheduledSession.date);
+            const endTime = new Date(sessionDate.getTime() + 60 * 60 * 1000); // 1-hour sessions
 
             const booking = await tx.booking.create({
               data: {
-                bookedByUserId: data.studentId,
+                bookedByUserId: studentId,
                 beneficiaryType: 'STUDENT',
-                studentUserId: data.studentId,
+                studentUserId: studentId,
                 teacherId: data.teacherId,
                 subjectId: data.subjectId,
                 startTime: sessionDate,
                 endTime,
-                timezone: 'Asia/Riyadh', // Default timezone
+                timezone: data.timezone || 'Africa/Khartoum', // Use provided timezone or default
                 price: discountedPrice,
                 commissionRate: 0.18,
                 status: 'SCHEDULED',
@@ -558,7 +607,7 @@ export class PackageService {
           // Update package sessionsUsed to reflect auto-scheduled sessions
           await tx.studentPackage.update({
             where: { id: studentPackage.id },
-            data: { sessionsUsed: recurringSessionCount },
+            data: { sessionsUsed: availabilityCheck.scheduledSessions.length },
           });
 
           return studentPackage;
@@ -571,12 +620,12 @@ export class PackageService {
         // 🟡 MEDIUM PRIORITY - Gap #3 Fix: Notify parent of Smart Pack purchase confirmation
         try {
           await this.notificationService.notifyUser({
-            userId: data.studentId,
+            userId: studentId,
             type: 'PAYMENT_SUCCESS',
             title: 'تم شراء الباقة الذكية بنجاح',
             message: `تم شراء باقة ذكية من ${tier.sessionCount} حصة (${recurringSessionCount} حصة مجدولة تلقائياً + ${floatingSessionCount} حصة مرنة) في مادة ${teacherSubject.subject.nameAr} بمبلغ ${totalPaid} SDG`,
             link: '/parent/packages',
-            dedupeKey: `PACKAGE_PURCHASED:${studentPackage.id}:${data.studentId}`,
+            dedupeKey: `PACKAGE_PURCHASED:${studentPackage.id}:${studentId}`,
             metadata: {
               packageId: studentPackage.id,
               sessionCount: tier.sessionCount,
@@ -589,7 +638,7 @@ export class PackageService {
           });
         } catch (error) {
           // Log error but don't fail the purchase
-          console.error(
+          this.logger.error(
             'Failed to send Smart Pack purchase notification:',
             error,
           );
@@ -658,11 +707,22 @@ export class PackageService {
       const endTime = new Date(sessionDate);
       endTime.setHours(endTime.getHours() + 1);
 
-      // Check for conflicts
+      // Check 1: Teacher Availability (Schedule & Exceptions)
+      const isTeacherAvailable = await this.teacherService.isSlotAvailable(
+        data.teacherId,
+        sessionDate,
+      );
+
+      if (!isTeacherAvailable) {
+        conflicts.push(sessionDate);
+        continue;
+      }
+
+      // Check 2: Booking Conflicts
       const conflict = await this.prisma.booking.findFirst({
         where: {
           teacherId: data.teacherId,
-          status: 'SCHEDULED',
+          status: 'SCHEDULED', // Legacy check: mainly for conflicting scheduled sessions
           OR: [
             {
               AND: [
@@ -692,8 +752,8 @@ export class PackageService {
     const lastSession = suggestedDates[suggestedDates.length - 1];
     const packageEndDate = lastSession
       ? new Date(
-          lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
-        )
+        lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
+      )
       : undefined;
 
     return {
@@ -703,6 +763,237 @@ export class PackageService {
       firstSession,
       lastSession,
       packageEndDate,
+    };
+  }
+
+  // =====================================================
+  // SMART PACK: Check Multi-Slot Availability (NEW)
+  // =====================================================
+
+  /**
+   * Check availability for multiple recurring patterns
+   * Distributes sessions chronologically across all patterns
+   *
+   * Example: 8 sessions with 2 patterns (Tue 5PM, Thu 4PM)
+   * - Week 1: Tue (1), Thu (2)
+   * - Week 2: Tue (3), Thu (4)
+   * - Week 3: Tue (5), Thu (6)
+   * - Week 4: Tue (7), Thu (8)
+   */
+  async checkMultiSlotAvailability(
+    data: CheckMultiSlotAvailabilityDto,
+  ): Promise<MultiSlotAvailabilityResponse> {
+    const duration = data.duration || 60;
+
+    // Map weekday string to day index (0 = Sunday)
+    const weekdayMap: Record<string, number> = {
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    };
+
+    const tier = await this.prisma.packageTier.findFirst({
+      where: { isActive: true },
+      orderBy: { sessionCount: 'asc' },
+    });
+    const gracePeriodDays = tier?.gracePeriodDays || 14;
+
+    // Get Teacher Timezone
+    const teacherProfile = await this.prisma.teacherProfile.findUnique({
+      where: { id: data.teacherId },
+      select: { timezone: true },
+    });
+    const teacherTimezone = teacherProfile?.timezone || 'Africa/Khartoum';
+
+    // Sort patterns by weekday to ensure chronological distribution
+    const sortedPatterns = [...data.patterns].sort((a, b) => {
+      const dayA = weekdayMap[a.weekday];
+      const dayB = weekdayMap[b.weekday];
+      if (dayA !== dayB) return dayA - dayB;
+      // If same day, sort by time
+      return a.time.localeCompare(b.time);
+    });
+
+    // Find the start date (next occurrence of the earliest weekday)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Add 48-hour minimum notice
+    const minNoticeDate = new Date(today.getTime() + 48 * 60 * 60 * 1000);
+
+    // Find next occurrence of first pattern's weekday
+    const firstPatternDay = weekdayMap[sortedPatterns[0].weekday];
+    const startDate = new Date(minNoticeDate);
+    while (startDate.getDay() !== firstPatternDay) {
+      startDate.setDate(startDate.getDate() + 1);
+    }
+
+    // Generate scheduled sessions chronologically
+    const scheduledSessions: ScheduledSession[] = [];
+    const patternAvailability: Map<
+      string,
+      PatternAvailability
+    > = new Map();
+
+    // Initialize pattern availability tracking
+    for (const pattern of data.patterns) {
+      const key = `${pattern.weekday}-${pattern.time}`;
+      patternAvailability.set(key, {
+        weekday: pattern.weekday as Weekday,
+        time: pattern.time,
+        availableWeeks: 0,
+        conflicts: [],
+      });
+    }
+
+    let sessionNumber = 1;
+    let currentWeekStart = new Date(startDate);
+    let weeksChecked = 0;
+    const maxWeeks = Math.ceil(data.recurringSessionCount / data.patterns.length) + 2; // Buffer
+
+    while (sessionNumber <= data.recurringSessionCount && weeksChecked < maxWeeks) {
+      // For each week, iterate through all patterns in order
+      for (const pattern of sortedPatterns) {
+        if (sessionNumber > data.recurringSessionCount) break;
+
+        const patternKey = `${pattern.weekday}-${pattern.time}`;
+        const patternDayIndex = weekdayMap[pattern.weekday];
+
+        // Calculate the date for this pattern in the current week
+        const sessionDate = new Date(currentWeekStart);
+        const daysToAdd = (patternDayIndex - currentWeekStart.getDay() + 7) % 7;
+        sessionDate.setDate(sessionDate.getDate() + daysToAdd);
+
+        // Set the time correctly using Teacher's Timezone
+        // Create date string YYYY-MM-DD HH:mm:ss
+        const year = sessionDate.getFullYear();
+        const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
+        const day = String(sessionDate.getDate()).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${pattern.time}:00`;
+
+        // Convert to UTC as if this time is in Teacher's Timezone
+        const utcDate = fromZonedTime(dateTimeString, teacherTimezone);
+
+        // Update sessionDate to this UTC timestamp
+        sessionDate.setTime(utcDate.getTime());
+
+        // Skip if this date is before minimum notice
+        if (sessionDate < minNoticeDate) {
+          continue;
+        }
+
+        const endTime = new Date(sessionDate.getTime() + duration * 60 * 1000);
+
+        // Check 1: Teacher Availability (Schedule & Exceptions)
+        // Note: isSlotAvailable checks daily/weekly pattern and exceptions
+        const isTeacherAvailable = await this.teacherService.isSlotAvailable(
+          data.teacherId,
+          sessionDate,
+        );
+
+        if (!isTeacherAvailable) {
+          const patternInfo = patternAvailability.get(patternKey)!;
+          patternInfo.conflicts.push({
+            date: sessionDate.toISOString(),
+            reason: 'المعلم غير متاح (خارج أوقات العمل)',
+          });
+          continue;
+        }
+
+        // Check 2: Booking Conflicts
+        const conflict = await this.prisma.booking.findFirst({
+          where: {
+            teacherId: data.teacherId,
+            status: {
+              in: [
+                'SCHEDULED',
+                'PENDING_TEACHER_APPROVAL',
+                'WAITING_FOR_PAYMENT',
+              ],
+            },
+            OR: [
+              {
+                AND: [
+                  { startTime: { lte: sessionDate } },
+                  { endTime: { gt: sessionDate } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { lt: endTime } },
+                  { endTime: { gte: endTime } },
+                ],
+              },
+            ],
+          },
+        });
+
+        const patternInfo = patternAvailability.get(patternKey)!;
+
+        if (conflict) {
+          patternInfo.conflicts.push({
+            date: sessionDate.toISOString(),
+            reason: 'محجوز مسبقاً',
+          });
+        } else {
+          patternInfo.availableWeeks++;
+          scheduledSessions.push({
+            date: sessionDate.toISOString(),
+            weekday: pattern.weekday as Weekday,
+            time: pattern.time,
+            sessionNumber: sessionNumber++,
+          });
+        }
+      }
+
+      // Move to next week
+      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+      weeksChecked++;
+    }
+
+    // Calculate summary
+    const totalConflicts = Array.from(patternAvailability.values()).reduce(
+      (sum, p) => sum + p.conflicts.length,
+      0,
+    );
+    const available = scheduledSessions.length >= data.recurringSessionCount;
+
+    const firstSession = scheduledSessions.length > 0 ? scheduledSessions[0].date : null;
+    const lastSession =
+      scheduledSessions.length > 0
+        ? scheduledSessions[scheduledSessions.length - 1].date
+        : null;
+
+    const packageEndDate = lastSession
+      ? new Date(
+        new Date(lastSession).getTime() + gracePeriodDays * 24 * 60 * 60 * 1000,
+      ).toISOString()
+      : null;
+
+    const totalWeeksNeeded = Math.ceil(
+      data.recurringSessionCount / data.patterns.length,
+    );
+
+    let message: string;
+    if (available) {
+      message = `يمكن جدولة ${data.recurringSessionCount} حصة خلال ${totalWeeksNeeded} أسابيع`;
+    } else {
+      message = `تعذر جدولة كل الحصص. متاح ${scheduledSessions.length} من ${data.recurringSessionCount}. يوجد ${totalConflicts} تعارض.`;
+    }
+
+    return {
+      available,
+      patterns: Array.from(patternAvailability.values()),
+      scheduledSessions: scheduledSessions.slice(0, data.recurringSessionCount),
+      totalWeeksNeeded,
+      firstSession,
+      lastSession,
+      packageEndDate,
+      message,
     };
   }
 
@@ -751,7 +1042,19 @@ export class PackageService {
     const endTime = new Date(sessionDate);
     endTime.setHours(endTime.getHours() + 1);
 
-    // Check teacher availability
+    // Check 1: Teacher Availability (Schedule & Exceptions)
+    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
+      pkg.teacherId,
+      sessionDate,
+    );
+
+    if (!isTeacherAvailable) {
+      throw new BadRequestException(
+        'Teacher is not available at this time (Out of hours)',
+      );
+    }
+
+    // Check 2: Booking Conflicts
     const conflict = await this.prisma.booking.findFirst({
       where: {
         teacherId: pkg.teacherId,
@@ -883,7 +1186,19 @@ export class PackageService {
     const newEndTime = new Date(newDate);
     newEndTime.setHours(newEndTime.getHours() + 1);
 
-    // Check teacher availability at new time
+    // Check 1: Teacher Availability at new time
+    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
+      booking.teacherId,
+      newDate,
+    );
+
+    if (!isTeacherAvailable) {
+      throw new BadRequestException(
+        'Teacher is not available at the new time (Out of hours)',
+      );
+    }
+
+    // Check 2: Booking Conflicts
     const conflict = await this.prisma.booking.findFirst({
       where: {
         teacherId: booking.teacherId,
@@ -1085,112 +1400,119 @@ export class PackageService {
   // Called only on booking COMPLETION
   // =====================================================
 
-  async releaseSession(bookingId: string, idempotencyKey: string) {
-    // Idempotency check
-    const existingTx = await this.prisma.packageTransaction.findUnique({
-      where: { idempotencyKey },
-    });
-    if (existingTx) {
-      return; // Already processed
-    }
+  async releaseSession(
+    bookingId: string,
+    idempotencyKey: string,
+    externalTx?: any,
+  ) {
+    // Helper to execute logic within a transaction (provided or new)
+    const execute = async (tx: any) => {
+      // Idempotency check
+      const existingTx = await tx.packageTransaction.findUnique({
+        where: { idempotencyKey },
+      });
+      if (existingTx) {
+        return; // Already processed
+      }
 
-    // Find redemption for this booking
-    const redemption = await this.prisma.packageRedemption.findUnique({
-      where: { bookingId },
-      include: { package: { include: { teacher: true } } },
-    });
+      // Find redemption for this booking
+      const redemption = await tx.packageRedemption.findUnique({
+        where: { bookingId },
+        include: { package: { include: { teacher: true } } },
+      });
 
-    if (!redemption) {
-      throw new NotFoundException(
-        'No package redemption found for this booking',
-      );
-    }
-
-    if (redemption.status !== 'RESERVED') {
-      throw new BadRequestException(
-        `Cannot release: redemption status is ${redemption.status}`,
-      );
-    }
-
-    const pkg = redemption.package;
-    const isLast = pkg.sessionsUsed + 1 === pkg.sessionCount;
-
-    // Last session: release ALL remaining (avoids rounding drift)
-    const releaseAmount = isLast
-      ? pkg.escrowRemaining
-      : pkg.perSessionReleaseAmount;
-
-    // Execute in transaction
-    await this.prisma.$transaction(
-      async (tx) => {
-        // 1. Credit teacher wallet (minus commission - using default 18%)
-        const commissionRate = 0.18;
-        const normalizedReleaseAmount = normalizeMoney(releaseAmount); // MONEY NORMALIZATION
-        const teacherAmount = normalizeMoney(
-          normalizedReleaseAmount * (1 - commissionRate),
+      if (!redemption) {
+        throw new NotFoundException(
+          'No package redemption found for this booking',
         );
+      }
 
-        // Get teacher wallet for Transaction record
-        const teacherWallet = await tx.wallet.findUnique({
-          where: { userId: pkg.teacher.userId },
-        });
-        if (!teacherWallet) {
-          throw new BadRequestException('Teacher wallet not found');
-        }
+      if (redemption.status !== 'RESERVED') {
+        throw new BadRequestException(
+          `Cannot release: redemption status is ${redemption.status}`,
+        );
+      }
 
-        await tx.wallet.update({
-          where: { userId: pkg.teacher.userId },
-          data: { balance: { increment: teacherAmount } },
-        });
+      const pkg = redemption.package;
+      const isLast = pkg.sessionsUsed >= pkg.sessionCount; // Logic fix: pkg.sessionsUsed is ALREADY incremented at reservation
 
-        // P1 FIX: Add wallet Transaction for teacher earnings (audit trail)
-        const teacherTxId =
-          await this.readableIdService.generate('TRANSACTION');
-        await tx.transaction.create({
-          data: {
-            readableId: teacherTxId,
-            walletId: teacherWallet.id,
-            amount: teacherAmount,
-            type: 'PACKAGE_RELEASE',
-            status: 'APPROVED',
-            adminNote: `Package session release for booking ${bookingId} (${(commissionRate * 100).toFixed(0)}% commission)`,
-          },
-        });
+      // Last session: release ALL remaining (avoids rounding drift)
+      const releaseAmount = isLast
+        ? pkg.escrowRemaining
+        : pkg.perSessionReleaseAmount;
 
-        // 2. Update package
-        await tx.studentPackage.update({
-          where: { id: pkg.id },
-          data: {
-            sessionsUsed: { increment: 1 },
-            escrowRemaining: { decrement: releaseAmount },
-            status: isLast ? 'COMPLETED' : 'ACTIVE',
-          },
-        });
+      // 1. Credit teacher wallet (minus commission - using default 18%)
+      const commissionRate = 0.18;
+      const normalizedReleaseAmount = normalizeMoney(releaseAmount); // MONEY NORMALIZATION
+      const teacherAmount = normalizeMoney(
+        normalizedReleaseAmount * (1 - commissionRate),
+      );
 
-        // 3. Update redemption status
-        await tx.packageRedemption.update({
-          where: { id: redemption.id },
-          data: {
-            status: 'RELEASED',
-            releasedAt: new Date(),
-          },
-        });
+      // Get teacher wallet for Transaction record
+      const teacherWallet = await tx.wallet.findUnique({
+        where: { userId: pkg.teacher.userId },
+      });
+      if (!teacherWallet) {
+        throw new BadRequestException('Teacher wallet not found');
+      }
 
-        // 4. Record transaction
-        await tx.packageTransaction.create({
-          data: {
-            idempotencyKey,
-            type: 'RELEASE',
-            packageId: pkg.id,
-            amount: releaseAmount,
-          },
-        });
-      },
-      {
-        // SECURITY: Use SERIALIZABLE isolation for session payment release
+      await tx.wallet.update({
+        where: { userId: pkg.teacher.userId },
+        data: { balance: { increment: teacherAmount } },
+      });
+
+      // P1 FIX: Add wallet Transaction for teacher earnings (audit trail)
+      const teacherTxId =
+        await this.readableIdService.generate('TRANSACTION');
+      await tx.transaction.create({
+        data: {
+          readableId: teacherTxId,
+          walletId: teacherWallet.id,
+          amount: teacherAmount,
+          type: 'PACKAGE_RELEASE',
+          status: 'APPROVED',
+          adminNote: `Package session release for booking ${bookingId} (${(commissionRate * 100).toFixed(0)}% commission)`,
+        },
+      });
+
+      // 2. Update package
+      // CRITICAL FIX: Do NOT increment sessionsUsed again (already done in createRedemption)
+      await tx.studentPackage.update({
+        where: { id: pkg.id },
+        data: {
+          // sessionsUsed: { increment: 1 }, // REMOVED: Double counting fix
+          escrowRemaining: { decrement: releaseAmount },
+          status: isLast ? 'COMPLETED' : 'ACTIVE',
+        },
+      });
+
+      // 3. Update redemption status
+      await tx.packageRedemption.update({
+        where: { id: redemption.id },
+        data: {
+          status: 'RELEASED',
+          releasedAt: new Date(),
+        },
+      });
+
+      // 4. Record transaction
+      await tx.packageTransaction.create({
+        data: {
+          idempotencyKey,
+          type: 'RELEASE',
+          packageId: pkg.id,
+          amount: releaseAmount,
+        },
+      });
+    };
+
+    if (externalTx) {
+      return execute(externalTx);
+    } else {
+      return this.prisma.$transaction(execute, {
         isolationLevel: 'Serializable',
-      },
-    );
+      });
+    }
   }
 
   // =====================================================
@@ -1817,8 +2139,8 @@ export class PackageService {
         },
       });
 
-      console.log(
-        `[PackageService] Scheduled session from package ${packageId}, booking ${booking.id}`,
+      this.logger.log(
+        `Scheduled session from package ${packageId}, booking ${booking.id}`,
       );
 
       return {

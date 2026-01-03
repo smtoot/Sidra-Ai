@@ -17,6 +17,7 @@ import { EncryptionUtil } from '../common/utils/encryption.util';
 import { WalletService } from '../wallet/wallet.service';
 import { SystemSettingsService } from '../admin/system-settings.service';
 import { NotificationService } from '../notification/notification.service';
+import { formatInTimezone } from '../common/utils/timezone.util';
 
 @Injectable()
 export class TeacherService {
@@ -27,7 +28,7 @@ export class TeacherService {
     private walletService: WalletService,
     private systemSettingsService: SystemSettingsService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async getProfile(userId: string) {
     const profile = await this.prisma.teacherProfile.findUnique({
@@ -63,9 +64,8 @@ export class TeacherService {
         );
       } catch (error) {
         // If decryption fails, log error but don't break the profile fetch
-        console.error(
-          'Failed to decrypt meeting link for teacher:',
-          userId,
+        this.logger.error(
+          `Failed to decrypt meeting link for teacher: ${userId}`,
           error,
         );
       }
@@ -707,7 +707,7 @@ export class TeacherService {
     const profile = await this.getProfile(userId);
     if (!profile) throw new NotFoundException('Teacher profile not found');
 
-    console.log(
+    this.logger.debug(
       `DEBUG: getDashboardStats userId=${userId} displayName="${profile.displayName}"`,
     );
 
@@ -1252,10 +1252,10 @@ export class TeacherService {
         warning:
           conflictingBookings.length > 0
             ? {
-                message:
-                  'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
-                conflictingBookingsCount: conflictingBookings.length,
-              }
+              message:
+                'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
+              conflictingBookingsCount: conflictingBookings.length,
+            }
             : undefined,
       };
     } else {
@@ -1279,5 +1279,90 @@ export class TeacherService {
         vacationEndDate: null,
       };
     }
+  }
+
+  // --- Availability Validation ---
+
+  /**
+   * Validate that a time slot is actually available for booking
+   * Check 1) Weekly Availability (Working Hours)
+   * Check 2) Exceptions (Time Off)
+   * Does NOT check existing bookings (that's the caller's responsibility)
+   */
+  async isSlotAvailable(teacherId: string, startTime: Date): Promise<boolean> {
+    // Get teacher's timezone
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { id: teacherId },
+      select: { timezone: true },
+    });
+    const teacherTimezone = profile?.timezone || 'UTC';
+
+    // Get day and time in teacher's timezone
+    const dayOfWeek = this.getDayOfWeekFromZoned(startTime, teacherTimezone);
+    const timeStr = formatInTimezone(startTime, teacherTimezone, 'HH:mm');
+
+    // For date comparisons, normalize to start of day in teacher's timezone
+    const dateStr = formatInTimezone(startTime, teacherTimezone, 'yyyy-MM-dd');
+    const dateForComparison = new Date(dateStr + 'T00:00:00.000Z');
+
+    // 1. Check weekly availability exists
+    const weeklySlot = await this.prisma.availability.findFirst({
+      where: {
+        teacherId,
+        dayOfWeek: dayOfWeek as any,
+        startTime: { lte: timeStr },
+        endTime: { gt: timeStr },
+      },
+    });
+
+    if (!weeklySlot) {
+      return false; // Teacher not working
+    }
+
+    // 2. Check for ALL_DAY exceptions
+    const allDayException = await this.prisma.availabilityException.findFirst({
+      where: {
+        teacherId,
+        type: 'ALL_DAY',
+        startDate: { lte: dateForComparison },
+        endDate: { gte: dateForComparison },
+      },
+    });
+
+    if (allDayException) {
+      return false; // Entire day is blocked
+    }
+
+    // 3. Check for PARTIAL_DAY exceptions
+    const partialException = await this.prisma.availabilityException.findFirst({
+      where: {
+        teacherId,
+        type: 'PARTIAL_DAY',
+        startDate: { lte: dateForComparison },
+        endDate: { gte: dateForComparison },
+        startTime: { lte: timeStr },
+        endTime: { gt: timeStr },
+      },
+    });
+
+    if (partialException) {
+      return false; // Specific time is blocked
+    }
+
+    return true; // Available
+  }
+
+  private getDayOfWeekFromZoned(date: Date, timezone: string): string {
+    const dayName = formatInTimezone(date, timezone, 'EEEE').toUpperCase();
+    const dayMap: { [key: string]: string } = {
+      SUNDAY: 'SUNDAY',
+      MONDAY: 'MONDAY',
+      TUESDAY: 'TUESDAY',
+      WEDNESDAY: 'WEDNESDAY',
+      THURSDAY: 'THURSDAY',
+      FRIDAY: 'FRIDAY',
+      SATURDAY: 'SATURDAY',
+    };
+    return dayMap[dayName] || dayName;
   }
 }

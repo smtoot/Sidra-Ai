@@ -7,7 +7,11 @@
         "build": "tsc",
         "dev": "tsc -w",
         "seed": "ts-node -r dotenv/config prisma/seed.ts",
-        "db:push": "prisma db push"
+        "db:push": "prisma db push",
+        "db:migrate": "prisma migrate deploy",
+        "db:migrate:dev": "prisma migrate dev",
+        "db:generate": "prisma generate",
+        "postinstall": "prisma generate --schema=./prisma/schema.prisma || true"
     },
     "dependencies": {
         "@prisma/client": "^5.22.0",

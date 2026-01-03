@@ -111,7 +111,7 @@ export class WalletService {
       });
     } catch (error) {
       // Log error but don't fail the deposit
-      console.error('Failed to send deposit submitted notification:', error);
+      this.logger.error('Failed to send deposit submitted notification:', error);
     }
 
     return transaction;

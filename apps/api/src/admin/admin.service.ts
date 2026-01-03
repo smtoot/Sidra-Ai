@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
@@ -13,11 +15,13 @@ import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async getDashboardStats() {
     const [
@@ -162,8 +166,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-            previousCompletedBookings) *
-          100
+          previousCompletedBookings) *
+        100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -402,7 +406,7 @@ export class AdminService {
           totalDistributed,
           diff: totalDistributed - lockedAmountGross,
         };
-        console.error(
+        this.logger.error(
           'CRITICAL FINANCIAL INVARIANT VIOLATED:',
           JSON.stringify(errorDetails, null, 2),
         );
@@ -555,7 +559,7 @@ export class AdminService {
 
       return result;
     } catch (e: any) {
-      console.error('Resolve Dispute Error:', e);
+      this.logger.error('Resolve Dispute Error:', e);
       // Rethrow proper HTTP exceptions, wrap others
       if (e instanceof NotFoundException || e instanceof BadRequestException) {
         throw e;
@@ -605,7 +609,7 @@ export class AdminService {
       });
     } catch (error) {
       // Log error but don't fail the status update
-      console.error('Failed to send dispute under review notification:', error);
+      this.logger.error('Failed to send dispute under review notification:', error);
     }
 
     return updatedDispute;
@@ -646,6 +650,7 @@ export class AdminService {
         },
         documents: true,
         subjects: { include: { subject: true, curriculum: true } },
+        qualifications: true,
       },
     });
 
@@ -1269,5 +1274,205 @@ export class AdminService {
       where: { id },
       data: { isActive: false },
     });
+  }
+
+  // =================== USER MANAGEMENT ===================
+
+  async getAllUsers(role?: string, search?: string) {
+    const where: any = {};
+    if (role) where.role = role;
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phoneNumber: { contains: search } },
+      ];
+    }
+
+    return this.prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        phoneNumber: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        isVerified: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async hardDeleteUser(adminId: string, userId: string) {
+    // Find the user first
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        wallet: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('المستخدم غير موجود');
+    }
+
+    // Prevent deleting yourself
+    if (userId === adminId) {
+      throw new ConflictException('لا يمكنك حذف حسابك الخاص');
+    }
+
+    // Prevent deleting other admins
+    if (user.role === 'ADMIN') {
+      throw new ConflictException('لا يمكن حذف حساب مدير آخر');
+    }
+
+    // Check for active bookings
+    const activeBookingsCount = await this.prisma.booking.count({
+      where: {
+        OR: [
+          { bookedByUserId: userId },
+          { studentUserId: userId },
+        ],
+        status: {
+          in: ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'SCHEDULED', 'PAYMENT_REVIEW'],
+        },
+      },
+    });
+
+    if (activeBookingsCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المستخدم لأن لديه ${activeBookingsCount} حجز نشط. قم بإلغاء الحجوزات أولاً.`,
+      );
+    }
+
+    // Check wallet balance
+    if (user.wallet && Number(user.wallet.balance) > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المستخدم لأن لديه رصيد في المحفظة (${user.wallet.balance} SDG). قم بتصفير الرصيد أولاً.`,
+      );
+    }
+
+    // Check for pending disputes
+    const pendingDisputesCount = await this.prisma.dispute.count({
+      where: {
+        raisedByUserId: userId,
+        status: { in: ['PENDING', 'UNDER_REVIEW'] },
+      },
+    });
+
+    if (pendingDisputesCount > 0) {
+      throw new ConflictException(
+        `لا يمكن حذف المستخدم لأن لديه ${pendingDisputesCount} نزاع معلق.`,
+      );
+    }
+
+    // Delete in order (respecting foreign key constraints)
+    await this.prisma.$transaction(async (tx) => {
+      // Delete notifications
+      await tx.notification.deleteMany({ where: { userId } });
+
+      // Delete saved teachers
+      await tx.savedTeacher.deleteMany({
+        where: { OR: [{ userId }, { teacherId: userId }] },
+      });
+
+      // Delete ratings given
+      await tx.rating.deleteMany({ where: { ratedByUserId: userId } });
+
+      // Delete reschedule requests
+      await tx.rescheduleRequest.deleteMany({
+        where: { OR: [{ requestedById: userId }, { respondedById: userId }] },
+      });
+
+      // Delete ticket messages first, then tickets
+      await tx.ticketMessage.deleteMany({
+        where: { ticket: { createdByUserId: userId } },
+      });
+      await tx.supportTicket.deleteMany({ where: { createdByUserId: userId } });
+
+      // Update tickets where user was assignee (set to null)
+      await tx.supportTicket.updateMany({
+        where: { assignedToId: userId },
+        data: { assignedToId: null },
+      });
+
+      // Delete demo sessions
+      await tx.demoSession.deleteMany({ where: { demoOwnerId: userId } });
+
+      // Delete audit logs
+      await tx.auditLog.deleteMany({ where: { actorId: userId } });
+
+      // Delete completed/cancelled bookings
+      await tx.booking.deleteMany({
+        where: {
+          OR: [{ bookedByUserId: userId }, { studentUserId: userId }],
+          status: { in: ['COMPLETED', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_TEACHER', 'CANCELLED_BY_ADMIN', 'REFUNDED', 'EXPIRED'] },
+        },
+      });
+
+      // Delete wallet transactions
+      if (user.wallet) {
+        await tx.transaction.deleteMany({ where: { walletId: user.wallet.id } });
+        await tx.wallet.delete({ where: { id: user.wallet.id } });
+      }
+
+      // Handle profile-specific deletions based on role
+      if (user.role === 'TEACHER') {
+        // Delete teacher-specific data
+        const teacherProfile = await tx.teacherProfile.findUnique({
+          where: { userId },
+        });
+        if (teacherProfile) {
+          // Delete teacher subject grades
+          await tx.teacherSubjectGrade.deleteMany({
+            where: { teacherSubject: { teacherId: teacherProfile.id } },
+          });
+          // Delete teacher subjects
+          await tx.teacherSubject.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete teacher teaching approach tags
+          await tx.teacherTeachingApproachTag.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete teacher qualifications
+          await tx.teacherQualification.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete availability
+          await tx.availability.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete availability exceptions
+          await tx.availabilityException.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete teacher skills
+          await tx.teacherSkill.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete work experience
+          await tx.teacherWorkExperience.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete interview time slots
+          await tx.interviewTimeSlot.deleteMany({ where: { teacherProfileId: teacherProfile.id } });
+          // Delete ratings for this teacher
+          await tx.rating.deleteMany({ where: { teacherId: teacherProfile.id } });
+          // Delete teacher profile
+          await tx.teacherProfile.delete({ where: { userId } });
+        }
+      } else if (user.role === 'STUDENT') {
+        // Delete student packages
+        await tx.studentPackage.deleteMany({
+          where: { OR: [{ payerId: userId }, { studentId: userId }] },
+        });
+        // Delete student profile
+        await tx.studentProfile.deleteMany({ where: { userId } });
+      } else if (user.role === 'PARENT') {
+        // Delete children first
+        const parentProfile = await tx.parentProfile.findUnique({ where: { userId } });
+        if (parentProfile) {
+          await tx.child.deleteMany({ where: { parentId: parentProfile.id } });
+        }
+        // Delete parent profile
+        await tx.parentProfile.deleteMany({ where: { userId } });
+      }
+
+      // Finally delete the user
+      await tx.user.delete({ where: { id: userId } });
+    });
+
+    return { deleted: true, message: 'تم حذف المستخدم نهائياً' };
   }
 }
