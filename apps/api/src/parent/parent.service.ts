@@ -11,7 +11,7 @@ export class ParentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) {}
+  ) { }
 
   async getDashboardStats(userId: string) {
     const [wallet, upcomingBookings, parentProfile] = await Promise.all([
@@ -206,6 +206,18 @@ export class ParentService {
     return this.prisma.curriculum.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
+      include: {
+        stages: {
+          where: { isActive: true },
+          orderBy: { sequence: 'asc' },
+          include: {
+            grades: {
+              where: { isActive: true },
+              orderBy: { sequence: 'asc' },
+            },
+          },
+        },
+      },
     });
   }
 

@@ -1,10 +1,29 @@
 import { api } from '../api';
 
+export interface GradeLevel {
+    id: string;
+    stageId: string;
+    nameAr: string;
+    nameEn: string;
+    code: string;
+    sequence: number;
+}
+
+export interface EducationalStage {
+    id: string;
+    curriculumId: string;
+    nameAr: string;
+    nameEn: string;
+    sequence: number;
+    grades: GradeLevel[];
+}
+
 export interface Curriculum {
     id: string;
     code: string;
     nameAr: string;
     nameEn: string;
+    stages?: EducationalStage[];
 }
 
 export const parentApi = {

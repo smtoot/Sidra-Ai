@@ -1,16 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { studentApi } from '@/lib/api/student';
+import { useState, useEffect, useMemo } from 'react';
+import { studentApi, Curriculum, GradeLevel } from '@/lib/api/student';
 import { parentApi } from '@/lib/api/parent';
 import { Loader2, Edit2, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Curriculum {
-    id: string;
-    code: string;
-    nameAr: string;
-}
 
 interface StudentInfoSectionProps {
     // For students
@@ -34,25 +28,6 @@ interface StudentInfoSectionProps {
     // Callback to refresh data after update
     onUpdate?: () => void;
 }
-
-// Grade levels in Arabic
-const GRADE_LEVELS = [
-    'روضة',
-    'تمهيدي',
-    'الصف الأول',
-    'الصف الثاني',
-    'الصف الثالث',
-    'الصف الرابع',
-    'الصف الخامس',
-    'الصف السادس',
-    'الصف السابع',
-    'الصف الثامن',
-    'الصف التاسع',
-    'الصف العاشر',
-    'الصف الحادي عشر',
-    'الصف الثاني عشر',
-    'جامعي',
-];
 
 export function StudentInfoSection({
     studentProfile,
@@ -113,12 +88,29 @@ export function StudentInfoSection({
         }
     }, [isInfoComplete, isLoading]);
 
+    // Dynamic Grades based on selected Curriculum
+    const availableGrades = useMemo(() => {
+        if (!selectedCurriculum) return [];
+        const curriculum = curricula.find(c => c.id === selectedCurriculum);
+        if (!curriculum?.stages) return [];
+
+        // Flatten grades from stages
+        // Sort stages by sequence first, then map grades
+        return curriculum.stages
+            .sort((a, b) => a.sequence - b.sequence)
+            .flatMap(stage =>
+                stage.grades.sort((a, b) => a.sequence - b.sequence)
+            );
+    }, [selectedCurriculum, curricula]);
+
     const loadCurricula = async () => {
         try {
+            // Both APIs return Curriculum[] with nested stages/grades
+            // We use 'any' cast temporarily if Typescript complains about strict types mixing
             const data = userRole === 'STUDENT'
                 ? await studentApi.getCurricula()
                 : await parentApi.getCurricula();
-            setCurricula(data);
+            setCurricula(data as Curriculum[]);
         } catch (error) {
             console.error('Failed to load curricula', error);
         } finally {
@@ -197,7 +189,10 @@ export function StudentInfoSection({
                         </label>
                         <select
                             value={selectedCurriculum}
-                            onChange={(e) => setSelectedCurriculum(e.target.value)}
+                            onChange={(e) => {
+                                setSelectedCurriculum(e.target.value);
+                                setSelectedGrade(''); // Reset grade
+                            }}
                             className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all text-sm"
                         >
                             <option value="">اختر المنهج...</option>
@@ -215,11 +210,12 @@ export function StudentInfoSection({
                         <select
                             value={selectedGrade}
                             onChange={(e) => setSelectedGrade(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all text-sm"
+                            disabled={!selectedCurriculum}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all text-sm disabled:bg-gray-100 disabled:text-gray-400"
                         >
                             <option value="">اختر الصف...</option>
-                            {GRADE_LEVELS.map((grade) => (
-                                <option key={grade} value={grade}>{grade}</option>
+                            {availableGrades.map((grade) => (
+                                <option key={grade.id} value={grade.nameAr}>{grade.nameAr}</option>
                             ))}
                         </select>
                     </div>

@@ -10,7 +10,7 @@ export class StudentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) {}
+  ) { }
 
   private readonly logger = new Logger(StudentService.name);
 
@@ -269,6 +269,18 @@ export class StudentService {
     return this.prisma.curriculum.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
+      include: {
+        stages: {
+          where: { isActive: true },
+          orderBy: { sequence: 'asc' },
+          include: {
+            grades: {
+              where: { isActive: true },
+              orderBy: { sequence: 'asc' },
+            },
+          },
+        },
+      },
     });
   }
 }

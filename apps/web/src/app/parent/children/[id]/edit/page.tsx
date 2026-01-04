@@ -28,6 +28,8 @@ export default function EditChildPage() {
         curriculumId: '',
     });
 
+    const [availableGrades, setAvailableGrades] = useState<any[]>([]);
+
     useEffect(() => {
         const loadData = async () => {
             if (!childId) return;
@@ -56,8 +58,34 @@ export default function EditChildPage() {
         loadData();
     }, [childId]);
 
+    // Update available grades when curriculum changes
+    useEffect(() => {
+        if (!formData.curriculumId) {
+            setAvailableGrades([]);
+            return;
+        }
+
+        const curriculum = curricula.find(c => c.id === formData.curriculumId);
+        if (curriculum?.stages) {
+            const grades = curriculum.stages
+                .sort((a: any, b: any) => a.sequence - b.sequence)
+                .flatMap((stage: any) =>
+                    stage.grades.sort((a: any, b: any) => a.sequence - b.sequence)
+                );
+            setAvailableGrades(grades);
+        } else {
+            setAvailableGrades([]);
+        }
+    }, [formData.curriculumId, curricula]);
+
     const handleChange = (field: string, value: string) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData(prev => {
+            // Reset grade if curriculum changes
+            if (field === 'curriculumId') {
+                return { ...prev, [field]: value, gradeLevel: '' };
+            }
+            return { ...prev, [field]: value };
+        });
     };
 
     // Validation: Name, Curriculum, and Grade are mandatory
@@ -135,34 +163,7 @@ export default function EditChildPage() {
                                 />
                             </div>
 
-                            {/* Grade Level */}
-                            <div className="space-y-2">
-                                <Label htmlFor="gradeLevel" className="text-base font-semibold text-gray-900">
-                                    المرحلة الدراسية <span className="text-red-500">*</span>
-                                </Label>
-                                <Select
-                                    value={formData.gradeLevel}
-                                    onChange={(e) => handleChange('gradeLevel', e.target.value)}
-                                    className="h-12 text-right"
-                                >
-                                    <option value="" disabled>اختر المرحلة...</option>
-                                    <option value="KINDERGARTEN">رياض أطفال</option>
-                                    <option value="GRADE_1">الصف الأول</option>
-                                    <option value="GRADE_2">الصف الثاني</option>
-                                    <option value="GRADE_3">الصف الثالث</option>
-                                    <option value="GRADE_4">الصف الرابع</option>
-                                    <option value="GRADE_5">الصف الخامس</option>
-                                    <option value="GRADE_6">الصف السادس</option>
-                                    <option value="GRADE_7">الصف السابع</option>
-                                    <option value="GRADE_8">الصف الثامن</option>
-                                    <option value="GRADE_9">الصف التاسع</option>
-                                    <option value="GRADE_10">الصف العاشر</option>
-                                    <option value="GRADE_11">الصف الحادي عشر</option>
-                                    <option value="GRADE_12">الصف الثاني عشر</option>
-                                </Select>
-                            </div>
-
-                            {/* Curriculum */}
+                            {/* Curriculum First */}
                             <div className="space-y-2">
                                 <Label htmlFor="curriculum" className="text-base font-semibold text-gray-900">
                                     المنهج الدراسي <span className="text-red-500">*</span>
@@ -176,6 +177,26 @@ export default function EditChildPage() {
                                     {curricula.map((curr) => (
                                         <option key={curr.id} value={curr.id}>
                                             {curr.nameAr}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+
+                            {/* Grade Level - Dependent on Curriculum */}
+                            <div className="space-y-2">
+                                <Label htmlFor="gradeLevel" className="text-base font-semibold text-gray-900">
+                                    المرحلة الدراسية <span className="text-red-500">*</span>
+                                </Label>
+                                <Select
+                                    value={formData.gradeLevel}
+                                    onChange={(e) => handleChange('gradeLevel', e.target.value)}
+                                    disabled={!formData.curriculumId}
+                                    className="h-12 text-right disabled:bg-gray-100 disabled:text-gray-400"
+                                >
+                                    <option value="" disabled>اختر المرحلة...</option>
+                                    {availableGrades.map((grade) => (
+                                        <option key={grade.id} value={grade.nameAr}>
+                                            {grade.nameAr}
                                         </option>
                                     ))}
                                 </Select>
