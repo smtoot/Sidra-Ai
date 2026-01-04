@@ -181,8 +181,16 @@ export class BookingService {
     const rawPrice = pricePerHour * durationHours;
 
     // DEMO LOGIC: Demo sessions are free (Price = 0)
-    // NOTE: Requires dto.isDemo to be trusted (Teacher/Student Guard or logic handles abuse)
-    const calculatedPrice = dto.isDemo ? 0 : normalizeMoney(rawPrice);
+    // SECURITY FIX: Validate isDemo flag server-side against teacher settings
+    let isValidDemo = false;
+    if (dto.isDemo) {
+      const demoEnabled = await this.demoService.isTeacherDemoEnabled(dto.teacherId);
+      if (!demoEnabled) {
+        throw new BadRequestException('هذا المعلم لا يقدم حصص تجريبية حالياً');
+      }
+      isValidDemo = true;
+    }
+    const calculatedPrice = isValidDemo ? 0 : normalizeMoney(rawPrice);
 
     // Snapshot commission rate (from system settings or default)
     // Hardcoded default for now or fetch settings. Using 0.18 as per schema default.
@@ -195,91 +203,88 @@ export class BookingService {
     // Meeting links are now set per-session by the teacher, not copied from global profile
     // Teacher will be prompted to add meeting link before each session
 
-    // Create booking
-    const booking = await this.prisma.booking.create({
-      data: {
-        readableId,
-        teacherId: dto.teacherId,
-        bookedByUserId: user.userId,
-        beneficiaryType,
-        childId,
-        studentUserId,
-
-        subjectId: dto.subjectId,
-        startTime: new Date(dto.startTime),
-        endTime: new Date(dto.endTime),
-        timezone: dto.timezone || 'UTC', // Store user's timezone
-        price: calculatedPrice, // P0-1: Server-calculated, normalized to integer
-        commissionRate: commissionRate,
-        bookingNotes: dto.bookingNotes || null, // Notes from parent/student
-        meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
-        status: 'PENDING_TEACHER_APPROVAL',
-        pendingTierId: dto.tierId || null, // For deferred package purchases
-      },
-      include: {
-        teacherProfile: { include: { user: true } },
-        bookedByUser: true,
-        child: true,
-        studentUser: true,
-        subject: true,
-      },
-    });
-
     // =====================================================
-    // PACKAGE INTEGRATION: Create redemption if packageId provided
+    // SECURITY FIX: Atomic transaction for booking + demo/package
+    // Prevents race conditions and ensures consistent cleanup
     // =====================================================
-    if (dto.packageId) {
-      try {
-        await this.packageService.createRedemption(dto.packageId, booking.id);
-        this.logger.log(
-          `Package redemption created for booking ${booking.id} using package ${dto.packageId}`,
-        );
-      } catch (err: any) {
-        // If redemption fails, we should cancel the booking
-        this.logger.error(
-          `Failed to create package redemption: ${err.message}`,
-          err,
-        );
-        // Clean up the booking
-        await this.prisma.booking.delete({ where: { id: booking.id } });
-        throw new BadRequestException(
-          `Package redemption failed: ${err.message}`,
-        );
-      }
-    }
-
-    // =====================================================
-    // DEMO INTEGRATION: Create demo record if isDemo
-    // Anti-Abuse: demoOwnerId is the bookedBy user (parent or standalone student)
-    // =====================================================
-    if (dto.isDemo && studentUserId) {
-      try {
+    const booking = await this.prisma.$transaction(async (tx) => {
+      // 1. For demo bookings, verify eligibility AND create record atomically
+      if (isValidDemo) {
         // Determine demoOwner: The person booking (parent or standalone student)
         const demoOwnerId = user.userId;
-        const demoOwnerType =
-          beneficiaryType === 'CHILD' ? 'PARENT' : 'STUDENT';
-        const beneficiaryId =
-          beneficiaryType === 'CHILD' ? (childId ?? undefined) : undefined;
+        const demoOwnerType = beneficiaryType === 'CHILD' ? 'PARENT' : 'STUDENT';
+        const beneficiaryId = beneficiaryType === 'CHILD' ? (childId ?? undefined) : undefined;
 
-        await this.demoService.createDemoRecord(
-          demoOwnerId,
-          demoOwnerType,
-          dto.teacherId,
-          beneficiaryId,
+        // Check eligibility within transaction (atomic with record creation)
+        const eligibility = await this.demoService.canBookDemo(demoOwnerId, dto.teacherId);
+        if (!eligibility.allowed) {
+          throw new BadRequestException(
+            `لا يمكن حجز حصة تجريبية: ${eligibility.details || eligibility.reason}`,
+          );
+        }
+
+        // Create demo record atomically within transaction
+        await tx.demoSession.create({
+          data: {
+            demoOwnerId,
+            demoOwnerType,
+            teacherId: dto.teacherId,
+            beneficiaryId,
+            status: 'SCHEDULED',
+            rescheduleCount: 0,
+          },
+        });
+        this.logger.log(
+          `Demo session record created atomically for owner ${demoOwnerId} with teacher ${dto.teacherId}`,
+        );
+      }
+
+      // 2. Create booking
+      const newBooking = await tx.booking.create({
+        data: {
+          readableId,
+          teacherId: dto.teacherId,
+          bookedByUserId: user.userId,
+          beneficiaryType,
+          childId,
+          studentUserId,
+
+          subjectId: dto.subjectId,
+          startTime: new Date(dto.startTime),
+          endTime: new Date(dto.endTime),
+          timezone: dto.timezone || 'UTC', // Store user's timezone
+          price: calculatedPrice, // P0-1: Server-calculated, normalized to integer (0 for demo)
+          commissionRate: commissionRate,
+          bookingNotes: dto.bookingNotes || null, // Notes from parent/student
+          meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
+          status: 'PENDING_TEACHER_APPROVAL',
+          pendingTierId: dto.tierId || null, // For deferred package purchases
+        },
+        include: {
+          teacherProfile: { include: { user: true } },
+          bookedByUser: true,
+          child: true,
+          studentUser: true,
+          subject: true,
+        },
+      });
+
+      // 3. Package redemption (if applicable)
+      if (dto.packageId) {
+        await this.packageService.createRedemptionInTransaction(
+          dto.packageId,
+          newBooking.id,
+          tx,
         );
         this.logger.log(
-          `Demo session record created for owner ${demoOwnerId} with teacher ${dto.teacherId}`,
+          `Package redemption created for booking ${newBooking.id} using package ${dto.packageId}`,
         );
-      } catch (err: any) {
-        // If demo record fails, we should cancel the booking
-        this.logger.error(`Failed to create demo record: ${err.message}`, err);
-        // Clean up the booking
-        await this.prisma.booking.delete({ where: { id: booking.id } });
-        throw new BadRequestException(`Demo booking failed: ${err.message}`);
       }
-    }
 
-    // Notify teacher about new booking request
+      return newBooking;
+    });
+
+    // Notify teacher about new booking request (outside transaction)
     await this.notificationService.notifyUser({
       userId: booking.teacherProfile.user.id,
       title: 'طلب حجز جديد',
@@ -575,6 +580,23 @@ export class BookingService {
         cancelReason: dto.cancelReason,
       },
     });
+
+    // DEMO FIX: If this is a demo booking, delete the DemoSession record
+    // This allows the user to book another demo with the same teacher
+    // Business rule: Teacher rejection should NOT count against user's demo quota
+    const isDemo = Number(booking.price) === 0;
+    if (isDemo) {
+      await this.prisma.demoSession.deleteMany({
+        where: {
+          demoOwnerId: booking.bookedByUserId,
+          teacherId: booking.teacherId,
+          status: 'SCHEDULED', // Only delete scheduled (not completed) demos
+        },
+      });
+      this.logger.log(
+        `Deleted DemoSession for user ${booking.bookedByUserId} with teacher ${booking.teacherId} due to teacher rejection`,
+      );
+    }
 
     // Notify parent about booking rejection
     await this.notificationService.notifyUser({
@@ -1384,15 +1406,17 @@ export class BookingService {
     // Package Release call REMOVED (Moved inside atomic transaction above)
 
     // Demo Complete
+    // SECURITY FIX: Use bookedByUserId (the payer) not studentUserId
+    // This correctly handles parent bookings for children
     const isDemo = normalizeMoney(bookingContext.price) === 0;
-    if (isDemo && bookingContext.studentUserId) {
+    if (isDemo && bookingContext.bookedByUserId) {
       try {
         await this.demoService.markDemoCompleted(
-          bookingContext.studentUserId,
+          bookingContext.bookedByUserId, // The demo owner is who booked/paid
           bookingContext.teacherId,
         );
         this.logger.log(
-          `Demo marked complete for student ${bookingContext.studentUserId}`,
+          `Demo marked complete for owner ${bookingContext.bookedByUserId}`,
         );
       } catch (err) {
         this.logger.error(
@@ -1822,6 +1846,29 @@ export class BookingService {
           },
           data: { status: 'CANCELLED' },
         });
+
+        // =====================================================
+        // DEMO INTEGRATION: Cancel demo record if this was a demo booking
+        // SECURITY FIX: Deletes demo record to allow user to retry
+        // =====================================================
+        const isDemo = normalizeMoney(booking.price) === 0;
+        if (isDemo && booking.bookedByUserId && booking.teacherId) {
+          try {
+            await this.demoService.cancelDemoRecordInTransaction(
+              booking.bookedByUserId,
+              booking.teacherId,
+              tx,
+            );
+            this.logger.log(
+              `Demo record cancelled for booking ${bookingId}`,
+            );
+          } catch (err) {
+            // Log but don't fail the cancellation - demo cleanup is best effort
+            this.logger.warn(
+              `Failed to cancel demo record for booking ${bookingId}: ${err}`,
+            );
+          }
+        }
 
         // Return booking with extra context for notification
         return {
