@@ -41,6 +41,12 @@ export default function RegisterPage() {
             return;
         }
 
+        // Validate email
+        if (!email.trim()) {
+            setError('البريد الإلكتروني مطلوب');
+            return;
+        }
+
         // Validate phone number
         if (!phoneNumber.trim()) {
             setError('رقم الجوال مطلوب');
@@ -53,7 +59,7 @@ export default function RegisterPage() {
         setIsLoading(true);
         try {
             await register({
-                email: email || undefined,
+                email: email.trim(),
                 phoneNumber: fullPhoneNumber,
                 password,
                 role: role as any,
@@ -235,13 +241,14 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        {/* Email - Optional */}
+                        {/* Email */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                البريد الإلكتروني (اختياري)
+                                البريد الإلكتروني <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="email"
+                                required
                                 placeholder="example@email.com"
                                 className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 value={email}

@@ -86,6 +86,12 @@ export default function JoinAsTeacherPage() {
             return;
         }
 
+        // Validate email
+        if (!email.trim()) {
+            setError('البريد الإلكتروني مطلوب');
+            return;
+        }
+
         // Validate phone number
         if (!phoneNumber.trim()) {
             setError('رقم الجوال مطلوب');
@@ -98,7 +104,7 @@ export default function JoinAsTeacherPage() {
         setIsLoading(true);
         try {
             await register({
-                email: email || undefined,
+                email: email.trim(),
                 phoneNumber: fullPhoneNumber,
                 password,
                 role: UserRole.TEACHER,
@@ -245,10 +251,11 @@ export default function JoinAsTeacherPage() {
                             {/* Email */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    البريد الإلكتروني (اختياري)
+                                    البريد الإلكتروني <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="email"
+                                    required
                                     placeholder="example@email.com"
                                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm p-2.5 border"
                                     value={email}
