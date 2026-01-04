@@ -4,8 +4,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu, X, GraduationCap, User } from 'lucide-react';
+import { Menu, X, GraduationCap, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar } from "@/components/ui/avatar";
 
 const NAV_LINKS = [
     { href: '/search', label: 'ابحث عن معلم' },
@@ -17,7 +26,7 @@ export function PublicNavbar() {
     const router = useRouter();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     // SECURITY FIX: Use AuthContext instead of localStorage for role
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const isLoggedIn = !!user;
     const userRole = user?.role;
 
@@ -35,6 +44,22 @@ export function PublicNavbar() {
                 return '/admin/financials';
             default: return '/login';
         }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            router.push('/login');
+            router.refresh();
+        } catch (error) {
+            console.error('Logout failed', error);
+        }
+    };
+
+    // Get initials for avatar fallback
+    const getInitials = () => {
+        if (!user?.email) return 'U';
+        return user.email.charAt(0).toUpperCase();
     };
 
     return (
@@ -65,10 +90,38 @@ export function PublicNavbar() {
                     {/* Auth Buttons */}
                     <div className="hidden md:flex items-center gap-3">
                         {isLoggedIn ? (
-                            <Button onClick={() => router.push(getDashboardLink())} className="gap-2">
-                                <User className="w-4 h-4" />
-                                لوحة التحكم
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                                        <Avatar
+                                            src=""
+                                            alt={user?.email || ''}
+                                            fallback={getInitials()}
+                                            className="border border-gray-200"
+                                        />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56" align="end" forceMount>
+                                    <DropdownMenuLabel className="font-normal text-right">
+                                        <div className="flex flex-col space-y-1">
+                                            <p className="text-sm font-medium leading-none text-right">حسابي</p>
+                                            <p className="text-xs leading-none text-muted-foreground text-right">
+                                                {user?.email}
+                                            </p>
+                                        </div>
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => router.push(getDashboardLink())} className="justify-end cursor-pointer">
+                                        <span className="ml-2">لوحة التحكم</span>
+                                        <LayoutDashboard className="h-4 w-4 text-gray-500" />
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleLogout} className="justify-end text-red-600 focus:text-red-600 cursor-pointer">
+                                        <span className="ml-2">تسجيل خروج</span>
+                                        <LogOut className="h-4 w-4" />
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         ) : (
                             <>
                                 <Button variant="ghost" onClick={() => router.push('/login')}>
@@ -104,20 +157,37 @@ export function PublicNavbar() {
                                     {link.label}
                                 </Link>
                             ))}
-                            <div className="flex gap-3 pt-4 border-t border-gray-100">
+                            <div className="flex flex-col gap-3 pt-4 border-t border-gray-100">
                                 {isLoggedIn ? (
-                                    <Button onClick={() => router.push(getDashboardLink())} className="flex-1">
-                                        لوحة التحكم
-                                    </Button>
-                                ) : (
                                     <>
+                                        <div className="flex items-center gap-3 px-2 py-2 mb-2 bg-gray-50 rounded-lg">
+                                            <Avatar
+                                                fallback={getInitials()}
+                                                className="h-8 w-8 border border-gray-200"
+                                            />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-gray-900">حسابي</span>
+                                                <span className="text-xs text-gray-500">{user?.email}</span>
+                                            </div>
+                                        </div>
+                                        <Button onClick={() => router.push(getDashboardLink())} className="w-full gap-2 justify-center">
+                                            <LayoutDashboard className="w-4 h-4" />
+                                            لوحة التحكم
+                                        </Button>
+                                        <Button variant="outline" onClick={handleLogout} className="w-full gap-2 justify-center text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100">
+                                            <LogOut className="w-4 h-4" />
+                                            تسجيل خروج
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <div className="flex gap-3">
                                         <Button variant="outline" onClick={() => router.push('/login')} className="flex-1">
                                             تسجيل الدخول
                                         </Button>
                                         <Button onClick={() => router.push('/register')} className="flex-1">
                                             حساب جديد
                                         </Button>
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>

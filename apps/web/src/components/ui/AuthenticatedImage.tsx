@@ -37,6 +37,7 @@ export function AuthenticatedImage({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
+    const [fileType, setFileType] = useState<string | null>(null); // Track mime type
 
     useEffect(() => {
         if (!fileKey) {
@@ -70,9 +71,12 @@ export function AuthenticatedImage({
                     responseType: 'blob',
                 });
 
-                const url = URL.createObjectURL(response.data);
+                const blob = response.data;
+                const url = URL.createObjectURL(blob);
                 setBlobUrl(url);
+                setFileType(blob.type); // Store file type (e.g. application/pdf)
             } catch (err: any) {
+                // ... error handling ...
                 // Provide specific error messages
                 if (err?.response?.status === 401) {
                     setError('غير مصرح - يرجى تسجيل الدخول');
@@ -114,6 +118,24 @@ export function AuthenticatedImage({
             <div className={`flex flex-col items-center justify-center bg-gray-100 text-gray-400 ${className}`}>
                 <ImageIcon className="w-8 h-8 mb-1" />
                 <span className="text-xs">{error || 'لا توجد صورة'}</span>
+            </div>
+        );
+    }
+
+    // PDF View
+    if (fileType === 'application/pdf' || fileKey.toLowerCase().endsWith('.pdf')) {
+        return (
+            <div
+                className={`flex flex-col items-center justify-center bg-red-50 text-red-700 border border-red-100 ${className} ${enableFullView ? 'cursor-pointer hover:bg-red-100' : ''}`}
+                onClick={() => {
+                    if (enableFullView) window.open(blobUrl, '_blank');
+                }}
+            >
+                <svg className="w-10 h-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-sm font-bold">ملف PDF</span>
+                <span className="text-xs mt-1">اضغط للمعاينة</span>
             </div>
         );
     }

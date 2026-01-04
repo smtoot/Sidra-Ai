@@ -26,7 +26,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) {}
+  ) { }
 
   async getDashboardStats() {
     const [
@@ -171,8 +171,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-            previousCompletedBookings) *
-          100
+          previousCompletedBookings) *
+        100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -1487,9 +1487,64 @@ export class AdminService {
         isActive: true,
         isVerified: true,
         createdAt: true,
+        teacherProfile: {
+          select: {
+            displayName: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getUserById(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        teacherProfile: {
+          include: {
+            subjects: {
+              include: {
+                subject: true,
+                curriculum: true,
+                grades: {
+                  include: {
+                    gradeLevel: true,
+                  },
+                },
+              },
+            },
+            qualifications: true,
+            workExperiences: true,
+            skills: true,
+            documents: true,
+            bankInfo: true,
+            demoSettings: true,
+          },
+        },
+        studentProfile: {
+          include: {
+            curriculum: true,
+          },
+        },
+        parentProfile: {
+          include: {
+            children: {
+              include: {
+                curriculum: true,
+              },
+            },
+          },
+        },
+        wallet: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('المستخدم غير موجود');
+    }
+
+    return user;
   }
 
   async hardDeleteUser(adminId: string, userId: string) {

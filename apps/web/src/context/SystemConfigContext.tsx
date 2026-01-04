@@ -12,7 +12,7 @@ const SystemConfigContext = createContext<SystemConfigContextType>({
     demosEnabled: true,
     maintenanceMode: false,
     currency: 'SDG',
-    meetingLinkAccessMinutes: 15,
+    meetingLinkAccessMinutes: 30,
     isLoading: true,
 });
 
@@ -22,7 +22,7 @@ export function SystemConfigProvider({ children }: { children: React.ReactNode }
         demosEnabled: true,
         maintenanceMode: false,
         currency: 'SDG',
-        meetingLinkAccessMinutes: 15, // Default fallback
+        meetingLinkAccessMinutes: 30, // Default fallback
     });
     const [isLoading, setIsLoading] = useState(true);
 

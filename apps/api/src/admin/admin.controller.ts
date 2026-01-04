@@ -47,7 +47,7 @@ export class AdminController {
     private readonly auditService: AuditService,
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
-  ) {}
+  ) { }
 
   @Get('dashboard')
   getDashboardStats() {
@@ -321,6 +321,11 @@ export class AdminController {
   @Get('users')
   getAllUsers(@Query('role') role?: string, @Query('search') search?: string) {
     return this.adminService.getAllUsers(role, search);
+  }
+
+  @Get('users/:id')
+  getUserById(@Param('id') id: string) {
+    return this.adminService.getUserById(id);
   }
 
   @Delete('users/:id/permanent')
