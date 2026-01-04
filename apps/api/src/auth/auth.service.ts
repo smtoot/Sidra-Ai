@@ -46,31 +46,22 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    // PHONE-FIRST: Check by phone number (primary identifier), not email
-    const existingByPhone = dto.phoneNumber
-      ? await this.prisma.users.findFirst({
-        where: { phoneNumber: dto.phoneNumber },
-      })
-      : null;
+    // Check Email Uniqueness (Email is now required)
+    const existingByEmail = await this.prisma.users.findUnique({
+      where: { email: dto.email },
+    });
 
-    // P1-6 FIX: Use generic message to prevent account enumeration
-    if (existingByPhone) {
-      throw new ConflictException(
-        'An account with these credentials already exists',
-      );
+    if (existingByEmail) {
+      throw new ConflictException('An account with this email already exists');
     }
 
-    // Optional: Also check email if provided
-    if (dto.email) {
-      const existingByEmail = await this.prisma.users.findUnique({
-        where: { email: dto.email },
-      });
-      // P1-6 FIX: Use generic message to prevent account enumeration
-      if (existingByEmail) {
-        throw new ConflictException(
-          'An account with these credentials already exists',
-        );
-      }
+    // Check Phone Uniqueness (Phone remains required)
+    const existingByPhone = await this.prisma.users.findUnique({
+      where: { phoneNumber: dto.phoneNumber },
+    });
+
+    if (existingByPhone) {
+      throw new ConflictException('An account with this phone number already exists');
     }
 
     // 2. Hash password
@@ -81,13 +72,14 @@ export class AuthService {
       data: {
         id: crypto.randomUUID(),
         updatedAt: new Date(),
-        email: dto.email || `user_${dto.phoneNumber}@sidra-placeholder.com`, // Use placeholder if missing
-        phoneNumber: dto.phoneNumber, // Phone is required
-        firstName: dto.firstName || null, // Display name for Parents/Students
-        lastName: dto.lastName || null, // Optional family name
+        email: dto.email, // Email is now required
+        phoneNumber: dto.phoneNumber, // Phone remains required
+        firstName: dto.firstName || null,
+        lastName: dto.lastName || null,
         passwordHash: hashedPassword,
         role: dto.role,
-        isVerified: false, // Default
+        isVerified: false,
+        emailVerified: false, // New field for email verification
         // Create empty profile based on role
         ...(dto.role === 'TEACHER' && {
           teacher_profiles: { create: { id: crypto.randomUUID() } },
@@ -101,7 +93,7 @@ export class AuthService {
       },
     });
 
-    return this.signToken(user.id, user.email || undefined, user.role, {
+    return this.signToken(user.id, user.email, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,
     });

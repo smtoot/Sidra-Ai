@@ -15,12 +15,12 @@ export enum UserRole {
 
 export class RegisterDto {
     @IsEmail()
-    @IsOptional() // Phone-first: email is optional
-    email?: string;
+    @IsNotEmpty({ message: 'البريد الإلكتروني مطلوب' })
+    email!: string; // Email is now required
 
     @IsString()
-    @IsNotEmpty()
-    phoneNumber!: string; // Phone-first: phone is required
+    @IsNotEmpty({ message: 'رقم الهاتف مطلوب' })
+    phoneNumber!: string; // Phone remains required
 
     @IsString()
     @IsStrongPassword() // P1-5: Strong password policy (12+ chars, uppercase, lowercase, number, special char)

@@ -18,7 +18,7 @@ export class EmailOutboxWorker {
   private readonly logger = new Logger(EmailOutboxWorker.name);
   private isProcessing = false;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Process pending emails every 30 seconds.
@@ -142,8 +142,8 @@ export class EmailOutboxWorker {
   }
 
   /**
-   * Actually send the email using SendGrid.
-   * If SENDGRID_API_KEY is not configured, logs only (graceful degradation).
+   * Actually send the email using Resend.
+   * If RESEND_API_KEY is not configured, logs only (graceful degradation).
    */
   private async sendEmail(email: {
     to: string;
@@ -151,36 +151,65 @@ export class EmailOutboxWorker {
     templateId: string;
     payload: any;
   }): Promise<void> {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@sidra-ai.com';
+    const apiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-    // If no SendGrid API key, fall back to logging (phone-first: email is optional)
+    // If no Resend API key, fall back to logging
     if (!apiKey) {
       this.logger.warn(
-        `SENDGRID_API_KEY not configured - email not sent. ` +
-          `To: ${email.to}, Subject: ${email.subject}, Template: ${email.templateId}`,
+        `RESEND_API_KEY not configured - email not sent. ` +
+        `To: ${email.to}, Subject: ${email.subject}, Template: ${email.templateId}`,
       );
       return;
     }
 
     try {
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(apiKey);
+      const { Resend } = require('resend');
+      const resend = new Resend(apiKey);
 
-      const msg = {
-        to: email.to,
+      // Resend doesn't use template IDs like SendGrid
+      // Instead, we'll send a simple HTML email with the payload data
+      // You can later integrate with React Email templates
+      const htmlContent = this.buildEmailHtml(email.subject, email.payload);
+
+      const data = await resend.emails.send({
         from: fromEmail,
+        to: email.to,
         subject: email.subject,
-        templateId: email.templateId,
-        dynamicTemplateData: email.payload,
-      };
+        html: htmlContent,
+      });
 
-      await sgMail.send(msg);
-      this.logger.log(`Email sent via SendGrid to: ${email.to}`);
+      this.logger.log(`Email sent via Resend to: ${email.to}, ID: ${data.id}`);
     } catch (error: any) {
-      this.logger.error(`SendGrid API error: ${error.message}`, error.stack);
+      this.logger.error(`Resend API error: ${error.message}`, error.stack);
       throw error; // Re-throw to trigger retry logic
     }
+  }
+
+  /**
+   * Build simple HTML email from payload
+   * TODO: Replace with proper email templates (React Email)
+   */
+  private buildEmailHtml(subject: string, payload: any): string {
+    const entries = Object.entries(payload)
+      .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+      .join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">${subject}</h2>
+          <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+            ${entries}
+          </div>
+          <p style="color: #666; font-size: 12px; margin-top: 20px;">
+            هذا بريد إلكتروني تلقائي من منصة سدرة - This is an automated email from Sidra Platform
+          </p>
+        </body>
+      </html>
+    `;
   }
 
   /**
