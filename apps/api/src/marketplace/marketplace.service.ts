@@ -665,7 +665,7 @@ export class MarketplaceService {
             })) || [],
           gradeLevels: s.teacher_subject_grades?.map((g: any) => g.grade_levels?.code) || [],
           subject: s.subjects,
-          curricula: s.curricula,
+          curriculum: s.curricula,  // Fix: frontend expects 'curriculum' singular
         })),
 
         // Academic qualifications (verified only)
