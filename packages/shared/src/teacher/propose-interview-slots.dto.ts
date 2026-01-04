@@ -1,12 +1,13 @@
-import { IsArray, IsString, IsISO8601, ArrayMinSize, ValidateNested } from 'class-validator';
+import { IsArray, IsString, IsISO8601, ArrayMinSize, ValidateNested, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class InterviewTimeSlotDto {
     @IsISO8601()
     dateTime!: string;
 
+    @IsOptional()
     @IsString()
-    meetingLink!: string;
+    meetingLink?: string;
 }
 
 export class ProposeInterviewSlotsDto {

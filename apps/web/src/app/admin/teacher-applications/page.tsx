@@ -131,21 +131,21 @@ export default function TeacherApplicationsPage() {
     };
 
     const handleProposeInterviewSlots = async () => {
-        // Validate that at least 2 slots are filled
-        const validSlots = interviewSlots.filter(slot => slot.dateTime && slot.meetingLink);
-
-        // DEBUG: Log what we're validating
-        console.log('All slots:', interviewSlots);
-        console.log('Valid slots after filtering:', validSlots);
+        // Validate that at least 2 slots have dateTime filled (meetingLink is optional)
+        const validSlots = interviewSlots.filter(slot => slot.dateTime);
+        const slotsWithoutDateTime = interviewSlots.filter(slot => !slot.dateTime);
 
         if (validSlots.length < 2) {
-            toast.error('يجب تقديم خيارين على الأقل للمعلم');
+            if (slotsWithoutDateTime.length > 0) {
+                toast.error('يجب تحديد التاريخ والوقت لكل خيار مقابلة');
+            } else {
+                toast.error('يجب تقديم خيارين على الأقل للمعلم');
+            }
             return;
         }
 
         setProcessing(true);
         try {
-            console.log('Sending to API:', { id: selectedApp.id, validSlots });
             await adminApi.proposeInterviewSlots(selectedApp.id, validSlots);
             toast.success('تم إرسال خيارات المقابلة للمعلم ✅');
             setShowInterviewModal(false);
@@ -797,7 +797,7 @@ export default function TeacherApplicationsPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium mb-1">رابط الاجتماع</label>
+                                            <label className="block text-sm font-medium mb-1">رابط الاجتماع <span className="text-gray-400 font-normal">(اختياري)</span></label>
                                             <Input
                                                 type="url"
                                                 value={slot.meetingLink}
