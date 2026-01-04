@@ -18,7 +18,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Validate password requirements
@@ -49,8 +49,8 @@ export class AuthService {
     // PHONE-FIRST: Check by phone number (primary identifier), not email
     const existingByPhone = dto.phoneNumber
       ? await this.prisma.user.findFirst({
-          where: { phoneNumber: dto.phoneNumber },
-        })
+        where: { phoneNumber: dto.phoneNumber },
+      })
       : null;
 
     // P1-6 FIX: Use generic message to prevent account enumeration
@@ -172,7 +172,13 @@ export class AuthService {
       include: {
         parentProfile: {
           include: {
-            children: true,
+            children: {
+              include: {
+                curriculum: {
+                  select: { id: true, nameAr: true, nameEn: true, code: true }
+                }
+              }
+            },
           },
         },
         teacherProfile: true,

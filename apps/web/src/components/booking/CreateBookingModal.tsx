@@ -696,6 +696,21 @@ export function CreateBookingModal({
                                 }
                                 notes={bookingNotes}
                                 userTimezone={userTimezoneDisplay}
+                                // Pass Curriculum & Grade Info
+                                curriculumName={
+                                    userRole === 'STUDENT'
+                                        ? studentProfile?.curriculum?.nameAr
+                                        : userRole === 'PARENT' && selectedChildId
+                                            ? children.find(c => c.id === selectedChildId)?.curriculum?.nameAr
+                                            : undefined
+                                }
+                                gradeName={
+                                    userRole === 'STUDENT'
+                                        ? studentProfile?.gradeLevel
+                                        : userRole === 'PARENT' && selectedChildId
+                                            ? children.find(c => c.id === selectedChildId)?.gradeLevel
+                                            : undefined
+                                }
                             />
                         )}
                     </div>

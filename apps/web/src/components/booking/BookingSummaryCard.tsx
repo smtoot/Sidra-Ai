@@ -13,6 +13,8 @@ interface BookingSummaryCardProps {
     bookingType: string;
     notes?: string;
     userTimezone?: string;
+    curriculumName?: string;
+    gradeName?: string;
 }
 
 export function BookingSummaryCard({
@@ -24,7 +26,9 @@ export function BookingSummaryCard({
     price,
     bookingType,
     notes,
-    userTimezone
+    userTimezone,
+    curriculumName,
+    gradeName
 }: BookingSummaryCardProps) {
     return (
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
@@ -55,6 +59,26 @@ export function BookingSummaryCard({
                             label="الطالب"
                             value={childName}
                         />
+                    )}
+
+                    {/* New: Curriculum & Grade Info */}
+                    {(curriculumName || gradeName) && (
+                        <div className="grid grid-cols-2 gap-3">
+                            {curriculumName && (
+                                <SummaryRow
+                                    icon={<BookOpen className="w-3.5 h-3.5 text-gray-500" />}
+                                    label="المنهج"
+                                    value={curriculumName}
+                                />
+                            )}
+                            {gradeName && (
+                                <SummaryRow
+                                    icon={<FileText className="w-3.5 h-3.5 text-gray-500" />}
+                                    label="الصف"
+                                    value={gradeName}
+                                />
+                            )}
+                        </div>
                     )}
 
                     <div className="grid grid-cols-2 gap-3">
