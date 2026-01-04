@@ -149,7 +149,16 @@ export const bookingApi = {
     getAllTeacherBookings: async (): Promise<Booking[]> => {
         try {
             const response = await api.get('/bookings/teacher/all');
-            return Array.isArray(response.data) ? response.data : [];
+            // Backend returns paginated response: { data: Booking[], meta: {...} }
+            const result = response.data;
+            // Handle both paginated response and direct array (for backwards compatibility)
+            if (result && Array.isArray(result.data)) {
+                return result.data;
+            }
+            if (Array.isArray(result)) {
+                return result;
+            }
+            return [];
         } catch (error) {
             console.error('Failed to load teacher bookings', error);
             return [];
