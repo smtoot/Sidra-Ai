@@ -236,10 +236,16 @@ export default function PackageDetailsPage() {
     const savingsPerSession = Number(pkg.originalPricePerSession) - Number(pkg.discountedPricePerSession);
     const totalSavings = savingsPerSession * pkg.sessionCount;
 
-    // Build session cards data
+    // Build session cards data - sort redemptions by booking startTime
+    const sortedRedemptions = [...(pkg.redemptions || [])].sort((a, b) => {
+        if (!a.booking?.startTime) return 1;
+        if (!b.booking?.startTime) return -1;
+        return new Date(a.booking.startTime).getTime() - new Date(b.booking.startTime).getTime();
+    });
+
     const sessions = Array.from({ length: pkg.sessionCount }, (_, i) => {
         const sessionNumber = i + 1;
-        const redemption = pkg.redemptions?.[i];
+        const redemption = sortedRedemptions[i]; // Now properly mapped to chronological order
         return { sessionNumber, redemption };
     });
 
