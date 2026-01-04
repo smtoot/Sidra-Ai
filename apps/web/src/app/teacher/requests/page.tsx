@@ -118,9 +118,13 @@ export default function TeacherRequestsPage() {
                 setRejectReason('');
             }
             await loadRequests();
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Failed to ${type}`, error);
-            toast.error(type === 'approve' ? "فشل القبول" : "فشل الرفض");
+            // Extract actual error message from backend response
+            const errorMessage = error?.response?.data?.message
+                || error?.message
+                || (type === 'approve' ? "فشل القبول" : "فشل الرفض");
+            toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
         } finally {
             setProcessingId(null);
         }
