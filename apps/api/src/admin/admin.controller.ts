@@ -19,6 +19,7 @@ import {
   UserRole,
   CreatePackageTierDto,
   UpdatePackageTierDto,
+  ProposeInterviewSlotsDto,
 } from '@sidra/shared';
 import { AuditService } from '../common/audit/audit.service';
 import { SystemSettingsService } from './system-settings.service';
@@ -234,7 +235,7 @@ export class AdminController {
   proposeInterviewSlots(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body() dto: { timeSlots: { dateTime: string; meetingLink: string }[] },
+    @Body() dto: ProposeInterviewSlotsDto,
   ) {
     return this.adminService.proposeInterviewSlots(
       req.user.userId,
