@@ -841,7 +841,7 @@ export class AdminService {
       type: 'ACCOUNT_UPDATE',
       title: 'تحديث بخصوص طلبك',
       message: `نأسف، لم نتمكن من قبول طلب الانضمام كمعلم في الوقت الحالي. السبب: ${reason}`,
-      link: '/teacher/application',
+      link: '/teacher/onboarding',
       dedupeKey: `APPLICATION_REJECTED:${profileId}`,
       metadata: {
         profileId: profile.id,
@@ -887,7 +887,7 @@ export class AdminService {
       type: 'ACCOUNT_UPDATE',
       title: 'يرجى تحديث طلبك',
       message: `يرجى إجراء التعديلات التالية على طلب الانضمام: ${reason}`,
-      link: '/teacher/application',
+      link: '/teacher/onboarding',
       dedupeKey: `APPLICATION_CHANGES_REQUESTED:${profileId}`,
       metadata: {
         profileId: profile.id,
@@ -1105,7 +1105,7 @@ export class AdminService {
       type: 'ACCOUNT_UPDATE',
       title: 'مقابلة مطلوبة - اختر موعداً',
       message: `يرجى اختيار أحد المواعيد التالية لإجراء المقابلة:\n${slotsText}`,
-      link: '/teacher/application',
+      link: '/teacher/onboarding',
       dedupeKey: `INTERVIEW_SLOTS_PROPOSED:${profileId}`,
       metadata: {
         profileId: profile.id,

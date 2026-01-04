@@ -1,12 +1,132 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useOnboarding } from '../OnboardingContext';
-import { Check, Clock, Circle, MessageCircle, BookOpen } from 'lucide-react';
+import { Check, Clock, Circle, MessageCircle, BookOpen, Calendar, Video, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { teacherApi, InterviewTimeSlot } from '@/lib/api/teacher';
+import { toast } from 'sonner';
+
+// Interview Slot Selector Component
+function InterviewSlotSelector() {
+    const [slots, setSlots] = useState<InterviewTimeSlot[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selecting, setSelecting] = useState(false);
+    const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+    const { loadProfile } = useOnboarding();
+
+    useEffect(() => {
+        loadSlots();
+    }, []);
+
+    const loadSlots = async () => {
+        try {
+            const response = await teacherApi.getInterviewSlots();
+            setSlots(response.slots);
+        } catch (error) {
+            toast.error('فشل تحميل مواعيد المقابلة');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSelectSlot = async (slotId: string) => {
+        setSelecting(true);
+        setSelectedSlotId(slotId);
+        try {
+            await teacherApi.selectInterviewSlot(slotId);
+            toast.success('تم تأكيد موعد المقابلة بنجاح! 🎉');
+            // Refresh the data to update status
+            loadProfile?.();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل اختيار الموعد');
+            setSelectedSlotId(null);
+        } finally {
+            setSelecting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-2" />
+                <p className="text-purple-700">جاري تحميل المواعيد المتاحة...</p>
+            </div>
+        );
+    }
+
+    if (slots.length === 0) {
+        return (
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 text-center">
+                <Calendar className="w-12 h-12 mx-auto text-purple-400 mb-3" />
+                <p className="text-purple-700">لم يتم تحديد مواعيد للمقابلة بعد</p>
+                <p className="text-sm text-purple-600 mt-1">سيتم إبلاغك عند توفر المواعيد</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 space-y-4">
+            <div className="text-center mb-4">
+                <h3 className="font-bold text-purple-800 text-lg">اختر الموعد المناسب لك</h3>
+                <p className="text-sm text-purple-600 mt-1">اضغط على أحد المواعيد أدناه لتأكيده</p>
+            </div>
+
+            <div className="space-y-3">
+                {slots.map((slot, index) => (
+                    <button
+                        key={slot.id}
+                        onClick={() => handleSelectSlot(slot.id)}
+                        disabled={selecting}
+                        className={cn(
+                            "w-full p-4 rounded-lg border-2 text-right transition-all",
+                            selectedSlotId === slot.id
+                                ? "border-purple-500 bg-purple-100"
+                                : "border-purple-200 bg-white hover:border-purple-400 hover:bg-purple-50",
+                            selecting && "opacity-50 cursor-not-allowed"
+                        )}
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {selecting && selectedSlotId === slot.id ? (
+                                    <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
+                                ) : (
+                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                        <span className="text-purple-700 font-bold">{index + 1}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex-1 mr-3">
+                                <div className="flex items-center gap-2 text-gray-800 font-medium">
+                                    <Calendar className="w-4 h-4 text-purple-500" />
+                                    {format(new Date(slot.proposedDateTime), 'EEEE، d MMMM yyyy', { locale: ar })}
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-600 text-sm mt-1">
+                                    <Clock className="w-4 h-4 text-purple-400" />
+                                    {format(new Date(slot.proposedDateTime), 'h:mm a', { locale: ar })}
+                                </div>
+                                {slot.meetingLink && (
+                                    <div className="flex items-center gap-2 text-gray-500 text-xs mt-1">
+                                        <Video className="w-3 h-3" />
+                                        <span className="truncate max-w-[200px]" dir="ltr">{slot.meetingLink}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </button>
+                ))}
+            </div>
+
+            <p className="text-xs text-purple-600 text-center mt-4">
+                💡 بعد اختيار الموعد، سيتم إبلاغك بتفاصيل الانضمام للمقابلة
+            </p>
+        </div>
+    );
+}
 
 export function StatusDashboard() {
     const { data, setCurrentStep } = useOnboarding();
@@ -28,8 +148,8 @@ export function StatusDashboard() {
                 };
             case 'INTERVIEW_REQUIRED':
                 return {
-                    title: '📅 مطلوب مقابلة',
-                    subtitle: 'سيتم التواصل معك لتحديد موعد المقابلة',
+                    title: '🤝 نرغب في التعرف عليك!',
+                    subtitle: 'اختر الموعد المناسب لك للمقابلة الشخصية',
                     color: 'purple',
                 };
             case 'INTERVIEW_SCHEDULED':
@@ -143,8 +263,13 @@ export function StatusDashboard() {
                 </div>
             )}
 
-            {/* While Waiting Actions */}
-            {(status === 'SUBMITTED' || status === 'INTERVIEW_REQUIRED') && (
+            {/* Interview Slot Selection for INTERVIEW_REQUIRED */}
+            {status === 'INTERVIEW_REQUIRED' && (
+                <InterviewSlotSelector />
+            )}
+
+            {/* While Waiting Actions - Only for SUBMITTED */}
+            {status === 'SUBMITTED' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
                     <h3 className="font-bold text-gray-700">بينما تنتظر:</h3>
                     <div className="space-y-3">

@@ -28,7 +28,7 @@ export class TeacherService {
     private walletService: WalletService,
     private systemSettingsService: SystemSettingsService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async getProfile(userId: string) {
     const profile = await this.prisma.teacherProfile.findUnique({
@@ -934,6 +934,97 @@ export class TeacherService {
   }
 
   /**
+   * Get proposed interview time slots for the teacher
+   */
+  async getInterviewSlots(userId: string) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true, applicationStatus: true },
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const slots = await this.prisma.interviewTimeSlot.findMany({
+      where: { teacherProfileId: profile.id },
+      orderBy: { proposedDateTime: 'asc' },
+    });
+
+    return {
+      applicationStatus: profile.applicationStatus,
+      slots,
+    };
+  }
+
+  /**
+   * Teacher selects an interview time slot
+   */
+  async selectInterviewSlot(userId: string, slotId: string) {
+    const profile = await this.prisma.teacherProfile.findUnique({
+      where: { userId },
+      select: { id: true, applicationStatus: true },
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    if (profile.applicationStatus !== 'INTERVIEW_REQUIRED') {
+      throw new BadRequestException(
+        'لا يمكنك اختيار موعد مقابلة في هذه المرحلة',
+      );
+    }
+
+    // Find the slot
+    const slot = await this.prisma.interviewTimeSlot.findFirst({
+      where: {
+        id: slotId,
+        teacherProfileId: profile.id,
+      },
+    });
+
+    if (!slot) {
+      throw new NotFoundException('لم يتم العثور على هذا الموعد');
+    }
+
+    // Update the slot as selected and update profile status
+    await this.prisma.$transaction(async (tx) => {
+      // Mark all other slots as not selected
+      await tx.interviewTimeSlot.updateMany({
+        where: {
+          teacherProfileId: profile.id,
+          id: { not: slotId },
+        },
+        data: { isSelected: false },
+      });
+
+      // Mark this slot as selected
+      await tx.interviewTimeSlot.update({
+        where: { id: slotId },
+        data: { isSelected: true },
+      });
+
+      // Update profile status to INTERVIEW_SCHEDULED
+      await tx.teacherProfile.update({
+        where: { id: profile.id },
+        data: {
+          applicationStatus: 'INTERVIEW_SCHEDULED',
+          interviewScheduledAt: slot.proposedDateTime,
+          interviewLink: slot.meetingLink,
+        },
+      });
+    });
+
+    // Log for admin visibility (admin notification can be added later)
+    this.logger.log(
+      `Teacher selected interview slot: ${slot.proposedDateTime.toISOString()}`,
+    );
+
+    return {
+      message: 'تم اختيار موعد المقابلة بنجاح',
+      scheduledAt: slot.proposedDateTime,
+      meetingLink: slot.meetingLink,
+    };
+  }
+
+  /**
    * Submit profile for admin review
    * Allowed transitions: DRAFT → SUBMITTED, CHANGES_REQUESTED → SUBMITTED
    */
@@ -1252,10 +1343,10 @@ export class TeacherService {
         warning:
           conflictingBookings.length > 0
             ? {
-                message:
-                  'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
-                conflictingBookingsCount: conflictingBookings.length,
-              }
+              message:
+                'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
+              conflictingBookingsCount: conflictingBookings.length,
+            }
             : undefined,
       };
     } else {
