@@ -19,6 +19,8 @@ import { BookingTypeSelectorV2 } from './BookingTypeSelectorV2';
 import { BookingSummaryCard } from './BookingSummaryCard';
 import { BookingType, BookingTypeOption } from './BookingTypeSelector';
 import { RecurringPatternSelector } from './RecurringPatternSelector';
+import { StudentInfoSection } from './StudentInfoSection';
+import { studentApi } from '@/lib/api/student';
 
 // New slot format from UTC-first API
 interface SlotWithTimezone {
@@ -88,6 +90,10 @@ export function CreateBookingModal({
     const [availabilityCalendar, setAvailabilityCalendar] = useState<AvailabilityCalendar | null>(null);
     const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
 
+    // Student info validation state (curriculum + grade required)
+    const [isStudentInfoValid, setIsStudentInfoValid] = useState(false);
+    const [studentProfile, setStudentProfile] = useState<any>(null);
+
     useEffect(() => {
         if (isOpen) {
             // Only fetch children if user is logged in
@@ -121,6 +127,19 @@ export function CreateBookingModal({
 
             if (profile.role === 'PARENT' && profile.parentProfile?.children) {
                 setChildren(profile.parentProfile.children);
+            }
+
+            // Fetch student profile with curriculum info
+            if (profile.role === 'STUDENT') {
+                try {
+                    const studentData = await studentApi.getProfile();
+                    setStudentProfile(studentData);
+                    // Check if student has curriculum and grade
+                    const hasInfo = !!(studentData?.curriculumId && studentData?.gradeLevel);
+                    setIsStudentInfoValid(hasInfo);
+                } catch (error) {
+                    console.error('Failed to fetch student profile:', error);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch children:', error);
@@ -189,9 +208,10 @@ export function CreateBookingModal({
     const isNewPackagePurchase = selectedBookingOption?.tierId !== undefined;
 
     // Different validation for new package purchase vs existing package/single
+    // ADDED: isStudentInfoValid required for all booking types
     const canSubmit = isNewPackagePurchase
-        ? selectedSubject && selectedBookingOption && recurringWeekday && recurringTime && suggestedDates.length > 0 && (!isParent || selectedChildId)
-        : selectedDate && selectedSlot && selectedSubject && selectedBookingOption && (!isParent || selectedChildId);
+        ? selectedSubject && selectedBookingOption && recurringWeekday && recurringTime && suggestedDates.length > 0 && (!isParent || selectedChildId) && isStudentInfoValid
+        : selectedDate && selectedSlot && selectedSubject && selectedBookingOption && (!isParent || selectedChildId) && isStudentInfoValid;
 
     const handleSubmit = async () => {
         // Mark that user has attempted to submit
@@ -453,6 +473,33 @@ export function CreateBookingModal({
                                     </p>
                                 )}
                             </div>
+                        )}
+
+                        {/* Student Info Section - Show curriculum/grade inline */}
+                        {userRole && (
+                            <StudentInfoSection
+                                userRole={userRole}
+                                studentProfile={userRole === 'STUDENT' ? studentProfile : undefined}
+                                selectedChild={userRole === 'PARENT' && selectedChildId
+                                    ? children.find(c => c.id === selectedChildId)
+                                    : undefined}
+                                onValidChange={(isValid) => {
+                                    setIsStudentInfoValid(isValid);
+                                }}
+                                onUpdate={async () => {
+                                    // Refresh data after inline save
+                                    if (userRole === 'STUDENT') {
+                                        const newProfile = await studentApi.getProfile();
+                                        setStudentProfile(newProfile);
+                                    } else {
+                                        // Refresh children list
+                                        const profile = await authApi.getProfile();
+                                        if (profile.parentProfile?.children) {
+                                            setChildren(profile.parentProfile.children);
+                                        }
+                                    }
+                                }}
+                            />
                         )}
 
                         {/* Booking Type Selection - Show after subject is selected */}
