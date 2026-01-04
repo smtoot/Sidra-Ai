@@ -182,6 +182,13 @@ export class AuthService {
           },
         },
         teacherProfile: true,
+        studentProfile: {
+          include: {
+            curriculum: {
+              select: { id: true, nameAr: true, nameEn: true, code: true }
+            }
+          }
+        }
       },
     });
 

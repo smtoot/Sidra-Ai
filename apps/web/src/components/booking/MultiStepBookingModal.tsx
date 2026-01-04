@@ -63,6 +63,7 @@ export function MultiStepBookingModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showResumeDialog, setShowResumeDialog] = useState(false);
     const [userId, setUserId] = useState<string | undefined>(undefined);
+    const [studentProfile, setStudentProfile] = useState<any>(null);
 
     // Fetch user data when logged in
     useEffect(() => {
@@ -120,6 +121,9 @@ export function MultiStepBookingModal({
 
             if (profile.role === 'PARENT' && profile.parentProfile?.children) {
                 setChildren(profile.parentProfile.children);
+            }
+            if (profile.studentProfile) {
+                setStudentProfile(profile.studentProfile);
             }
         } catch (error) {
             console.error('Failed to fetch user data:', error);
@@ -370,6 +374,8 @@ export function MultiStepBookingModal({
                         scheduledSessions={state.scheduledSessions}
                         availabilityResponse={state.availabilityResponse}
                         userRole={userRole}
+                        studentProfile={studentProfile}
+                        onProfileUpdate={fetchUserData}
                         userName={userName}
                         children={children}
                         selectedChildId={state.selectedChildId}
