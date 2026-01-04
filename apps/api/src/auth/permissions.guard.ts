@@ -45,14 +45,14 @@ export class PermissionsGuard implements CanActivate {
 
     // Get user from request (set by JwtAuthGuard)
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = request.users;
 
     if (!user || !user.userId) {
       throw new ForbiddenException('Authentication required');
     }
 
     // Fetch fresh user data from DB (SECURITY: don't rely on JWT)
-    const fullUser = await this.prisma.user.findUnique({
+    const fullUser = await this.prisma.users.findUnique({
       where: { id: user.userId },
       select: {
         id: true,

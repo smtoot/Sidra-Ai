@@ -30,7 +30,7 @@ export class SkillsService {
   async getSkills(userId: string) {
     const profile = await this.getTeacherProfile(userId);
 
-    return this.prisma.teacherSkill.findMany({
+    return this.prisma.teacher_skills.findMany({
       where: { teacherId: profile.id },
       orderBy: { createdAt: 'desc' },
     });
@@ -46,7 +46,7 @@ export class SkillsService {
     const profile = await this.getTeacherProfile(userId);
 
     // Check max limit
-    const existingCount = await this.prisma.teacherSkill.count({
+    const existingCount = await this.prisma.teacher_skills.count({
       where: { teacherId: profile.id },
     });
 
@@ -60,12 +60,14 @@ export class SkillsService {
     await this.checkDuplicateSkill(profile.id, dto.name);
 
     // Create skill (store original name, use normalized for comparison)
-    const skill = await this.prisma.teacherSkill.create({
+    const skill = await this.prisma.teacher_skills.create({
       data: {
+        id: crypto.randomUUID(),
         teacherId: profile.id,
         name: dto.name.trim(), // Store trimmed but preserve case
         category: dto.category,
         proficiency: dto.proficiency || 'INTERMEDIATE',
+        updatedAt: new Date(),
       },
     });
 
@@ -80,7 +82,7 @@ export class SkillsService {
     const profile = await this.getTeacherProfile(userId);
 
     // Verify ownership
-    const skill = await this.prisma.teacherSkill.findFirst({
+    const skill = await this.prisma.teacher_skills.findFirst({
       where: { id: skillId, teacherId: profile.id },
     });
 
@@ -97,7 +99,7 @@ export class SkillsService {
     }
 
     // Update skill
-    return this.prisma.teacherSkill.update({
+    return this.prisma.teacher_skills.update({
       where: { id: skillId },
       data: {
         name: dto.name?.trim(),
@@ -115,7 +117,7 @@ export class SkillsService {
     const profile = await this.getTeacherProfile(userId);
 
     // Verify ownership
-    const skill = await this.prisma.teacherSkill.findFirst({
+    const skill = await this.prisma.teacher_skills.findFirst({
       where: { id: skillId, teacherId: profile.id },
     });
 
@@ -123,7 +125,7 @@ export class SkillsService {
       throw new NotFoundException('المهارة غير موجودة');
     }
 
-    await this.prisma.teacherSkill.delete({
+    await this.prisma.teacher_skills.delete({
       where: { id: skillId },
     });
 
@@ -136,7 +138,7 @@ export class SkillsService {
    * Get teacher profile or throw NotFoundException
    */
   private async getTeacherProfile(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -159,7 +161,7 @@ export class SkillsService {
   ) {
     const normalizedName = normalizeSkillName(name);
 
-    const existingSkills = await this.prisma.teacherSkill.findMany({
+    const existingSkills = await this.prisma.teacher_skills.findMany({
       where: {
         teacherId,
         ...(excludeId && { id: { not: excludeId } }),

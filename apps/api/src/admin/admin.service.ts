@@ -38,15 +38,15 @@ export class AdminService {
       pendingDisputes,
       totalRevenue, // This might be complex, let's just count completed bookings for now or sum transaction fees
     ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { role: 'TEACHER' } }),
-      this.prisma.user.count({ where: { role: 'PARENT' } }), // Assuming Parent is Student for now
-      this.prisma.booking.count(),
-      this.prisma.booking.count({
+      this.prisma.users.count(),
+      this.prisma.users.count({ where: { role: 'TEACHER' } }),
+      this.prisma.users.count({ where: { role: 'PARENT' } }), // Assuming Parent is Student for now
+      this.prisma.bookings.count(),
+      this.prisma.bookings.count({
         where: { status: 'PENDING_TEACHER_APPROVAL' },
       }),
-      this.prisma.dispute.count({ where: { status: 'PENDING' } }),
-      this.prisma.transaction.aggregate({
+      this.prisma.disputes.count({ where: { status: 'PENDING' } }),
+      this.prisma.transactions.aggregate({
         where: { type: 'PAYMENT_RELEASE' }, // Assuming commission is taken here? Or usage of DEPOSIT?
         // For MVP, let's just show total Wallet Balances (system liability) or Total Deposits.
         // Let's use Total Deposits for "Volume".
@@ -55,10 +55,10 @@ export class AdminService {
     ]);
 
     // Recent Activity (Simple: Latest 5 users)
-    const recentUsers = await this.prisma.user.findMany({
+    const recentUsers = await this.prisma.users.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
-      include: { teacherProfile: true },
+      include: { teacher_profiles: true },
     });
 
     return {
@@ -93,7 +93,7 @@ export class AdminService {
       currentPlatformFeesResult,
     ] = await Promise.all([
       // Completed bookings in the last 30 days
-      this.prisma.booking.findMany({
+      this.prisma.bookings.findMany({
         where: {
           status: 'COMPLETED',
           paymentReleasedAt: { gte: thirtyDaysAgo },
@@ -101,7 +101,7 @@ export class AdminService {
         select: { price: true, commissionRate: true },
       }),
       // Total revenue from completed bookings (sum of prices)
-      this.prisma.booking.aggregate({
+      this.prisma.bookings.aggregate({
         where: {
           status: 'COMPLETED',
           paymentReleasedAt: { gte: thirtyDaysAgo },
@@ -109,7 +109,7 @@ export class AdminService {
         _sum: { price: true },
       }),
       // Platform fees (commission) from payment releases
-      this.prisma.transaction.aggregate({
+      this.prisma.transactions.aggregate({
         where: {
           type: 'PAYMENT_RELEASE',
           status: 'APPROVED',
@@ -122,13 +122,13 @@ export class AdminService {
     // Previous period (30-60 days ago) for growth comparison
     const [previousCompletedBookings, previousRevenueResult] =
       await Promise.all([
-        this.prisma.booking.count({
+        this.prisma.bookings.count({
           where: {
             status: 'COMPLETED',
             paymentReleasedAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
           },
         }),
-        this.prisma.booking.aggregate({
+        this.prisma.bookings.aggregate({
           where: {
             status: 'COMPLETED',
             paymentReleasedAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
@@ -193,16 +193,16 @@ export class AdminService {
       where.status = status;
     }
 
-    return this.prisma.booking.findMany({
+    return this.prisma.bookings.findMany({
       where,
       include: {
-        teacherProfile: {
-          include: { user: { select: { email: true } } },
+        teacher_profiles: {
+          include: { users: { select: { email: true } } },
         },
-        bookedByUser: { select: { id: true, email: true } },
-        studentUser: { select: { id: true, email: true } },
-        child: true,
-        subject: true,
+        users_bookings_bookedByUserIdTousers: { select: { id: true, email: true } },
+        users_bookings_studentUserIdTousers: { select: { id: true, email: true } },
+        children: true,
+        subjects: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -210,22 +210,22 @@ export class AdminService {
   }
 
   async getBookingById(id: string) {
-    const booking = await this.prisma.booking.findUnique({
+    const booking = await this.prisma.bookings.findUnique({
       where: { id },
       include: {
-        teacherProfile: {
-          include: { user: true },
+        teacher_profiles: {
+          include: { users: true },
         },
-        bookedByUser: {
-          include: { parentProfile: { include: { user: true } } },
+        users_bookings_bookedByUserIdTousers: {
+          include: { parent_profiles: { include: { users: true } } },
         },
-        studentUser: true,
-        child: true,
-        subject: true,
-        packageRedemption: {
+        users_bookings_studentUserIdTousers: true,
+        children: true,
+        subjects: true,
+        package_redemptions: {
           include: {
-            package: {
-              include: { packageTier: true },
+            student_packages: {
+              include: { package_tiers: true },
             },
           },
         },
@@ -239,8 +239,8 @@ export class AdminService {
     const result: any = booking;
 
     // Map package if exists
-    if (booking.packageRedemption?.package) {
-      result.package = booking.packageRedemption.package;
+    if (booking.package_redemptions?.student_packages) {
+      result.student_packages = booking.package_redemptions.student_packages;
     }
 
     return result;
@@ -279,20 +279,20 @@ export class AdminService {
       where.status = status;
     }
 
-    return this.prisma.dispute.findMany({
+    return this.prisma.disputes.findMany({
       where,
       include: {
-        booking: {
+        bookings: {
           include: {
-            teacherProfile: {
-              include: { user: { select: { id: true, email: true } } },
+            teacher_profiles: {
+              include: { users: { select: { id: true, email: true } } },
             },
-            bookedByUser: { select: { id: true, email: true } },
-            subject: true,
+            users_bookings_bookedByUserIdTousers: { select: { id: true, email: true } },
+            subjects: true,
           },
         },
-        raisedByUser: { select: { id: true, email: true } },
-        resolvedByAdmin: { select: { id: true, email: true } },
+        users_disputes_raisedByUserIdTousers: { select: { id: true, email: true } },
+        users_disputes_resolvedByAdminIdTousers: { select: { id: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -302,22 +302,22 @@ export class AdminService {
    * Get a single dispute with full details
    */
   async getDisputeById(disputeId: string) {
-    const dispute = await this.prisma.dispute.findUnique({
+    const dispute = await this.prisma.disputes.findUnique({
       where: { id: disputeId },
       include: {
-        booking: {
+        bookings: {
           include: {
-            teacherProfile: {
-              include: { user: { select: { id: true, email: true } } },
+            teacher_profiles: {
+              include: { users: { select: { id: true, email: true } } },
             },
-            bookedByUser: { select: { id: true, email: true } },
-            studentUser: { select: { id: true, email: true } },
-            child: true,
-            subject: true,
+            users_bookings_bookedByUserIdTousers: { select: { id: true, email: true } },
+            users_bookings_studentUserIdTousers: { select: { id: true, email: true } },
+            children: true,
+            subjects: true,
           },
         },
-        raisedByUser: { select: { id: true, email: true } },
-        resolvedByAdmin: { select: { id: true, email: true } },
+        users_disputes_raisedByUserIdTousers: { select: { id: true, email: true } },
+        users_disputes_resolvedByAdminIdTousers: { select: { id: true, email: true } },
       },
     });
 
@@ -341,13 +341,13 @@ export class AdminService {
   ) {
     try {
       // Fetch dispute with all needed relations for wallet operations
-      const dispute = await this.prisma.dispute.findUnique({
+      const dispute = await this.prisma.disputes.findUnique({
         where: { id: disputeId },
         include: {
-          booking: {
+          bookings: {
             include: {
-              teacherProfile: { include: { user: true } },
-              bookedByUser: true,
+              teacher_profiles: { include: { users: true } },
+              users_bookings_bookedByUserIdTousers: true,
             },
           },
         },
@@ -366,12 +366,12 @@ export class AdminService {
         );
       }
 
-      const booking = dispute.booking;
+      const booking = dispute.bookings;
       // CRITICAL FIX: Use normalizeMoney for all financial calculations
       const lockedAmountGross = normalizeMoney(booking.price);
       const commissionRate = Number(booking.commissionRate);
       const parentUserId = booking.bookedByUserId;
-      const teacherUserId = booking.teacherProfile.userId;
+      const teacherUserId = booking.teacher_profiles.userId;
 
       // Calculate amounts based on resolution type
       let disputeStatus: string;
@@ -463,10 +463,10 @@ export class AdminService {
       }
 
       // Get wallets before transaction
-      const parentWallet = await this.prisma.wallet.findFirst({
+      const parentWallet = await this.prisma.wallets.findFirst({
         where: { userId: parentUserId },
       });
-      const teacherWallet = await this.prisma.wallet.findFirst({
+      const teacherWallet = await this.prisma.wallets.findFirst({
         where: { userId: teacherUserId },
       });
 
@@ -480,7 +480,7 @@ export class AdminService {
       // Execute the resolution in an ATOMIC transaction
       const result = await this.prisma.$transaction(async (tx) => {
         // 1. Update dispute status
-        const updatedDispute = await tx.dispute.update({
+        const updatedDispute = await tx.disputes.update({
           where: { id: disputeId },
           data: {
             status: disputeStatus as any,
@@ -493,7 +493,7 @@ export class AdminService {
         });
 
         // 2. Update booking status
-        await tx.booking.update({
+        await tx.bookings.update({
           where: { id: dispute.bookingId },
           data: {
             status: bookingStatus as any,
@@ -502,7 +502,7 @@ export class AdminService {
         });
 
         // 3. Release locked funds from parent's pendingBalance
-        await tx.wallet.update({
+        await tx.wallets.update({
           where: { id: parentWallet.id },
           data: {
             pendingBalance: { decrement: lockedAmountGross },
@@ -511,53 +511,53 @@ export class AdminService {
 
         // 4. Refund to student if applicable
         if (studentRefundGross > 0) {
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { id: parentWallet.id },
             data: {
               balance: { increment: studentRefundGross },
             },
           });
 
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
               walletId: parentWallet.id,
               amount: studentRefundGross,
               type: 'REFUND',
               status: 'APPROVED',
               adminNote: `Dispute refund for booking ${booking.id} - ${resolutionType}`,
-            },
+            } as any,
           });
         }
 
         // 5. Pay teacher if applicable
         if (teacherPayoutNet > 0 && teacherWallet) {
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { id: teacherWallet.id },
             data: {
               balance: { increment: teacherPayoutNet },
             },
           });
 
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
               walletId: teacherWallet.id,
               amount: teacherPayoutNet,
               type: 'PAYMENT_RELEASE',
               status: 'APPROVED',
               adminNote: `Dispute resolution payment for booking ${booking.id} (${(commissionRate * 100).toFixed(0)}% commission)`,
-            },
+            } as any,
           });
         }
 
         // 6. P1 FIX: Record escrow release from parent (positive amount + semantic type)
-        await tx.transaction.create({
+        await tx.transactions.create({
           data: {
             walletId: parentWallet.id,
             amount: lockedAmountGross, // P1 FIX: Use positive amount
             type: 'ESCROW_RELEASE', // P1 FIX: Semantic type instead of negative
             status: 'APPROVED',
             adminNote: `Dispute resolution - escrow released for booking ${booking.id}`,
-          },
+          } as any,
         });
 
         return updatedDispute;
@@ -618,10 +618,10 @@ export class AdminService {
    * Update dispute status to Under Review
    */
   async markDisputeUnderReview(disputeId: string) {
-    const dispute = await this.prisma.dispute.findUnique({
+    const dispute = await this.prisma.disputes.findUnique({
       where: { id: disputeId },
       include: {
-        booking: {
+        bookings: {
           select: {
             readableId: true,
             bookedByUserId: true,
@@ -634,7 +634,7 @@ export class AdminService {
       throw new NotFoundException('Dispute not found');
     }
 
-    const updatedDispute = await this.prisma.dispute.update({
+    const updatedDispute = await this.prisma.disputes.update({
       where: { id: disputeId },
       data: { status: 'UNDER_REVIEW' },
     });
@@ -642,10 +642,10 @@ export class AdminService {
     // 🟡 MEDIUM PRIORITY - Gap #11 Fix: Notify parent that dispute is under admin review
     try {
       await this.notificationService.notifyUser({
-        userId: dispute.booking.bookedByUserId,
+        userId: dispute.bookings.bookedByUserId,
         type: 'DISPUTE_UPDATE',
         title: 'النزاع قيد المراجعة',
-        message: `يقوم فريق الإدارة بمراجعة النزاع المتعلق بالحصة ${dispute.booking.readableId}. سيتم إعلامك بالقرار قريباً.`,
+        message: `يقوم فريق الإدارة بمراجعة النزاع المتعلق بالحصة ${dispute.bookings.readableId}. سيتم إعلامك بالقرار قريباً.`,
         link: `/parent/bookings/${dispute.bookingId}`,
         dedupeKey: `DISPUTE_UNDER_REVIEW:${disputeId}`,
         metadata: {
@@ -675,10 +675,10 @@ export class AdminService {
       where.applicationStatus = status;
     }
 
-    return this.prisma.teacherProfile.findMany({
+    return this.prisma.teacher_profiles.findMany({
       where,
       include: {
-        user: {
+        users: {
           select: { id: true, email: true, phoneNumber: true, createdAt: true },
         },
         documents: true,
@@ -691,15 +691,15 @@ export class AdminService {
    * Get a single teacher application with full details
    */
   async getTeacherApplication(profileId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: profileId },
       include: {
-        user: {
+        users: {
           select: { id: true, email: true, phoneNumber: true, createdAt: true },
         },
         documents: true,
-        subjects: { include: { subject: true, curriculum: true } },
-        qualifications: true,
+        teacher_subjects: { include: { subjects: true, curricula: true } },
+        teacher_qualifications: true,
       },
     });
 
@@ -738,9 +738,9 @@ export class AdminService {
    * Approve a teacher application
    */
   async approveApplication(adminUserId: string, profileId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: profileId },
-      include: { user: true },
+      include: { users: true },
     });
 
     if (!profile) throw new NotFoundException('Application not found');
@@ -757,7 +757,7 @@ export class AdminService {
     }
 
     const result = await this.prisma.$transaction([
-      this.prisma.teacherProfile.update({
+      this.prisma.teacher_profiles.update({
         where: { id: profileId },
         data: {
           applicationStatus: 'APPROVED',
@@ -767,7 +767,7 @@ export class AdminService {
         },
       }),
       // Also update legacy isVerified flag for backward compatibility
-      this.prisma.user.update({
+      this.prisma.users.update({
         where: { id: profile.userId },
         data: { isVerified: true },
       }),
@@ -807,7 +807,7 @@ export class AdminService {
       throw new BadRequestException('يجب تقديم سبب الرفض');
     }
 
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: profileId },
     });
 
@@ -824,7 +824,7 @@ export class AdminService {
       );
     }
 
-    const result = await this.prisma.teacherProfile.update({
+    const result = await this.prisma.teacher_profiles.update({
       where: { id: profileId },
       data: {
         applicationStatus: 'REJECTED',
@@ -861,7 +861,7 @@ export class AdminService {
       throw new BadRequestException('يجب تحديد التغييرات المطلوبة');
     }
 
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: profileId },
     });
 
@@ -871,7 +871,7 @@ export class AdminService {
       throw new BadRequestException('يمكن طلب التغييرات فقط للطلبات المقدمة');
     }
 
-    const result = await this.prisma.teacherProfile.update({
+    const result = await this.prisma.teacher_profiles.update({
       where: { id: profileId },
       data: {
         applicationStatus: 'CHANGES_REQUESTED',
@@ -916,9 +916,9 @@ export class AdminService {
       country?: string;
     },
   ) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: profileId },
-      include: { user: { select: { id: true, email: true } } },
+      include: { users: { select: { id: true, email: true } } },
     });
 
     if (!profile) {
@@ -975,17 +975,18 @@ export class AdminService {
     // Apply updates in transaction with audit log
     const result = await this.prisma.$transaction(async (tx) => {
       // Update profile
-      const updatedProfile = await tx.teacherProfile.update({
+      const updatedProfile = await tx.teacher_profiles.update({
         where: { id: profileId },
         data: updateData,
         include: {
-          user: { select: { id: true, email: true, phoneNumber: true } },
+          users: { select: { id: true, email: true, phoneNumber: true } },
         },
       });
 
       // Create audit log entry
-      await tx.auditLog.create({
+      await tx.audit_logs.create({
         data: {
+          id: crypto.randomUUID(),
           action: 'SETTINGS_UPDATE',
           actorId: adminUserId,
           targetId: profile.userId,
@@ -1047,23 +1048,24 @@ export class AdminService {
       throw new BadRequestException('يجب تقديم خيارين على الأقل للمعلم');
     }
 
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: profileId },
-      include: { user: true },
+      include: { users: true },
     });
 
     if (!profile) throw new NotFoundException('Application not found');
 
     // Delete any existing time slots for this teacher
-    await this.prisma.interviewTimeSlot.deleteMany({
+    await this.prisma.interview_time_slots.deleteMany({
       where: { teacherProfileId: profileId },
     });
 
     // Create new time slots
     const createdSlots = await Promise.all(
       timeSlots.map((slot) =>
-        this.prisma.interviewTimeSlot.create({
+        this.prisma.interview_time_slots.create({
           data: {
+            id: crypto.randomUUID(),
             teacherProfileId: profileId,
             proposedDateTime: new Date(slot.dateTime),
             meetingLink: slot.meetingLink || null,
@@ -1073,7 +1075,7 @@ export class AdminService {
     );
 
     // Update application status to INTERVIEW_REQUIRED
-    await this.prisma.teacherProfile.update({
+    await this.prisma.teacher_profiles.update({
       where: { id: profileId },
       data: {
         applicationStatus: 'INTERVIEW_REQUIRED',
@@ -1123,7 +1125,7 @@ export class AdminService {
    * Get interview time slots for a teacher application
    */
   async getInterviewTimeSlots(profileId: string) {
-    return this.prisma.interviewTimeSlot.findMany({
+    return this.prisma.interview_time_slots.findMany({
       where: { teacherProfileId: profileId },
       orderBy: { proposedDateTime: 'asc' },
     });
@@ -1142,7 +1144,7 @@ export class AdminService {
     temporaryPassword?: string,
     forceChange: boolean = true,
   ) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: { id: true, email: true, phoneNumber: true, role: true },
     });
@@ -1156,7 +1158,7 @@ export class AdminService {
     const hashedPassword = await bcrypt.hash(tempPass, 10);
 
     // Update user password and set requirePasswordChange flag
-    const updatedUser = await this.prisma.user.update({
+    const updatedUser = await this.prisma.users.update({
       where: { id: userId },
       data: {
         passwordHash: hashedPassword,
@@ -1166,8 +1168,9 @@ export class AdminService {
     });
 
     // Log audit trail
-    await this.prisma.auditLog.create({
+    await this.prisma.audit_logs.create({
       data: {
+        id: crypto.randomUUID(),
         action: 'SETTINGS_UPDATE', // Using SETTINGS_UPDATE for password reset action
         actorId: adminUserId,
         targetId: userId,
@@ -1178,7 +1181,7 @@ export class AdminService {
       success: true,
       temporaryPassword: tempPass,
       message: `Password reset successful. ${forceChange ? 'User will be required to change password on next login.' : ''}`,
-      user: updatedUser,
+      users: updatedUser,
     };
   }
 
@@ -1188,9 +1191,9 @@ export class AdminService {
     dto: ProcessTransactionDto & { proofDocumentId?: string },
   ) {
     // Fetch transaction with wallet context
-    const transaction = await this.prisma.transaction.findUnique({
+    const transaction = await this.prisma.transactions.findUnique({
       where: { id: transactionId },
-      include: { wallet: true },
+      include: { wallets: true },
     });
 
     if (!transaction) throw new NotFoundException('Transaction not found');
@@ -1244,7 +1247,7 @@ export class AdminService {
       if (newStatus === STATUS.PAID) {
         // LEDGER: Burn Pending Balance (Reduce Liability)
         // Conditional Update: Verify pendingBalance >= amount
-        const walletUpdate = await tx.wallet.updateMany({
+        const walletUpdate = await tx.wallets.updateMany({
           where: {
             id: transaction.walletId,
             pendingBalance: { gte: transaction.amount },
@@ -1260,7 +1263,7 @@ export class AdminService {
           );
         }
 
-        updatedTx = await tx.transaction.update({
+        updatedTx = await tx.transactions.update({
           where: { id: transactionId },
           data: {
             status: STATUS.PAID,
@@ -1271,7 +1274,7 @@ export class AdminService {
         });
 
         // P1-1: Create ledger transaction for withdrawal completion
-        await tx.transaction.create({
+        await tx.transactions.create({
           data: {
             walletId: transaction.walletId,
             amount: transaction.amount,
@@ -1282,10 +1285,10 @@ export class AdminService {
         });
 
         // Notify NotificationService (Teacher)
-        // this.notificationService.notifyUser(...) // TODO: Add template
+        // this.notificationService.notifyUser(..) // TODO: Add template
       } else if (newStatus === STATUS.REJECTED) {
         // LEDGER: Refund (Pending -> Balance)
-        const walletUpdate = await tx.wallet.updateMany({
+        const walletUpdate = await tx.wallets.updateMany({
           where: {
             id: transaction.walletId,
             pendingBalance: { gte: transaction.amount },
@@ -1302,7 +1305,7 @@ export class AdminService {
           );
         }
 
-        updatedTx = await tx.transaction.update({
+        updatedTx = await tx.transactions.update({
           where: { id: transactionId },
           data: {
             status: STATUS.REJECTED,
@@ -1311,7 +1314,7 @@ export class AdminService {
         });
 
         // P1-1: Create ledger transaction for withdrawal refund
-        await tx.transaction.create({
+        await tx.transactions.create({
           data: {
             walletId: transaction.walletId,
             amount: transaction.amount,
@@ -1323,7 +1326,7 @@ export class AdminService {
 
         // 🔴 HIGH PRIORITY - Gap #10 Fix: Notify teacher of withdrawal rejection
         await this.notificationService.notifyUser({
-          userId: transaction.wallet.userId,
+          userId: transaction.wallets.userId,
           title: 'تم رفض طلب السحب',
           message: `تم رفض طلب سحب مبلغ ${transaction.amount} SDG وإرجاع المبلغ إلى رصيدك. السبب: ${adminNote || 'لم يتم تحديد السبب'}`,
           type: 'PAYMENT_RELEASED',
@@ -1337,7 +1340,7 @@ export class AdminService {
         });
       } else if (newStatus === STATUS.APPROVED) {
         // LEDGER: No Change (Funds stay locked)
-        updatedTx = await tx.transaction.update({
+        updatedTx = await tx.transactions.update({
           where: { id: transactionId },
           data: {
             status: STATUS.APPROVED,
@@ -1375,7 +1378,7 @@ export class AdminService {
   // =================== PACKAGE TIER MANAGEMENT ===================
 
   async getAllPackageTiers() {
-    return this.prisma.packageTier.findMany({
+    return this.prisma.package_tiers.findMany({
       orderBy: { displayOrder: 'asc' },
     });
   }
@@ -1396,8 +1399,10 @@ export class AdminService {
     badge?: string;
     displayOrder?: number;
   }) {
-    return this.prisma.packageTier.create({
+    return this.prisma.package_tiers.create({
       data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         sessionCount: dto.sessionCount,
         discountPercent: dto.discountPercent,
         recurringRatio: dto.recurringRatio,
@@ -1412,7 +1417,7 @@ export class AdminService {
         isFeatured: dto.isFeatured ?? false,
         badge: dto.badge,
         displayOrder: dto.displayOrder ?? 0,
-        isActive: true,
+        // isActive: true, // Default is true
       },
     });
   }
@@ -1426,12 +1431,12 @@ export class AdminService {
       displayOrder?: number;
     },
   ) {
-    const tier = await this.prisma.packageTier.findUnique({ where: { id } });
+    const tier = await this.prisma.package_tiers.findUnique({ where: { id } });
     if (!tier) {
       throw new NotFoundException('Package tier not found');
     }
 
-    return this.prisma.packageTier.update({
+    return this.prisma.package_tiers.update({
       where: { id },
       data: {
         ...(dto.sessionCount !== undefined && {
@@ -1449,13 +1454,13 @@ export class AdminService {
   }
 
   async deletePackageTier(id: string) {
-    const tier = await this.prisma.packageTier.findUnique({ where: { id } });
+    const tier = await this.prisma.package_tiers.findUnique({ where: { id } });
     if (!tier) {
       throw new NotFoundException('Package tier not found');
     }
 
     // Soft delete by setting isActive to false instead of hard delete
-    return this.prisma.packageTier.update({
+    return this.prisma.package_tiers.update({
       where: { id },
       data: { isActive: false },
     });
@@ -1475,7 +1480,7 @@ export class AdminService {
       ];
     }
 
-    return this.prisma.user.findMany({
+    return this.prisma.users.findMany({
       where,
       select: {
         id: true,
@@ -1487,7 +1492,7 @@ export class AdminService {
         isActive: true,
         isVerified: true,
         createdAt: true,
-        teacherProfile: {
+        teacher_profiles: {
           select: {
             displayName: true,
           },
@@ -1498,45 +1503,45 @@ export class AdminService {
   }
 
   async getUserById(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: {
-        teacherProfile: {
+        teacher_profiles: {
           include: {
-            subjects: {
+            teacher_subjects: {
               include: {
-                subject: true,
-                curriculum: true,
-                grades: {
+                subjects: true,
+                curricula: true,
+                teacher_subject_grades: {
                   include: {
-                    gradeLevel: true,
+                    grade_levels: true,
                   },
                 },
               },
             },
-            qualifications: true,
-            workExperiences: true,
-            skills: true,
+            teacher_qualifications: true,
+            teacher_work_experiences: true,
+            teacher_skills: true,
             documents: true,
-            bankInfo: true,
-            demoSettings: true,
+            bank_info: true,
+            teacher_demo_settings: true,
           },
         },
-        studentProfile: {
+        student_profiles: {
           include: {
-            curriculum: true,
+            curricula: true,
           },
         },
-        parentProfile: {
+        parent_profiles: {
           include: {
             children: {
               include: {
-                curriculum: true,
+                curricula: true,
               },
             },
           },
         },
-        wallet: true,
+        wallets: true,
       },
     });
 
@@ -1549,10 +1554,10 @@ export class AdminService {
 
   async hardDeleteUser(adminId: string, userId: string) {
     // Find the user first
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: {
-        wallet: true,
+        wallets: true,
       },
     });
 
@@ -1571,7 +1576,7 @@ export class AdminService {
     }
 
     // Check for active bookings
-    const activeBookingsCount = await this.prisma.booking.count({
+    const activeBookingsCount = await this.prisma.bookings.count({
       where: {
         OR: [{ bookedByUserId: userId }, { studentUserId: userId }],
         status: {
@@ -1592,14 +1597,14 @@ export class AdminService {
     }
 
     // Check wallet balance
-    if (user.wallet && Number(user.wallet.balance) > 0) {
+    if (user.wallets && Number(user.wallets.balance) > 0) {
       throw new ConflictException(
-        `لا يمكن حذف المستخدم لأن لديه رصيد في المحفظة (${user.wallet.balance} SDG). قم بتصفير الرصيد أولاً.`,
+        `لا يمكن حذف المستخدم لأن لديه رصيد في المحفظة (${user.wallets.balance} SDG). قم بتصفير الرصيد أولاً.`,
       );
     }
 
     // Check for pending disputes
-    const pendingDisputesCount = await this.prisma.dispute.count({
+    const pendingDisputesCount = await this.prisma.disputes.count({
       where: {
         raisedByUserId: userId,
         status: { in: ['PENDING', 'UNDER_REVIEW'] },
@@ -1615,41 +1620,41 @@ export class AdminService {
     // Delete in order (respecting foreign key constraints)
     await this.prisma.$transaction(async (tx) => {
       // Delete notifications
-      await tx.notification.deleteMany({ where: { userId } });
+      await tx.notifications.deleteMany({ where: { userId } });
 
       // Delete saved teachers
-      await tx.savedTeacher.deleteMany({
+      await tx.saved_teachers.deleteMany({
         where: { OR: [{ userId }, { teacherId: userId }] },
       });
 
       // Delete ratings given
-      await tx.rating.deleteMany({ where: { ratedByUserId: userId } });
+      await tx.ratings.deleteMany({ where: { ratedByUserId: userId } });
 
       // Delete reschedule requests
-      await tx.rescheduleRequest.deleteMany({
+      await tx.reschedule_requests.deleteMany({
         where: { OR: [{ requestedById: userId }, { respondedById: userId }] },
       });
 
       // Delete ticket messages first, then tickets
-      await tx.ticketMessage.deleteMany({
-        where: { ticket: { createdByUserId: userId } },
+      await tx.ticket_messages.deleteMany({
+        where: { support_tickets: { createdByUserId: userId } },
       });
-      await tx.supportTicket.deleteMany({ where: { createdByUserId: userId } });
+      await tx.support_tickets.deleteMany({ where: { createdByUserId: userId } });
 
       // Update tickets where user was assignee (set to null)
-      await tx.supportTicket.updateMany({
+      await tx.support_tickets.updateMany({
         where: { assignedToId: userId },
         data: { assignedToId: null },
       });
 
       // Delete demo sessions
-      await tx.demoSession.deleteMany({ where: { demoOwnerId: userId } });
+      await tx.demo_sessions.deleteMany({ where: { demoOwnerId: userId } });
 
       // Delete audit logs
-      await tx.auditLog.deleteMany({ where: { actorId: userId } });
+      await tx.audit_logs.deleteMany({ where: { actorId: userId } });
 
       // Delete completed/cancelled bookings
-      await tx.booking.deleteMany({
+      await tx.bookings.deleteMany({
         where: {
           OR: [{ bookedByUserId: userId }, { studentUserId: userId }],
           status: {
@@ -1666,84 +1671,84 @@ export class AdminService {
       });
 
       // Delete wallet transactions
-      if (user.wallet) {
-        await tx.transaction.deleteMany({
-          where: { walletId: user.wallet.id },
+      if (user.wallets) {
+        await tx.transactions.deleteMany({
+          where: { walletId: user.wallets.id },
         });
-        await tx.wallet.delete({ where: { id: user.wallet.id } });
+        await tx.wallets.delete({ where: { id: user.wallets.id } });
       }
 
       // Handle profile-specific deletions based on role
       if (user.role === 'TEACHER') {
         // Delete teacher-specific data
-        const teacherProfile = await tx.teacherProfile.findUnique({
+        const teacher_profiles = await tx.teacher_profiles.findUnique({
           where: { userId },
         });
-        if (teacherProfile) {
+        if (teacher_profiles) {
           // Delete teacher subject grades
-          await tx.teacherSubjectGrade.deleteMany({
-            where: { teacherSubject: { teacherId: teacherProfile.id } },
+          await tx.teacher_subject_grades.deleteMany({
+            where: { teacher_subjects: { teacherId: teacher_profiles.id } },
           });
           // Delete teacher subjects
-          await tx.teacherSubject.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.teacher_subjects.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete teacher teaching approach tags
-          await tx.teacherTeachingApproachTag.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.teacher_teaching_approach_tags.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete teacher qualifications
-          await tx.teacherQualification.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.teacher_qualifications.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete availability
           await tx.availability.deleteMany({
-            where: { teacherId: teacherProfile.id },
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete availability exceptions
-          await tx.availabilityException.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.availability_exceptions.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete teacher skills
-          await tx.teacherSkill.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.teacher_skills.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete work experience
-          await tx.teacherWorkExperience.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.teacher_work_experiences.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete interview time slots
-          await tx.interviewTimeSlot.deleteMany({
-            where: { teacherProfileId: teacherProfile.id },
+          await tx.interview_time_slots.deleteMany({
+            where: { teacherProfileId: teacher_profiles.id },
           });
           // Delete ratings for this teacher
-          await tx.rating.deleteMany({
-            where: { teacherId: teacherProfile.id },
+          await tx.ratings.deleteMany({
+            where: { teacherId: teacher_profiles.id },
           });
           // Delete teacher profile
-          await tx.teacherProfile.delete({ where: { userId } });
+          await tx.teacher_profiles.delete({ where: { userId } });
         }
       } else if (user.role === 'STUDENT') {
         // Delete student packages
-        await tx.studentPackage.deleteMany({
+        await tx.student_packages.deleteMany({
           where: { OR: [{ payerId: userId }, { studentId: userId }] },
         });
         // Delete student profile
-        await tx.studentProfile.deleteMany({ where: { userId } });
+        await tx.student_profiles.deleteMany({ where: { userId } });
       } else if (user.role === 'PARENT') {
         // Delete children first
-        const parentProfile = await tx.parentProfile.findUnique({
+        const parentProfile = await tx.parent_profiles.findUnique({
           where: { userId },
         });
         if (parentProfile) {
-          await tx.child.deleteMany({ where: { parentId: parentProfile.id } });
+          await tx.children.deleteMany({ where: { parentId: parentProfile.id } });
         }
         // Delete parent profile
-        await tx.parentProfile.deleteMany({ where: { userId } });
+        await tx.parent_profiles.deleteMany({ where: { userId } });
       }
 
       // Finally delete the user
-      await tx.user.delete({ where: { id: userId } });
+      await tx.users.delete({ where: { id: userId } });
     });
 
     return { deleted: true, message: 'تم حذف المستخدم نهائياً' };

@@ -18,13 +18,13 @@ async function run() {
   const email = `test.teacher.${Date.now()}@example.com`;
   console.log(`Creating test teacher: ${email}`);
 
-  const user = await prisma.user.create({
+  const user = await prisma.users.create({
     data: {
       email,
       passwordHash: 'hash',
       role: 'TEACHER' as any,
       phoneNumber: `+123${Date.now().toString().slice(-8)}`,
-      teacherProfile: {
+      teacher_profiles: {
         create: {
           bio: 'Test Bio',
           subjects: { create: [] },
@@ -40,7 +40,7 @@ async function run() {
         },
       },
     },
-    include: { teacherProfile: true },
+    include: { teacher_profiles: true },
   });
 
   // 2. Setup Wallet & Balance
@@ -66,7 +66,7 @@ async function run() {
     data: { status: 'APPROVED' as any },
   });
   // Update balance manually to simulate approval logic if deposit() didn't do it fully (it creates PENDING)
-  await prisma.wallet.update({
+  await prisma.wallets.update({
     where: { userId: user.id },
     data: { balance: { increment: 2000 } },
   });
@@ -158,7 +158,7 @@ async function run() {
   // 6. Test 4: Concurrency
   console.log('\n--- TEST 4: Concurrency (Race Condition) ---');
   // Set balance to 2000. Try 5 requests of 300.
-  await prisma.wallet.update({
+  await prisma.wallets.update({
     where: { id: walletAfterPaid.id },
     data: { balance: 2000, pendingBalance: 0 },
   });

@@ -18,36 +18,38 @@ export class TeachingApproachService {
   // --- Admin Methods ---
 
   async findAllTags(includeInactive = true) {
-    return this.prisma.teachingApproachTag.findMany({
+    return this.prisma.teaching_approach_tags.findMany({
       where: includeInactive ? {} : { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { labelAr: 'asc' }],
     });
   }
 
   async createTag(dto: CreateTagDto) {
-    return this.prisma.teachingApproachTag.create({
+    return this.prisma.teaching_approach_tags.create({
       data: {
+        id: crypto.randomUUID(),
         labelAr: dto.labelAr,
         sortOrder: dto.sortOrder ?? 0,
         isActive: true,
+        updatedAt: new Date(),
       },
     });
   }
 
   async updateTag(id: string, dto: UpdateTagDto) {
-    const tag = await this.prisma.teachingApproachTag.findUnique({
+    const tag = await this.prisma.teaching_approach_tags.findUnique({
       where: { id },
     });
     if (!tag) throw new NotFoundException('Tag not found');
 
-    return this.prisma.teachingApproachTag.update({
+    return this.prisma.teaching_approach_tags.update({
       where: { id },
       data: dto,
     });
   }
 
   async deleteTag(id: string) {
-    return this.prisma.teachingApproachTag.delete({
+    return this.prisma.teaching_approach_tags.delete({
       where: { id },
     });
   }
@@ -55,16 +57,16 @@ export class TeachingApproachService {
   // --- Teacher Methods ---
 
   async getTeacherTags(teacherId: string) {
-    return this.prisma.teacherTeachingApproachTag.findMany({
+    return this.prisma.teacher_teaching_approach_tags.findMany({
       where: { teacherId },
       include: {
-        tag: true,
+        teaching_approach_tags: true,
       },
     });
   }
 
   async updateTeacherProfile(userId: string, dto: UpdateTeachingApproachDto) {
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
 
@@ -76,7 +78,7 @@ export class TeachingApproachService {
         throw new BadRequestException('Maximum 4 tags allowed');
       }
 
-      const validTags = await this.prisma.teachingApproachTag.count({
+      const validTags = await this.prisma.teaching_approach_tags.count({
         where: {
           id: { in: dto.tagIds },
           isActive: true,
@@ -94,7 +96,7 @@ export class TeachingApproachService {
     return this.prisma.$transaction(async (tx) => {
       // Update text if provided (allow null to clear)
       if (dto.teachingStyle !== undefined) {
-        await tx.teacherProfile.update({
+        await tx.teacher_profiles.update({
           where: { id: teacher.id },
           data: { teachingStyle: dto.teachingStyle },
         });
@@ -103,13 +105,13 @@ export class TeachingApproachService {
       // Update tags if provided
       if (dto.tagIds !== undefined) {
         // Delete existing
-        await tx.teacherTeachingApproachTag.deleteMany({
+        await tx.teacher_teaching_approach_tags.deleteMany({
           where: { teacherId: teacher.id },
         });
 
         // Insert new
         if (dto.tagIds.length > 0) {
-          await tx.teacherTeachingApproachTag.createMany({
+          await tx.teacher_teaching_approach_tags.createMany({
             data: dto.tagIds.map((tagId) => ({
               teacherId: teacher.id,
               tagId,
@@ -124,20 +126,20 @@ export class TeachingApproachService {
   }
 
   async getTeacherApproachState(teacherId: string, prismaClient = this.prisma) {
-    const profile = await prismaClient.teacherProfile.findUnique({
+    const profile = await prismaClient.teacher_profiles.findUnique({
       where: { id: teacherId },
       select: {
         teachingStyle: true,
-        teachingTags: {
-          include: { tag: true },
-          where: { tag: { isActive: true } }, // Only show active tags
+        teacher_teaching_approach_tags: {
+          include: { teaching_approach_tags: true },
+          where: { teaching_approach_tags: { isActive: true } }, // Only show active tags
         },
       },
     });
 
     return {
       teachingStyle: profile?.teachingStyle,
-      tags: profile?.teachingTags.map((rel) => rel.tag) || [],
+      tags: profile?.teacher_teaching_approach_tags.map((rel) => rel.teaching_approach_tags) || [],
     };
   }
 }

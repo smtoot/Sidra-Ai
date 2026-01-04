@@ -25,7 +25,7 @@ export class TicketMessageService {
     dto: CreateMessageDto,
   ): Promise<TicketMessageDto> {
     // Verify ticket exists
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
     });
 
@@ -42,17 +42,19 @@ export class TicketMessageService {
     }
 
     // Create message
-    const message = await this.prisma.ticketMessage.create({
+    const message = await this.prisma.ticket_messages.create({
       data: {
+        id: crypto.randomUUID(),
         ticketId,
         authorId: userId,
         content: dto.content,
         attachments: dto.attachments || [],
         isInternal: false,
         isSystemGenerated: false,
+        updatedAt: new Date(),
       },
       include: {
-        author: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -64,7 +66,7 @@ export class TicketMessageService {
     });
 
     // Update ticket's lastActivityAt
-    await this.prisma.supportTicket.update({
+    await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         lastActivityAt: new Date(),
@@ -93,14 +95,14 @@ export class TicketMessageService {
       userRole,
     );
 
-    const messages = await this.prisma.ticketMessage.findMany({
+    const messages = await this.prisma.ticket_messages.findMany({
       where: {
         ticketId,
         // Filter out internal messages for non-admin users
         isInternal: isAdmin ? undefined : false,
       },
       include: {
-        author: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -124,7 +126,7 @@ export class TicketMessageService {
     dto: CreateMessageDto,
   ): Promise<TicketMessageDto> {
     // Verify ticket exists
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
     });
 
@@ -133,17 +135,19 @@ export class TicketMessageService {
     }
 
     // Create internal message
-    const message = await this.prisma.ticketMessage.create({
+    const message = await this.prisma.ticket_messages.create({
       data: {
+        id: crypto.randomUUID(),
         ticketId,
         authorId: userId,
         content: dto.content,
         attachments: dto.attachments || [],
         isInternal: true,
         isSystemGenerated: false,
+        updatedAt: new Date(),
       },
       include: {
-        author: {
+        users: {
           select: {
             id: true,
             firstName: true,
@@ -155,7 +159,7 @@ export class TicketMessageService {
     });
 
     // Update ticket's lastActivityAt
-    await this.prisma.supportTicket.update({
+    await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         lastActivityAt: new Date(),
@@ -170,7 +174,7 @@ export class TicketMessageService {
    */
   async addSystemMessage(ticketId: string, content: string): Promise<void> {
     // Get system user (first SUPER_ADMIN)
-    const systemUser = await this.prisma.user.findFirst({
+    const systemUser = await this.prisma.users.findFirst({
       where: { role: 'SUPER_ADMIN' },
     });
 
@@ -179,19 +183,21 @@ export class TicketMessageService {
       return;
     }
 
-    await this.prisma.ticketMessage.create({
+    await this.prisma.ticket_messages.create({
       data: {
+        id: crypto.randomUUID(),
         ticketId,
         authorId: systemUser.id,
         content,
         attachments: [],
         isInternal: false,
         isSystemGenerated: true,
+        updatedAt: new Date(),
       },
     });
 
     // Update ticket's lastActivityAt
-    await this.prisma.supportTicket.update({
+    await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         lastActivityAt: new Date(),
@@ -227,10 +233,10 @@ export class TicketMessageService {
       userRole,
     );
 
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
       include: {
-        accessControls: {
+        ticket_access_controls: {
           where: {
             userId,
             canReply: true,
@@ -260,7 +266,7 @@ export class TicketMessageService {
     }
 
     // Check access control
-    if (ticket.accessControls.length > 0) {
+    if (ticket.ticket_access_controls.length > 0) {
       return;
     }
 
@@ -281,7 +287,7 @@ export class TicketMessageService {
       isSystemGenerated: message.isSystemGenerated,
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
-      author: message.author,
+      author: message.users,
     };
   }
 }

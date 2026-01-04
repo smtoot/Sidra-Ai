@@ -47,20 +47,20 @@ export class PackageService {
   // =====================================================
 
   async getActiveTiers() {
-    return this.prisma.packageTier.findMany({
+    return this.prisma.package_tiers.findMany({
       where: { isActive: true },
       orderBy: { displayOrder: 'asc' },
     });
   }
 
   async getAllTiers() {
-    return this.prisma.packageTier.findMany({
+    return this.prisma.package_tiers.findMany({
       orderBy: { displayOrder: 'asc' },
     });
   }
 
   async getTierById(tierId: string) {
-    const tier = await this.prisma.packageTier.findUnique({
+    const tier = await this.prisma.package_tiers.findUnique({
       where: { id: tierId },
     });
     if (!tier) throw new NotFoundException('Package tier not found');
@@ -79,8 +79,9 @@ export class PackageService {
       );
     }
 
-    return this.prisma.packageTier.create({
+    return this.prisma.package_tiers.create({
       data: {
+        id: crypto.randomUUID(), updatedAt: new Date(),
         sessionCount: data.sessionCount,
         discountPercent: new Decimal(data.discountPercent),
         recurringRatio: new Decimal(data.recurringRatio),
@@ -110,9 +111,10 @@ export class PackageService {
       }
     }
 
-    return this.prisma.packageTier.update({
+    return this.prisma.package_tiers.update({
       where: { id },
       data: {
+        id: crypto.randomUUID(), updatedAt: new Date(),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.displayOrder !== undefined && {
           displayOrder: data.displayOrder,
@@ -151,14 +153,14 @@ export class PackageService {
 
   async deleteTier(id: string) {
     // Soft delete by deactivating
-    return this.prisma.packageTier.update({
+    return this.prisma.package_tiers.update({
       where: { id },
-      data: { isActive: false },
+      data: { id: crypto.randomUUID(), isActive: false },
     });
   }
 
   async getAdminStats() {
-    const demoEnabledCount = await this.prisma.teacherDemoSettings.count({
+    const demoEnabledCount = await this.prisma.teacher_demo_settings.count({
       where: { demoEnabled: true },
     });
     return { demoEnabledCount };
@@ -177,34 +179,34 @@ export class PackageService {
     idempotencyKey: string,
   ) {
     // 1. Check if packages are globally enabled
-    const settings = await this.prisma.systemSettings.findFirst();
+    const settings = await this.prisma.system_settings.findFirst();
     if (settings && !settings.packagesEnabled) {
       throw new BadRequestException('Packages feature is currently disabled');
     }
 
     // 2. Fetch tier details
     // Idempotency check
-    const existingTx = await this.prisma.packageTransaction.findUnique({
+    const existingTx = await this.prisma.package_transactions.findUnique({
       where: { idempotencyKey },
     });
     if (existingTx) {
       // Return existing package
-      return this.prisma.studentPackage.findUnique({
+      return this.prisma.student_packages.findUnique({
         where: { id: existingTx.packageId },
       });
     }
 
     // Get tier and teacher subject pricing
     const tier = await this.getTierById(tierId);
-    const teacherSubject = await this.prisma.teacherSubject.findFirst({
+    const teacher_subjects = await this.prisma.teacher_subjects.findFirst({
       where: { teacherId, subjectId },
     });
-    if (!teacherSubject) {
+    if (!teacher_subjects) {
       throw new BadRequestException('Teacher does not teach this subject');
     }
 
     // Calculate prices (immutable snapshot) with MONEY NORMALIZATION
-    const originalPrice = normalizeMoney(teacherSubject.pricePerHour);
+    const originalPrice = normalizeMoney(teacher_subjects.pricePerHour);
     const discountMultiplier = new Decimal(1)
       .sub(tier.discountPercent.div(100))
       .toNumber();
@@ -218,7 +220,7 @@ export class PackageService {
     expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
     // Verify payer has sufficient balance
-    const payerWallet = await this.prisma.wallet.findUnique({
+    const payerWallet = await this.prisma.wallets.findUnique({
       where: { userId: payerId },
     });
     if (!payerWallet) {
@@ -235,22 +237,24 @@ export class PackageService {
       .$transaction(
         async (tx) => {
           // 1. Get payer wallet for transaction record
-          const wallet = await tx.wallet.findUnique({
+          const wallet = await tx.wallets.findUnique({
             where: { userId: payerId },
           });
           if (!wallet) throw new BadRequestException('Payer wallet not found');
 
           // 2. Debit payer wallet
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { userId: payerId },
-            data: { balance: { decrement: totalPaid } },
+            data: { id: crypto.randomUUID(), updatedAt: new Date(), balance: { decrement: totalPaid } },
           });
 
           // P0-PKG-4 FIX: Create Wallet Transaction record for purchase debit
           const paymentTxId =
             await this.readableIdService.generate('TRANSACTION');
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
+              id: crypto.randomUUID(), updatedAt: new Date(),
+
               readableId: paymentTxId,
               walletId: wallet.id,
               amount: totalPaid,
@@ -263,8 +267,9 @@ export class PackageService {
           // 3. Create package
           const packageReadableId =
             await this.readableIdService.generate('PACKAGE');
-          const studentPackage = await tx.studentPackage.create({
+          const studentPackage = await tx.student_packages.create({
             data: {
+              id: crypto.randomUUID(),
               readableId: packageReadableId,
               payerId,
               studentId,
@@ -283,8 +288,9 @@ export class PackageService {
           });
 
           // 4. Record package transaction for idempotency
-          await tx.packageTransaction.create({
+          await tx.package_transactions.create({
             data: {
+              id: crypto.randomUUID(),
               idempotencyKey,
               type: 'PURCHASE',
               packageId: studentPackage.id,
@@ -304,18 +310,18 @@ export class PackageService {
         try {
           // Fetch teacher and subject details for notification
           const [teacher, subject] = await Promise.all([
-            this.prisma.teacherProfile.findUnique({
+            this.prisma.teacher_profiles.findUnique({
               where: { id: teacherId },
-              select: { user: { select: { phoneNumber: true, email: true } } },
+              select: { users: { select: { phoneNumber: true, email: true } } },
             }),
-            this.prisma.subject.findUnique({
+            this.prisma.subjects.findUnique({
               where: { id: subjectId },
               select: { nameAr: true },
             }),
           ]);
 
           const teacherName =
-            teacher?.user?.phoneNumber || teacher?.user?.email || 'المعلم';
+            teacher?.users?.phoneNumber || teacher?.users?.email || 'المعلم';
           const subjectName = subject?.nameAr || 'المادة';
 
           await this.notificationService.notifyUser({
@@ -326,6 +332,7 @@ export class PackageService {
             link: '/parent/packages',
             dedupeKey: `PACKAGE_PURCHASED:${studentPackage.id}:${payerId}`,
             metadata: {
+
               packageId: studentPackage.id,
               sessionCount: tier.sessionCount,
               totalPaid,
@@ -357,13 +364,13 @@ export class PackageService {
     const studentId = data.studentId; // Now guaranteed to be string
 
     // 1. Check if packages are globally enabled
-    const settings = await this.prisma.systemSettings.findFirst();
+    const settings = await this.prisma.system_settings.findFirst();
     if (settings && !settings.packagesEnabled) {
       throw new BadRequestException('Packages feature is currently disabled');
     }
 
     // 2. Check if teacher has packages enabled
-    const teacherSettings = await this.prisma.teacherDemoSettings.findUnique({
+    const teacherSettings = await this.prisma.teacher_demo_settings.findUnique({
       where: { teacherId: data.teacherId },
     });
     if (!teacherSettings?.packagesEnabled) {
@@ -371,7 +378,7 @@ export class PackageService {
     }
 
     // 3. Check if teacher has this specific tier enabled
-    const tierSetting = await this.prisma.teacherPackageTierSetting.findUnique({
+    const tierSetting = await this.prisma.teacher_package_tier_settings.findUnique({
       where: {
         teacherId_tierId: {
           teacherId: data.teacherId,
@@ -387,15 +394,15 @@ export class PackageService {
     }
 
     // 4. Idempotency check
-    const existingTx = await this.prisma.packageTransaction.findUnique({
+    const existingTx = await this.prisma.package_transactions.findUnique({
       where: { idempotencyKey: data.idempotencyKey },
     });
     if (existingTx) {
-      return this.prisma.studentPackage.findUnique({
+      return this.prisma.student_packages.findUnique({
         where: { id: existingTx.packageId },
         include: {
-          teacher: { select: { displayName: true, profilePhotoUrl: true } },
-          subject: { select: { nameAr: true, nameEn: true } },
+          teacher_profiles: { select: { displayName: true, profilePhotoUrl: true } },
+          subjects: { select: { nameAr: true, nameEn: true } },
         },
       });
     }
@@ -408,14 +415,14 @@ export class PackageService {
       );
     }
 
-    const teacherSubject = await this.prisma.teacherSubject.findFirst({
+    const teacher_subjects = await this.prisma.teacher_subjects.findFirst({
       where: {
         teacherId: data.teacherId,
         subjectId: data.subjectId,
       },
-      include: { subject: true },
+      include: { subjects: true },
     });
-    if (!teacherSubject) {
+    if (!teacher_subjects) {
       throw new BadRequestException('Teacher does not teach this subject');
     }
 
@@ -457,7 +464,7 @@ export class PackageService {
     }
 
     // 8. Calculate prices (immutable snapshot)
-    const originalPrice = normalizeMoney(teacherSubject.pricePerHour);
+    const originalPrice = normalizeMoney(teacher_subjects.pricePerHour);
     const discountMultiplier = new Decimal(1)
       .sub(tier.discountPercent.div(100))
       .toNumber();
@@ -480,14 +487,14 @@ export class PackageService {
     // payerId is the logged-in user (parent or student), studentId may be a child ID
     const walletUserId = data.payerId || studentId; // payerId for parents, studentId for students
 
-    let payerWallet = await this.prisma.wallet.findUnique({
+    let payerWallet = await this.prisma.wallets.findUnique({
       where: { userId: walletUserId },
     });
     if (!payerWallet) {
       // Auto-create wallet with zero balance (same pattern as WalletService.getBalance)
       const walletReadableId = await this.readableIdService.generate('WALLET');
-      payerWallet = await this.prisma.wallet.create({
-        data: { userId: walletUserId, readableId: walletReadableId },
+      payerWallet = await this.prisma.wallets.create({
+        data: { id: crypto.randomUUID(), updatedAt: new Date(), userId: walletUserId, readableId: walletReadableId },
       });
     }
     if (payerWallet.balance.lessThan(totalPaid)) {
@@ -501,16 +508,17 @@ export class PackageService {
       .$transaction(
         async (tx) => {
           // Debit payer wallet
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { userId: walletUserId },
-            data: { balance: { decrement: totalPaid } },
+            data: { id: crypto.randomUUID(), balance: { decrement: totalPaid } },
           });
 
           // Create wallet transaction record
           const paymentTxId =
             await this.readableIdService.generate('TRANSACTION');
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
+              id: crypto.randomUUID(), updatedAt: new Date(),
               readableId: paymentTxId,
               walletId: payerWallet.id,
               amount: totalPaid,
@@ -523,8 +531,9 @@ export class PackageService {
           // Create Smart Pack package
           const packageReadableId =
             await this.readableIdService.generate('PACKAGE');
-          const studentPackage = await tx.studentPackage.create({
+          const studentPackage = await tx.student_packages.create({
             data: {
+              id: crypto.randomUUID(),
               readableId: packageReadableId,
               payerId: studentId,
               studentId: studentId,
@@ -555,14 +564,15 @@ export class PackageService {
               expiresAt: gracePeriodEnds, // Expires after grace period
             },
             include: {
-              teacher: { select: { displayName: true, profilePhotoUrl: true } },
-              subject: { select: { nameAr: true, nameEn: true } },
+              teacher_profiles: { select: { displayName: true, profilePhotoUrl: true } },
+              subjects: { select: { nameAr: true, nameEn: true } },
             },
           });
 
           // Record package transaction for idempotency
-          await tx.packageTransaction.create({
+          await tx.package_transactions.create({
             data: {
+              id: crypto.randomUUID(),
               idempotencyKey: data.idempotencyKey,
               type: 'PURCHASE',
               packageId: studentPackage.id,
@@ -575,8 +585,11 @@ export class PackageService {
             const sessionDate = new Date(scheduledSession.date);
             const endTime = new Date(sessionDate.getTime() + 60 * 60 * 1000); // 1-hour sessions
 
-            const booking = await tx.booking.create({
+            const booking = await tx.bookings.create({
               data: {
+                updatedAt: new Date(),
+                id: crypto.randomUUID(),
+
                 bookedByUserId: studentId,
                 beneficiaryType: 'STUDENT',
                 studentUserId: studentId,
@@ -596,8 +609,9 @@ export class PackageService {
             });
 
             // Create redemption record
-            await tx.packageRedemption.create({
+            await tx.package_redemptions.create({
               data: {
+                id: crypto.randomUUID(),
                 packageId: studentPackage.id,
                 bookingId: booking.id,
                 status: 'RESERVED',
@@ -606,9 +620,9 @@ export class PackageService {
           }
 
           // Update package sessionsUsed to reflect auto-scheduled sessions
-          await tx.studentPackage.update({
+          await tx.student_packages.update({
             where: { id: studentPackage.id },
-            data: { sessionsUsed: availabilityCheck.scheduledSessions.length },
+            data: { id: crypto.randomUUID(), sessionsUsed: availabilityCheck.scheduledSessions.length },
           });
 
           return studentPackage;
@@ -624,10 +638,11 @@ export class PackageService {
             userId: studentId,
             type: 'PAYMENT_SUCCESS',
             title: 'تم شراء الباقة الذكية بنجاح',
-            message: `تم شراء باقة ذكية من ${tier.sessionCount} حصة (${recurringSessionCount} حصة مجدولة تلقائياً + ${floatingSessionCount} حصة مرنة) في مادة ${teacherSubject.subject.nameAr} بمبلغ ${totalPaid} SDG`,
+            message: `تم شراء باقة ذكية من ${tier.sessionCount} حصة (${recurringSessionCount} حصة مجدولة تلقائياً + ${floatingSessionCount} حصة مرنة) في مادة ${teacher_subjects.subjects.nameAr} بمبلغ ${totalPaid} SDG`,
             link: '/parent/packages',
             dedupeKey: `PACKAGE_PURCHASED:${studentPackage.id}:${studentId}`,
             metadata: {
+
               packageId: studentPackage.id,
               sessionCount: tier.sessionCount,
               recurringSessionCount,
@@ -648,6 +663,7 @@ export class PackageService {
               link: '/teacher/requests',
               dedupeKey: `SMART_PACK_REQUEST:${studentPackage.id}:${data.teacherId}`,
               metadata: {
+
                 packageId: studentPackage.id,
                 studentId,
                 count: recurringSessionCount,
@@ -674,7 +690,7 @@ export class PackageService {
     data: CheckRecurringAvailabilityDto,
   ): Promise<RecurringAvailabilityResponse> {
     // Get tier to calculate duration
-    const tier = await this.prisma.packageTier.findFirst({
+    const tier = await this.prisma.package_tiers.findFirst({
       where: {
         sessionCount: { gte: data.sessionCount },
         isActive: true,
@@ -737,7 +753,7 @@ export class PackageService {
       }
 
       // Check 2: Booking Conflicts
-      const conflict = await this.prisma.booking.findFirst({
+      const conflict = await this.prisma.bookings.findFirst({
         where: {
           teacherId: data.teacherId,
           status: 'SCHEDULED', // Legacy check: mainly for conflicting scheduled sessions
@@ -814,18 +830,18 @@ export class PackageService {
       SATURDAY: 6,
     };
 
-    const tier = await this.prisma.packageTier.findFirst({
+    const tier = await this.prisma.package_tiers.findFirst({
       where: { isActive: true },
       orderBy: { sessionCount: 'asc' },
     });
     const gracePeriodDays = tier?.gracePeriodDays || 14;
 
     // Get Teacher Timezone
-    const teacherProfile = await this.prisma.teacherProfile.findUnique({
+    const teacher_profiles = await this.prisma.teacher_profiles.findUnique({
       where: { id: data.teacherId },
       select: { timezone: true },
     });
-    const teacherTimezone = teacherProfile?.timezone || 'Africa/Khartoum';
+    const teacherTimezone = teacher_profiles?.timezone || 'Africa/Khartoum';
 
     // Sort patterns by weekday to ensure chronological distribution
     const sortedPatterns = [...data.patterns].sort((a, b) => {
@@ -924,7 +940,7 @@ export class PackageService {
         }
 
         // Check 2: Booking Conflicts
-        const conflict = await this.prisma.booking.findFirst({
+        const conflict = await this.prisma.bookings.findFirst({
           where: {
             teacherId: data.teacherId,
             status: {
@@ -1027,7 +1043,7 @@ export class PackageService {
     userId: string,
     data: BookFloatingSessionDto,
   ) {
-    const pkg = await this.prisma.studentPackage.findUnique({
+    const pkg = await this.prisma.student_packages.findUnique({
       where: { id: packageId },
     });
 
@@ -1080,13 +1096,14 @@ export class PackageService {
     return this.prisma.$transaction(
       async (tx) => {
         // P0 FIX: Re-check floating sessions inside transaction with conditional update
-        const updateResult = await tx.studentPackage.updateMany({
+        const updateResult = await tx.student_packages.updateMany({
           where: {
             id: packageId,
             status: 'ACTIVE',
             floatingSessionsUsed: { lt: pkg.floatingSessionCount! },
           },
           data: {
+            id: crypto.randomUUID(),
             floatingSessionsUsed: { increment: 1 },
             sessionsUsed: { increment: 1 },
           },
@@ -1099,7 +1116,7 @@ export class PackageService {
         }
 
         // P0 FIX: Check booking conflicts INSIDE the transaction
-        const conflict = await tx.booking.findFirst({
+        const conflict = await tx.bookings.findFirst({
           where: {
             teacherId: pkg.teacherId,
             status: 'SCHEDULED',
@@ -1125,8 +1142,11 @@ export class PackageService {
         }
 
         // Create booking
-        const booking = await tx.booking.create({
+        const booking = await tx.bookings.create({
+
           data: {
+            updatedAt: new Date(),
+            id: crypto.randomUUID(),
             bookedByUserId: userId,
             beneficiaryType: 'STUDENT',
             studentUserId: pkg.studentId,
@@ -1146,8 +1166,9 @@ export class PackageService {
         });
 
         // Create redemption
-        await tx.packageRedemption.create({
+        await tx.package_redemptions.create({
           data: {
+            id: crypto.randomUUID(),
             packageId,
             bookingId: booking.id,
             status: 'RESERVED',
@@ -1162,6 +1183,7 @@ export class PackageService {
     );
   }
 
+
   // =====================================================
   // SMART PACK: Reschedule Session
   // =====================================================
@@ -1171,11 +1193,11 @@ export class PackageService {
     userId: string,
     data: RescheduleSessionDto,
   ) {
-    const booking = await this.prisma.booking.findUnique({
+    const booking = await this.prisma.bookings.findUnique({
       where: { id: bookingId },
       include: {
-        packageRedemption: {
-          include: { package: true },
+        package_redemptions: {
+          include: { student_packages: true },
         },
       },
     });
@@ -1185,11 +1207,11 @@ export class PackageService {
     }
 
     // Verify this is a package booking
-    if (!booking.packageRedemption) {
+    if (!booking.package_redemptions) {
       throw new BadRequestException('This is not a package booking');
     }
 
-    const pkg = booking.packageRedemption.package;
+    const pkg = booking.package_redemptions.student_packages;
 
     // Verify ownership
     if (pkg.payerId !== userId && pkg.studentId !== userId) {
@@ -1234,7 +1256,7 @@ export class PackageService {
     return this.prisma.$transaction(
       async (tx) => {
         // Check booking conflicts INSIDE the transaction
-        const conflict = await tx.booking.findFirst({
+        const conflict = await tx.bookings.findFirst({
           where: {
             teacherId: booking.teacherId,
             id: { not: bookingId }, // Exclude current booking
@@ -1263,13 +1285,14 @@ export class PackageService {
         }
 
         // Use conditional update to detect if booking was modified concurrently
-        const updateResult = await tx.booking.updateMany({
+        const updateResult = await tx.bookings.updateMany({
           where: {
             id: bookingId,
             status: 'SCHEDULED',
             rescheduleCount: booking.rescheduleCount, // Optimistic lock
           },
           data: {
+            updatedAt: new Date(),
             startTime: newDate,
             endTime: newEndTime,
             rescheduleCount: { increment: 1 },
@@ -1283,7 +1306,7 @@ export class PackageService {
         }
 
         // Return the updated booking
-        return tx.booking.findUnique({
+        return tx.bookings.findUnique({
           where: { id: bookingId },
         });
       },
@@ -1301,7 +1324,7 @@ export class PackageService {
     teacherId: string,
     data: UpdateTeacherDemoSettingsDto,
   ) {
-    return this.prisma.teacherDemoSettings.upsert({
+    return this.prisma.teacher_demo_settings.upsert({
       where: { teacherId },
       update: {
         ...(data.demoEnabled !== undefined && {
@@ -1312,6 +1335,8 @@ export class PackageService {
         }),
       },
       create: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         teacherId,
         demoEnabled: data.demoEnabled ?? false,
         packagesEnabled: data.packagesEnabled ?? false,
@@ -1327,7 +1352,7 @@ export class PackageService {
     // Verify tier exists
     await this.getTierById(tierId);
 
-    return this.prisma.teacherPackageTierSetting.upsert({
+    return this.prisma.teacher_package_tier_settings.upsert({
       where: {
         teacherId_tierId: { teacherId, tierId },
       },
@@ -1335,6 +1360,8 @@ export class PackageService {
         isEnabled: data.isEnabled,
       },
       create: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         teacherId,
         tierId,
         isEnabled: data.isEnabled,
@@ -1345,9 +1372,9 @@ export class PackageService {
   async getTeacherTierSettings(teacherId: string) {
     const allTiers = await this.getActiveTiers();
     const teacherSettings =
-      await this.prisma.teacherPackageTierSetting.findMany({
+      await this.prisma.teacher_package_tier_settings.findMany({
         where: { teacherId },
-        include: { tier: true },
+        include: { package_tiers: true },
       });
 
     // Map settings to tiers (default enabled if no record)
@@ -1366,7 +1393,7 @@ export class PackageService {
 
   async expireSmartPacks() {
     const now = new Date();
-    const expiredPackages = await this.prisma.studentPackage.findMany({
+    const expiredPackages = await this.prisma.student_packages.findMany({
       where: {
         gracePeriodEnds: { lt: now },
         status: 'ACTIVE',
@@ -1380,7 +1407,7 @@ export class PackageService {
       const idempotencyKey = `EXPIRE_SMART_${pkg.id}`;
 
       // Skip if already processed
-      const existingTx = await this.prisma.packageTransaction.findUnique({
+      const existingTx = await this.prisma.package_transactions.findUnique({
         where: { idempotencyKey },
       });
       if (existingTx) continue;
@@ -1395,20 +1422,23 @@ export class PackageService {
 
         if (refundAmount > 0) {
           // Refund to payer
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { userId: pkg.payerId },
-            data: { balance: { increment: refundAmount } },
+            data: { id: crypto.randomUUID(), balance: { increment: refundAmount } },
           });
 
           // Create refund transaction
-          const wallet = await tx.wallet.findUnique({
+          const wallet = await tx.wallets.findUnique({
             where: { userId: pkg.payerId },
           });
           if (wallet) {
             const refundTxId =
               await this.readableIdService.generate('TRANSACTION');
-            await tx.transaction.create({
+            await tx.transactions.create({
               data: {
+                id: crypto.randomUUID(), updatedAt: new Date(),
+
+
                 readableId: refundTxId,
                 walletId: wallet.id,
                 amount: refundAmount,
@@ -1421,23 +1451,25 @@ export class PackageService {
         }
 
         // Cancel pending redemptions
-        await tx.packageRedemption.updateMany({
+        await tx.package_redemptions.updateMany({
           where: { packageId: pkg.id, status: 'RESERVED' },
-          data: { status: 'CANCELLED' },
+          data: { id: crypto.randomUUID(), status: 'CANCELLED' },
         });
 
         // Mark package as expired
-        await tx.studentPackage.update({
+        await tx.student_packages.update({
           where: { id: pkg.id },
           data: {
+            id: crypto.randomUUID(),
             status: 'EXPIRED',
             escrowRemaining: new Decimal(0),
           },
         });
 
         // Record transaction
-        await tx.packageTransaction.create({
+        await tx.package_transactions.create({
           data: {
+            id: crypto.randomUUID(),
             idempotencyKey,
             type: 'EXPIRE',
             packageId: pkg.id,
@@ -1465,7 +1497,7 @@ export class PackageService {
     // Helper to execute logic within a transaction (provided or new)
     const execute = async (tx: any) => {
       // Idempotency check
-      const existingTx = await tx.packageTransaction.findUnique({
+      const existingTx = await tx.package_transactions.findUnique({
         where: { idempotencyKey },
       });
       if (existingTx) {
@@ -1473,9 +1505,9 @@ export class PackageService {
       }
 
       // Find redemption for this booking
-      const redemption = await tx.packageRedemption.findUnique({
+      const redemption = await tx.package_redemptions.findUnique({
         where: { bookingId },
-        include: { package: { include: { teacher: true } } },
+        include: { package_redemptions: { include: { teacher_profiles: true } } },
       });
 
       if (!redemption) {
@@ -1506,22 +1538,23 @@ export class PackageService {
       );
 
       // Get teacher wallet for Transaction record
-      const teacherWallet = await tx.wallet.findUnique({
+      const teacherWallet = await tx.wallets.findUnique({
         where: { userId: pkg.teacher.userId },
       });
       if (!teacherWallet) {
         throw new BadRequestException('Teacher wallet not found');
       }
 
-      await tx.wallet.update({
+      await tx.wallets.update({
         where: { userId: pkg.teacher.userId },
-        data: { balance: { increment: teacherAmount } },
+        data: { id: crypto.randomUUID(), balance: { increment: teacherAmount } },
       });
 
       // P1 FIX: Add wallet Transaction for teacher earnings (audit trail)
       const teacherTxId = await this.readableIdService.generate('TRANSACTION');
-      await tx.transaction.create({
+      await tx.transactions.create({
         data: {
+          id: crypto.randomUUID(), updatedAt: new Date(),
           readableId: teacherTxId,
           walletId: teacherWallet.id,
           amount: teacherAmount,
@@ -1533,9 +1566,10 @@ export class PackageService {
 
       // 2. Update package
       // CRITICAL FIX: Do NOT increment sessionsUsed again (already done in createRedemption)
-      await tx.studentPackage.update({
+      await tx.student_packages.update({
         where: { id: pkg.id },
         data: {
+          id: crypto.randomUUID(), updatedAt: new Date(),
           // sessionsUsed: { increment: 1 }, // REMOVED: Double counting fix
           escrowRemaining: { decrement: releaseAmount },
           status: isLast ? 'COMPLETED' : 'ACTIVE',
@@ -1543,17 +1577,19 @@ export class PackageService {
       });
 
       // 3. Update redemption status
-      await tx.packageRedemption.update({
+      await tx.package_redemptions.update({
         where: { id: redemption.id },
         data: {
+          id: crypto.randomUUID(), updatedAt: new Date(),
           status: 'RELEASED',
           releasedAt: new Date(),
         },
       });
 
       // 4. Record transaction
-      await tx.packageTransaction.create({
+      await tx.package_transactions.create({
         data: {
+          id: crypto.randomUUID(),
           idempotencyKey,
           type: 'RELEASE',
           packageId: pkg.id,
@@ -1581,14 +1617,14 @@ export class PackageService {
     idempotencyKey: string,
   ) {
     // Idempotency check
-    const existingTx = await this.prisma.packageTransaction.findUnique({
+    const existingTx = await this.prisma.package_transactions.findUnique({
       where: { idempotencyKey },
     });
     if (existingTx) {
       return; // Already processed
     }
 
-    const pkg = await this.prisma.studentPackage.findUnique({
+    const pkg = await this.prisma.student_packages.findUnique({
       where: { id: packageId },
     });
 
@@ -1609,27 +1645,28 @@ export class PackageService {
     await this.prisma.$transaction(
       async (tx) => {
         // 0. Get wallet for transaction record
-        const wallet = await tx.wallet.findUnique({
+        const wallet = await tx.wallets.findUnique({
           where: { userId: pkg.payerId },
         });
         if (!wallet) throw new BadRequestException('Payer wallet not found');
 
         // 1. Update pending redemptions to CANCELLED
-        await tx.packageRedemption.updateMany({
+        await tx.package_redemptions.updateMany({
           where: { packageId, status: 'RESERVED' },
-          data: { status: 'CANCELLED' },
+          data: { id: crypto.randomUUID(), status: 'CANCELLED' },
         });
 
         // 2. Refund to payer wallet
-        await tx.wallet.update({
+        await tx.wallets.update({
           where: { userId: pkg.payerId },
-          data: { balance: { increment: refundAmount } },
+          data: { id: crypto.randomUUID(), balance: { increment: refundAmount } },
         });
 
         // 3. Update package status
-        await tx.studentPackage.update({
+        await tx.student_packages.update({
           where: { id: packageId },
           data: {
+            id: crypto.randomUUID(),
             status: 'CANCELLED',
             escrowRemaining: new Decimal(0),
           },
@@ -1637,8 +1674,10 @@ export class PackageService {
 
         // 4. Create Wallet Transaction record for refund
         const refundTxId = await this.readableIdService.generate('TRANSACTION');
-        await tx.transaction.create({
+        await tx.transactions.create({
           data: {
+            updatedAt: new Date(),
+            id: crypto.randomUUID(),
             readableId: refundTxId,
             walletId: wallet.id,
             amount: refundAmount,
@@ -1649,8 +1688,9 @@ export class PackageService {
         });
 
         // 5. Record package transaction for idempotency
-        await tx.packageTransaction.create({
+        await tx.package_transactions.create({
           data: {
+            id: crypto.randomUUID(),
             idempotencyKey,
             type: 'REFUND',
             packageId,
@@ -1671,7 +1711,7 @@ export class PackageService {
 
   async expirePackages() {
     const now = new Date();
-    const expiredPackages = await this.prisma.studentPackage.findMany({
+    const expiredPackages = await this.prisma.student_packages.findMany({
       where: {
         expiresAt: { lt: now },
         status: 'ACTIVE',
@@ -1682,7 +1722,7 @@ export class PackageService {
       const idempotencyKey = `EXPIRE_${pkg.id}`;
 
       // Skip if already processed (idempotency)
-      const existingTx = await this.prisma.packageTransaction.findUnique({
+      const existingTx = await this.prisma.package_transactions.findUnique({
         where: { idempotencyKey },
       });
       if (existingTx) continue;
@@ -1691,7 +1731,7 @@ export class PackageService {
       await this.prisma.$transaction(
         async (tx) => {
           // Re-verify package status inside transaction (double-check with idempotency)
-          const currentPkg = await tx.studentPackage.findUnique({
+          const currentPkg = await tx.student_packages.findUnique({
             where: { id: pkg.id },
           });
           if (!currentPkg || currentPkg.status !== 'ACTIVE') {
@@ -1700,20 +1740,23 @@ export class PackageService {
           }
 
           // 1. Refund remaining escrow to payer
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { userId: pkg.payerId },
-            data: { balance: { increment: pkg.escrowRemaining } },
+            data: { id: crypto.randomUUID(), balance: { increment: pkg.escrowRemaining } },
           });
 
           // 1.1 Create Refund Transaction
-          const wallet = await tx.wallet.findUnique({
+          const wallet = await tx.wallets.findUnique({
             where: { userId: pkg.payerId },
           });
           if (wallet) {
             const refundTxId =
               await this.readableIdService.generate('TRANSACTION');
-            await tx.transaction.create({
+            await tx.transactions.create({
               data: {
+                id: crypto.randomUUID(), updatedAt: new Date(),
+
+
                 readableId: refundTxId,
                 walletId: wallet.id,
                 amount: pkg.escrowRemaining,
@@ -1725,23 +1768,25 @@ export class PackageService {
           }
 
           // 2. Cancel pending redemptions
-          await tx.packageRedemption.updateMany({
+          await tx.package_redemptions.updateMany({
             where: { packageId: pkg.id, status: 'RESERVED' },
-            data: { status: 'CANCELLED' },
+            data: { id: crypto.randomUUID(), status: 'CANCELLED' },
           });
 
           // 3. Mark package as expired
-          await tx.studentPackage.update({
+          await tx.student_packages.update({
             where: { id: pkg.id },
             data: {
+              id: crypto.randomUUID(),
               status: 'EXPIRED',
               escrowRemaining: new Decimal(0),
             },
           });
 
           // 4. Record transaction
-          await tx.packageTransaction.create({
+          await tx.package_transactions.create({
             data: {
+              id: crypto.randomUUID(),
               idempotencyKey,
               type: 'EXPIRE',
               packageId: pkg.id,
@@ -1778,7 +1823,7 @@ export class PackageService {
     bookingId: string,
     tx: Prisma.TransactionClient,
   ) {
-    const pkg = await tx.studentPackage.findUnique({
+    const pkg = await tx.student_packages.findUnique({
       where: { id: packageId },
     });
 
@@ -1804,7 +1849,7 @@ export class PackageService {
     }
 
     // SECURITY: Atomic increment with conditional update to prevent race conditions
-    const updateResult = await tx.studentPackage.updateMany({
+    const updateResult = await tx.student_packages.updateMany({
       where: {
         id: packageId,
         sessionsUsed: { lt: pkg.sessionCount }, // Only update if sessions available
@@ -1812,6 +1857,7 @@ export class PackageService {
         expiresAt: { gt: new Date() },
       },
       data: {
+        id: crypto.randomUUID(),
         sessionsUsed: { increment: 1 },
       },
     });
@@ -1824,8 +1870,9 @@ export class PackageService {
     }
 
     // Create redemption record
-    return tx.packageRedemption.create({
+    return tx.package_redemptions.create({
       data: {
+        id: crypto.randomUUID(),
         packageId,
         bookingId,
         status: 'RESERVED',
@@ -1847,10 +1894,10 @@ export class PackageService {
       where.status = status;
     }
 
-    const packages = await this.prisma.studentPackage.findMany({
+    const packages = await this.prisma.student_packages.findMany({
       where,
       include: {
-        payer: {
+        users_student_packages_payerIdTousers: {
           select: {
             id: true,
             email: true,
@@ -1859,7 +1906,7 @@ export class PackageService {
             lastName: true,
           },
         },
-        student: {
+        users_student_packages_studentIdTousers: {
           select: {
             id: true,
             email: true,
@@ -1868,18 +1915,18 @@ export class PackageService {
             lastName: true,
           },
         },
-        teacher: {
+        teacher_profiles: {
           select: {
             id: true,
             displayName: true,
-            user: {
+            users: {
               select: {
                 email: true,
               },
             },
           },
         },
-        packageTier: {
+        package_tiers: {
           select: {
             sessionCount: true,
             discountPercent: true,
@@ -1889,7 +1936,7 @@ export class PackageService {
         },
         _count: {
           select: {
-            redemptions: true,
+            package_redemptions: true,
           },
         },
       },
@@ -1903,23 +1950,23 @@ export class PackageService {
       totalSessions: pkg.sessionCount,
       usedSessions: pkg.sessionsUsed,
       totalPrice: pkg.totalPaid.toString(),
-      discountPercent: pkg.packageTier?.discountPercent?.toNumber() || 0,
+      discountPercent: pkg.package_tiers?.discountPercent?.toNumber() || 0,
       startDate: pkg.purchasedAt.toISOString(),
       expiryDate: pkg.expiresAt.toISOString(),
     }));
   }
 
   async getStudentPackages(userId: string) {
-    return this.prisma.studentPackage.findMany({
+    return this.prisma.student_packages.findMany({
       where: {
         OR: [{ studentId: userId }, { payerId: userId }],
       },
       include: {
-        teacher: { select: { displayName: true, profilePhotoUrl: true } },
-        subject: { select: { nameAr: true, nameEn: true } },
-        redemptions: {
+        teacher_profiles: { select: { displayName: true, profilePhotoUrl: true } },
+        subjects: { select: { nameAr: true, nameEn: true } },
+        package_redemptions: {
           include: {
-            booking: {
+            bookings: {
               select: { status: true },
             },
           },
@@ -1930,10 +1977,10 @@ export class PackageService {
   }
 
   async getPackageById(packageId: string) {
-    const pkg = await this.prisma.studentPackage.findUnique({
+    const pkg = await this.prisma.student_packages.findUnique({
       where: { id: packageId },
       include: {
-        payer: {
+        users_student_packages_payerIdTousers: {
           select: {
             id: true,
             email: true,
@@ -1941,7 +1988,7 @@ export class PackageService {
             firstName: true,
             lastName: true,
             role: true,
-            parentProfile: {
+            parent_profiles: {
               select: {
                 id: true,
                 children: {
@@ -1951,7 +1998,7 @@ export class PackageService {
             },
           },
         },
-        student: {
+        users_student_packages_studentIdTousers: {
           select: {
             id: true,
             email: true,
@@ -1960,13 +2007,13 @@ export class PackageService {
             lastName: true,
           },
         },
-        teacher: {
+        teacher_profiles: {
           select: {
             id: true,
             displayName: true,
             profilePhotoUrl: true,
             userId: true,
-            user: {
+            users: {
               select: {
                 id: true,
                 email: true,
@@ -1975,8 +2022,8 @@ export class PackageService {
             },
           },
         },
-        subject: { select: { id: true, nameAr: true, nameEn: true } },
-        packageTier: {
+        subjects: { select: { id: true, nameAr: true, nameEn: true } },
+        package_tiers: {
           select: {
             id: true,
             sessionCount: true,
@@ -1988,9 +2035,9 @@ export class PackageService {
             descriptionAr: true,
           },
         },
-        redemptions: {
+        package_redemptions: {
           include: {
-            booking: {
+            bookings: {
               select: {
                 id: true,
                 readableId: true,
@@ -1999,10 +2046,10 @@ export class PackageService {
                 price: true,
                 status: true,
                 childId: true,
-                child: {
+                children: {
                   select: { id: true, name: true },
                 },
-                subject: {
+                subjects: {
                   select: { nameAr: true },
                 },
               },
@@ -2019,9 +2066,9 @@ export class PackageService {
     // Calculate derived fields
     const remainingSessions = pkg.sessionCount - pkg.sessionsUsed;
 
-    // Get bookings from redemptions
-    const bookings = pkg.redemptions
-      .map((r) => r.booking)
+    // Get bookings from package_redemptions
+    const bookings = pkg.package_redemptions
+      .map((r) => r.bookings)
       .filter((b) => b !== null)
       .sort(
         (a, b) =>
@@ -2034,7 +2081,7 @@ export class PackageService {
       totalSessions: pkg.sessionCount,
       usedSessions: pkg.sessionsUsed,
       totalPrice: pkg.totalPaid.toString(),
-      discountPercent: pkg.packageTier?.discountPercent?.toNumber() || 0,
+      discountPercent: pkg.package_tiers?.discountPercent?.toNumber() || 0,
       startDate: pkg.purchasedAt.toISOString(),
       expiryDate: pkg.expiresAt.toISOString(),
       bookings,
@@ -2042,19 +2089,19 @@ export class PackageService {
   }
 
   async getTeacherPackages(teacherId: string) {
-    return this.prisma.studentPackage.findMany({
+    return this.prisma.student_packages.findMany({
       where: {
         teacherId,
         // Show all packages, not just active
       },
       include: {
-        payer: {
+        users_student_packages_payerIdTousers: {
           select: {
             id: true,
             email: true,
             phoneNumber: true,
             role: true,
-            parentProfile: {
+            parent_profiles: {
               select: {
                 id: true,
                 children: {
@@ -2064,31 +2111,45 @@ export class PackageService {
             },
           },
         },
-        student: {
+        users_student_packages_studentIdTousers: {
           select: {
             id: true,
             email: true,
             phoneNumber: true,
-            studentProfile: { select: { gradeLevel: true } },
+            student_profiles: { select: { gradeLevel: true } },
           },
         },
-        subject: {
+        subjects: {
           select: {
             id: true,
             nameAr: true,
             nameEn: true,
           },
         },
-        redemptions: {
+        package_tiers: {
+          select: {
+            nameAr: true,
+            nameEn: true,
+            sessionCount: true,
+            discountPercent: true,
+          },
+        },
+        package_redemptions: {
           include: {
-            booking: {
+            bookings: {
               select: {
                 startTime: true,
                 status: true,
                 childId: true,
-                child: {
+                children: {
                   select: { id: true, name: true },
                 },
+
+
+
+
+
+
               },
             },
           },
@@ -2112,20 +2173,20 @@ export class PackageService {
     idempotencyKey: string,
   ) {
     // Idempotency check: Return existing if already processed
-    const existingTx = await this.prisma.packageTransaction.findUnique({
+    const existingTx = await this.prisma.package_transactions.findUnique({
       where: { idempotencyKey },
     });
     if (existingTx && existingTx.type === 'SCHEDULE') {
       // Find and return the existing booking
-      const existingRedemption = await this.prisma.packageRedemption.findFirst({
+      const existingRedemption = await this.prisma.package_redemptions.findFirst({
         where: { packageId },
-        include: { booking: true },
+        include: { bookings: true },
         orderBy: { createdAt: 'desc' },
       });
       if (existingRedemption) {
         return {
           success: true,
-          booking: existingRedemption.booking,
+          bookings: existingRedemption.bookings,
           sessionsRemaining: 0, // Already processed
           idempotent: true,
         };
@@ -2135,9 +2196,9 @@ export class PackageService {
     // Execute everything in a single atomic transaction
     return this.prisma.$transaction(async (tx) => {
       // 1. Fetch package inside transaction (for consistent read)
-      const pkg = await tx.studentPackage.findUnique({
+      const pkg = await tx.student_packages.findUnique({
         where: { id: packageId },
-        include: { teacher: true, subject: true },
+        include: { teacher_profiles: true, subjects: true },
       });
 
       if (!pkg) {
@@ -2167,13 +2228,14 @@ export class PackageService {
       // 3. CONDITIONAL UPDATE: Only succeeds if sessionsUsed hasn't changed
       // This prevents race conditions - if another request incremented first, this fails
       const isLastSession = sessionsRemaining === 1;
-      const updateResult = await tx.studentPackage.updateMany({
+      const updateResult = await tx.student_packages.updateMany({
         where: {
           id: packageId,
           sessionsUsed: pkg.sessionsUsed, // Conditional: must match current value
           status: 'ACTIVE', // Must still be active
         },
         data: {
+          id: crypto.randomUUID(),
           sessionsUsed: { increment: 1 },
           status: isLastSession ? 'DEPLETED' : 'ACTIVE',
         },
@@ -2187,8 +2249,10 @@ export class PackageService {
       }
 
       // 5. Create booking with SCHEDULED status (package already paid)
-      const booking = await tx.booking.create({
+      const booking = await tx.bookings.create({
         data: {
+          updatedAt: new Date(),
+          id: crypto.randomUUID(),
           bookedByUserId: userId,
           beneficiaryType: 'STUDENT',
           studentUserId: pkg.studentId,
@@ -2204,8 +2268,10 @@ export class PackageService {
       });
 
       // 6. Create redemption record
-      await tx.packageRedemption.create({
+      await tx.package_redemptions.create({
         data: {
+          id: crypto.randomUUID(),
+
           packageId,
           bookingId: booking.id,
           status: 'RESERVED',
@@ -2213,8 +2279,9 @@ export class PackageService {
       });
 
       // 7. Record transaction for idempotency (DB-level unique constraint)
-      await tx.packageTransaction.create({
+      await tx.package_transactions.create({
         data: {
+          id: crypto.randomUUID(),
           idempotencyKey,
           type: 'SCHEDULE',
           packageId,

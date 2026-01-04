@@ -20,13 +20,13 @@ describe('DemoService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
-    teacherProfile: {
+    teacher_profiles: {
       findUnique: jest.fn(),
     },
     booking: {
       findFirst: jest.fn(),
     },
-    systemSettings: {
+    system_settings: {
       findFirst: jest.fn().mockResolvedValue({ demosEnabled: true }),
     },
   };

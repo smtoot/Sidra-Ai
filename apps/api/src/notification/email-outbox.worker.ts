@@ -47,7 +47,7 @@ export class EmailOutboxWorker {
 
     // Fetch and claim pending emails atomically
     // Only fetch emails that are ready to be processed
-    const pendingEmails = await this.prisma.emailOutbox.findMany({
+    const pendingEmails = await this.prisma.email_outbox.findMany({
       where: {
         status: EmailStatus.PENDING,
         OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
@@ -64,7 +64,7 @@ export class EmailOutboxWorker {
 
     for (const email of pendingEmails) {
       // Claim the email atomically (set to PROCESSING)
-      const claimed = await this.prisma.emailOutbox.updateMany({
+      const claimed = await this.prisma.email_outbox.updateMany({
         where: {
           id: email.id,
           status: EmailStatus.PENDING, // Only if still PENDING
@@ -84,7 +84,7 @@ export class EmailOutboxWorker {
         await this.sendEmail(email);
 
         // Mark as SENT
-        await this.prisma.emailOutbox.update({
+        await this.prisma.email_outbox.update({
           where: { id: email.id },
           data: {
             status: EmailStatus.SENT,
@@ -101,7 +101,7 @@ export class EmailOutboxWorker {
 
         if (attempts >= MAX_RETRY_ATTEMPTS) {
           // Max retries reached -> FAILED
-          await this.prisma.emailOutbox.update({
+          await this.prisma.email_outbox.update({
             where: { id: email.id },
             data: {
               status: EmailStatus.FAILED,
@@ -122,7 +122,7 @@ export class EmailOutboxWorker {
           );
           const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
 
-          await this.prisma.emailOutbox.update({
+          await this.prisma.email_outbox.update({
             where: { id: email.id },
             data: {
               status: EmailStatus.PENDING,

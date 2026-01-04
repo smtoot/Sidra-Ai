@@ -15,7 +15,7 @@ export class EscrowSchedulerService {
     private walletService: WalletService,
     private notificationService: NotificationService,
     private packageService: PackageService,
-  ) {}
+  ) { }
 
   /**
    * Auto-release job: Runs every 15 minutes
@@ -28,16 +28,16 @@ export class EscrowSchedulerService {
 
     try {
       // Find bookings ready for auto-release (dispute window expired, no dispute)
-      const bookingsToRelease = await this.prisma.booking.findMany({
+      const bookingsToRelease = await this.prisma.bookings.findMany({
         where: {
           status: 'PENDING_CONFIRMATION',
           disputeWindowClosesAt: { lte: now }, // NEW: Use dispute window
-          dispute: null, // No active dispute
+          disputes: null, // No active dispute
         },
         include: {
-          teacherProfile: { include: { user: true } },
-          bookedByUser: true,
-          packageRedemption: true, // FIX P1: Needed to detect package bookings
+          teacher_profiles: { include: { users: true } },
+          users_bookings_bookedByUserIdTousers: true,
+          package_redemptions: true, // FIX P1: Needed to detect package bookings
         },
       });
 
@@ -53,7 +53,7 @@ export class EscrowSchedulerService {
           await this.prisma.$transaction(async (tx) => {
             // 1. Conditional Update: PENDING_CONFIRMATION -> COMPLETED
             // This guarantees we hold the lock and state is valid
-            const updatedBooking = await tx.booking.update({
+            const updatedBooking = await tx.bookings.update({
               where: {
                 id: booking.id,
                 status: 'PENDING_CONFIRMATION', // Strict check
@@ -65,7 +65,7 @@ export class EscrowSchedulerService {
             });
 
             // 2. Release payment (atomic with status update)
-            if (booking.packageRedemption) {
+            if (booking.package_redemptions) {
               // --- Package Release ---
               // Auto-release for packages transfers from escrow to teacher
               const idempotencyKey = `AUTO_RELEASE_${booking.id}`;
@@ -81,7 +81,7 @@ export class EscrowSchedulerService {
 
               await this.walletService.releaseFundsOnCompletion(
                 booking.bookedByUserId,
-                booking.teacherProfile.userId,
+                booking.teacher_profiles.users.id, // Fixed: Access via teacher_profiles.users
                 booking.id,
                 price,
                 commissionRate,
@@ -103,7 +103,7 @@ export class EscrowSchedulerService {
 
           await this.notificationService.notifyTeacherPaymentReleased({
             bookingId: booking.id,
-            teacherId: booking.teacherProfile.user.id,
+            teacherId: booking.teacher_profiles.users.id,
             amount: teacherAmount,
             releaseType: 'AUTO',
           });
@@ -176,7 +176,7 @@ export class EscrowSchedulerService {
           now.getTime() - hoursAfterCompletion * 60 * 60 * 1000,
         );
 
-        const bookingsNeedingReminder = await this.prisma.booking.findMany({
+        const bookingsNeedingReminder = await this.prisma.bookings.findMany({
           where: {
             status: 'PENDING_CONFIRMATION',
             disputeWindowOpensAt: {
@@ -184,11 +184,11 @@ export class EscrowSchedulerService {
               gte: new Date(targetCompletionTime.getTime() - 60 * 60 * 1000), // Within 1-hour window
             },
             disputeReminderSentAt: null, // No reminder sent yet
-            dispute: null,
+            disputes: null,
           },
           include: {
-            bookedByUser: true,
-            teacherProfile: { include: { user: true } },
+            users_bookings_bookedByUserIdTousers: true,
+            teacher_profiles: { include: { users: true } },
           },
           take: 50, // Limit batch size
         });
@@ -198,14 +198,14 @@ export class EscrowSchedulerService {
             // Calculate hours remaining until auto-release
             const hoursRemaining = booking.disputeWindowClosesAt
               ? Math.round(
-                  (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
-                    (1000 * 60 * 60),
-                )
+                (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
+                (1000 * 60 * 60),
+              )
               : 0;
 
             if (hoursRemaining > 0) {
               // Mark reminder as sent
-              await this.prisma.booking.update({
+              await this.prisma.bookings.update({
                 where: { id: booking.id },
                 data: { disputeReminderSentAt: now },
               });
@@ -216,7 +216,7 @@ export class EscrowSchedulerService {
                 parentUserId: booking.bookedByUserId,
                 hoursRemaining,
                 teacherName:
-                  booking.teacherProfile.user.phoneNumber || 'teacher',
+                  booking.teacher_profiles.users.phoneNumber || 'teacher',
               });
 
               reminderCount++;
@@ -243,18 +243,19 @@ export class EscrowSchedulerService {
 
   // Helper: Get system settings (with defaults)
   private async getSystemSettings() {
-    let settings = await this.prisma.systemSettings.findUnique({
+    let settings = await this.prisma.system_settings.findUnique({
       where: { id: 'default' },
     });
 
     if (!settings) {
-      settings = await this.prisma.systemSettings.create({
+      settings = await this.prisma.system_settings.create({
         data: {
           id: 'default',
           confirmationWindowHours: 48,
           autoReleaseEnabled: true,
           reminderHoursBeforeRelease: 6,
           defaultCommissionRate: 0.18,
+          updatedAt: new Date(),
         },
       });
     }
@@ -276,7 +277,7 @@ export class EscrowSchedulerService {
       const twentyMinutesFromNow = new Date(now.getTime() + 20 * 60 * 1000);
 
       // Find SCHEDULED sessions starting in 20-30 minutes without meeting link
-      const sessionsNeedingLink = await this.prisma.booking.findMany({
+      const sessionsNeedingLink = await this.prisma.bookings.findMany({
         where: {
           status: 'SCHEDULED',
           startTime: {
@@ -286,7 +287,7 @@ export class EscrowSchedulerService {
           OR: [{ meetingLink: null }, { meetingLink: '' }],
         },
         include: {
-          teacherProfile: { include: { user: true } },
+          teacher_profiles: { include: { users: true } },
         },
         take: 50,
       });
@@ -296,7 +297,7 @@ export class EscrowSchedulerService {
         try {
           // Send notification to teacher
           await this.notificationService.notifyUser({
-            userId: booking.teacherProfile.userId,
+            userId: booking.teacher_profiles.userId,
             title: 'تنبيه: رابط الحصة مفقود',
             message: `لديك حصة خلال 30 دقيقة ولم تقم بإضافة رابط الاجتماع. يرجى إضافة الرابط الآن.`,
             type: 'URGENT',
@@ -340,14 +341,14 @@ export class EscrowSchedulerService {
       const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
       // Find SCHEDULED sessions that ended 6+ hours ago (teacher forgot to complete)
-      const staleSessions = await this.prisma.booking.findMany({
+      const staleSessions = await this.prisma.bookings.findMany({
         where: {
           status: 'SCHEDULED',
           endTime: { lte: sixHoursAgo },
         },
         include: {
-          teacherProfile: { include: { user: true } },
-          bookedByUser: true,
+          teacher_profiles: { include: { users: true } },
+          users_bookings_bookedByUserIdTousers: true,
         },
         take: 50,
       });
@@ -358,7 +359,7 @@ export class EscrowSchedulerService {
       }
 
       // Get admin users
-      const admins = await this.prisma.user.findMany({
+      const admins = await this.prisma.users.findMany({
         where: { role: 'ADMIN' },
       });
 
@@ -367,7 +368,7 @@ export class EscrowSchedulerService {
         try {
           const hoursStale = Math.round(
             (now.getTime() - new Date(booking.endTime).getTime()) /
-              (1000 * 60 * 60),
+            (1000 * 60 * 60),
           );
 
           // Alert all admins
@@ -425,7 +426,7 @@ export class EscrowSchedulerService {
     try {
       // Find ACTIVE packages where sessionsUsed >= sessionCount
       // Use raw query for efficient comparison without loading all packages
-      const activePackages = await this.prisma.studentPackage.findMany({
+      const activePackages = await this.prisma.student_packages.findMany({
         where: {
           status: 'ACTIVE',
         },
@@ -445,7 +446,7 @@ export class EscrowSchedulerService {
       for (const pkg of packagesToDepleted) {
         try {
           // Use conditional update to prevent race conditions
-          const updateResult = await this.prisma.studentPackage.updateMany({
+          const updateResult = await this.prisma.student_packages.updateMany({
             where: {
               id: pkg.id,
               status: 'ACTIVE', // Only update if still ACTIVE
@@ -504,7 +505,7 @@ export class EscrowSchedulerService {
 
       // Find SCHEDULED sessions starting in 50-60 minutes
       // Haven't sent reminder yet
-      const upcomingSessions = await this.prisma.booking.findMany({
+      const upcomingSessions = await this.prisma.bookings.findMany({
         where: {
           status: 'SCHEDULED',
           startTime: {
@@ -514,11 +515,11 @@ export class EscrowSchedulerService {
           sessionReminderSentAt: null, // Haven't sent reminder yet
         },
         include: {
-          teacherProfile: { include: { user: true } },
-          bookedByUser: true,
-          child: true,
-          studentUser: true,
-          subject: true,
+          teacher_profiles: { include: { users: true } },
+          users_bookings_bookedByUserIdTousers: true,
+          children: true,
+          users_bookings_studentUserIdTousers: true,
+          subjects: true,
         },
         take: 100, // Limit batch size
       });
@@ -537,10 +538,10 @@ export class EscrowSchedulerService {
       for (const booking of upcomingSessions) {
         try {
           const studentName =
-            booking.child?.name || booking.studentUser?.email || 'الطالب';
+            booking.children?.name || booking.users_bookings_studentUserIdTousers?.email || 'الطالب';
           const teacherName =
-            booking.teacherProfile.user.phoneNumber || 'المعلم';
-          const subjectName = booking.subject?.nameAr || 'الدرس';
+            booking.teacher_profiles.users.phoneNumber || 'المعلم';
+          const subjectName = booking.subjects?.nameAr || 'الدرس';
           const minutesUntilStart = Math.round(
             (booking.startTime.getTime() - now.getTime()) / (60 * 1000),
           );
@@ -560,19 +561,19 @@ export class EscrowSchedulerService {
 
           // Notify Teacher
           await this.notificationService.notifyUser({
-            userId: booking.teacherProfile.userId,
+            userId: booking.teacher_profiles.userId,
             type: 'SESSION_REMINDER',
             title: 'تذكير: حصتك تبدأ خلال ساعة',
             message: `حصتك مع ${studentName} في ${subjectName} تبدأ بعد ${minutesUntilStart} دقيقة.`,
             link: `/teacher/sessions/${booking.id}`,
-            dedupeKey: `SESSION_REMINDER:${booking.id}:${booking.teacherProfile.userId}`,
+            dedupeKey: `SESSION_REMINDER:${booking.id}:${booking.teacher_profiles.userId}`,
             metadata: {
               bookingId: booking.id,
             },
           });
 
           // Mark reminder as sent
-          await this.prisma.booking.update({
+          await this.prisma.bookings.update({
             where: { id: booking.id },
             data: { sessionReminderSentAt: now },
           });

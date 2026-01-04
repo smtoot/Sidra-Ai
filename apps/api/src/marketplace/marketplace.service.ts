@@ -31,13 +31,13 @@ import { toZonedTime } from 'date-fns-tz';
 export class MarketplaceService {
   private readonly logger = new Logger(MarketplaceService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get public platform configuration (for frontend booking UI)
    */
   async getPlatformConfig() {
-    const settings = await this.prisma.systemSettings.findUnique({
+    const settings = await this.prisma.system_settings.findUnique({
       where: { id: 'default' },
     });
 
@@ -57,7 +57,7 @@ export class MarketplaceService {
   async searchTeachers(dto: SearchTeachersDto) {
     const whereClause: any = {
       // CRITICAL: Only show approved teachers in search results
-      teacherProfile: {
+      teacher_profiles: {
         applicationStatus: 'APPROVED',
         // Only show teachers with at least one availability slot
         availability: {
@@ -87,10 +87,10 @@ export class MarketplaceService {
       if (dto.minPrice) whereClause.pricePerHour.gte = dto.minPrice;
     }
 
-    // Gender filter (on TeacherProfile) - merge with existing teacherProfile filter
+    // Gender filter (on TeacherProfile) - merge with existing teacher_profiles filter
     if (dto.gender) {
-      whereClause.teacherProfile = {
-        ...whereClause.teacherProfile,
+      whereClause.teacher_profiles = {
+        ...whereClause.teacher_profiles,
         gender: dto.gender,
       };
     }
@@ -106,27 +106,27 @@ export class MarketplaceService {
           orderBy = { pricePerHour: 'desc' };
           break;
         case SearchSortBy.RATING_DESC:
-          orderBy = { teacherProfile: { averageRating: 'desc' } };
+          orderBy = { teacher_profiles: { averageRating: 'desc' } };
           break;
         case SearchSortBy.RECOMMENDED:
         default:
           // Recommended: combination of high rating and sessions count
           // Prisma doesn't support complex sorting easily without raw query
           // Fallback to averageRating desc for now as "Recommended"
-          orderBy = { teacherProfile: { averageRating: 'desc' } };
+          orderBy = { teacher_profiles: { averageRating: 'desc' } };
           break;
       }
     } else {
       // Default sort
-      orderBy = { teacherProfile: { averageRating: 'desc' } };
+      orderBy = { teacher_profiles: { averageRating: 'desc' } };
     }
 
-    const results = await this.prisma.teacherSubject.findMany({
+    const results = await this.prisma.teacher_subjects.findMany({
       where: whereClause,
       include: {
-        teacherProfile: true,
-        subject: true,
-        curriculum: true,
+        teacher_profiles: true,
+        subjects: true,
+        curricula: true,
       },
       orderBy: orderBy,
     });
@@ -137,8 +137,9 @@ export class MarketplaceService {
   // --- Curricula ---
   async createCurriculum(dto: CreateCurriculumDto) {
     try {
-      return await this.prisma.curriculum.create({
+      return await this.prisma.curricula.create({
         data: {
+          id: crypto.randomUUID(),
           code: dto.code,
           nameAr: dto.nameAr,
           nameEn: dto.nameEn,
@@ -156,13 +157,13 @@ export class MarketplaceService {
   }
 
   async findAllCurricula(includeInactive = false) {
-    return this.prisma.curriculum.findMany({
+    return this.prisma.curricula.findMany({
       where: includeInactive ? {} : { isActive: true },
     });
   }
 
   async findOneCurriculum(id: string) {
-    const curr = await this.prisma.curriculum.findUnique({ where: { id } });
+    const curr = await this.prisma.curricula.findUnique({ where: { id } });
     if (!curr)
       throw new NotFoundException(`Curriculum with ID ${id} not found`);
     return curr;
@@ -171,7 +172,7 @@ export class MarketplaceService {
   async updateCurriculum(id: string, dto: UpdateCurriculumDto) {
     await this.findOneCurriculum(id);
     try {
-      return await this.prisma.curriculum.update({
+      return await this.prisma.curricula.update({
         where: { id },
         data: dto,
       });
@@ -187,7 +188,7 @@ export class MarketplaceService {
 
   async softDeleteCurriculum(id: string) {
     await this.findOneCurriculum(id);
-    return this.prisma.curriculum.update({
+    return this.prisma.curricula.update({
       where: { id },
       data: { isActive: false },
     });
@@ -196,13 +197,13 @@ export class MarketplaceService {
   async hardDeleteCurriculum(id: string) {
     await this.findOneCurriculum(id);
 
-    // Check if curriculum is being used
-    const [stagesCount, teacherSubjectsCount, studentsCount, childrenCount] =
+    // Check if curricula is being used
+    const [stagesCount, teacher_subjectssCount, studentsCount, childrenCount] =
       await Promise.all([
-        this.prisma.educationalStage.count({ where: { curriculumId: id } }),
-        this.prisma.teacherSubject.count({ where: { curriculumId: id } }),
-        this.prisma.studentProfile.count({ where: { curriculumId: id } }),
-        this.prisma.child.count({ where: { curriculumId: id } }),
+        this.prisma.educational_stages.count({ where: { curriculumId: id } }),
+        this.prisma.teacher_subjects.count({ where: { curriculumId: id } }),
+        this.prisma.student_profiles.count({ where: { curriculumId: id } }),
+        this.prisma.children.count({ where: { curriculumId: id } }),
       ]);
 
     if (stagesCount > 0) {
@@ -210,9 +211,9 @@ export class MarketplaceService {
         `لا يمكن حذف المنهج لأنه يحتوي على ${stagesCount} مرحلة تعليمية. قم بحذف المراحل أولاً.`,
       );
     }
-    if (teacherSubjectsCount > 0) {
+    if (teacher_subjectssCount > 0) {
       throw new ConflictException(
-        `لا يمكن حذف المنهج لأنه مرتبط بـ ${teacherSubjectsCount} معلم. قم بإزالة ارتباط المعلمين أولاً.`,
+        `لا يمكن حذف المنهج لأنه مرتبط بـ ${teacher_subjectssCount} معلم. قم بإزالة ارتباط المعلمين أولاً.`,
       );
     }
     if (studentsCount > 0) {
@@ -226,15 +227,16 @@ export class MarketplaceService {
       );
     }
 
-    await this.prisma.curriculum.delete({ where: { id } });
+    await this.prisma.curricula.delete({ where: { id } });
     return { deleted: true, message: 'تم حذف المنهج نهائياً' };
   }
 
   // --- Subjects ---
   async createSubject(dto: CreateSubjectDto) {
     try {
-      return await this.prisma.subject.create({
+      return await this.prisma.subjects.create({
         data: {
+          id: crypto.randomUUID(),
           nameAr: dto.nameAr,
           nameEn: dto.nameEn,
           isActive: dto.isActive ?? true,
@@ -251,13 +253,13 @@ export class MarketplaceService {
   }
 
   async findAllSubjects(includeInactive = false) {
-    return this.prisma.subject.findMany({
+    return this.prisma.subjects.findMany({
       where: includeInactive ? {} : { isActive: true },
     });
   }
 
   async findOneSubject(id: string) {
-    const sub = await this.prisma.subject.findUnique({ where: { id } });
+    const sub = await this.prisma.subjects.findUnique({ where: { id } });
     if (!sub) throw new NotFoundException(`Subject with ID ${id} not found`);
     return sub;
   }
@@ -265,7 +267,7 @@ export class MarketplaceService {
   async updateSubject(id: string, dto: UpdateSubjectDto) {
     await this.findOneSubject(id);
     try {
-      return await this.prisma.subject.update({
+      return await this.prisma.subjects.update({
         where: { id },
         data: dto,
       });
@@ -281,7 +283,7 @@ export class MarketplaceService {
 
   async softDeleteSubject(id: string) {
     await this.findOneSubject(id);
-    return this.prisma.subject.update({
+    return this.prisma.subjects.update({
       where: { id },
       data: { isActive: false },
     });
@@ -291,16 +293,16 @@ export class MarketplaceService {
     await this.findOneSubject(id);
 
     // Check if subject is being used
-    const [teacherSubjectsCount, bookingsCount, packagesCount] =
+    const [teacher_subjectssCount, bookingsCount, packagesCount] =
       await Promise.all([
-        this.prisma.teacherSubject.count({ where: { subjectId: id } }),
-        this.prisma.booking.count({ where: { subjectId: id } }),
-        this.prisma.studentPackage.count({ where: { subjectId: id } }),
+        this.prisma.teacher_subjects.count({ where: { subjectId: id } }),
+        this.prisma.bookings.count({ where: { subjectId: id } }),
+        this.prisma.student_packages.count({ where: { subjectId: id } }),
       ]);
 
-    if (teacherSubjectsCount > 0) {
+    if (teacher_subjectssCount > 0) {
       throw new ConflictException(
-        `لا يمكن حذف المادة لأنها مرتبطة بـ ${teacherSubjectsCount} معلم.`,
+        `لا يمكن حذف المادة لأنها مرتبطة بـ ${teacher_subjectssCount} معلم.`,
       );
     }
     if (bookingsCount > 0) {
@@ -314,11 +316,11 @@ export class MarketplaceService {
       );
     }
 
-    // Also delete curriculum-subject associations
-    await this.prisma.curriculumSubject.deleteMany({
+    // Also delete curricula-subject associations
+    await this.prisma.curriculum_subjects.deleteMany({
       where: { subjectId: id },
     });
-    await this.prisma.subject.delete({ where: { id } });
+    await this.prisma.subjects.delete({ where: { id } });
     return { deleted: true, message: 'تم حذف المادة نهائياً' };
   }
 
@@ -329,10 +331,10 @@ export class MarketplaceService {
     nameEn: string;
     sequence: number;
   }) {
-    // Verify curriculum exists
+    // Verify curricula exists
     await this.findOneCurriculum(dto.curriculumId);
     try {
-      return await this.prisma.educationalStage.create({
+      return await this.prisma.educational_stages.create({
         data: {
           curriculumId: dto.curriculumId,
           nameAr: dto.nameAr,
@@ -356,22 +358,22 @@ export class MarketplaceService {
     if (curriculumId) where.curriculumId = curriculumId;
     if (!includeInactive) where.isActive = true;
 
-    return this.prisma.educationalStage.findMany({
+    return this.prisma.educational_stages.findMany({
       where,
       include: {
-        curriculum: { select: { nameAr: true, nameEn: true } },
-        grades: { orderBy: { sequence: 'asc' } },
+        curricula: { select: { nameAr: true, nameEn: true } },
+        grade_levels: { orderBy: { sequence: 'asc' } },
       },
       orderBy: { sequence: 'asc' },
     });
   }
 
   async findOneStage(id: string) {
-    const stage = await this.prisma.educationalStage.findUnique({
+    const stage = await this.prisma.educational_stages.findUnique({
       where: { id },
       include: {
-        curriculum: true,
-        grades: { orderBy: { sequence: 'asc' } },
+        curricula: true,
+        grade_levels: { orderBy: { sequence: 'asc' } },
       },
     });
     if (!stage) throw new NotFoundException(`Stage with ID ${id} not found`);
@@ -389,7 +391,7 @@ export class MarketplaceService {
   ) {
     await this.findOneStage(id);
     try {
-      return await this.prisma.educationalStage.update({
+      return await this.prisma.educational_stages.update({
         where: { id },
         data: dto,
       });
@@ -405,7 +407,7 @@ export class MarketplaceService {
 
   async softDeleteStage(id: string) {
     await this.findOneStage(id);
-    return this.prisma.educationalStage.update({
+    return this.prisma.educational_stages.update({
       where: { id },
       data: { isActive: false },
     });
@@ -415,7 +417,7 @@ export class MarketplaceService {
     await this.findOneStage(id);
 
     // Check if stage has grades
-    const gradesCount = await this.prisma.gradeLevel.count({
+    const gradesCount = await this.prisma.grade_levels.count({
       where: { stageId: id },
     });
 
@@ -425,7 +427,7 @@ export class MarketplaceService {
       );
     }
 
-    await this.prisma.educationalStage.delete({ where: { id } });
+    await this.prisma.educational_stages.delete({ where: { id } });
     return { deleted: true, message: 'تم حذف المرحلة التعليمية نهائياً' };
   }
 
@@ -440,7 +442,7 @@ export class MarketplaceService {
     // Verify stage exists
     await this.findOneStage(dto.stageId);
     try {
-      return await this.prisma.gradeLevel.create({
+      return await this.prisma.grade_levels.create({
         data: {
           stageId: dto.stageId,
           nameAr: dto.nameAr,
@@ -465,11 +467,11 @@ export class MarketplaceService {
     if (stageId) where.stageId = stageId;
     if (!includeInactive) where.isActive = true;
 
-    return this.prisma.gradeLevel.findMany({
+    return this.prisma.grade_levels.findMany({
       where,
       include: {
-        stage: {
-          include: { curriculum: { select: { nameAr: true, nameEn: true } } },
+        educational_stages: {
+          include: { curricula: { select: { nameAr: true, nameEn: true } } },
         },
       },
       orderBy: { sequence: 'asc' },
@@ -477,9 +479,9 @@ export class MarketplaceService {
   }
 
   async findOneGrade(id: string) {
-    const grade = await this.prisma.gradeLevel.findUnique({
+    const grade = await this.prisma.grade_levels.findUnique({
       where: { id },
-      include: { stage: { include: { curriculum: true } } },
+      include: { educational_stages: { include: { curricula: true } } },
     });
     if (!grade) throw new NotFoundException(`Grade with ID ${id} not found`);
     return grade;
@@ -497,7 +499,7 @@ export class MarketplaceService {
   ) {
     await this.findOneGrade(id);
     try {
-      return await this.prisma.gradeLevel.update({
+      return await this.prisma.grade_levels.update({
         where: { id },
         data: dto,
       });
@@ -513,7 +515,7 @@ export class MarketplaceService {
 
   async softDeleteGrade(id: string) {
     await this.findOneGrade(id);
-    return this.prisma.gradeLevel.update({
+    return this.prisma.grade_levels.update({
       where: { id },
       data: { isActive: false },
     });
@@ -523,7 +525,7 @@ export class MarketplaceService {
     await this.findOneGrade(id);
 
     // Check if grade is being used by teachers
-    const teacherGradesCount = await this.prisma.teacherSubjectGrade.count({
+    const teacherGradesCount = await this.prisma.teacher_subject_grades.count({
       where: { gradeLevelId: id },
     });
 
@@ -533,7 +535,7 @@ export class MarketplaceService {
       );
     }
 
-    await this.prisma.gradeLevel.delete({ where: { id } });
+    await this.prisma.grade_levels.delete({ where: { id } });
     return { deleted: true, message: 'تم حذف الصف الدراسي نهائياً' };
   }
 
@@ -544,39 +546,39 @@ export class MarketplaceService {
         idOrSlug,
       );
 
-    const teacher = await this.prisma.teacherProfile.findFirst({
+    const teacher = await this.prisma.teacher_profiles.findFirst({
       where: isUUID ? { id: idOrSlug } : { slug: idOrSlug },
       include: {
-        user: {
+        users: {
           select: { email: true },
         },
-        subjects: {
+        teacher_subjects: {
           include: {
-            subject: { select: { id: true, nameAr: true, nameEn: true } },
-            curriculum: { select: { id: true, nameAr: true, nameEn: true } },
-            grades: {
+            subjects: { select: { id: true, nameAr: true, nameEn: true } },
+            curricula: { select: { id: true, nameAr: true, nameEn: true } },
+            teacher_subject_grades: {
               include: {
-                gradeLevel: {
-                  include: { stage: true },
+                grade_levels: {
+                  include: { educational_stages: true },
                 },
               },
             },
           },
         },
-        teachingTags: {
-          include: { tag: true },
-          where: { tag: { isActive: true } },
+        teacher_teaching_approach_tags: {
+          include: { teaching_approach_tags: true },
+          where: { teaching_approach_tags: { isActive: true } },
         },
-        qualifications: {
+        teacher_qualifications: {
           where: { verified: true },
           orderBy: { graduationYear: 'desc' },
         },
         // Skills sorted by proficiency DESC, name ASC for public profile
-        skills: {
+        teacher_skills: {
           orderBy: [{ proficiency: 'desc' }, { name: 'asc' }],
         },
         // Work experiences sorted by current first, then by start date
-        workExperiences: {
+        teacher_work_experiences: {
           orderBy: [
             { isCurrent: 'desc' },
             { startDate: 'desc' },
@@ -585,8 +587,8 @@ export class MarketplaceService {
         },
         availability: true,
         // Include demo settings
-        demoSettings: true,
-        studentPackages: {
+        teacher_demo_settings: true,
+        student_packages: {
           select: { id: true },
         },
       },
@@ -598,7 +600,7 @@ export class MarketplaceService {
 
     try {
       // Get completed sessions count
-      const completedSessions = await this.prisma.booking.count({
+      const completedSessions = await this.prisma.bookings.count({
         where: {
           teacherId: teacher.id,
           status: 'COMPLETED' as any,
@@ -606,18 +608,18 @@ export class MarketplaceService {
       });
 
       // Get global system settings
-      const systemSettings = await this.prisma.systemSettings.findUnique({
+      const system_settings = await this.prisma.system_settings.findUnique({
         where: { id: 'default' },
       });
 
       // Get teacher demo settings
       const teacherDemoSettings =
-        await this.prisma.teacherDemoSettings.findUnique({
+        await this.prisma.teacher_demo_settings.findUnique({
           where: { teacherId: teacher.id },
         });
 
       // Get active package tiers
-      const packageTiers = await this.prisma.packageTier.findMany({
+      const packageTiers = await this.prisma.package_tiers.findMany({
         where: { isActive: true },
         orderBy: { displayOrder: 'asc' },
       });
@@ -637,8 +639,8 @@ export class MarketplaceService {
         totalSessions: completedSessions,
         timezone: teacher.timezone,
         globalSettings: {
-          packagesEnabled: systemSettings?.packagesEnabled ?? true,
-          demosEnabled: systemSettings?.demosEnabled ?? true,
+          packagesEnabled: system_settings?.packagesEnabled ?? true,
+          demosEnabled: system_settings?.demosEnabled ?? true,
         },
         teacherSettings: {
           demoEnabled: teacherDemoSettings?.demoEnabled ?? false,
@@ -648,27 +650,27 @@ export class MarketplaceService {
           sessionCount: t.sessionCount,
           discountPercent: Number(t.discountPercent),
         })),
-        subjects: (teacher as any).subjects.map((s: any) => ({
+        subjects: (teacher as any).teacher_subjects.map((s: any) => ({
           id: s.id,
           pricePerHour: s.pricePerHour ? s.pricePerHour.toString() : '0',
           // Map structured grades to simplified codes/names for frontend
           grades:
-            s.grades?.map((g: any) => ({
-              id: g.gradeLevel?.id,
-              nameAr: g.gradeLevel?.nameAr,
-              nameEn: g.gradeLevel?.nameEn,
-              code: g.gradeLevel?.code,
-              stageNameAr: g.gradeLevel?.stage?.nameAr,
-              stageNameEn: g.gradeLevel?.stage?.nameEn,
+            s.teacher_subject_grades?.map((g: any) => ({
+              id: g.grade_levels?.id,
+              nameAr: g.grade_levels?.nameAr,
+              nameEn: g.grade_levels?.nameEn,
+              code: g.grade_levels?.code,
+              stageNameAr: g.grade_levels?.educational_stages?.nameAr,
+              stageNameEn: g.grade_levels?.educational_stages?.nameEn,
             })) || [],
-          gradeLevels: s.grades?.map((g: any) => g.gradeLevel?.code) || [],
-          subject: s.subject,
-          curriculum: s.curriculum,
+          gradeLevels: s.teacher_subject_grades?.map((g: any) => g.grade_levels?.code) || [],
+          subject: s.subjects,
+          curricula: s.curricula,
         })),
 
         // Academic qualifications (verified only)
         qualifications:
-          (teacher as any).qualifications?.map((q: any) => ({
+          (teacher as any).teacher_qualifications?.map((q: any) => ({
             id: q.id,
             degreeName: q.degreeName,
             institution: q.institution,
@@ -682,7 +684,7 @@ export class MarketplaceService {
 
         // Skills (sorted by proficiency DESC, name ASC)
         skills:
-          (teacher as any).skills?.map((s: any) => ({
+          (teacher as any).teacher_skills?.map((s: any) => ({
             id: s.id,
             name: s.name,
             category: s.category,
@@ -691,7 +693,7 @@ export class MarketplaceService {
 
         // Work experiences (sorted by isCurrent DESC, startDate DESC)
         workExperiences:
-          (teacher as any).workExperiences?.map((e: any) => ({
+          (teacher as any).teacher_work_experiences?.map((e: any) => ({
             id: e.id,
             title: e.title,
             organization: e.organization,
@@ -710,16 +712,16 @@ export class MarketplaceService {
         vacationEndDate: teacher.vacationEndDate,
         teachingApproach:
           (teacher as any).teachingStyle ||
-          ((teacher as any).teachingTags &&
-            (teacher as any).teachingTags.length > 0)
+            ((teacher as any).teacher_teaching_approach_tags &&
+              (teacher as any).teacher_teaching_approach_tags.length > 0)
             ? {
-                text: (teacher as any).teachingStyle,
-                tags:
-                  (teacher as any).teachingTags?.map((tt: any) => ({
-                    id: tt.tag?.id,
-                    labelAr: tt.tag?.labelAr,
-                  })) || [],
-              }
+              text: (teacher as any).teachingStyle,
+              tags:
+                (teacher as any).teacher_teaching_approach_tags?.map((tt: any) => ({
+                  id: tt.teaching_approach_tags?.id,
+                  labelAr: tt.teaching_approach_tags?.labelAr,
+                })) || [],
+            }
             : null,
       };
     } catch (error) {
@@ -735,11 +737,11 @@ export class MarketplaceService {
 
   // --- Teacher Availability (Public) ---
   async getTeacherAvailability(teacherId: string) {
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { id: teacherId },
       include: {
         availability: true,
-        availabilityExceptions: true,
+        availability_exceptions: true,
       },
     });
 
@@ -749,7 +751,7 @@ export class MarketplaceService {
 
     return {
       weeklySchedule: teacher.availability,
-      exceptions: teacher.availabilityExceptions,
+      exceptions: teacher.availability_exceptions,
     };
   }
 
@@ -762,7 +764,7 @@ export class MarketplaceService {
     const skip = (page - 1) * limit;
 
     // Get total count for pagination
-    const totalCount = await this.prisma.rating.count({
+    const totalCount = await this.prisma.ratings.count({
       where: {
         teacherId,
         isVisible: true,
@@ -770,17 +772,17 @@ export class MarketplaceService {
     });
 
     // Get ratings with user info (for display name)
-    const ratings = await this.prisma.rating.findMany({
+    const ratings = await this.prisma.ratings.findMany({
       where: {
         teacherId,
         isVisible: true,
       },
       include: {
-        ratedByUser: {
+        users: {
           select: {
             id: true,
             role: true,
-            parentProfile: {
+            parent_profiles: {
               select: { id: true },
             },
           },
@@ -798,7 +800,7 @@ export class MarketplaceService {
         comment: r.comment,
         createdAt: r.createdAt,
         // Show generic name for privacy
-        raterType: r.ratedByUser.role === 'PARENT' ? 'ولي أمر' : 'طالب',
+        raterType: r.users.role === 'PARENT' ? 'ولي أمر' : 'طالب',
       })),
       pagination: {
         page,
@@ -837,7 +839,7 @@ export class MarketplaceService {
     }
 
     // Step 1: Get teacher's timezone
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { id: teacherId },
       select: { timezone: true },
     });
@@ -947,7 +949,7 @@ export class MarketplaceService {
     teacherTimezone: string,
   ): Promise<SlotWithTimezone[]> {
     // Get exceptions that overlap with our UTC window
-    const exceptions = await this.prisma.availabilityException.findMany({
+    const exceptions = await this.prisma.availability_exceptions.findMany({
       where: {
         teacherId,
         startDate: { lte: utcWindow.end },
@@ -1014,7 +1016,7 @@ export class MarketplaceService {
     utcWindow: { start: Date; end: Date },
   ): Promise<SlotWithTimezone[]> {
     // Get bookings in our UTC window
-    const bookings = await this.prisma.booking.findMany({
+    const bookings = await this.prisma.bookings.findMany({
       where: {
         teacherId,
         startTime: { gte: utcWindow.start, lte: utcWindow.end },
@@ -1104,11 +1106,10 @@ export class MarketplaceService {
     duration: number,
   ) {
     // Get teacher profile with availability
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { id: teacherId },
       include: {
         availability: true,
-        user: true,
       },
     });
 
@@ -1195,7 +1196,7 @@ export class MarketplaceService {
       );
 
       // Check for conflicts with existing bookings
-      const existingBookings = await this.prisma.booking.findMany({
+      const existingBookings = await this.prisma.bookings.findMany({
         where: {
           teacherId,
           startTime: {
@@ -1274,11 +1275,10 @@ export class MarketplaceService {
       );
 
     // Get teacher profile with availability and timezone
-    const teacher = await this.prisma.teacherProfile.findFirst({
+    const teacher = await this.prisma.teacher_profiles.findFirst({
       where: isUUID ? { id: idOrSlug } : { slug: idOrSlug },
       include: {
         availability: true,
-        user: true,
       },
     });
 
@@ -1290,7 +1290,7 @@ export class MarketplaceService {
     const teacherId = teacher.id;
 
     // Get all bookings for this teacher in the month
-    const bookings = await this.prisma.booking.findMany({
+    const bookings = await this.prisma.bookings.findMany({
       where: {
         teacherId,
         startTime: {

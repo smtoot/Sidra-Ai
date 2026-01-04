@@ -153,7 +153,7 @@ export class SlugService {
     slug: string,
     excludeTeacherId?: string,
   ): Promise<boolean> {
-    const existing = await this.prisma.teacherProfile.findFirst({
+    const existing = await this.prisma.teacher_profiles.findFirst({
       where: {
         slug,
         ...(excludeTeacherId ? { id: { not: excludeTeacherId } } : {}),
@@ -202,7 +202,7 @@ export class SlugService {
     newSlug: string,
     confirmAndLock: boolean = false,
   ): Promise<{ slug: string; locked: boolean }> {
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { id: teacherId },
     });
 
@@ -230,7 +230,7 @@ export class SlugService {
     }
 
     // Update the slug
-    const updated = await this.prisma.teacherProfile.update({
+    const updated = await this.prisma.teacher_profiles.update({
       where: { id: teacherId },
       data: {
         slug: newSlug,

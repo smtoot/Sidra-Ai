@@ -6,7 +6,7 @@ import { AuditAction, Prisma } from '@prisma/client';
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Log an admin or system action
@@ -21,8 +21,9 @@ export class AuditService {
     try {
       const sanitizedPayload = this.sanitizePayload(context.payload);
 
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_logs.create({
         data: {
+          id: crypto.randomUUID(),
           action: context.action,
           actorId: context.actorId,
           targetId: context.targetId,
@@ -96,24 +97,24 @@ export class AuditService {
     const limit = params.limit || 20;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.AuditLogWhereInput = {
+    const where: Prisma.audit_logsWhereInput = {
       ...(params.action && { action: params.action }),
       ...(params.actorId && { actorId: params.actorId }),
     };
 
     const [items, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
+      this.prisma.audit_logs.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          actor: {
+          users: {
             select: { email: true, role: true },
           },
         },
       }),
-      this.prisma.auditLog.count({ where }),
+      this.prisma.audit_logs.count({ where }),
     ]);
 
     return {

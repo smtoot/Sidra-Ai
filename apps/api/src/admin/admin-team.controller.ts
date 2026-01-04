@@ -130,7 +130,7 @@ export class AdminTeamController {
     const actorId = req.user.userId;
 
     // Get actor role from DB (security: don't trust JWT)
-    const actor = await this.prisma.user.findUnique({
+    const actor = await this.prisma.users.findUnique({
       where: { id: actorId },
       select: { role: true },
     });
@@ -155,7 +155,7 @@ export class AdminTeamController {
     const actorId = req.user.userId;
 
     // Get actor role from DB (security: don't trust JWT)
-    const actor = await this.prisma.user.findUnique({
+    const actor = await this.prisma.users.findUnique({
       where: { id: actorId },
       select: { role: true },
     });
@@ -184,7 +184,7 @@ export class AdminTeamController {
     const actorId = req.user.userId;
 
     // Get actor role from DB (security: don't trust JWT)
-    const actor = await this.prisma.user.findUnique({
+    const actor = await this.prisma.users.findUnique({
       where: { id: actorId },
       select: { role: true },
     });
@@ -209,7 +209,7 @@ export class AdminTeamController {
   async getMyPermissions(@Req() req: AuthRequest) {
     const userId = req.user.userId;
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: { role: true, permissionOverrides: true },
     });

@@ -47,7 +47,7 @@ export class ApprovalGuard implements CanActivate {
     }
 
     // Check teacher's application status
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId: user.userId },
       select: { applicationStatus: true },
     });

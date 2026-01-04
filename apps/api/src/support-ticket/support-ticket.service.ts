@@ -48,8 +48,9 @@ export class SupportTicketService {
     const slaDeadline = this.calculateSLADeadline(priority);
 
     // Create ticket
-    const ticket = await this.prisma.supportTicket.create({
+    const ticket = await this.prisma.support_tickets.create({
       data: {
+        id: crypto.randomUUID(),
         readableId,
         createdByUserId: userId,
         category: dto.category,
@@ -65,9 +66,10 @@ export class SupportTicketService {
         escalationLevel: EscalationLevel.L1,
         slaDeadline,
         lastActivityAt: new Date(),
+        updatedAt: new Date(),
       },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -76,23 +78,23 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        resolvedBy: {
+        users_support_tickets_resolvedByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        messages: {
+        ticket_messages: {
           include: {
-            author: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -103,9 +105,9 @@ export class SupportTicketService {
           },
           orderBy: { createdAt: 'asc' },
         },
-        statusHistory: {
+        ticket_status_history: {
           include: {
-            changedBy: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -119,7 +121,7 @@ export class SupportTicketService {
     });
 
     // Create initial status history entry
-    await this.prisma.ticketStatusHistory.create({
+    await this.prisma.ticket_status_history.create({
       data: {
         ticketId: ticket.id,
         fromStatus: null,
@@ -130,7 +132,7 @@ export class SupportTicketService {
     });
 
     // Create access control for creator
-    await this.prisma.ticketAccessControl.create({
+    await this.prisma.ticket_access_controls.create({
       data: {
         ticketId: ticket.id,
         userId,
@@ -153,7 +155,7 @@ export class SupportTicketService {
   private async notifyAdminsAboutNewTicket(ticket: any): Promise<void> {
     try {
       // Get all admin/support users
-      const admins = await this.prisma.user.findMany({
+      const admins = await this.prisma.users.findMany({
         where: {
           role: { in: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'] },
           isActive: true,
@@ -206,18 +208,18 @@ export class SupportTicketService {
       userRole,
     );
 
-    const tickets = await this.prisma.supportTicket.findMany({
+    const tickets = await this.prisma.support_tickets.findMany({
       where: isAdmin
         ? {} // Admins can see all tickets
         : {
             OR: [
               { createdByUserId: userId },
               { assignedToId: userId },
-              { accessControls: { some: { userId, canView: true } } },
+              { ticket_access_controls: { some: { userId, canView: true } } },
             ],
           },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -226,7 +228,7 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -252,10 +254,10 @@ export class SupportTicketService {
     userId: string,
     userRole: UserRole,
   ): Promise<SupportTicketDetailDto> {
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -264,23 +266,23 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        resolvedBy: {
+        users_support_tickets_resolvedByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        messages: {
+        ticket_messages: {
           include: {
-            author: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -291,9 +293,9 @@ export class SupportTicketService {
           },
           orderBy: { createdAt: 'asc' },
         },
-        statusHistory: {
+        ticket_status_history: {
           include: {
-            changedBy: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -324,7 +326,7 @@ export class SupportTicketService {
     userId: string,
     dto: UpdateSupportTicketDto,
   ): Promise<SupportTicketDetailDto> {
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
     });
 
@@ -337,7 +339,7 @@ export class SupportTicketService {
     const newStatus = dto.status || oldStatus;
 
     // Update ticket
-    const updated = await this.prisma.supportTicket.update({
+    const updated = await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         status: dto.status,
@@ -361,7 +363,7 @@ export class SupportTicketService {
         lastActivityAt: new Date(),
       },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -370,23 +372,23 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        resolvedBy: {
+        users_support_tickets_resolvedByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        messages: {
+        ticket_messages: {
           include: {
-            author: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -397,9 +399,9 @@ export class SupportTicketService {
           },
           orderBy: { createdAt: 'asc' },
         },
-        statusHistory: {
+        ticket_status_history: {
           include: {
-            changedBy: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -414,7 +416,7 @@ export class SupportTicketService {
 
     // Record status change
     if (oldStatus !== newStatus) {
-      await this.prisma.ticketStatusHistory.create({
+      await this.prisma.ticket_status_history.create({
         data: {
           ticketId,
           fromStatus: oldStatus,
@@ -435,7 +437,7 @@ export class SupportTicketService {
     ticketId: string,
     dto: AssignTicketDto,
   ): Promise<SupportTicketDetailDto> {
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
     });
 
@@ -444,7 +446,7 @@ export class SupportTicketService {
     }
 
     // Verify assignee exists and is an admin
-    const assignee = await this.prisma.user.findUnique({
+    const assignee = await this.prisma.users.findUnique({
       where: { id: dto.assignedToId },
     });
 
@@ -460,7 +462,7 @@ export class SupportTicketService {
     }
 
     // Update ticket
-    const updated = await this.prisma.supportTicket.update({
+    const updated = await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         assignedToId: dto.assignedToId,
@@ -471,7 +473,7 @@ export class SupportTicketService {
         lastActivityAt: new Date(),
       },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -480,23 +482,23 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        resolvedBy: {
+        users_support_tickets_resolvedByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        messages: {
+        ticket_messages: {
           include: {
-            author: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -507,9 +509,9 @@ export class SupportTicketService {
           },
           orderBy: { createdAt: 'asc' },
         },
-        statusHistory: {
+        ticket_status_history: {
           include: {
-            changedBy: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -523,7 +525,7 @@ export class SupportTicketService {
     });
 
     // Create access control for assignee
-    await this.prisma.ticketAccessControl.upsert({
+    await this.prisma.ticket_access_controls.upsert({
       where: {
         ticketId_userId: {
           ticketId,
@@ -557,7 +559,7 @@ export class SupportTicketService {
     userId: string,
     userRole: UserRole,
   ): Promise<SupportTicketDetailDto> {
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
     });
 
@@ -569,7 +571,7 @@ export class SupportTicketService {
     await this.verifyAccess(ticket, userId, userRole);
 
     // Update ticket
-    const updated = await this.prisma.supportTicket.update({
+    const updated = await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         status: TicketStatus.CLOSED,
@@ -577,7 +579,7 @@ export class SupportTicketService {
         lastActivityAt: new Date(),
       },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -586,23 +588,23 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        resolvedBy: {
+        users_support_tickets_resolvedByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        messages: {
+        ticket_messages: {
           include: {
-            author: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -613,9 +615,9 @@ export class SupportTicketService {
           },
           orderBy: { createdAt: 'asc' },
         },
-        statusHistory: {
+        ticket_status_history: {
           include: {
-            changedBy: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -629,7 +631,7 @@ export class SupportTicketService {
     });
 
     // Record status change
-    await this.prisma.ticketStatusHistory.create({
+    await this.prisma.ticket_status_history.create({
       data: {
         ticketId,
         fromStatus: ticket.status,
@@ -650,7 +652,7 @@ export class SupportTicketService {
     userId: string,
     userRole: UserRole,
   ): Promise<SupportTicketDetailDto> {
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
     });
 
@@ -667,7 +669,7 @@ export class SupportTicketService {
     await this.verifyAccess(ticket, userId, userRole);
 
     // Update ticket
-    const updated = await this.prisma.supportTicket.update({
+    const updated = await this.prisma.support_tickets.update({
       where: { id: ticketId },
       data: {
         status: TicketStatus.OPEN,
@@ -675,7 +677,7 @@ export class SupportTicketService {
         lastActivityAt: new Date(),
       },
       include: {
-        createdBy: {
+        users_support_tickets_createdByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
@@ -684,23 +686,23 @@ export class SupportTicketService {
             role: true,
           },
         },
-        assignedTo: {
+        users_support_tickets_assignedToIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        resolvedBy: {
+        users_support_tickets_resolvedByUserIdTousers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
           },
         },
-        messages: {
+        ticket_messages: {
           include: {
-            author: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -711,9 +713,9 @@ export class SupportTicketService {
           },
           orderBy: { createdAt: 'asc' },
         },
-        statusHistory: {
+        ticket_status_history: {
           include: {
-            changedBy: {
+            users: {
               select: {
                 id: true,
                 firstName: true,
@@ -727,7 +729,7 @@ export class SupportTicketService {
     });
 
     // Record status change
-    await this.prisma.ticketStatusHistory.create({
+    await this.prisma.ticket_status_history.create({
       data: {
         ticketId,
         fromStatus: ticket.status,
@@ -794,7 +796,7 @@ export class SupportTicketService {
     }
 
     // Check access control
-    const access = await this.prisma.ticketAccessControl.findUnique({
+    const access = await this.prisma.ticket_access_controls.findUnique({
       where: {
         ticketId_userId: {
           ticketId: ticket.id,
@@ -827,8 +829,8 @@ export class SupportTicketService {
       createdAt: ticket.createdAt,
       updatedAt: ticket.updatedAt,
       lastActivityAt: ticket.lastActivityAt,
-      createdBy: ticket.createdBy,
-      assignedTo: ticket.assignedTo,
+      createdBy: ticket.users_support_tickets_createdByUserIdTousers,
+      assignedTo: ticket.users_support_tickets_assignedToIdTousers,
     };
   }
 
@@ -848,9 +850,9 @@ export class SupportTicketService {
       linkedTeacherId: ticket.linkedTeacherId,
       linkedStudentId: ticket.linkedStudentId,
       disputeId: ticket.disputeId,
-      resolvedBy: ticket.resolvedBy,
-      messages: ticket.messages || [],
-      statusHistory: ticket.statusHistory || [],
+      resolvedBy: ticket.users_support_tickets_resolvedByUserIdTousers,
+      messages: ticket.ticket_messages || [],
+      statusHistory: ticket.ticket_status_history || [],
     };
   }
 }

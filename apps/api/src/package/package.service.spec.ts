@@ -18,7 +18,7 @@ const mockPackageTier = {
 
 const mockTeacherSubject = {
   pricePerHour: new Decimal(100),
-  teacherProfile: { commissionRate: 0.18 },
+  teacher_profiles: { commissionRate: 0.18 },
 };
 
 const mockStudentPackage = {
@@ -63,10 +63,10 @@ describe('PackageService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
-    teacherProfile: {
+    teacher_profiles: {
       findUnique: jest.fn(),
     },
-    teacherSubject: {
+    teacher_subjects: {
       findFirst: jest.fn(),
     },
     studentPackage: {
@@ -97,7 +97,7 @@ describe('PackageService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
     },
-    systemSettings: {
+    system_settings: {
       findFirst: jest.fn(),
     },
     teacherDemoSettings: {
@@ -156,10 +156,10 @@ describe('PackageService', () => {
     beforeEach(() => {
       mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
       mockPrismaBase.packageTier.findUnique.mockResolvedValue(mockPackageTier);
-      mockPrismaBase.teacherSubject.findFirst.mockResolvedValue(
+      mockPrismaBase.teacher_subjects.findFirst.mockResolvedValue(
         mockTeacherSubject,
       );
-      mockPrismaBase.systemSettings.findFirst.mockResolvedValue({
+      mockPrismaBase.system_settings.findFirst.mockResolvedValue({
         packagesEnabled: true,
       });
       mockPrismaBase.wallet.findUnique.mockResolvedValue({
@@ -231,7 +231,7 @@ describe('PackageService', () => {
     });
 
     it('should throw if teacher does not teach subject', async () => {
-      mockPrismaBase.teacherSubject.findFirst.mockResolvedValue(null);
+      mockPrismaBase.teacher_subjects.findFirst.mockResolvedValue(null);
 
       await expect(
         service.purchasePackage(

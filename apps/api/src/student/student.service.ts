@@ -19,7 +19,7 @@ export class StudentService {
 
     try {
       // 1. Fetch Student Profile (Needed for recommendations)
-      const studentProfile = await this.prisma.studentProfile.findUnique({
+      const student_profiles = await this.prisma.student_profiles.findUnique({
         where: { userId },
       });
 
@@ -37,7 +37,7 @@ export class StudentService {
       // 3. Fetch Bookings (Upcoming)
       let upcomingClasses: any[] = [];
       try {
-        upcomingClasses = await this.prisma.booking.findMany({
+        upcomingClasses = await this.prisma.bookings.findMany({
           where: {
             bookedByUserId: userId,
             status: 'SCHEDULED',
@@ -45,8 +45,8 @@ export class StudentService {
           orderBy: { startTime: 'asc' },
           take: 5,
           include: {
-            teacherProfile: { include: { user: true } },
-            subject: true,
+            teacher_profiles: { include: { users: true } },
+            subjects: true,
           },
         });
       } catch (e) {
@@ -56,7 +56,7 @@ export class StudentService {
       // 4. Calculate Stats (Completed Classes & Hours)
       let completedClassesJson: any[] = [];
       try {
-        completedClassesJson = await this.prisma.booking.findMany({
+        completedClassesJson = await this.prisma.bookings.findMany({
           where: {
             bookedByUserId: userId,
             status: 'COMPLETED',
@@ -87,7 +87,7 @@ export class StudentService {
         ];
         suggestedTeachers = await this.getSuggestedTeachers(
           userId,
-          studentProfile,
+          student_profiles,
           pastTeacherIds,
         );
       } catch (e) {
@@ -96,7 +96,7 @@ export class StudentService {
       }
 
       // 6. Total Classes (All time)
-      const totalClasses = await this.prisma.booking.count({
+      const totalClasses = await this.prisma.bookings.count({
         where: { bookedByUserId: userId },
       });
 
@@ -133,14 +133,14 @@ export class StudentService {
 
     // --- Tier 1: Re-connect (Max 1) ---
     if (pastTeacherIds.length > 0) {
-      const reconnectTeachers = await this.prisma.teacherProfile.findMany({
+      const reconnectTeachers = await this.prisma.teacher_profiles.findMany({
         where: {
           id: { in: pastTeacherIds },
           applicationStatus: 'APPROVED',
           isOnVacation: false,
         },
         take: 1, // Suggest most recent/relevant one
-        include: { user: true, subjects: { include: { subject: true } } },
+        include: { users: true, teacher_subjects: { include: { subjects: true } } },
       });
 
       reconnectTeachers.forEach((t) => {
@@ -158,8 +158,8 @@ export class StudentService {
         applicationStatus: 'APPROVED',
         isOnVacation: false,
         id: { notIn: Array.from(excludeTeacherIds) },
-        // Match teachers who have subjects linked to this curriculum
-        subjects: {
+        // Match teachers who have subjects linked to this curricula
+        teacher_subjects: {
           some: {
             curriculumId: profile.curriculumId,
           },
@@ -170,11 +170,11 @@ export class StudentService {
       // TeacherSubject -> grades. Complex query.
       // For MVP, Curriculum match is a strong enough signal.
 
-      const matchedTeachers = await this.prisma.teacherProfile.findMany({
+      const matchedTeachers = await this.prisma.teacher_profiles.findMany({
         where: matchQuery,
         take: needed,
         orderBy: { averageRating: 'desc' },
-        include: { user: true, subjects: { include: { subject: true } } },
+        include: { users: true, teacher_subjects: { include: { subjects: true } } },
       });
 
       matchedTeachers.forEach((t) => {
@@ -186,7 +186,7 @@ export class StudentService {
     // --- Tier 3: Top Rated Fallback ---
     if (suggestions.length < 3) {
       const needed = 3 - suggestions.length;
-      const topTeachers = await this.prisma.teacherProfile.findMany({
+      const topTeachers = await this.prisma.teacher_profiles.findMany({
         where: {
           applicationStatus: 'APPROVED',
           isOnVacation: false,
@@ -194,7 +194,7 @@ export class StudentService {
         },
         take: needed,
         orderBy: { averageRating: 'desc' },
-        include: { user: true, subjects: { include: { subject: true } } },
+        include: { users: true, teacher_subjects: { include: { subjects: true } } },
       });
 
       topTeachers.forEach((t) => suggestions.push(t));
@@ -203,18 +203,18 @@ export class StudentService {
     // Transform for Frontend Display
     return suggestions.map((t) => ({
       id: t.id,
-      name: t.displayName || t.user.firstName + ' ' + t.user.lastName,
-      subject: t.subjects?.[0]?.subject?.nameAr || 'عام', // Pick primary subject
+      name: t.displayName || t.users.firstName + ' ' + t.users.lastName,
+      subject: t.teacher_subjects?.[0]?.subjects?.nameAr || 'عام', // Pick primary subject
       rating: t.averageRating || 5.0, // Default to 5.0 for new teachers if 0? Or keep 0.
-      image: t.profilePhotoUrl || t.user.profilePhotoUrl,
+      image: t.profilePhotoUrl || t.users.profilePhotoUrl,
       slug: t.slug || t.id,
     }));
   }
 
   async getProfile(userId: string) {
-    const profile = await this.prisma.studentProfile.findUnique({
+    const profile = await this.prisma.student_profiles.findUnique({
       where: { userId },
-      include: { user: true, curriculum: true },
+      include: { users: true, curricula: true },
     });
     if (!profile) throw new NotFoundException('Student profile not found');
     return profile;
@@ -237,7 +237,7 @@ export class StudentService {
   ) {
     // Update user fields (firstName, lastName)
     if (data.firstName !== undefined || data.lastName !== undefined) {
-      await this.prisma.user.update({
+      await this.prisma.users.update({
         where: { id: userId },
         data: {
           firstName: data.firstName,
@@ -247,7 +247,7 @@ export class StudentService {
     }
 
     // Update student profile fields
-    const profile = await this.prisma.studentProfile.update({
+    const profile = await this.prisma.student_profiles.update({
       where: { userId },
       data: {
         gradeLevel: data.gradeLevel,
@@ -259,22 +259,22 @@ export class StudentService {
         schoolName: data.schoolName,
         curriculumId: data.curriculumId || null,
       },
-      include: { user: true, curriculum: true },
+      include: { users: true, curricula: true },
     });
 
     return profile;
   }
 
   async getCurricula() {
-    return this.prisma.curriculum.findMany({
+    return this.prisma.curricula.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
       include: {
-        stages: {
+        educational_stages: {
           where: { isActive: true },
           orderBy: { sequence: 'asc' },
           include: {
-            grades: {
+            grade_levels: {
               where: { isActive: true },
               orderBy: { sequence: 'asc' },
             },

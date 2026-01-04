@@ -29,13 +29,13 @@ export class VacationScheduler {
 
     try {
       // Find teachers with expired vacations
-      const expiredTeachers = await this.prisma.teacherProfile.findMany({
+      const expiredTeachers = await this.prisma.teacher_profiles.findMany({
         where: {
           isOnVacation: true,
           vacationEndDate: { lte: now },
         },
         include: {
-          user: { select: { id: true } },
+          users: { select: { id: true } },
         },
       });
 
@@ -49,7 +49,7 @@ export class VacationScheduler {
       );
 
       // Update all expired vacations
-      const updateResult = await this.prisma.teacherProfile.updateMany({
+      const updateResult = await this.prisma.teacher_profiles.updateMany({
         where: {
           isOnVacation: true,
           vacationEndDate: { lte: now },
@@ -70,7 +70,7 @@ export class VacationScheduler {
       for (const teacher of expiredTeachers) {
         try {
           await this.notificationService.notifyUser({
-            userId: teacher.user.id,
+            userId: teacher.users.id,
             title: 'انتهت فترة إجازتك',
             message:
               'تم إيقاف وضع الإجازة تلقائياً. أنت الآن متاح للحجوزات الجديدة.',

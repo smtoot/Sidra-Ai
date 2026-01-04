@@ -48,7 +48,7 @@ export class AuthService {
   async register(dto: RegisterDto) {
     // PHONE-FIRST: Check by phone number (primary identifier), not email
     const existingByPhone = dto.phoneNumber
-      ? await this.prisma.user.findFirst({
+      ? await this.prisma.users.findFirst({
         where: { phoneNumber: dto.phoneNumber },
       })
       : null;
@@ -62,7 +62,7 @@ export class AuthService {
 
     // Optional: Also check email if provided
     if (dto.email) {
-      const existingByEmail = await this.prisma.user.findUnique({
+      const existingByEmail = await this.prisma.users.findUnique({
         where: { email: dto.email },
       });
       // P1-6 FIX: Use generic message to prevent account enumeration
@@ -77,9 +77,11 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // 3. Create User & Profile
-    const user = await this.prisma.user.create({
+    const user = await this.prisma.users.create({
       data: {
-        email: dto.email || null, // Email is optional
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
+        email: dto.email || `user_${dto.phoneNumber}@sidra-placeholder.com`, // Use placeholder if missing
         phoneNumber: dto.phoneNumber, // Phone is required
         firstName: dto.firstName || null, // Display name for Parents/Students
         lastName: dto.lastName || null, // Optional family name
@@ -88,13 +90,13 @@ export class AuthService {
         isVerified: false, // Default
         // Create empty profile based on role
         ...(dto.role === 'TEACHER' && {
-          teacherProfile: { create: {} },
+          teacher_profiles: { create: { id: crypto.randomUUID() } },
         }),
         ...(dto.role === 'PARENT' && {
-          parentProfile: { create: {} },
+          parent_profiles: { create: { id: crypto.randomUUID() } },
         }),
         ...(dto.role === 'STUDENT' && {
-          studentProfile: { create: {} },
+          student_profiles: { create: { id: crypto.randomUUID() } },
         }),
       },
     });
@@ -119,9 +121,9 @@ export class AuthService {
 
     if (phoneNumber) {
       // 1. Try exact match
-      user = await this.prisma.user.findFirst({
+      user = await this.prisma.users.findFirst({
         where: { phoneNumber },
-        include: { teacherProfile: true },
+        include: { teacher_profiles: true },
       });
 
       // 2. If not found, try to normalize (Sudan specific context)
@@ -133,15 +135,15 @@ export class AuthService {
         }
 
         // Try with +249 prefix
-        user = await this.prisma.user.findFirst({
+        user = await this.prisma.users.findFirst({
           where: { phoneNumber: `+249${cleanNumber}` },
-          include: { teacherProfile: true },
+          include: { teacher_profiles: true },
         });
       }
     } else if (email) {
-      user = await this.prisma.user.findUnique({
+      user = await this.prisma.users.findUnique({
         where: { email },
-        include: { teacherProfile: true },
+        include: { teacher_profiles: true },
       });
     }
 
@@ -162,29 +164,29 @@ export class AuthService {
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,
-      displayName: user.teacherProfile?.displayName || undefined,
+      displayName: user.teacher_profiles?.displayName || undefined,
     });
   }
 
   async getProfile(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: {
-        parentProfile: {
+        parent_profiles: {
           include: {
             children: {
               include: {
-                curriculum: {
+                curricula: {
                   select: { id: true, nameAr: true, nameEn: true, code: true }
                 }
               }
             },
           },
         },
-        teacherProfile: true,
-        studentProfile: {
+        teacher_profiles: true,
+        student_profiles: {
           include: {
-            curriculum: {
+            curricula: {
               select: { id: true, nameAr: true, nameEn: true, code: true }
             }
           }
@@ -203,7 +205,7 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
     });
 
@@ -219,7 +221,7 @@ export class AuthService {
 
     // Hash new password and update
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.prisma.user.update({
+    await this.prisma.users.update({
       where: { id: userId },
       data: { passwordHash: hashedPassword },
     });
@@ -265,7 +267,7 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     // 4. Store in DB
-    const tokenRecord = await this.prisma.refreshToken.create({
+    const tokenRecord = await this.prisma.refresh_tokens.create({
       data: {
         userId,
         tokenHash: refreshTokenHash,
@@ -306,7 +308,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid token format');
     }
 
-    const tokenRecord = await this.prisma.refreshToken.findUnique({
+    const tokenRecord = await this.prisma.refresh_tokens.findUnique({
       where: { id: tokenId },
     });
 
@@ -320,7 +322,7 @@ export class AuthService {
       // SECURITY ALARM: Attempt to use a revoked token!
       // This implies the user OR an attacker is retrying an old token.
       // We must REVOKE ALL tokens for this user to be safe.
-      await this.prisma.refreshToken.updateMany({
+      await this.prisma.refresh_tokens.updateMany({
         where: { userId: tokenRecord.userId },
         data: { revoked: true },
       });
@@ -342,7 +344,7 @@ export class AuthService {
 
     // 5. ROTATION: Revoke the old token
     // We replace it with a new one. valid usage consumes the token.
-    await this.prisma.refreshToken.update({
+    await this.prisma.refresh_tokens.update({
       where: { id: tokenId },
       data: {
         revoked: true,
@@ -352,7 +354,7 @@ export class AuthService {
     });
 
     // 6. Issue New Pair
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: tokenRecord.userId },
     });
     if (!user) throw new UnauthorizedException('User not found');
@@ -381,7 +383,7 @@ export class AuthService {
 
     // Just revoke it
     try {
-      await this.prisma.refreshToken.update({
+      await this.prisma.refresh_tokens.update({
         where: { id: tokenId },
         data: { revoked: true, revokedAt: new Date() },
       });
