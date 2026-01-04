@@ -80,9 +80,11 @@ export class CreateBookingDto {
 
 export class UpdateBookingStatusDto {
     @IsString()
-    status!: string; // e.g., "REJECTED_BY_TEACHER"
+    @IsOptional()
+    status?: string; // e.g., "REJECTED_BY_TEACHER" - optional since endpoint knows action
 
     @IsString()
+    @IsOptional()
     cancelReason?: string;
 }
 
