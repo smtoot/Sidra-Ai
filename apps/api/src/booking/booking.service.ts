@@ -705,6 +705,8 @@ export class BookingService {
       pendingTierSessionCount: booking.pendingTierId
         ? tierMap.get(booking.pendingTierId) || null
         : null,
+      // Demo sessions have price = 0 (free)
+      isDemo: Number(booking.price) === 0,
     }));
 
     return {
