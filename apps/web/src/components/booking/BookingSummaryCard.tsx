@@ -15,6 +15,7 @@ interface BookingSummaryCardProps {
     userTimezone?: string;
     curriculumName?: string;
     gradeName?: string;
+    hidePriceRow?: boolean;
 }
 
 export function BookingSummaryCard({
@@ -28,7 +29,8 @@ export function BookingSummaryCard({
     notes,
     userTimezone,
     curriculumName,
-    gradeName
+    gradeName,
+    hidePriceRow = false
 }: BookingSummaryCardProps) {
     return (
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
@@ -116,16 +118,18 @@ export function BookingSummaryCard({
                 )}
 
                 {/* Price Section - Cleaner & Reassuring */}
-                <div className="pt-3 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-500">
-                            الإجمالي المستحق لاحقًا
-                        </span>
-                        <span className={`text-base font-bold ${price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                            {price === 0 ? 'مجاناً' : formatCurrency(price).replace('SDG', '') + ' SDG'}
-                        </span>
+                {!hidePriceRow && (
+                    <div className="pt-3 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-gray-500">
+                                الإجمالي المستحق لاحقًا
+                            </span>
+                            <span className={`text-base font-bold ${price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                {price === 0 ? 'مجاناً' : formatCurrency(price).replace('SDG', '') + ' SDG'}
+                            </span>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Reassurance Message - Blue Style */}
                 <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex items-start gap-2.5">

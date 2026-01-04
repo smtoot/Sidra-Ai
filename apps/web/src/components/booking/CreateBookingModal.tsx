@@ -688,6 +688,7 @@ export function CreateBookingModal({
                                 selectedDate={selectedDate!}
                                 selectedTime={formatSlotLabel(selectedSlot.label)}
                                 price={selectedBookingOption?.price || selectedSubjectData.price}
+                                hidePriceRow={true} // Hide redundant price row
                                 bookingType={
                                     selectedBookingType === 'DEMO' ? 'حصة تجريبية' :
                                         selectedBookingType === 'PACKAGE' ?

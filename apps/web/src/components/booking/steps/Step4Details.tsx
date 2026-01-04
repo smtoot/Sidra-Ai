@@ -181,7 +181,9 @@ export function Step4Details({
                             subjectName={subjectName}
                             selectedDate={selectedDate}
                             selectedTime={formatTime(parseUtcDate(selectedSlot.startTimeUtc))}
-                            price={0} // Hide price in summary to highlight it separately
+                            price={bookingOption.price}
+                            // Ensuring price row is hidden for Paid Sessions
+                            hidePriceRow={true} // Hide price row in summary card as it is shown prominently below
                             bookingType={bookingOption.type === 'DEMO' ? 'حصة تجريبية' : bookingOption.type === 'SINGLE' ? 'حصة واحدة' : 'باقة'}
                             curriculumName={summaryCurriculumName}
                             gradeName={summaryGradeName}
