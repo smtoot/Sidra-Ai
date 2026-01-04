@@ -42,7 +42,7 @@ export class BookingService {
     private readableIdService: ReadableIdService,
     private teacherService: TeacherService,
     private systemSettingsService: SystemSettingsService,
-  ) {}
+  ) { }
 
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
@@ -323,6 +323,7 @@ export class BookingService {
           include: {
             teacherProfile: { include: { user: true } },
             bookedByUser: true,
+            packageRedemption: true, // Include redemption info
           },
         });
 
@@ -423,6 +424,25 @@ export class BookingService {
           };
         }
 
+        // Check if this is a pre-paid package redemption
+        if (booking.packageRedemption) {
+          // Funds already handled in package purchase. Just update status.
+          const updatedBooking = await tx.booking.update({
+            where: { id: bookingId },
+            data: {
+              status: 'SCHEDULED',
+              paymentDeadline: null,
+            },
+          });
+
+          return {
+            booking: updatedBooking,
+            paymentRequired: false,
+            isPackage: false,
+            isRedemption: true,
+          };
+        }
+
         // For single sessions, lock funds in escrow
         // P0-2 FIX: Atomic wallet lock and booking update
         await this.walletService.lockFundsForBooking(
@@ -458,6 +478,7 @@ export class BookingService {
           booking: any;
           paymentRequired: boolean;
           isPackage?: boolean;
+          isRedemption?: boolean;
           pendingTierId?: string;
           bookedByUserId?: string;
         }) => {
@@ -465,6 +486,7 @@ export class BookingService {
             booking: bookingFromTx,
             paymentRequired,
             isPackage,
+            isRedemption,
             pendingTierId,
             bookedByUserId,
           } = result;
@@ -542,6 +564,18 @@ export class BookingService {
               dedupeKey: `PAYMENT_REQUIRED:${updatedBooking.id}`,
               metadata: { bookingId: updatedBooking.id },
             });
+          } else if (isRedemption) {
+            // Notify parent: Confirmed via Package (No new charge)
+            await this.notificationService.notifyUser({
+              userId: updatedBooking.bookedByUserId,
+              title: 'تم قبول طلب الحجز (باقة)',
+              message:
+                'وافق المعلم على طلبك وتم تأكيد الحصة من رصيد الباقة.',
+              type: 'BOOKING_APPROVED',
+              link: '/parent/bookings',
+              dedupeKey: `BOOKING_APPROVED_PKG:${result.booking.id}:${updatedBooking.bookedByUserId}`, // Use result.booking.id in case bookingId is ambiguous
+              metadata: { bookingId: updatedBooking.id },
+            });
           } else {
             // Notify parent: Confirmed & Paid
             await this.notificationService.notifyUser({
@@ -551,7 +585,7 @@ export class BookingService {
                 'تم قبول طلب الحجز وخصم المبلغ من المحفظة. الحصة مجدولة الآن.',
               type: 'BOOKING_APPROVED',
               link: '/parent/bookings',
-              dedupeKey: `BOOKING_APPROVED:${bookingId}:${updatedBooking.bookedByUserId}`,
+              dedupeKey: `BOOKING_APPROVED:${result.booking.id}:${updatedBooking.bookedByUserId}`,
               metadata: { bookingId: updatedBooking.id },
             });
           }
@@ -569,7 +603,10 @@ export class BookingService {
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { teacherProfile: { include: { user: true } } },
+      include: {
+        teacherProfile: { include: { user: true } },
+        packageRedemption: true, // Include redemption to handle package refunds
+      },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');
@@ -587,6 +624,25 @@ export class BookingService {
         cancelReason: dto.cancelReason,
       },
     });
+
+    // PACKAGE FIX: If this is a package session, return it to the package
+    if (booking.packageRedemption) {
+      await this.prisma.$transaction([
+        // 1. Mark redemption as CANCELLED
+        this.prisma.packageRedemption.update({
+          where: { id: booking.packageRedemption.id },
+          data: { status: 'CANCELLED' },
+        }),
+        // 2. Decrement sessionsUsed on the package
+        this.prisma.studentPackage.update({
+          where: { id: booking.packageRedemption.packageId },
+          data: { sessionsUsed: { decrement: 1 } },
+        }),
+      ]);
+      this.logger.log(
+        `Returned session to package ${booking.packageRedemption.packageId} due to teacher rejection of booking ${bookingId}`,
+      );
+    }
 
     // DEMO FIX: If this is a demo booking, delete the DemoSession record
     // This allows the user to book another demo with the same teacher
@@ -721,8 +777,8 @@ export class BookingService {
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.packageTier.findMany({
-            where: { id: { in: pendingTierIds } },
-          })
+          where: { id: { in: pendingTierIds } },
+        })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -794,8 +850,8 @@ export class BookingService {
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.packageTier.findMany({
-            where: { id: { in: pendingTierIds } },
-          })
+          where: { id: { in: pendingTierIds } },
+        })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -1434,7 +1490,7 @@ export class BookingService {
     // Notify teacher - use normalizeMoney for consistent calculation
     const teacherEarnings = normalizeMoney(
       normalizeMoney(bookingContext.price) *
-        (1 - Number(bookingContext.commissionRate)),
+      (1 - Number(bookingContext.commissionRate)),
     );
     await this.notificationService.notifyTeacherPaymentReleased({
       bookingId: updatedBooking.id,

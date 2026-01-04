@@ -40,7 +40,7 @@ export class PackageService {
     private readableIdService: ReadableIdService,
     private notificationService: NotificationService,
     private teacherService: TeacherService,
-  ) {}
+  ) { }
 
   // =====================================================
   // PACKAGE TIERS (Admin config)
@@ -452,7 +452,7 @@ export class PackageService {
     if (!availabilityCheck.available) {
       throw new BadRequestException(
         availabilityCheck.message ||
-          `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
+        `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
       );
     }
 
@@ -587,7 +587,7 @@ export class PackageService {
                 timezone: data.timezone || 'Africa/Khartoum', // Use provided timezone or default
                 price: discountedPrice,
                 commissionRate: 0.18,
-                status: 'SCHEDULED',
+                status: 'PENDING_TEACHER_APPROVAL', // CHANGED: Require teacher approval for all package sessions
                 packageSessionType: 'AUTO_SCHEDULED',
                 maxReschedules: tier.rescheduleLimit,
                 rescheduleCount: 0,
@@ -637,6 +637,23 @@ export class PackageService {
               subjectId: data.subjectId,
             },
           });
+
+          // Notify Teacher: New Smart Pack Requests
+          if (recurringSessionCount > 0) {
+            await this.notificationService.notifyUser({
+              userId: data.teacherId,
+              type: 'BOOKING_REQUEST',
+              title: 'طلب باقة ذكية جديد',
+              message: `تم حجز باقة ذكية تحتوي على ${recurringSessionCount} حصص بانتظار موافقتك.`,
+              link: '/teacher/requests',
+              dedupeKey: `SMART_PACK_REQUEST:${studentPackage.id}:${data.teacherId}`,
+              metadata: {
+                packageId: studentPackage.id,
+                studentId,
+                count: recurringSessionCount,
+              },
+            });
+          }
         } catch (error) {
           // Log error but don't fail the purchase
           this.logger.error(
@@ -753,8 +770,8 @@ export class PackageService {
     const lastSession = suggestedDates[suggestedDates.length - 1];
     const packageEndDate = lastSession
       ? new Date(
-          lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
-        )
+        lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
+      )
       : undefined;
 
     return {
@@ -973,9 +990,9 @@ export class PackageService {
 
     const packageEndDate = lastSession
       ? new Date(
-          new Date(lastSession).getTime() +
-            gracePeriodDays * 24 * 60 * 60 * 1000,
-        ).toISOString()
+        new Date(lastSession).getTime() +
+        gracePeriodDays * 24 * 60 * 60 * 1000,
+      ).toISOString()
       : null;
 
     const totalWeeksNeeded = Math.ceil(
