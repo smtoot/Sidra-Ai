@@ -168,9 +168,8 @@ export class EmailOutboxWorker {
       const resend = new Resend(apiKey);
 
       // Resend doesn't use template IDs like SendGrid
-      // Instead, we'll send a simple HTML email with the payload data
-      // You can later integrate with React Email templates
-      const htmlContent = this.buildEmailHtml(email.subject, email.payload);
+      // Instead, we'll render React Email templates with the payload data
+      const htmlContent = await this.renderEmailTemplate(email.templateId, email.payload);
 
       const data = await resend.emails.send({
         from: fromEmail,
@@ -187,27 +186,130 @@ export class EmailOutboxWorker {
   }
 
   /**
-   * Build simple HTML email from payload
-   * TODO: Replace with proper email templates (React Email)
+   * Render email content using React Email templates
+   * Maps template IDs to the appropriate template component
    */
-  private buildEmailHtml(subject: string, payload: any): string {
-    const entries = Object.entries(payload)
-      .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-      .join('');
+  private async renderEmailTemplate(
+    templateId: string,
+    payload: any,
+  ): Promise<string> {
+    const { render } = require('@react-email/render');
+    const React = require('react');
+
+    try {
+      let emailComponent;
+
+      switch (templateId) {
+        case 'booking-confirmation':
+        case 'booking_approved':
+          const { BookingConfirmation } = require('../emails');
+          emailComponent = React.createElement(BookingConfirmation, {
+            studentName: payload.studentName || 'الطالب',
+            teacherName: payload.teacherName || 'المعلم',
+            subjectName: payload.subjectName || 'المادة',
+            sessionDate: payload.sessionDate || new Date().toLocaleDateString('ar'),
+            sessionTime: payload.sessionTime || 'وقت الحصة',
+            meetingLink: payload.meetingLink,
+            bookingId: payload.bookingId || '',
+          });
+          break;
+
+        case 'payment-receipt':
+        case 'payment_success':
+        case 'wallet_topup':
+          const { PaymentReceipt } = require('../emails');
+          emailComponent = React.createElement(PaymentReceipt, {
+            recipientName: payload.recipientName || payload.userName || 'المستخدم',
+            transactionId: payload.transactionId || payload.readableId || 'N/A',
+            amount: parseFloat(payload.amount || 0),
+            type: payload.type || 'WALLET_TOPUP',
+            description: payload.description || payload.message || 'معاملة مالية',
+            currentBalance: parseFloat(payload.currentBalance || payload.balance || 0),
+            date: payload.date || new Date().toLocaleString('ar'),
+          });
+          break;
+
+        case 'session-reminder':
+        case 'session_reminder_24h':
+        case 'session_reminder_1h':
+          const { SessionReminder } = require('../emails');
+          const hoursUntil = templateId.includes('1h') ? 1 : 24;
+          emailComponent = React.createElement(SessionReminder, {
+            studentName: payload.studentName || 'الطالب',
+            teacherName: payload.teacherName || 'المعلم',
+            subjectName: payload.subjectName || 'المادة',
+            sessionTime: payload.sessionTime || 'وقت الحصة',
+            meetingLink: payload.meetingLink,
+            hoursUntil,
+          });
+          break;
+
+        default:
+          // Use generic notification for all other cases
+          const { GenericNotification } = require('../emails');
+          emailComponent = React.createElement(GenericNotification, {
+            recipientName: payload.recipientName || payload.userName || 'المستخدم',
+            title: payload.title || 'إشعار من سدرة',
+            message: payload.message || '',
+            actionUrl: payload.link || payload.actionUrl,
+            actionLabel: payload.actionLabel || 'عرض التفاصيل',
+            notificationType: this.getNotificationType(templateId),
+          });
+      }
+
+      // Render to HTML
+      return render(emailComponent);
+    } catch (error) {
+      this.logger.error(`Failed to render email template: ${templateId}`, error);
+      // Fallback to basic HTML
+      return this.buildBasicEmailHtml(templateId, payload);
+    }
+  }
+
+  /**
+   * Determine notification type from template ID
+   */
+  private getNotificationType(
+    templateId: string,
+  ): 'info' | 'success' | 'warning' | 'error' {
+    if (templateId.includes('success') || templateId.includes('approved')) return 'success';
+    if (templateId.includes('warning') || templateId.includes('reminder')) return 'warning';
+    if (templateId.includes('error') || templateId.includes('failed') || templateId.includes('rejected')) return 'error';
+    return 'info';
+  }
+
+  /**
+   * Fallback: Build basic HTML email (if React Email fails)
+   * Kept for backward compatibility and error recovery
+   */
+  private buildBasicEmailHtml(subject: string, payload: any): string {
+    const { title, message, link } = payload;
 
     return `
       <!DOCTYPE html>
-      <html>
-        <head><meta charset="utf-8"></head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #333;">${subject}</h2>
-          <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
-            ${entries}
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #0ea5e9; padding: 30px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 32px;">سدرة</h1>
+            <p style="color: #ffffff; margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">منصة التعليم الإلكترونية</p>
           </div>
-          <p style="color: #666; font-size: 12px; margin-top: 20px;">
-            هذا بريد إلكتروني تلقائي من منصة سدرة - This is an automated email from Sidra Platform
-          </p>
-        </body>
+          <div style="padding: 40px 20px;">
+            ${title ? `<h2 style="color: #1e293b; margin: 0 0 20px 0;">${title}</h2>` : ''}
+            ${message ? `<p style="color: #475569; line-height: 1.6; margin: 0 0 20px 0;">${message}</p>` : ''}
+            ${link ? `<p style="text-align: center;"><a href="${link}" style="display: inline-block; background-color: #0ea5e9; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">عرض التفاصيل</a></p>` : ''}
+          </div>
+          <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+            <p style="color: #64748b; font-size: 12px; margin: 5px 0;">هذا البريد الإلكتروني مرسل من منصة سدرة</p>
+            <p style="color: #64748b; font-size: 12px; margin: 5px 0;">© ${new Date().getFullYear()} سدرة. جميع الحقوق محفوظة.</p>
+          </div>
+        </div>
+      </body>
       </html>
     `;
   }
