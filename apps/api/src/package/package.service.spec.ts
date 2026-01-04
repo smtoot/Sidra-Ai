@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PackageService } from './package.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReadableIdService } from '../common/readable-id.service';
+import { ReadableIdService } from '../common/readable-id/readable-id.service';
 import { NotificationService } from '../notification/notification.service';
+import { TeacherService } from '../teacher/teacher.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -42,12 +43,15 @@ const mockStudentPackage = {
 
 // Mock services
 const mockReadableIdService = {
-  generateId: jest.fn().mockReturnValue('PKG-2412-0001'),
+  generate: jest.fn().mockReturnValue('PKG-2412-0001'),
 };
 
 const mockNotificationService = {
-  sendNotification: jest.fn().mockResolvedValue(undefined),
-  createNotification: jest.fn().mockResolvedValue(undefined),
+  notifyUser: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockTeacherService = {
+  isSlotAvailable: jest.fn().mockResolvedValue(true),
 };
 
 describe('PackageService', () => {
@@ -70,6 +74,7 @@ describe('PackageService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     packageRedemption: {
       create: jest.fn(),
@@ -95,6 +100,12 @@ describe('PackageService', () => {
     systemSettings: {
       findFirst: jest.fn(),
     },
+    teacherDemoSettings: {
+      findUnique: jest.fn(),
+    },
+    teacherPackageTierSetting: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -113,6 +124,7 @@ describe('PackageService', () => {
         { provide: PrismaService, useValue: mockPrismaBase },
         { provide: ReadableIdService, useValue: mockReadableIdService },
         { provide: NotificationService, useValue: mockNotificationService },
+        { provide: TeacherService, useValue: mockTeacherService },
       ],
     }).compile();
 
@@ -317,7 +329,7 @@ describe('PackageService', () => {
     it('should mark package as COMPLETED on last session', async () => {
       const lastSessionPackage = {
         ...mockStudentPackage,
-        sessionsUsed: 4, // This is session 5 of 5
+        sessionsUsed: 5, // This is session 5 of 5
         escrowRemaining: new Decimal(90),
       };
       mockPrismaBase.packageRedemption.findUnique.mockResolvedValue({
@@ -408,6 +420,7 @@ describe('PackageService', () => {
         id: 'redemption-1',
         status: 'RESERVED',
       });
+      mockPrismaBase.studentPackage.updateMany.mockResolvedValue({ count: 1 });
     });
 
     it('should create a RESERVED redemption', async () => {
