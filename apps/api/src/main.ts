@@ -58,7 +58,7 @@ async function bootstrap() {
     },
     credentials: true, // Allow cookies and authorization headers
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   });
 
   // SECURITY: Limit request body size to prevent DoS attacks
