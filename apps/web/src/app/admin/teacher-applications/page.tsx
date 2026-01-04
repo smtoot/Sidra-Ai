@@ -133,6 +133,11 @@ export default function TeacherApplicationsPage() {
     const handleProposeInterviewSlots = async () => {
         // Validate that at least 2 slots are filled
         const validSlots = interviewSlots.filter(slot => slot.dateTime && slot.meetingLink);
+
+        // DEBUG: Log what we're validating
+        console.log('All slots:', interviewSlots);
+        console.log('Valid slots after filtering:', validSlots);
+
         if (validSlots.length < 2) {
             toast.error('يجب تقديم خيارين على الأقل للمعلم');
             return;
@@ -140,6 +145,7 @@ export default function TeacherApplicationsPage() {
 
         setProcessing(true);
         try {
+            console.log('Sending to API:', { id: selectedApp.id, validSlots });
             await adminApi.proposeInterviewSlots(selectedApp.id, validSlots);
             toast.success('تم إرسال خيارات المقابلة للمعلم ✅');
             setShowInterviewModal(false);
