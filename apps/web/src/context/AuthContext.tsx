@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { LoginDto, RegisterDto, TEACHER_EVENTS, STUDENT_EVENTS } from '@sidra/shared';
 import { useRouter } from 'next/navigation';
@@ -40,6 +40,25 @@ function parseJwt(token: string) {
     }
 }
 
+/**
+ * SECURITY FIX: Helper to extract user from token
+ * Used for cross-tab synchronization
+ */
+function getUserFromToken(token: string | null): User | null {
+    if (!token) return null;
+    const payload = parseJwt(token);
+    if (!payload || !payload.sub) return null;
+    return {
+        id: payload.sub,
+        email: payload.email,
+        phoneNumber: payload.phoneNumber,
+        role: payload.role,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        displayName: payload.displayName
+    };
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -47,28 +66,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
-        // Check initial session
+    /**
+     * SECURITY FIX: Sync auth state from localStorage
+     * Called on mount and when storage changes in another tab
+     */
+    const syncAuthState = useCallback(() => {
         const token = localStorage.getItem('token');
-        if (token) {
-            // Decode simple payload or fetch profile (simulating decode for now)
-            const payload = parseJwt(token);
-            if (payload && payload.sub) {
-                setUser({
-                    id: payload.sub,
-                    email: payload.email,
-                    phoneNumber: payload.phoneNumber,
-                    role: payload.role,
-                    firstName: payload.firstName,
-                    lastName: payload.lastName,
-                    displayName: payload.displayName
-                });
-            } else {
-                localStorage.removeItem('token');
+        const newUser = getUserFromToken(token);
+
+        setUser(currentUser => {
+            // If no token, clear user
+            if (!newUser) {
+                if (currentUser) {
+                    console.log('[Auth] Session ended in another tab, logging out');
+                    resetUser();
+                }
+                return null;
             }
-        }
-        setIsLoading(false);
+
+            // If different user logged in, update state
+            if (!currentUser || currentUser.id !== newUser.id) {
+                console.log('[Auth] Different user detected, syncing state');
+                // Re-identify with PostHog
+                identifyUser(newUser.id, {
+                    user_role: newUser.role,
+                    device_type: getDeviceType(),
+                });
+                return newUser;
+            }
+
+            return currentUser;
+        });
     }, []);
+
+    // Initial session check
+    useEffect(() => {
+        syncAuthState();
+        setIsLoading(false);
+    }, [syncAuthState]);
+
+    /**
+     * SECURITY FIX: Listen for storage changes from other tabs
+     * When another tab logs in/out, this tab syncs its state
+     */
+    useEffect(() => {
+        const handleStorageChange = (event: StorageEvent) => {
+            // Only react to token changes
+            if (event.key === 'token') {
+                console.log('[Auth] Token changed in another tab');
+                syncAuthState();
+
+                // If token was removed (logout in another tab), redirect to login
+                if (!event.newValue && user) {
+                    console.log('[Auth] Logged out in another tab, redirecting to login');
+                    router.push('/login');
+                }
+                // If a different user logged in, redirect to their dashboard
+                else if (event.newValue && event.newValue !== event.oldValue) {
+                    const newUser = getUserFromToken(event.newValue);
+                    if (newUser && (!user || user.id !== newUser.id)) {
+                        console.log('[Auth] Different user logged in another tab, redirecting');
+                        // Redirect based on new user's role
+                        if (newUser.role === 'PARENT') {
+                            router.push('/parent');
+                        } else if (newUser.role === 'TEACHER') {
+                            router.push('/teacher');
+                        } else if (['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'].includes(newUser.role)) {
+                            router.push('/admin');
+                        } else if (newUser.role === 'STUDENT') {
+                            router.push('/student');
+                        } else {
+                            router.push('/');
+                        }
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [user, router, syncAuthState]);
 
     /**
      * Helper to redirect teachers based on their applicationStatus
