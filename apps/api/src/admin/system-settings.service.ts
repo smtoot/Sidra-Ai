@@ -12,7 +12,7 @@ export class SystemSettingsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) { }
+  ) {}
 
   /**
    * Get settings with safe upsert
@@ -39,7 +39,11 @@ export class SystemSettingsService {
     if (!settings.cancellationPolicies) {
       const defaultPolicies = {
         flexible: { fullRefundHours: 24, lateRefundPercent: 50 },
-        moderate: { fullRefundHours: 48, partialRefundHours: 24, partialRefundPercent: 50 },
+        moderate: {
+          fullRefundHours: 48,
+          partialRefundHours: 24,
+          partialRefundPercent: 50,
+        },
         strict: { fullRefundHours: 168 }, // 7 days
       };
 

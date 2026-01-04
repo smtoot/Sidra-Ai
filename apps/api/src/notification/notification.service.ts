@@ -53,7 +53,7 @@ interface NotifyUserParams extends CreateNotificationParams {
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Create an in-app notification with optional idempotency via dedupeKey.
@@ -248,14 +248,14 @@ export class NotificationService {
       metadata: { bookingId, disputeDeadline },
       email: user?.email
         ? {
-          to: user.email,
-          subject: 'Session Completed - Review Within 48 Hours',
-          templateId: 'session-completed',
-          payload: {
-            teacherName,
-            bookingUrl: `${process.env.FRONTEND_URL || ''}/bookings/${bookingId}`,
-          },
-        }
+            to: user.email,
+            subject: 'Session Completed - Review Within 48 Hours',
+            templateId: 'session-completed',
+            payload: {
+              teacherName,
+              bookingUrl: `${process.env.FRONTEND_URL || ''}/bookings/${bookingId}`,
+            },
+          }
         : undefined,
     });
   }
@@ -283,14 +283,14 @@ export class NotificationService {
       },
       email: user?.email
         ? {
-          to: user.email,
-          subject: `Reminder: ${params.hoursRemaining} Hours to Review Session`,
-          templateId: 'dispute-window-reminder',
-          payload: {
-            hoursRemaining: params.hoursRemaining,
-            teacherName: params.teacherName,
-          },
-        }
+            to: user.email,
+            subject: `Reminder: ${params.hoursRemaining} Hours to Review Session`,
+            templateId: 'dispute-window-reminder',
+            payload: {
+              hoursRemaining: params.hoursRemaining,
+              teacherName: params.teacherName,
+            },
+          }
         : undefined,
     });
   }
@@ -324,17 +324,17 @@ export class NotificationService {
       },
       email: teacher.email
         ? {
-          to: teacher.email,
-          subject: 'Payment Released to Your Wallet',
-          templateId: 'teacher-payment-released',
-          payload: {
-            amount: params.amount,
-            releaseType:
-              params.releaseType === 'AUTO'
-                ? 'Automatic'
-                : 'Student Confirmation',
-          },
-        }
+            to: teacher.email,
+            subject: 'Payment Released to Your Wallet',
+            templateId: 'teacher-payment-released',
+            payload: {
+              amount: params.amount,
+              releaseType:
+                params.releaseType === 'AUTO'
+                  ? 'Automatic'
+                  : 'Student Confirmation',
+            },
+          }
         : undefined,
     });
   }

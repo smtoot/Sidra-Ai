@@ -31,7 +31,7 @@ import { toZonedTime } from 'date-fns-tz';
 export class MarketplaceService {
   private readonly logger = new Logger(MarketplaceService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Get public platform configuration (for frontend booking UI)
@@ -315,7 +315,9 @@ export class MarketplaceService {
     }
 
     // Also delete curriculum-subject associations
-    await this.prisma.curriculumSubject.deleteMany({ where: { subjectId: id } });
+    await this.prisma.curriculumSubject.deleteMany({
+      where: { subjectId: id },
+    });
     await this.prisma.subject.delete({ where: { id } });
     return { deleted: true, message: 'تم حذف المادة نهائياً' };
   }
@@ -708,16 +710,16 @@ export class MarketplaceService {
         vacationEndDate: teacher.vacationEndDate,
         teachingApproach:
           (teacher as any).teachingStyle ||
-            ((teacher as any).teachingTags &&
-              (teacher as any).teachingTags.length > 0)
+          ((teacher as any).teachingTags &&
+            (teacher as any).teachingTags.length > 0)
             ? {
-              text: (teacher as any).teachingStyle,
-              tags:
-                (teacher as any).teachingTags?.map((tt: any) => ({
-                  id: tt.tag?.id,
-                  labelAr: tt.tag?.labelAr,
-                })) || [],
-            }
+                text: (teacher as any).teachingStyle,
+                tags:
+                  (teacher as any).teachingTags?.map((tt: any) => ({
+                    id: tt.tag?.id,
+                    labelAr: tt.tag?.labelAr,
+                  })) || [],
+              }
             : null,
       };
     } catch (error) {
@@ -1435,17 +1437,17 @@ export class MarketplaceService {
               date: dateStr,
               time: arabicTime,
               startTimeUtc: firstSlot.startTimeUtc, // Pass UTC time for frontend timezone handling
-              display: this.formatNextAvailableDisplay(
-                dateStr,
-                arabicTime,
-              ),
+              display: this.formatNextAvailableDisplay(dateStr, arabicTime),
             };
 
             // Found a valid slot, stop searching
             break;
           }
         } catch (error) {
-          this.logger.error(`Failed to check slots for date ${dateStr}:`, error);
+          this.logger.error(
+            `Failed to check slots for date ${dateStr}:`,
+            error,
+          );
         }
       }
     }
@@ -1485,7 +1487,11 @@ export class MarketplaceService {
   async getNextAvailableSlot(teacherId: string) {
     const today = new Date();
     const currentMonthStr = format(today, 'yyyy-MM');
-    const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const nextMonthDate = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      1,
+    );
     const nextMonthStr = format(nextMonthDate, 'yyyy-MM');
 
     // Check current month

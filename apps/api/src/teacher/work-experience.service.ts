@@ -4,7 +4,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateWorkExperienceDto, UpdateWorkExperienceDto } from '@sidra/shared';
+import {
+  CreateWorkExperienceDto,
+  UpdateWorkExperienceDto,
+} from '@sidra/shared';
 
 // Explicit limits as constants (Minor Improvement #3)
 const MAX_EXPERIENCES_PER_TEACHER = 20;
@@ -93,7 +96,8 @@ export class WorkExperienceService {
 
     // Merge existing data with update for validation
     const mergedData = {
-      startDate: dto.startDate ?? (experience.startDate?.toISOString() || undefined),
+      startDate:
+        dto.startDate ?? (experience.startDate?.toISOString() || undefined),
       endDate: dto.endDate ?? (experience.endDate?.toISOString() || undefined),
       isCurrent: dto.isCurrent ?? experience.isCurrent,
       subjects: dto.subjects ?? experience.subjects,

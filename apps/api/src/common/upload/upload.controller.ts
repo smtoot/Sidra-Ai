@@ -136,7 +136,14 @@ export class UploadController {
     if (!isPublicFile) {
       const fileOwnerId = this.storageService.extractUserIdFromKey(key);
       const isOwner = fileOwnerId === userId;
-      const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
+      const adminRoles = [
+        'ADMIN',
+        'SUPER_ADMIN',
+        'MODERATOR',
+        'CONTENT_ADMIN',
+        'FINANCE',
+        'SUPPORT',
+      ];
       const isAdmin = adminRoles.includes(userRole as string);
 
       if (!isOwner && !isAdmin) {

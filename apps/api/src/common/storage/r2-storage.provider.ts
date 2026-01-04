@@ -1,4 +1,8 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
@@ -82,7 +86,9 @@ export class R2StorageProvider implements StorageProvider {
         error.stack,
       );
       // Don't expose internal storage details to client
-      throw new InternalServerErrorException('File upload failed. Please try again.');
+      throw new InternalServerErrorException(
+        'File upload failed. Please try again.',
+      );
     }
   }
 
@@ -142,7 +148,9 @@ export class R2StorageProvider implements StorageProvider {
         error.stack,
       );
       // Don't expose internal storage details to client
-      throw new InternalServerErrorException('File deletion failed. Please try again.');
+      throw new InternalServerErrorException(
+        'File deletion failed. Please try again.',
+      );
     }
   }
 

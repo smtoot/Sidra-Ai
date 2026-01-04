@@ -22,7 +22,9 @@ function getEncryptionKey(): string {
         'ENCRYPTION_KEY environment variable is required in production. Generate with: openssl rand -base64 32',
       );
     }
-    logger.warn('⚠️  ENCRYPTION_KEY not set, using development fallback. Set ENCRYPTION_KEY in production!');
+    logger.warn(
+      '⚠️  ENCRYPTION_KEY not set, using development fallback. Set ENCRYPTION_KEY in production!',
+    );
     return fallbackKey;
   }
 

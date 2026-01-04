@@ -71,7 +71,7 @@ export class PackageController {
   constructor(
     private packageService: PackageService,
     private demoService: DemoService,
-  ) { }
+  ) {}
 
   // =====================================================
   // ADMIN: Manage Tiers & Stats
@@ -319,7 +319,8 @@ export class PackageController {
 
     // For students, they are both payer and beneficiary
     // For parents, studentId should be provided (their child's ID)
-    const studentId = req.user.role === 'STUDENT' ? req.user.userId : dto.studentId;
+    const studentId =
+      req.user.role === 'STUDENT' ? req.user.userId : dto.studentId;
 
     return this.packageService.purchaseSmartPackage({
       ...dto,

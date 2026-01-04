@@ -47,7 +47,7 @@ export class AdminController {
     private readonly auditService: AuditService,
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
-  ) { }
+  ) {}
 
   @Get('dashboard')
   getDashboardStats() {
@@ -84,7 +84,10 @@ export class AdminController {
   }
 
   @Patch('bookings/:id/reschedule')
-  rescheduleBooking(@Param('id') id: string, @Body() dto: { newStartTime: string }) {
+  rescheduleBooking(
+    @Param('id') id: string,
+    @Body() dto: { newStartTime: string },
+  ) {
     const date = new Date(dto.newStartTime);
     if (isNaN(date.getTime())) {
       throw new BadRequestException('Invalid date format');
@@ -213,7 +216,8 @@ export class AdminController {
   updateTeacherProfile(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body() dto: {
+    @Body()
+    dto: {
       displayName?: string;
       fullName?: string;
       bio?: string;
@@ -329,7 +333,9 @@ export class AdminController {
   @Get('ledger-audit')
   @Roles(UserRole.ADMIN, UserRole.FINANCE)
   getLedgerAudits(@Query('limit') limit?: string) {
-    return this.ledgerAuditService.getRecentAudits(limit ? parseInt(limit) : 10);
+    return this.ledgerAuditService.getRecentAudits(
+      limit ? parseInt(limit) : 10,
+    );
   }
 
   @Get('ledger-audit/:id')

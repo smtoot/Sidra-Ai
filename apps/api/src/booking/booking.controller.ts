@@ -26,7 +26,7 @@ import {
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) { }
+  constructor(private readonly bookingService: BookingService) {}
 
   // Parent creates a booking request
   // SECURITY: Rate limit to prevent booking spam
@@ -87,7 +87,11 @@ export class BookingController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
-    return this.bookingService.getAllTeacherBookings(req.user.userId, page, limit);
+    return this.bookingService.getAllTeacherBookings(
+      req.user.userId,
+      page,
+      limit,
+    );
   }
 
   // Get parent's bookings (PAGINATED)

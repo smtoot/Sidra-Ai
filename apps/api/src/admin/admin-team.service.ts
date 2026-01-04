@@ -72,7 +72,8 @@ export class AdminTeamService {
       ...user,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        permissionOverrides: user.permissionOverrides as PermissionOverrides | null,
+        permissionOverrides:
+          user.permissionOverrides as PermissionOverrides | null,
       }),
     }));
   }
@@ -193,7 +194,8 @@ export class AdminTeamService {
       ...user,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        permissionOverrides: user.permissionOverrides as PermissionOverrides | null,
+        permissionOverrides:
+          user.permissionOverrides as PermissionOverrides | null,
       }),
     };
   }
@@ -380,7 +382,8 @@ export class AdminTeamService {
       ...user,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        permissionOverrides: user.permissionOverrides as PermissionOverrides | null,
+        permissionOverrides:
+          user.permissionOverrides as PermissionOverrides | null,
       }),
     };
   }

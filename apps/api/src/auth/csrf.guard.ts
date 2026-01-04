@@ -34,7 +34,10 @@ export class CsrfGuard implements CanActivate {
     }
 
     // Skip CSRF validation for public endpoints (login, register, etc.)
-    const isPublic = this.reflector.get<boolean>('isPublic', context.getHandler());
+    const isPublic = this.reflector.get<boolean>(
+      'isPublic',
+      context.getHandler(),
+    );
     if (isPublic) {
       return true;
     }
@@ -43,7 +46,8 @@ export class CsrfGuard implements CanActivate {
     if (!request.cookies?.csrf_token) {
       // If using Authorization header only (old clients), skip CSRF
       // This allows gradual migration to cookie-based auth
-      const hasAuthHeader = request.headers?.authorization?.startsWith('Bearer ');
+      const hasAuthHeader =
+        request.headers?.authorization?.startsWith('Bearer ');
       if (hasAuthHeader && !request.cookies?.access_token) {
         return true;
       }

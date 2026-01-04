@@ -10,7 +10,7 @@ export class StudentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) { }
+  ) {}
 
   private readonly logger = new Logger(StudentService.name);
 
@@ -44,7 +44,10 @@ export class StudentService {
           },
           orderBy: { startTime: 'asc' },
           take: 5,
-          include: { teacherProfile: { include: { user: true } }, subject: true },
+          include: {
+            teacherProfile: { include: { user: true } },
+            subject: true,
+          },
         });
       } catch (e) {
         this.logger.error(`Failed to fetch upcoming classes: ${e.message}`);
@@ -79,8 +82,14 @@ export class StudentService {
       let suggestedTeachers: any[] = [];
       try {
         // Collect past teacher IDs for Tier 1 (Re-connect)
-        const pastTeacherIds = [...new Set(completedClassesJson.map(b => b.teacherId))];
-        suggestedTeachers = await this.getSuggestedTeachers(userId, studentProfile, pastTeacherIds);
+        const pastTeacherIds = [
+          ...new Set(completedClassesJson.map((b) => b.teacherId)),
+        ];
+        suggestedTeachers = await this.getSuggestedTeachers(
+          userId,
+          studentProfile,
+          pastTeacherIds,
+        );
       } catch (e) {
         this.logger.error(`Failed to fetch suggestions: ${e.message}`, e.stack);
         // Fallback: Empty array (frontend handles empty state if needed, or we implement fallback inside getSuggestedTeachers)
@@ -100,7 +109,10 @@ export class StudentService {
         suggestedTeachers,
       };
     } catch (error) {
-      this.logger.error(`Failed to get dashboard stats for ${userId}`, error.stack);
+      this.logger.error(
+        `Failed to get dashboard stats for ${userId}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -114,7 +126,7 @@ export class StudentService {
   private async getSuggestedTeachers(
     userId: string,
     profile: any,
-    pastTeacherIds: string[]
+    pastTeacherIds: string[],
   ) {
     const suggestions: any[] = [];
     const excludeTeacherIds = new Set<string>(); // Keep track to avoid duplicates
@@ -131,7 +143,7 @@ export class StudentService {
         include: { user: true, subjects: { include: { subject: true } } },
       });
 
-      reconnectTeachers.forEach(t => {
+      reconnectTeachers.forEach((t) => {
         suggestions.push(t);
         excludeTeacherIds.add(t.id);
       });
@@ -150,12 +162,12 @@ export class StudentService {
         subjects: {
           some: {
             curriculumId: profile.curriculumId,
-          }
-        }
+          },
+        },
       };
 
-      // Refinement: If grade is known, filter strictly by grade? 
-      // TeacherSubject -> grades. Complex query. 
+      // Refinement: If grade is known, filter strictly by grade?
+      // TeacherSubject -> grades. Complex query.
       // For MVP, Curriculum match is a strong enough signal.
 
       const matchedTeachers = await this.prisma.teacherProfile.findMany({
@@ -165,7 +177,7 @@ export class StudentService {
         include: { user: true, subjects: { include: { subject: true } } },
       });
 
-      matchedTeachers.forEach(t => {
+      matchedTeachers.forEach((t) => {
         suggestions.push(t);
         excludeTeacherIds.add(t.id);
       });
@@ -185,17 +197,17 @@ export class StudentService {
         include: { user: true, subjects: { include: { subject: true } } },
       });
 
-      topTeachers.forEach(t => suggestions.push(t));
+      topTeachers.forEach((t) => suggestions.push(t));
     }
 
     // Transform for Frontend Display
-    return suggestions.map(t => ({
+    return suggestions.map((t) => ({
       id: t.id,
       name: t.displayName || t.user.firstName + ' ' + t.user.lastName,
       subject: t.subjects?.[0]?.subject?.nameAr || 'عام', // Pick primary subject
       rating: t.averageRating || 5.0, // Default to 5.0 for new teachers if 0? Or keep 0.
       image: t.profilePhotoUrl || t.user.profilePhotoUrl,
-      slug: t.slug || t.id
+      slug: t.slug || t.id,
     }));
   }
 

@@ -1,4 +1,3 @@
-
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './auth/public.decorator';
@@ -11,6 +10,7 @@ export class AppController {
     private readonly settingsService: SystemSettingsService,
   ) { }
 
+  @Public()
   @Get()
   getHello(): string {
     return this.appService.getHello();

@@ -11,7 +11,7 @@ export class ParentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) { }
+  ) {}
 
   async getDashboardStats(userId: string) {
     const [wallet, upcomingBookings, parentProfile] = await Promise.all([
@@ -69,7 +69,7 @@ export class ParentService {
     if (!parentProfile) throw new NotFoundException('Parent profile not found');
 
     // Map to include a simple count
-    return parentProfile.children.map(child => ({
+    return parentProfile.children.map((child) => ({
       ...child,
       upcomingClassesCount: child.bookings.length,
     }));
@@ -79,7 +79,7 @@ export class ParentService {
     // 1. Get Parent Profile ID first (more robust than nested query)
     const parentProfile = await this.prisma.parentProfile.findUnique({
       where: { userId },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (!parentProfile) {
@@ -106,29 +106,30 @@ export class ParentService {
     let recentBookings: any[] = [];
 
     try {
-      const [upcomingCount, completedCount, upcomingClasses] = await Promise.all([
-        this.prisma.booking.count({
-          where: {
-            childId,
-            status: 'SCHEDULED',
-          },
-        }),
-        this.prisma.booking.count({
-          where: {
-            childId,
-            status: 'COMPLETED',
-          },
-        }),
-        this.prisma.booking.findMany({
-          where: { childId },
-          orderBy: { startTime: 'desc' },
-          take: 5,
-          include: {
-            teacherProfile: { include: { user: true } },
-            subject: true,
-          },
-        })
-      ]);
+      const [upcomingCount, completedCount, upcomingClasses] =
+        await Promise.all([
+          this.prisma.booking.count({
+            where: {
+              childId,
+              status: 'SCHEDULED',
+            },
+          }),
+          this.prisma.booking.count({
+            where: {
+              childId,
+              status: 'COMPLETED',
+            },
+          }),
+          this.prisma.booking.findMany({
+            where: { childId },
+            orderBy: { startTime: 'desc' },
+            take: 5,
+            include: {
+              teacherProfile: { include: { user: true } },
+              subject: true,
+            },
+          }),
+        ]);
       stats = { upcomingCount, completedCount };
       recentBookings = upcomingClasses;
     } catch {

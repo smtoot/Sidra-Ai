@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -40,12 +48,17 @@ const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   /**
    * SECURITY FIX: Helper to set auth cookies
    */
-  private setAuthCookies(res: Response, accessToken: string, refreshToken: string, csrfToken: string) {
+  private setAuthCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+    csrfToken: string,
+  ) {
     res.cookie('access_token', accessToken, {
       ...COOKIE_OPTIONS,
       maxAge: ACCESS_TOKEN_MAX_AGE,
@@ -76,9 +89,17 @@ export class AuthController {
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute
-  async register(@Body() createAuthDto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() createAuthDto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.register(createAuthDto);
-    this.setAuthCookies(res, tokens.access_token, tokens.refresh_token, tokens.csrf_token);
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
     // Still return tokens in body for backwards compatibility during transition
     return tokens;
   }
@@ -86,9 +107,17 @@ export class AuthController {
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.login(loginDto);
-    this.setAuthCookies(res, tokens.access_token, tokens.refresh_token, tokens.csrf_token);
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
     // Still return tokens in body for backwards compatibility during transition
     return tokens;
   }
@@ -131,13 +160,25 @@ export class AuthController {
       throw new UnauthorizedException('No refresh token provided');
     }
 
-    const tokens = await this.authService.refreshToken(refreshToken, deviceInfo);
-    this.setAuthCookies(res, tokens.access_token, tokens.refresh_token, tokens.csrf_token);
+    const tokens = await this.authService.refreshToken(
+      refreshToken,
+      deviceInfo,
+    );
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
     return tokens;
   }
 
   @Post('logout')
-  async logout(@Body() body: { refresh_token?: string }, @Req() req: any, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Body() body: { refresh_token?: string },
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     // SECURITY FIX: Read refresh token from cookie if not in body
     const refreshToken = body.refresh_token || req.cookies?.refresh_token;
     if (refreshToken) {

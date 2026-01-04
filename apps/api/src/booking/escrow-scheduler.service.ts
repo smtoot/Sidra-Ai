@@ -15,7 +15,7 @@ export class EscrowSchedulerService {
     private walletService: WalletService,
     private notificationService: NotificationService,
     private packageService: PackageService,
-  ) { }
+  ) {}
 
   /**
    * Auto-release job: Runs every 15 minutes
@@ -198,9 +198,9 @@ export class EscrowSchedulerService {
             // Calculate hours remaining until auto-release
             const hoursRemaining = booking.disputeWindowClosesAt
               ? Math.round(
-                (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
-                (1000 * 60 * 60),
-              )
+                  (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
+                    (1000 * 60 * 60),
+                )
               : 0;
 
             if (hoursRemaining > 0) {
@@ -367,7 +367,7 @@ export class EscrowSchedulerService {
         try {
           const hoursStale = Math.round(
             (now.getTime() - new Date(booking.endTime).getTime()) /
-            (1000 * 60 * 60),
+              (1000 * 60 * 60),
           );
 
           // Alert all admins
@@ -478,7 +478,9 @@ export class EscrowSchedulerService {
         }
       }
 
-      this.logger.log(`✅ Package status sync complete: ${syncCount} packages updated`);
+      this.logger.log(
+        `✅ Package status sync complete: ${syncCount} packages updated`,
+      );
       return { synced: syncCount };
     } catch (err) {
       this.logger.error('Package status sync failed:', err);

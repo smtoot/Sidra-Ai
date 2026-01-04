@@ -20,7 +20,11 @@ import { BookingModule } from '../booking/booking.module';
     AuthModule,
     forwardRef(() => BookingModule),
   ],
-  controllers: [AdminController, AdminTeamController, PublicSystemSettingsController],
+  controllers: [
+    AdminController,
+    AdminTeamController,
+    PublicSystemSettingsController,
+  ],
   providers: [
     AdminService,
     AuditService,
@@ -29,4 +33,4 @@ import { BookingModule } from '../booking/booking.module';
   ],
   exports: [SystemSettingsService], // Export for use in other modules
 })
-export class AdminModule { }
+export class AdminModule {}

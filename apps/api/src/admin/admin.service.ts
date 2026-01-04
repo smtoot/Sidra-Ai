@@ -26,7 +26,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) { }
+  ) {}
 
   async getDashboardStats() {
     const [
@@ -171,8 +171,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-          previousCompletedBookings) *
-        100
+            previousCompletedBookings) *
+          100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -217,7 +217,7 @@ export class AdminService {
           include: { user: true },
         },
         bookedByUser: {
-          include: { parentProfile: { include: { user: true } } }
+          include: { parentProfile: { include: { user: true } } },
         },
         studentUser: true,
         child: true,
@@ -225,9 +225,9 @@ export class AdminService {
         packageRedemption: {
           include: {
             package: {
-              include: { packageTier: true }
-            }
-          }
+              include: { packageTier: true },
+            },
+          },
         },
       },
     });
@@ -655,7 +655,10 @@ export class AdminService {
       });
     } catch (error) {
       // Log error but don't fail the status update
-      this.logger.error('Failed to send dispute under review notification:', error);
+      this.logger.error(
+        'Failed to send dispute under review notification:',
+        error,
+      );
     }
 
     return updatedDispute;
@@ -926,7 +929,10 @@ export class AdminService {
     const updateData: Record<string, string | null> = {};
     const changedFields: string[] = [];
 
-    if (dto.displayName !== undefined && dto.displayName !== profile.displayName) {
+    if (
+      dto.displayName !== undefined &&
+      dto.displayName !== profile.displayName
+    ) {
       updateData.displayName = dto.displayName;
       changedFields.push('displayName');
     }
@@ -938,11 +944,17 @@ export class AdminService {
       updateData.bio = dto.bio;
       changedFields.push('bio');
     }
-    if (dto.introVideoUrl !== undefined && dto.introVideoUrl !== profile.introVideoUrl) {
+    if (
+      dto.introVideoUrl !== undefined &&
+      dto.introVideoUrl !== profile.introVideoUrl
+    ) {
       updateData.introVideoUrl = dto.introVideoUrl;
       changedFields.push('introVideoUrl');
     }
-    if (dto.whatsappNumber !== undefined && dto.whatsappNumber !== profile.whatsappNumber) {
+    if (
+      dto.whatsappNumber !== undefined &&
+      dto.whatsappNumber !== profile.whatsappNumber
+    ) {
       updateData.whatsappNumber = dto.whatsappNumber;
       changedFields.push('whatsappNumber');
     }
@@ -966,7 +978,9 @@ export class AdminService {
       const updatedProfile = await tx.teacherProfile.update({
         where: { id: profileId },
         data: updateData,
-        include: { user: { select: { id: true, email: true, phoneNumber: true } } },
+        include: {
+          user: { select: { id: true, email: true, phoneNumber: true } },
+        },
       });
 
       // Create audit log entry
@@ -1504,12 +1518,14 @@ export class AdminService {
     // Check for active bookings
     const activeBookingsCount = await this.prisma.booking.count({
       where: {
-        OR: [
-          { bookedByUserId: userId },
-          { studentUserId: userId },
-        ],
+        OR: [{ bookedByUserId: userId }, { studentUserId: userId }],
         status: {
-          in: ['PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT', 'SCHEDULED', 'PAYMENT_REVIEW'],
+          in: [
+            'PENDING_TEACHER_APPROVAL',
+            'WAITING_FOR_PAYMENT',
+            'SCHEDULED',
+            'PAYMENT_REVIEW',
+          ],
         },
       },
     });
@@ -1581,13 +1597,24 @@ export class AdminService {
       await tx.booking.deleteMany({
         where: {
           OR: [{ bookedByUserId: userId }, { studentUserId: userId }],
-          status: { in: ['COMPLETED', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_TEACHER', 'CANCELLED_BY_ADMIN', 'REFUNDED', 'EXPIRED'] },
+          status: {
+            in: [
+              'COMPLETED',
+              'CANCELLED_BY_PARENT',
+              'CANCELLED_BY_TEACHER',
+              'CANCELLED_BY_ADMIN',
+              'REFUNDED',
+              'EXPIRED',
+            ],
+          },
         },
       });
 
       // Delete wallet transactions
       if (user.wallet) {
-        await tx.transaction.deleteMany({ where: { walletId: user.wallet.id } });
+        await tx.transaction.deleteMany({
+          where: { walletId: user.wallet.id },
+        });
         await tx.wallet.delete({ where: { id: user.wallet.id } });
       }
 
@@ -1603,23 +1630,41 @@ export class AdminService {
             where: { teacherSubject: { teacherId: teacherProfile.id } },
           });
           // Delete teacher subjects
-          await tx.teacherSubject.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.teacherSubject.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete teacher teaching approach tags
-          await tx.teacherTeachingApproachTag.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.teacherTeachingApproachTag.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete teacher qualifications
-          await tx.teacherQualification.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.teacherQualification.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete availability
-          await tx.availability.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.availability.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete availability exceptions
-          await tx.availabilityException.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.availabilityException.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete teacher skills
-          await tx.teacherSkill.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.teacherSkill.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete work experience
-          await tx.teacherWorkExperience.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.teacherWorkExperience.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete interview time slots
-          await tx.interviewTimeSlot.deleteMany({ where: { teacherProfileId: teacherProfile.id } });
+          await tx.interviewTimeSlot.deleteMany({
+            where: { teacherProfileId: teacherProfile.id },
+          });
           // Delete ratings for this teacher
-          await tx.rating.deleteMany({ where: { teacherId: teacherProfile.id } });
+          await tx.rating.deleteMany({
+            where: { teacherId: teacherProfile.id },
+          });
           // Delete teacher profile
           await tx.teacherProfile.delete({ where: { userId } });
         }
@@ -1632,7 +1677,9 @@ export class AdminService {
         await tx.studentProfile.deleteMany({ where: { userId } });
       } else if (user.role === 'PARENT') {
         // Delete children first
-        const parentProfile = await tx.parentProfile.findUnique({ where: { userId } });
+        const parentProfile = await tx.parentProfile.findUnique({
+          where: { userId },
+        });
         if (parentProfile) {
           await tx.child.deleteMany({ where: { parentId: parentProfile.id } });
         }

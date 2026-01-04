@@ -40,7 +40,7 @@ export class PackageService {
     private readableIdService: ReadableIdService,
     private notificationService: NotificationService,
     private teacherService: TeacherService,
-  ) { }
+  ) {}
 
   // =====================================================
   // PACKAGE TIERS (Admin config)
@@ -335,7 +335,10 @@ export class PackageService {
           });
         } catch (error) {
           // Log error but don't fail the purchase
-          this.logger.error('Failed to send package purchase notification:', error);
+          this.logger.error(
+            'Failed to send package purchase notification:',
+            error,
+          );
         }
 
         return studentPackage;
@@ -436,9 +439,7 @@ export class PackageService {
         { weekday: data.recurringWeekday, time: data.recurringTime },
       ];
     } else {
-      throw new BadRequestException(
-        'يجب تحديد مواعيد الحصص المتكررة',
-      );
+      throw new BadRequestException('يجب تحديد مواعيد الحصص المتكررة');
     }
 
     // 7. Validate recurring availability using multi-slot checker
@@ -451,7 +452,7 @@ export class PackageService {
     if (!availabilityCheck.available) {
       throw new BadRequestException(
         availabilityCheck.message ||
-        `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
+          `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
       );
     }
 
@@ -752,8 +753,8 @@ export class PackageService {
     const lastSession = suggestedDates[suggestedDates.length - 1];
     const packageEndDate = lastSession
       ? new Date(
-        lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
-      )
+          lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
+        )
       : undefined;
 
     return {
@@ -834,16 +835,13 @@ export class PackageService {
 
     // Generate scheduled sessions chronologically
     const scheduledSessions: ScheduledSession[] = [];
-    const patternAvailability: Map<
-      string,
-      PatternAvailability
-    > = new Map();
+    const patternAvailability: Map<string, PatternAvailability> = new Map();
 
     // Initialize pattern availability tracking
     for (const pattern of data.patterns) {
       const key = `${pattern.weekday}-${pattern.time}`;
       patternAvailability.set(key, {
-        weekday: pattern.weekday as Weekday,
+        weekday: pattern.weekday,
         time: pattern.time,
         availableWeeks: 0,
         conflicts: [],
@@ -851,11 +849,15 @@ export class PackageService {
     }
 
     let sessionNumber = 1;
-    let currentWeekStart = new Date(startDate);
+    const currentWeekStart = new Date(startDate);
     let weeksChecked = 0;
-    const maxWeeks = Math.ceil(data.recurringSessionCount / data.patterns.length) + 2; // Buffer
+    const maxWeeks =
+      Math.ceil(data.recurringSessionCount / data.patterns.length) + 2; // Buffer
 
-    while (sessionNumber <= data.recurringSessionCount && weeksChecked < maxWeeks) {
+    while (
+      sessionNumber <= data.recurringSessionCount &&
+      weeksChecked < maxWeeks
+    ) {
       // For each week, iterate through all patterns in order
       for (const pattern of sortedPatterns) {
         if (sessionNumber > data.recurringSessionCount) break;
@@ -943,7 +945,7 @@ export class PackageService {
           patternInfo.availableWeeks++;
           scheduledSessions.push({
             date: sessionDate.toISOString(),
-            weekday: pattern.weekday as Weekday,
+            weekday: pattern.weekday,
             time: pattern.time,
             sessionNumber: sessionNumber++,
           });
@@ -962,7 +964,8 @@ export class PackageService {
     );
     const available = scheduledSessions.length >= data.recurringSessionCount;
 
-    const firstSession = scheduledSessions.length > 0 ? scheduledSessions[0].date : null;
+    const firstSession =
+      scheduledSessions.length > 0 ? scheduledSessions[0].date : null;
     const lastSession =
       scheduledSessions.length > 0
         ? scheduledSessions[scheduledSessions.length - 1].date
@@ -970,8 +973,9 @@ export class PackageService {
 
     const packageEndDate = lastSession
       ? new Date(
-        new Date(lastSession).getTime() + gracePeriodDays * 24 * 60 * 60 * 1000,
-      ).toISOString()
+          new Date(lastSession).getTime() +
+            gracePeriodDays * 24 * 60 * 60 * 1000,
+        ).toISOString()
       : null;
 
     const totalWeeksNeeded = Math.ceil(
@@ -1498,8 +1502,7 @@ export class PackageService {
       });
 
       // P1 FIX: Add wallet Transaction for teacher earnings (audit trail)
-      const teacherTxId =
-        await this.readableIdService.generate('TRANSACTION');
+      const teacherTxId = await this.readableIdService.generate('TRANSACTION');
       await tx.transaction.create({
         data: {
           readableId: teacherTxId,
@@ -1745,59 +1748,71 @@ export class PackageService {
   async createRedemption(packageId: string, bookingId: string) {
     // SECURITY: Use transaction to prevent double-spending race condition
     return await this.prisma.$transaction(async (tx) => {
-      const pkg = await tx.studentPackage.findUnique({
-        where: { id: packageId },
-      });
+      return this.createRedemptionInTransaction(packageId, bookingId, tx);
+    });
+  }
 
-      if (!pkg) {
-        throw new NotFoundException('Package not found');
-      }
+  /**
+   * Create redemption within an existing transaction
+   * Used when booking creation needs to be atomic with package redemption
+   */
+  async createRedemptionInTransaction(
+    packageId: string,
+    bookingId: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const pkg = await tx.studentPackage.findUnique({
+      where: { id: packageId },
+    });
 
-      if (pkg.status !== 'ACTIVE') {
-        throw new BadRequestException(
-          `Cannot use package: status is ${pkg.status}`,
-        );
-      }
+    if (!pkg) {
+      throw new NotFoundException('Package not found');
+    }
 
-      if (pkg.sessionsUsed >= pkg.sessionCount) {
-        throw new BadRequestException(
-          'All sessions in this package have been used',
-        );
-      }
+    if (pkg.status !== 'ACTIVE') {
+      throw new BadRequestException(
+        `Cannot use package: status is ${pkg.status}`,
+      );
+    }
 
-      // Check expiry
-      if (new Date() > pkg.expiresAt) {
-        throw new BadRequestException('Package has expired');
-      }
+    if (pkg.sessionsUsed >= pkg.sessionCount) {
+      throw new BadRequestException(
+        'All sessions in this package have been used',
+      );
+    }
 
-      // SECURITY: Atomic increment with conditional update to prevent race conditions
-      const updateResult = await tx.studentPackage.updateMany({
-        where: {
-          id: packageId,
-          sessionsUsed: { lt: pkg.sessionCount }, // Only update if sessions available
-          status: 'ACTIVE',
-          expiresAt: { gt: new Date() },
-        },
-        data: {
-          sessionsUsed: { increment: 1 },
-        },
-      });
+    // Check expiry
+    if (new Date() > pkg.expiresAt) {
+      throw new BadRequestException('Package has expired');
+    }
 
-      // If no rows updated, package became unavailable (race condition detected)
-      if (updateResult.count === 0) {
-        throw new BadRequestException(
-          'Package session no longer available (concurrent booking detected)',
-        );
-      }
+    // SECURITY: Atomic increment with conditional update to prevent race conditions
+    const updateResult = await tx.studentPackage.updateMany({
+      where: {
+        id: packageId,
+        sessionsUsed: { lt: pkg.sessionCount }, // Only update if sessions available
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        sessionsUsed: { increment: 1 },
+      },
+    });
 
-      // Create redemption record
-      return tx.packageRedemption.create({
-        data: {
-          packageId,
-          bookingId,
-          status: 'RESERVED',
-        },
-      });
+    // If no rows updated, package became unavailable (race condition detected)
+    if (updateResult.count === 0) {
+      throw new BadRequestException(
+        'Package session no longer available (concurrent booking detected)',
+      );
+    }
+
+    // Create redemption record
+    return tx.packageRedemption.create({
+      data: {
+        packageId,
+        bookingId,
+        status: 'RESERVED',
+      },
     });
   }
 

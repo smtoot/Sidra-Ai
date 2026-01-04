@@ -8,7 +8,7 @@
 export const DEMO_POLICY = {
   /**
    * Maximum demos per owner (Parent or Student) per month
-   * COMPLETED + CANCELLED both count toward this limit
+   * Only COMPLETED demos count toward this limit (not cancelled)
    */
   maxDemosPerOwnerPerMonth: 3,
 

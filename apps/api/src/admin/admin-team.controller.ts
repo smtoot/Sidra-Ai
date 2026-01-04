@@ -85,7 +85,7 @@ export class AdminTeamController {
     private adminTeamService: AdminTeamService,
     private permissionService: PermissionService,
     private prisma: PrismaService,
-  ) { }
+  ) {}
 
   /**
    * List all admin users

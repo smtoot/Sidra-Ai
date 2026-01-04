@@ -80,4 +80,4 @@ import { PostHogModule } from './common/posthog/posthog.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

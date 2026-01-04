@@ -20,7 +20,11 @@ import {
 import { formatInTimezone } from '../common/utils/timezone.util';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { normalizeMoney } from '../utils/money';
-import { BOOKING_POLICY, isValidStatusTransition, getAllowedTransitions } from './booking-policy.constants';
+import {
+  BOOKING_POLICY,
+  isValidStatusTransition,
+  getAllowedTransitions,
+} from './booking-policy.constants';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { TeacherService } from '../teacher/teacher.service';
 import { SystemSettingsService } from '../admin/system-settings.service';
@@ -38,7 +42,7 @@ export class BookingService {
     private readableIdService: ReadableIdService,
     private teacherService: TeacherService,
     private systemSettingsService: SystemSettingsService,
-  ) { }
+  ) {}
 
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
@@ -139,11 +143,7 @@ export class BookingService {
         startTime: { lte: new Date(dto.startTime) },
         endTime: { gt: new Date(dto.startTime) },
         status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ],
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
         },
       },
     });
@@ -184,7 +184,9 @@ export class BookingService {
     // SECURITY FIX: Validate isDemo flag server-side against teacher settings
     let isValidDemo = false;
     if (dto.isDemo) {
-      const demoEnabled = await this.demoService.isTeacherDemoEnabled(dto.teacherId);
+      const demoEnabled = await this.demoService.isTeacherDemoEnabled(
+        dto.teacherId,
+      );
       if (!demoEnabled) {
         throw new BadRequestException('هذا المعلم لا يقدم حصص تجريبية حالياً');
       }
@@ -212,11 +214,16 @@ export class BookingService {
       if (isValidDemo) {
         // Determine demoOwner: The person booking (parent or standalone student)
         const demoOwnerId = user.userId;
-        const demoOwnerType = beneficiaryType === 'CHILD' ? 'PARENT' : 'STUDENT';
-        const beneficiaryId = beneficiaryType === 'CHILD' ? (childId ?? undefined) : undefined;
+        const demoOwnerType =
+          beneficiaryType === 'CHILD' ? 'PARENT' : 'STUDENT';
+        const beneficiaryId =
+          beneficiaryType === 'CHILD' ? (childId ?? undefined) : undefined;
 
         // Check eligibility within transaction (atomic with record creation)
-        const eligibility = await this.demoService.canBookDemo(demoOwnerId, dto.teacherId);
+        const eligibility = await this.demoService.canBookDemo(
+          demoOwnerId,
+          dto.teacherId,
+        );
         if (!eligibility.allowed) {
           throw new BadRequestException(
             `لا يمكن حجز حصة تجريبية: ${eligibility.details || eligibility.reason}`,
@@ -707,17 +714,15 @@ export class BookingService {
     // Enrich with tier session count for package bookings
     const pendingTierIds = [
       ...new Set(
-        bookings
-          .map((b) => b.pendingTierId)
-          .filter((id): id is string => !!id),
+        bookings.map((b) => b.pendingTierId).filter((id): id is string => !!id),
       ),
     ];
 
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.packageTier.findMany({
-          where: { id: { in: pendingTierIds } },
-        })
+            where: { id: { in: pendingTierIds } },
+          })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -782,17 +787,15 @@ export class BookingService {
     // Enrich with tier session count for package bookings
     const pendingTierIds = [
       ...new Set(
-        bookings
-          .map((b) => b.pendingTierId)
-          .filter((id): id is string => !!id),
+        bookings.map((b) => b.pendingTierId).filter((id): id is string => !!id),
       ),
     ];
 
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.packageTier.findMany({
-          where: { id: { in: pendingTierIds } },
-        })
+            where: { id: { in: pendingTierIds } },
+          })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -1089,8 +1092,6 @@ export class BookingService {
           bookingId,
         );
 
-
-
         updatedBooking = await this.prisma.booking.update({
           where: { id: bookingId },
           data: { pendingTierId: null, status: 'SCHEDULED' },
@@ -1366,7 +1367,11 @@ export class BookingService {
           // --- Package Release ---
           // Atomic call to PackageService with this transaction client
           const idempotencyKey = `RELEASE_${bookingId}`;
-          await this.packageService.releaseSession(bookingId, idempotencyKey, tx);
+          await this.packageService.releaseSession(
+            bookingId,
+            idempotencyKey,
+            tx,
+          );
         } else {
           // --- Single Session Release ---
           // Release from locked wallet funds
@@ -1429,7 +1434,7 @@ export class BookingService {
     // Notify teacher - use normalizeMoney for consistent calculation
     const teacherEarnings = normalizeMoney(
       normalizeMoney(bookingContext.price) *
-      (1 - Number(bookingContext.commissionRate)),
+        (1 - Number(bookingContext.commissionRate)),
     );
     await this.notificationService.notifyTeacherPaymentReleased({
       bookingId: updatedBooking.id,
@@ -1638,7 +1643,6 @@ export class BookingService {
   // --- Phase 3: Booking Validation ---
   // validateSlotAvailability logic moved to TeacherService.isSlotAvailable
 
-
   private formatTime(date: Date): string {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -1775,10 +1779,16 @@ export class BookingService {
           if (booking.status === 'SCHEDULED') {
             const policy = booking.teacherProfile.cancellationPolicy;
             // Fetch global cancellation policies
-            const systemSettings = await this.systemSettingsService.getSettings();
+            const systemSettings =
+              await this.systemSettingsService.getSettings();
             const config = systemSettings.cancellationPolicies;
 
-            const refund = this.calculateRefund(booking, policy, userRole, config);
+            const refund = this.calculateRefund(
+              booking,
+              policy,
+              userRole,
+              config,
+            );
             refundPercent = refund.percent;
           }
         }
@@ -1796,7 +1806,8 @@ export class BookingService {
           let platformRevenue = 0;
 
           if (retainedAmount > 0) {
-            const systemSettings = await this.systemSettingsService.getSettings(); // Re-fetch to be safe or reuse
+            const systemSettings =
+              await this.systemSettingsService.getSettings(); // Re-fetch to be safe or reuse
             const commissionRate = systemSettings.defaultCommissionRate || 0.18;
             platformRevenue = retainedAmount * commissionRate;
             teacherCompAmount = retainedAmount - platformRevenue;
@@ -1859,9 +1870,7 @@ export class BookingService {
               booking.teacherId,
               tx,
             );
-            this.logger.log(
-              `Demo record cancelled for booking ${bookingId}`,
-            );
+            this.logger.log(`Demo record cancelled for booking ${bookingId}`);
           } catch (err) {
             // Log but don't fail the cancellation - demo cleanup is best effort
             this.logger.warn(
@@ -2164,11 +2173,7 @@ export class BookingService {
         startTime: { lte: newStartTime },
         endTime: { gt: newStartTime },
         status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ],
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
         },
       },
     });
@@ -2457,11 +2462,7 @@ export class BookingService {
         startTime: { lte: newStartTime },
         endTime: { gt: newStartTime },
         status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ],
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
         },
       },
     });

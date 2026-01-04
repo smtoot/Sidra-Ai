@@ -22,4 +22,4 @@ import { AdminModule } from '../admin/admin.module';
   providers: [BookingService, EscrowSchedulerService],
   exports: [BookingService],
 })
-export class BookingModule { }
+export class BookingModule {}

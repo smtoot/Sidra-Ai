@@ -37,7 +37,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      } else if (
+        typeof exceptionResponse === 'object' &&
+        exceptionResponse !== null
+      ) {
         const responseObj = exceptionResponse as Record<string, unknown>;
         message = (responseObj.message as string) || message;
         errorCode = (responseObj.error as string) || this.getErrorCode(status);
@@ -67,15 +70,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Log all errors for monitoring
     if (status >= 500) {
-      this.logger.error(`[${status}] ${request.method} ${request.url} - ${message}`, {
-        errorCode,
-        userId: (request as any).user?.userId,
-      });
+      this.logger.error(
+        `[${status}] ${request.method} ${request.url} - ${message}`,
+        {
+          errorCode,
+          userId: (request as any).user?.userId,
+        },
+      );
     } else if (status >= 400) {
-      this.logger.warn(`[${status}] ${request.method} ${request.url} - ${message}`, {
-        errorCode,
-        userId: (request as any).user?.userId,
-      });
+      this.logger.warn(
+        `[${status}] ${request.method} ${request.url} - ${message}`,
+        {
+          errorCode,
+          userId: (request as any).user?.userId,
+        },
+      );
     }
 
     // Return sanitized response
@@ -137,12 +146,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     // Check for AWS/R2 errors
-    if (message.includes('S3') || message.includes('R2') || message.includes('AWS')) {
+    if (
+      message.includes('S3') ||
+      message.includes('R2') ||
+      message.includes('AWS')
+    ) {
       return 'Storage operation failed';
     }
 
     // Check for sensitive path information
-    if (message.includes('/app/') || message.includes('/Users/') || message.includes('node_modules')) {
+    if (
+      message.includes('/app/') ||
+      message.includes('/Users/') ||
+      message.includes('node_modules')
+    ) {
       return 'An unexpected error occurred';
     }
 
