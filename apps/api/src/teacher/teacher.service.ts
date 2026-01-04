@@ -26,27 +26,27 @@ export class TeacherService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-    private systemSettingsService: SystemSettingsService,
+    private system_settingsService: SystemSettingsService,
     private notificationService: NotificationService,
   ) { }
 
   async getProfile(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       include: {
-        subjects: { include: { subject: true, curriculum: true } },
+        teacher_subjects: { include: { subjects: true, curricula: true } },
         availability: true,
         documents: true,
-        qualifications: true, // Include qualifications
-        skills: { orderBy: { createdAt: 'desc' } }, // Include skills
-        workExperiences: {
+        teacher_qualifications: true, // Include qualifications
+        teacher_skills: { orderBy: { createdAt: 'desc' } }, // Include skills
+        teacher_work_experiences: {
           orderBy: [
             { isCurrent: 'desc' },
             { startDate: 'desc' },
             { createdAt: 'desc' },
           ],
         }, // Include work experiences
-        user: true, // Include User for firstName/lastName
+        users: true, // Include User for firstName/lastName
       },
     });
 
@@ -73,7 +73,8 @@ export class TeacherService {
 
     return {
       ...profile,
-      meetingLink: decryptedMeetingLink, // Add decrypted link for frontend use
+      meetingLink: decryptedMeetingLink,
+      users: profile.users, // Add decrypted link for frontend use
     };
   }
 
@@ -160,7 +161,7 @@ export class TeacherService {
     // Note: firstName/lastName are managed separately through user profile
     // They are not part of teacher onboarding DTO anymore
 
-    return this.prisma.teacherProfile
+    return this.prisma.teacher_profiles
       .update({
         where: { userId },
         data: {
@@ -199,23 +200,23 @@ export class TeacherService {
   }
 
   async addSubject(userId: string, dto: CreateTeacherSubjectDto) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
     // 1. Validation: Verify Subject exists
-    const subject = await this.prisma.subject.findUnique({
+    const subject = await this.prisma.subjects.findUnique({
       where: { id: dto.subjectId },
     });
     if (!subject || !subject.isActive)
       throw new NotFoundException('Subject not found or inactive');
 
     // 2. Validation: Verify Curriculum exists
-    const curriculum = await this.prisma.curriculum.findUnique({
+    const curricula = await this.prisma.curricula.findUnique({
       where: { id: dto.curriculumId },
     });
-    if (!curriculum || !curriculum.isActive)
+    if (!curricula || !curricula.isActive)
       throw new NotFoundException('Curriculum not found or inactive');
 
     // 3. Validation: Price must be positive
@@ -225,7 +226,7 @@ export class TeacherService {
 
     // 4. Validation: Price maximum check (prevent unrealistic prices)
     // Fetch the configurable max price from system settings
-    const settings = await this.systemSettingsService.getSettings();
+    const settings = await this.system_settingsService.getSettings();
     const maxPrice = Number(settings.maxPricePerHour);
     if (dto.pricePerHour > maxPrice) {
       throw new BadRequestException(
@@ -233,8 +234,8 @@ export class TeacherService {
       );
     }
 
-    // 5. Validation: Check for duplicate subject+curriculum combination
-    const existingSubject = await this.prisma.teacherSubject.findFirst({
+    // 5. Validation: Check for duplicate subject+curricula combination
+    const existingSubject = await this.prisma.teacher_subjects.findFirst({
       where: {
         teacherId: profile.id,
         subjectId: dto.subjectId,
@@ -244,7 +245,7 @@ export class TeacherService {
 
     if (existingSubject) {
       throw new BadRequestException(
-        'You already teach this subject with this curriculum. Please update the existing one instead.',
+        'You already teach this subject with this curricula. Please update the existing one instead.',
       );
     }
 
@@ -253,11 +254,11 @@ export class TeacherService {
       throw new BadRequestException('At least one grade level is required');
     }
 
-    // Fetch provided grades with their stages -> curriculum to validate consistency
+    // Fetch provided grades with their stages -> curricula to validate consistency
     const uniqueGradeIds = [...new Set(dto.gradeLevelIds)]; // Deduplicate
-    const grades = await this.prisma.gradeLevel.findMany({
+    const grades = await this.prisma.grade_levels.findMany({
       where: { id: { in: uniqueGradeIds } },
-      include: { stage: true },
+      include: { educational_stages: true },
     });
 
     if (grades.length !== uniqueGradeIds.length) {
@@ -266,19 +267,20 @@ export class TeacherService {
 
     // 4. Validation: Enforce Consistency (All grades must belong to the selected Curriculum)
     const invalidGrades = grades.filter(
-      (g) => g.stage.curriculumId !== dto.curriculumId,
+      (g) => g.educational_stages.curriculumId !== dto.curriculumId,
     );
     if (invalidGrades.length > 0) {
       throw new BadRequestException(
-        'All selected grades must belong to the selected curriculum',
+        'All selected grades must belong to the selected curricula',
       );
     }
 
     // 5. Transactional Creation
     return this.prisma.$transaction(async (tx) => {
       // Create TeacherSubject
-      const teacherSubject = await tx.teacherSubject.create({
+      const teacher_subjects = await tx.teacher_subjects.create({
         data: {
+          id: crypto.randomUUID(),
           teacherId: profile.id,
           subjectId: dto.subjectId,
           curriculumId: dto.curriculumId,
@@ -287,32 +289,32 @@ export class TeacherService {
       });
 
       // Create Join Rows (TeacherSubjectGrade)
-      await tx.teacherSubjectGrade.createMany({
+      await tx.teacher_subject_grades.createMany({
         data: uniqueGradeIds.map((gradeId) => ({
-          teacherSubjectId: teacherSubject.id,
+          teacherSubjectId: teacher_subjects.id,
           gradeLevelId: gradeId,
         })),
       });
 
-      return teacherSubject;
+      return teacher_subjects;
     });
   }
 
   async removeSubject(userId: string, subjectId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
     // Verify ownership
-    const subject = await this.prisma.teacherSubject.findFirst({
+    const subject = await this.prisma.teacher_subjects.findFirst({
       where: { id: subjectId, teacherId: profile.id },
     });
 
     if (!subject)
       throw new NotFoundException('Subject not found for this teacher');
 
-    return this.prisma.teacherSubject.delete({ where: { id: subjectId } });
+    return this.prisma.teacher_subjects.delete({ where: { id: subjectId } });
   }
 
   // ============ Qualifications Management ============
@@ -321,14 +323,14 @@ export class TeacherService {
    * Get all qualifications for a teacher
    */
   async getQualifications(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });
 
     if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.prisma.teacherQualification.findMany({
+    return this.prisma.teacher_qualifications.findMany({
       where: { teacherId: profile.id },
       orderBy: { createdAt: 'desc' },
     });
@@ -339,7 +341,7 @@ export class TeacherService {
    * If teacher is already approved, adding/editing qualifications triggers re-verification
    */
   async addQualification(userId: string, dto: CreateQualificationDto) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true, applicationStatus: true },
     });
@@ -350,8 +352,10 @@ export class TeacherService {
     const startDate = dto.startDate ? new Date(dto.startDate) : null;
     const endDate = dto.endDate ? new Date(dto.endDate) : null;
 
-    const qualification = await this.prisma.teacherQualification.create({
+    const qualification = await this.prisma.teacher_qualifications.create({
       data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         teacherId: profile.id,
         degreeName: dto.degreeName,
         institution: dto.institution,
@@ -377,7 +381,7 @@ export class TeacherService {
     qualificationId: string,
     dto: UpdateQualificationDto,
   ) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -385,7 +389,7 @@ export class TeacherService {
     if (!profile) throw new NotFoundException('Profile not found');
 
     // Verify ownership
-    const qualification = await this.prisma.teacherQualification.findFirst({
+    const qualification = await this.prisma.teacher_qualifications.findFirst({
       where: { id: qualificationId, teacherId: profile.id },
     });
 
@@ -396,7 +400,7 @@ export class TeacherService {
     const endDate = dto.endDate ? new Date(dto.endDate) : undefined;
 
     // Update and unverify (triggers re-verification)
-    return this.prisma.teacherQualification.update({
+    return this.prisma.teacher_qualifications.update({
       where: { id: qualificationId },
       data: {
         degreeName: dto.degreeName,
@@ -419,7 +423,7 @@ export class TeacherService {
    * Delete a qualification
    */
   async deleteQualification(userId: string, qualificationId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -427,13 +431,13 @@ export class TeacherService {
     if (!profile) throw new NotFoundException('Profile not found');
 
     // Verify ownership
-    const qualification = await this.prisma.teacherQualification.findFirst({
+    const qualification = await this.prisma.teacher_qualifications.findFirst({
       where: { id: qualificationId, teacherId: profile.id },
     });
 
     if (!qualification) throw new NotFoundException('Qualification not found');
 
-    await this.prisma.teacherQualification.delete({
+    await this.prisma.teacher_qualifications.delete({
       where: { id: qualificationId },
     });
 
@@ -441,7 +445,7 @@ export class TeacherService {
   }
 
   async setAvailability(userId: string, dto: CreateAvailabilityDto) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
@@ -505,6 +509,7 @@ export class TeacherService {
 
     return this.prisma.availability.create({
       data: {
+        id: crypto.randomUUID(),
         teacherId: profile.id,
         dayOfWeek: dto.dayOfWeek,
         startTime: dto.startTime,
@@ -515,7 +520,7 @@ export class TeacherService {
   }
 
   async removeAvailability(userId: string, availabilityId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
@@ -530,7 +535,7 @@ export class TeacherService {
   }
 
   async replaceAvailability(userId: string, slots: CreateAvailabilityDto[]) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
@@ -546,6 +551,7 @@ export class TeacherService {
       if (slots.length > 0) {
         await prisma.availability.createMany({
           data: slots.map((slot) => ({
+            id: crypto.randomUUID(),
             teacherId: profile.id,
             dayOfWeek: slot.dayOfWeek,
             startTime: slot.startTime,
@@ -575,15 +581,15 @@ export class TeacherService {
   // --- Exception Management ---
 
   async getExceptions(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
-      include: { availabilityExceptions: { orderBy: { startDate: 'asc' } } },
+      include: { availability_exceptions: { orderBy: { startDate: 'asc' } } },
     });
-    return profile?.availabilityExceptions || [];
+    return profile?.availability_exceptions || [];
   }
 
   async addException(userId: string, dto: CreateExceptionDto) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
@@ -639,8 +645,10 @@ export class TeacherService {
       }
     }
 
-    return this.prisma.availabilityException.create({
+    return this.prisma.availability_exceptions.create({
       data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         teacherId: profile.id,
         startDate,
         endDate,
@@ -653,18 +661,18 @@ export class TeacherService {
   }
 
   async removeException(userId: string, exceptionId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const exception = await this.prisma.availabilityException.findFirst({
+    const exception = await this.prisma.availability_exceptions.findFirst({
       where: { id: exceptionId, teacherId: profile.id },
     });
 
     if (!exception) throw new NotFoundException('Exception not found');
 
-    return this.prisma.availabilityException.delete({
+    return this.prisma.availability_exceptions.delete({
       where: { id: exceptionId },
     });
   }
@@ -672,16 +680,16 @@ export class TeacherService {
   // --- Admin ---
 
   async getPendingTeachers() {
-    return this.prisma.user.findMany({
+    return this.prisma.users.findMany({
       where: {
         role: 'TEACHER',
         isVerified: false,
       },
       include: {
-        teacherProfile: {
+        teacher_profiles: {
           include: {
             documents: true,
-            subjects: { include: { subject: true } },
+            teacher_subjects: { include: { subjects: true } },
           },
         },
       },
@@ -690,14 +698,14 @@ export class TeacherService {
   }
 
   async verifyTeacher(userId: string) {
-    return this.prisma.user.update({
+    return this.prisma.users.update({
       where: { id: userId },
       data: { isVerified: true },
     });
   }
 
   async rejectTeacher(userId: string) {
-    return this.prisma.user.delete({
+    return this.prisma.users.delete({
       where: { id: userId },
     });
   }
@@ -740,7 +748,7 @@ export class TeacherService {
       recentSessions,
     ] = await Promise.all([
       // Count ONLY today's scheduled sessions
-      this.prisma.booking.count({
+      this.prisma.bookings.count({
         where: {
           teacherId: profile.id,
           status: 'SCHEDULED',
@@ -750,14 +758,14 @@ export class TeacherService {
           },
         },
       }),
-      this.prisma.booking.count({
+      this.prisma.bookings.count({
         where: {
           teacherId: profile.id,
           status: 'PENDING_TEACHER_APPROVAL',
         },
       }),
       // Get the NEXT upcoming session (by startTime, not createdAt)
-      this.prisma.booking.findFirst({
+      this.prisma.bookings.findFirst({
         where: {
           teacherId: profile.id,
           status: 'SCHEDULED',
@@ -765,29 +773,29 @@ export class TeacherService {
         },
         orderBy: { startTime: 'asc' }, // Closest session first
         include: {
-          child: true,
-          studentUser: true,
-          subject: true,
+          children: true,
+          users_bookings_studentUserIdTousers: true,
+          subjects: true,
         },
       }),
       this.walletService.getBalance(userId),
       // Total completed sessions
-      this.prisma.booking.count({
+      this.prisma.bookings.count({
         where: {
           teacherId: profile.id,
           status: 'COMPLETED',
         },
       }),
       // Sum of all earnings (PAYMENT_RELEASE transactions)
-      this.prisma.transaction.aggregate({
+      this.prisma.transactions.aggregate({
         where: {
-          wallet: { userId },
+          wallets: { userId },
           type: 'PAYMENT_RELEASE',
         },
         _sum: { amount: true },
       }),
       // Recent 5 completed sessions for activity feed
-      this.prisma.booking.findMany({
+      this.prisma.bookings.findMany({
         where: {
           teacherId: profile.id,
           status: 'COMPLETED',
@@ -795,10 +803,10 @@ export class TeacherService {
         orderBy: { startTime: 'desc' },
         take: 5,
         include: {
-          child: true,
-          studentUser: true,
-          subject: true,
-          rating: true,
+          children: true,
+          users_bookings_studentUserIdTousers: true,
+          subjects: true,
+          ratings: true,
         },
       }),
     ]);
@@ -809,8 +817,8 @@ export class TeacherService {
       // Use child name or student's firstName (never email)
       const studentName =
         upcomingSession.beneficiaryType === 'CHILD'
-          ? upcomingSession.child?.name
-          : (upcomingSession.studentUser as any)?.firstName || 'طالب';
+          ? upcomingSession.children?.name
+          : (upcomingSession.users_bookings_studentUserIdTousers as any)?.firstName || 'طالب';
 
       formattedSession = {
         ...upcomingSession,
@@ -823,13 +831,13 @@ export class TeacherService {
       id: session.id,
       studentName:
         session.beneficiaryType === 'CHILD'
-          ? session.child?.name || 'طالب'
-          : (session.studentUser as any)?.firstName || 'طالب',
-      subjectName: session.subject?.nameAr || 'مادة',
+          ? session.children?.name || 'طالب'
+          : (session.users_bookings_studentUserIdTousers as any)?.firstName || 'طالب',
+      subjectName: session.subjects?.nameAr || 'مادة',
       startTime: session.startTime,
       price: session.price,
       earnings: Number(session.price) * (1 - Number(session.commissionRate)),
-      rating: session.rating?.score || null,
+      rating: session.ratings?.score || null,
     }));
 
     return {
@@ -837,8 +845,8 @@ export class TeacherService {
         id: profile.id,
         slug: profile.slug, // Include slug
         displayName: profile.displayName || 'معلم',
-        firstName: profile.user.firstName, // Added for dashboard greeting
-        lastName: profile.user.lastName, // Added just in case
+        firstName: profile.users.firstName, // Added for dashboard greeting
+        lastName: profile.users.lastName, // Added just in case
         photo: profile.profilePhotoUrl || null,
         // Vacation Mode status
         isOnVacation: profile.isOnVacation,
@@ -859,7 +867,7 @@ export class TeacherService {
   // --- Document Management ---
 
   async getDocuments(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       include: { documents: { orderBy: { uploadedAt: 'desc' } } },
     });
@@ -870,7 +878,7 @@ export class TeacherService {
     userId: string,
     dto: { type: string; fileKey: string; fileName: string },
   ) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
@@ -883,8 +891,9 @@ export class TeacherService {
       );
     }
 
-    return this.prisma.document.create({
+    return this.prisma.documents.create({
       data: {
+        id: crypto.randomUUID(),
         teacherId: profile.id,
         type: dto.type as any, // DocumentType enum
         fileUrl: dto.fileKey, // Store the file key (not URL)
@@ -894,12 +903,12 @@ export class TeacherService {
   }
 
   async removeDocument(userId: string, documentId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const document = await this.prisma.document.findFirst({
+    const document = await this.prisma.documents.findFirst({
       where: { id: documentId, teacherId: profile.id },
     });
 
@@ -907,7 +916,7 @@ export class TeacherService {
 
     // Note: The actual file on disk is not deleted here (admin may need it)
     // Consider adding a cleanup job later
-    return this.prisma.document.delete({ where: { id: documentId } });
+    return this.prisma.documents.delete({ where: { id: documentId } });
   }
 
   // ============ APPLICATION STATUS MANAGEMENT ============
@@ -916,7 +925,7 @@ export class TeacherService {
    * Get the current application status for the teacher
    */
   async getApplicationStatus(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: {
         applicationStatus: true,
@@ -937,14 +946,14 @@ export class TeacherService {
    * Get proposed interview time slots for the teacher
    */
   async getInterviewSlots(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true, applicationStatus: true },
     });
 
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const slots = await this.prisma.interviewTimeSlot.findMany({
+    const slots = await this.prisma.interview_time_slots.findMany({
       where: { teacherProfileId: profile.id },
       orderBy: { proposedDateTime: 'asc' },
     });
@@ -959,7 +968,7 @@ export class TeacherService {
    * Teacher selects an interview time slot
    */
   async selectInterviewSlot(userId: string, slotId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true, applicationStatus: true },
     });
@@ -973,7 +982,7 @@ export class TeacherService {
     }
 
     // Find the slot
-    const slot = await this.prisma.interviewTimeSlot.findFirst({
+    const slot = await this.prisma.interview_time_slots.findFirst({
       where: {
         id: slotId,
         teacherProfileId: profile.id,
@@ -987,7 +996,7 @@ export class TeacherService {
     // Update the slot as selected and update profile status
     await this.prisma.$transaction(async (tx) => {
       // Mark all other slots as not selected
-      await tx.interviewTimeSlot.updateMany({
+      await tx.interview_time_slots.updateMany({
         where: {
           teacherProfileId: profile.id,
           id: { not: slotId },
@@ -996,13 +1005,13 @@ export class TeacherService {
       });
 
       // Mark this slot as selected
-      await tx.interviewTimeSlot.update({
+      await tx.interview_time_slots.update({
         where: { id: slotId },
         data: { isSelected: true },
       });
 
       // Update profile status to INTERVIEW_SCHEDULED
-      await tx.teacherProfile.update({
+      await tx.teacher_profiles.update({
         where: { id: profile.id },
         data: {
           applicationStatus: 'INTERVIEW_SCHEDULED',
@@ -1033,14 +1042,14 @@ export class TeacherService {
    * CRITICAL: Must be called before submitForReview
    */
   async acceptTerms(userId: string, termsVersion: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });
 
     if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.prisma.teacherProfile.update({
+    return this.prisma.teacher_profiles.update({
       where: { userId },
       data: {
         termsAcceptedAt: new Date(),
@@ -1054,7 +1063,7 @@ export class TeacherService {
   }
 
   async submitForReview(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: {
         id: true,
@@ -1068,8 +1077,8 @@ export class TeacherService {
         idImageUrl: true,
         termsAcceptedAt: true,
         documents: true,
-        qualifications: true, // Academic qualifications - MANDATORY
-        subjects: true, // Must have at least one subject
+        teacher_qualifications: true, // Academic qualifications - MANDATORY
+        teacher_subjects: true, // Must have at least one subject
       },
     });
 
@@ -1109,14 +1118,14 @@ export class TeacherService {
     }
 
     // CRITICAL: Validate Academic Qualifications (MANDATORY - Single Source of Truth)
-    if (!profile.qualifications || profile.qualifications.length === 0) {
+    if (!profile.teacher_qualifications || profile.teacher_qualifications.length === 0) {
       throw new BadRequestException(
         'يجب إضافة مؤهل أكاديمي واحد على الأقل مع الشهادة قبل الإرسال',
       );
     }
 
     // Validate all qualifications have certificates
-    const missingCertificates = profile.qualifications.filter(
+    const missingCertificates = profile.teacher_qualifications.filter(
       (q) => !q.certificateUrl,
     );
     if (missingCertificates.length > 0) {
@@ -1126,11 +1135,11 @@ export class TeacherService {
     }
 
     // Validate at least one subject
-    if (!profile.subjects || profile.subjects.length === 0) {
+    if (!profile.teacher_subjects || profile.teacher_subjects.length === 0) {
       throw new BadRequestException('يجب إضافة مادة واحدة على الأقل للتدريس');
     }
 
-    const updatedProfile = await this.prisma.teacherProfile.update({
+    const updatedProfile = await this.prisma.teacher_profiles.update({
       where: { userId },
       data: {
         applicationStatus: 'SUBMITTED',
@@ -1154,7 +1163,7 @@ export class TeacherService {
   ): Promise<void> {
     try {
       // Get all admin users who should receive notifications
-      const admins = await this.prisma.user.findMany({
+      const admins = await this.prisma.users.findMany({
         where: {
           role: { in: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
           isActive: true,
@@ -1195,7 +1204,7 @@ export class TeacherService {
    * Check if teacher is approved (for guards)
    */
   async isApproved(userId: string): Promise<boolean> {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { applicationStatus: true },
     });
@@ -1208,7 +1217,7 @@ export class TeacherService {
    * Get vacation mode status for a teacher
    */
   async getVacationMode(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: {
         isOnVacation: true,
@@ -1226,7 +1235,7 @@ export class TeacherService {
    * Get vacation settings (max days) for UI
    */
   async getVacationSettings() {
-    const settings = await this.prisma.systemSettings.findUnique({
+    const settings = await this.prisma.system_settings.findUnique({
       where: { id: 'default' },
     });
     return {
@@ -1247,7 +1256,7 @@ export class TeacherService {
     userId: string,
     dto: { isOnVacation: boolean; returnDate?: string; reason?: string },
   ) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true, isOnVacation: true },
     });
@@ -1271,7 +1280,7 @@ export class TeacherService {
       }
 
       // 3. Validate does not exceed max vacation days
-      const settings = await this.prisma.systemSettings.findUnique({
+      const settings = await this.prisma.system_settings.findUnique({
         where: { id: 'default' },
       });
       const maxDays = settings?.maxVacationDays || 21;
@@ -1286,7 +1295,7 @@ export class TeacherService {
       }
 
       // 4. HARD BLOCK: Check for pending bookings (requiring teacher action)
-      const pendingBookings = await this.prisma.booking.count({
+      const pendingBookings = await this.prisma.bookings.count({
         where: {
           teacherId: profile.id,
           status: 'PENDING_TEACHER_APPROVAL',
@@ -1304,7 +1313,7 @@ export class TeacherService {
 
       // 5. WARNING CHECK: Confirmed bookings within vacation period
       const vacationStartDate = now;
-      const conflictingBookings = await this.prisma.booking.findMany({
+      const conflictingBookings = await this.prisma.bookings.findMany({
         where: {
           teacherId: profile.id,
           status: 'SCHEDULED',
@@ -1316,12 +1325,12 @@ export class TeacherService {
         select: {
           id: true,
           startTime: true,
-          subject: { select: { nameAr: true } },
+          subjects: { select: { nameAr: true } },
         },
       });
 
       // 6. Enable vacation mode
-      const updated = await this.prisma.teacherProfile.update({
+      const updated = await this.prisma.teacher_profiles.update({
         where: { userId },
         data: {
           isOnVacation: true,
@@ -1351,7 +1360,7 @@ export class TeacherService {
       };
     } else {
       // === DISABLING VACATION MODE ===
-      const updated = await this.prisma.teacherProfile.update({
+      const updated = await this.prisma.teacher_profiles.update({
         where: { userId },
         data: {
           isOnVacation: false,
@@ -1382,7 +1391,7 @@ export class TeacherService {
    */
   async isSlotAvailable(teacherId: string, startTime: Date): Promise<boolean> {
     // Get teacher's timezone
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { id: teacherId },
       select: { timezone: true },
     });
@@ -1411,7 +1420,7 @@ export class TeacherService {
     }
 
     // 2. Check for ALL_DAY exceptions
-    const allDayException = await this.prisma.availabilityException.findFirst({
+    const allDayException = await this.prisma.availability_exceptions.findFirst({
       where: {
         teacherId,
         type: 'ALL_DAY',
@@ -1425,7 +1434,7 @@ export class TeacherService {
     }
 
     // 3. Check for PARTIAL_DAY exceptions
-    const partialException = await this.prisma.availabilityException.findFirst({
+    const partialException = await this.prisma.availability_exceptions.findFirst({
       where: {
         teacherId,
         type: 'PARTIAL_DAY',

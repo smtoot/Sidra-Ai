@@ -33,7 +33,7 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
     const passwordHash = await bcrypt.hash('admin123', 10);
 
     // Upsert admin user to ensure it exists
-    await prisma.user.upsert({
+    await prisma.users.upsert({
       where: { email: adminEmail },
       update: { passwordHash, role: 'SUPER_ADMIN' },
       create: {
@@ -57,13 +57,13 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
 
     // Instead, let's just make sure the Curriculum exists, then ensure Grade2 exists.
 
-    let sudanese = await prisma.curriculum.findUnique({
+    let sudanese = await prisma.curricula.findUnique({
       where: { code: 'SUDANESE' },
       include: { stages: { include: { grades: true } } }
     });
 
     if (!sudanese) {
-      sudanese = await prisma.curriculum.create({
+      sudanese = await prisma.curricula.create({
         data: {
           code: 'SUDANESE',
           nameAr: 'المنهج السوداني',
@@ -99,7 +99,7 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
       if (stage1) {
         const hasGrade2 = stage1.grades.find(g => g.code === 'SUD_P2');
         if (!hasGrade2) {
-          await prisma.gradeLevel.create({
+          await prisma.grade_levels.create({
             data: {
               stageId: stage1.id,
               nameAr: 'صف 2', nameEn: 'Grade 2', code: 'SUD_P2', sequence: 2
@@ -109,9 +109,9 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
       }
     }
 
-    const britishExists = await prisma.curriculum.findUnique({ where: { code: 'BRITISH' } });
+    const britishExists = await prisma.curricula.findUnique({ where: { code: 'BRITISH' } });
     if (!britishExists) {
-      await prisma.curriculum.create({
+      await prisma.curricula.create({
         data: {
           code: 'BRITISH',
           nameAr: 'المنهج البريطاني',
@@ -201,7 +201,7 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
     const prisma = app.get(PrismaService);
     const passwordHash = await bcrypt.hash('password123', 10);
 
-    const user = await prisma.user.upsert({
+    const user = await prisma.users.upsert({
       where: { email: teacherEmail },
       update: {},
       create: {
