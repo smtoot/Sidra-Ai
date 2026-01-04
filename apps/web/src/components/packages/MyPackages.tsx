@@ -156,25 +156,16 @@ function PackageCard({ pkg, onBook }: PackageCardProps) {
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                         <CalendarDays className="w-3 h-3" />
                         <span>
-                            {pkg.status === 'ACTIVE' ? 'تنتهي ' : 'انتهت '}
+                            {(pkg.status === 'ACTIVE' || pkg.status === 'COMPLETED') && daysUntilExpiry >= 0 ? 'تنتهي ' : 'انتهت '}
                             {format(new Date(pkg.expiresAt), 'd MMM yyyy', { locale: ar })}
                         </span>
                     </div>
 
-                    {/* View Details Indicator */}
-                    {isActive ? (
-                        <div className="flex items-center gap-1 text-sm font-medium text-primary">
-                            عرض التفاصيل
-                            <ChevronLeft className="w-4 h-4" />
-                        </div>
-                    ) : (
-                        <span className="text-xs text-gray-400">
-                            {pkg.status === 'COMPLETED' && 'تم استخدام كل الحصص'}
-                            {pkg.status === 'EXPIRED' && 'انتهت صلاحية الباقة'}
-                            {pkg.status === 'CANCELLED' && 'تم إلغاء الباقة'}
-                            {pkg.status === 'ACTIVE' && sessionsRemaining === 0 && 'لا توجد حصص متبقية'}
-                        </span>
-                    )}
+                    {/* View Details Indicator - Always show chevron */}
+                    <div className="flex items-center gap-1 text-sm font-medium text-primary">
+                        عرض التفاصيل
+                        <ChevronLeft className="w-4 h-4" />
+                    </div>
                 </div>
             </div>
         </div>
