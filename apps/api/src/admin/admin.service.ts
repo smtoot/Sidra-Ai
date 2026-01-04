@@ -1041,7 +1041,7 @@ export class AdminService {
   async proposeInterviewSlots(
     adminUserId: string,
     profileId: string,
-    timeSlots: { dateTime: string; meetingLink: string }[],
+    timeSlots: { dateTime: string; meetingLink?: string }[],
   ) {
     if (!timeSlots || timeSlots.length < 2) {
       throw new BadRequestException('يجب تقديم خيارين على الأقل للمعلم');
@@ -1066,7 +1066,7 @@ export class AdminService {
           data: {
             teacherProfileId: profileId,
             proposedDateTime: new Date(slot.dateTime),
-            meetingLink: slot.meetingLink,
+            meetingLink: slot.meetingLink || null,
           },
         }),
       ),

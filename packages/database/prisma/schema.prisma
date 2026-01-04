@@ -271,7 +271,7 @@ model interview_time_slots {
   id               String           @id
   teacherProfileId String
   proposedDateTime DateTime
-  meetingLink      String
+  meetingLink      String?
   isSelected       Boolean          @default(false)
   createdAt        DateTime         @default(now())
   teacher_profiles teacher_profiles @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
