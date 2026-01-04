@@ -8,6 +8,7 @@ type NotificationType =
   | 'BOOKING_APPROVED'
   | 'BOOKING_REJECTED'
   | 'BOOKING_CANCELLED'
+  | 'BOOKING_RESCHEDULED' // FIX: Added missing type
   | 'PAYMENT_SUCCESS'
   | 'PAYMENT_RELEASED'
   | 'ESCROW_REMINDER'

@@ -15,7 +15,7 @@ export class EscrowSchedulerService {
     private walletService: WalletService,
     private notificationService: NotificationService,
     private packageService: PackageService,
-  ) { }
+  ) {}
 
   /**
    * Auto-release job: Runs every 15 minutes
@@ -198,9 +198,9 @@ export class EscrowSchedulerService {
             // Calculate hours remaining until auto-release
             const hoursRemaining = booking.disputeWindowClosesAt
               ? Math.round(
-                (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
-                (1000 * 60 * 60),
-              )
+                  (booking.disputeWindowClosesAt.getTime() - now.getTime()) /
+                    (1000 * 60 * 60),
+                )
               : 0;
 
             if (hoursRemaining > 0) {
@@ -367,7 +367,7 @@ export class EscrowSchedulerService {
         try {
           const hoursStale = Math.round(
             (now.getTime() - new Date(booking.endTime).getTime()) /
-            (1000 * 60 * 60),
+              (1000 * 60 * 60),
           );
 
           // Alert all admins
@@ -411,6 +411,81 @@ export class EscrowSchedulerService {
    */
   async forceAutoRelease() {
     return this.processAutoReleases();
+  }
+
+  /**
+   * P1 FIX: Package Status Sync Cron
+   * Runs every hour to mark ACTIVE packages as DEPLETED when all sessions are used.
+   * This is a safety net for any packages that weren't updated atomically.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async syncPackageStatus() {
+    this.logger.log('📦 Running package status sync...');
+
+    try {
+      // Find ACTIVE packages where sessionsUsed >= sessionCount
+      // Use raw query for efficient comparison without loading all packages
+      const activePackages = await this.prisma.studentPackage.findMany({
+        where: {
+          status: 'ACTIVE',
+        },
+      });
+
+      // Filter in application code since Prisma doesn't support field comparison
+      const packagesToDepleted = activePackages.filter(
+        (pkg) => pkg.sessionsUsed >= pkg.sessionCount,
+      );
+
+      if (packagesToDepleted.length === 0) {
+        this.logger.log('✓ No packages to sync');
+        return { synced: 0 };
+      }
+
+      let syncCount = 0;
+      for (const pkg of packagesToDepleted) {
+        try {
+          // Use conditional update to prevent race conditions
+          const updateResult = await this.prisma.studentPackage.updateMany({
+            where: {
+              id: pkg.id,
+              status: 'ACTIVE', // Only update if still ACTIVE
+              sessionsUsed: { gte: pkg.sessionCount }, // Double-check condition
+            },
+            data: {
+              status: 'DEPLETED',
+            },
+          });
+
+          if (updateResult.count > 0) {
+            syncCount++;
+            this.logger.log(
+              `📦 Synced package ${pkg.id.slice(0, 8)} to DEPLETED (${pkg.sessionsUsed}/${pkg.sessionCount} sessions)`,
+            );
+
+            // Notify student/parent that package sessions are depleted
+            await this.notificationService.notifyUser({
+              userId: pkg.payerId,
+              type: 'SYSTEM_ALERT',
+              title: 'انتهت حصص الباقة',
+              message: `تم استخدام جميع الحصص (${pkg.sessionCount}) في باقتك. يمكنك شراء باقة جديدة للاستمرار.`,
+              link: '/parent/packages',
+              dedupeKey: `PACKAGE_DEPLETED:${pkg.id}`,
+              metadata: { packageId: pkg.id },
+            });
+          }
+        } catch (err) {
+          this.logger.error(`Failed to sync package ${pkg.id}:`, err);
+        }
+      }
+
+      this.logger.log(
+        `✅ Package status sync complete: ${syncCount} packages updated`,
+      );
+      return { synced: syncCount };
+    } catch (err) {
+      this.logger.error('Package status sync failed:', err);
+      return { synced: 0, error: err.message };
+    }
   }
 
   /**

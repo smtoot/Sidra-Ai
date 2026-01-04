@@ -931,6 +931,9 @@ model SystemSettings {
 
   // NEW: Search Configuration (Dynamic Filters)
   searchConfig    Json?   // { enableGenderFilter: boolean, enablePriceFilter: boolean, ... }
+  
+  // NEW: Cancellation Policy Configuration
+  cancellationPolicies Json? // { flexible: {...}, moderate: {...}, strict: {...} }
 
   // Session Duration Configuration (Future-proof design)
   defaultSessionDurationMinutes Int   @default(60) // Default session length (currently platform-wide)
@@ -941,6 +944,11 @@ model SystemSettings {
 
   // Vacation Mode Settings
   maxVacationDays Int @default(21) // Maximum allowed vacation period in days
+
+  // SECURITY FIX: Deposit Bank Info (moved from hardcoded frontend)
+  depositBankName          String @default("بنك الخرطوم")
+  depositAccountHolderName String @default("عمر محمد عبدالرحيم عبيشي")
+  depositAccountNumber     String @default("1401733")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1092,6 +1100,7 @@ enum NotificationType {
   BOOKING_APPROVED
   BOOKING_REJECTED
   BOOKING_CANCELLED
+  BOOKING_RESCHEDULED // FIX: Added for admin reschedule notifications
   PAYMENT_SUCCESS
   PAYMENT_RELEASED
   ESCROW_REMINDER

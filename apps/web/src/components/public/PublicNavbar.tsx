@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X, GraduationCap, User } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const NAV_LINKS = [
     { href: '/search', label: 'ابحث عن معلم' },
@@ -15,22 +16,23 @@ const NAV_LINKS = [
 export function PublicNavbar() {
     const router = useRouter();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userRole, setUserRole] = useState<string | null>(null);
-
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('userRole');
-        setIsLoggedIn(!!token);
-        setUserRole(role);
-    }, []);
+    // SECURITY FIX: Use AuthContext instead of localStorage for role
+    const { user } = useAuth();
+    const isLoggedIn = !!user;
+    const userRole = user?.role;
 
     const getDashboardLink = () => {
         switch (userRole) {
             case 'TEACHER': return '/teacher/sessions';
             case 'PARENT': return '/parent';
             case 'STUDENT': return '/student';
-            case 'ADMIN': return '/admin/financials';
+            case 'ADMIN':
+            case 'SUPER_ADMIN':
+            case 'MODERATOR':
+            case 'CONTENT_ADMIN':
+            case 'FINANCE':
+            case 'SUPPORT':
+                return '/admin/financials';
             default: return '/login';
         }
     };

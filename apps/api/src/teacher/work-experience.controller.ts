@@ -30,9 +30,7 @@ import { ApprovalGuard } from '../auth/approval.guard';
 @UseGuards(JwtAuthGuard, RolesGuard, ApprovalGuard)
 @Roles(UserRole.TEACHER)
 export class WorkExperienceController {
-  constructor(
-    private readonly workExperienceService: WorkExperienceService,
-  ) {}
+  constructor(private readonly workExperienceService: WorkExperienceService) {}
 
   /**
    * GET /teacher/work-experiences
@@ -51,10 +49,7 @@ export class WorkExperienceController {
    */
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 experiences per minute
-  addWorkExperience(
-    @Request() req: any,
-    @Body() dto: CreateWorkExperienceDto,
-  ) {
+  addWorkExperience(@Request() req: any, @Body() dto: CreateWorkExperienceDto) {
     return this.workExperienceService.addWorkExperience(req.user.userId, dto);
   }
 
@@ -83,10 +78,7 @@ export class WorkExperienceController {
    */
   @Delete(':id')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
-  deleteWorkExperience(
-    @Request() req: any,
-    @Param('id') experienceId: string,
-  ) {
+  deleteWorkExperience(@Request() req: any, @Param('id') experienceId: string) {
     return this.workExperienceService.deleteWorkExperience(
       req.user.userId,
       experienceId,

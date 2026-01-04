@@ -9,6 +9,7 @@ import {
   Body,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -46,7 +47,7 @@ export class AdminController {
     private readonly auditService: AuditService,
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
-  ) { }
+  ) {}
 
   @Get('dashboard')
   getDashboardStats() {
@@ -63,9 +64,35 @@ export class AdminController {
     return this.adminService.getAllBookings(status);
   }
 
+  @Get('bookings/:id')
+  getBooking(@Param('id') id: string) {
+    return this.adminService.getBookingById(id);
+  }
+
   @Patch('bookings/:id/cancel')
-  cancelBooking(@Param('id') id: string, @Body() dto: { reason?: string }) {
-    return this.adminService.cancelBooking(id, dto.reason);
+  cancelBooking(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: { reason?: string },
+  ) {
+    return this.adminService.cancelBooking(id, req.user.userId, dto.reason);
+  }
+
+  @Post('bookings/:id/complete')
+  completeBooking(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.adminService.completeBooking(id, req.user.userId);
+  }
+
+  @Patch('bookings/:id/reschedule')
+  rescheduleBooking(
+    @Param('id') id: string,
+    @Body() dto: { newStartTime: string },
+  ) {
+    const date = new Date(dto.newStartTime);
+    if (isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+    return this.adminService.rescheduleBooking(id, date);
   }
 
   // =================== DISPUTE MANAGEMENT ===================
@@ -127,6 +154,7 @@ export class AdminController {
       defaultSessionDurationMinutes?: number;
       allowedSessionDurations?: number[];
       searchConfig?: Record<string, unknown>; // JSON object for dynamic search configuration
+      cancellationPolicies?: Record<string, unknown>; // JSON object for policy config
     },
   ) {
     return this.settingsService.updateSettings(req.user.userId, dto);
@@ -182,6 +210,24 @@ export class AdminController {
     @Body() dto: { reason: string },
   ) {
     return this.adminService.requestChanges(req.user.userId, id, dto.reason);
+  }
+
+  @Patch('teachers/:id/profile')
+  updateTeacherProfile(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      displayName?: string;
+      fullName?: string;
+      bio?: string;
+      introVideoUrl?: string;
+      whatsappNumber?: string;
+      city?: string;
+      country?: string;
+    },
+  ) {
+    return this.adminService.updateTeacherProfile(req.user.userId, id, dto);
   }
 
   @Post('teacher-applications/:id/propose-interview-slots')
@@ -287,7 +333,9 @@ export class AdminController {
   @Get('ledger-audit')
   @Roles(UserRole.ADMIN, UserRole.FINANCE)
   getLedgerAudits(@Query('limit') limit?: string) {
-    return this.ledgerAuditService.getRecentAudits(limit ? parseInt(limit) : 10);
+    return this.ledgerAuditService.getRecentAudits(
+      limit ? parseInt(limit) : 10,
+    );
   }
 
   @Get('ledger-audit/:id')

@@ -10,6 +10,7 @@ import {
   Patch,
   Delete,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -53,6 +54,10 @@ class PurchasePackageDto {
 
   @IsString()
   tierId: string;
+
+  @IsString()
+  @IsOptional()
+  idempotencyKey?: string; // SECURITY FIX: Client-generated idempotency key
 }
 
 class UpdateDemoSettingsDto {
@@ -71,7 +76,7 @@ export class PackageController {
   constructor(
     private packageService: PackageService,
     private demoService: DemoService,
-  ) { }
+  ) {}
 
   // =====================================================
   // ADMIN: Manage Tiers & Stats
@@ -141,7 +146,11 @@ export class PackageController {
   @Roles(UserRole.PARENT, UserRole.STUDENT)
   async purchasePackage(@Req() req: any, @Body() dto: PurchasePackageDto) {
     const payerId = req.user.userId;
-    const idempotencyKey = `PURCHASE_${payerId}_${dto.teacherId}_${dto.subjectId}_${dto.tierId}_${Date.now()}`;
+    // SECURITY FIX: Use client-provided idempotency key if available, otherwise generate one
+    // Client-generated keys provide better duplicate prevention for rapid clicks
+    const idempotencyKey =
+      dto.idempotencyKey ||
+      `PURCHASE_${payerId}_${dto.teacherId}_${dto.subjectId}_${dto.tierId}_${Date.now()}`;
 
     return this.packageService.purchasePackage(
       payerId,
@@ -200,22 +209,52 @@ export class PackageController {
   async updateTeacherTierStatus(
     @Req() req: any,
     @Param('tierId') tierId: string,
-    @Body() dto: { isActive: boolean },
+    @Body() dto: { isEnabled: boolean },
   ) {
-    // Teachers can only toggle isActive status, not change discount/count
+    // SECURITY FIX: Teachers can only toggle their OWN tier preferences
+    // This updates TeacherPackageTierSetting, NOT the global PackageTier
     const teacherProfile = await this.getTeacherProfile(req.user.userId);
 
-    // Note: This would require teacher-specific tier preferences
-    // For now, we'll update the global tier (admin-controlled)
-    // TODO: Consider adding TeacherTierPreference table if needed
-    return this.packageService.updateTier(tierId, { isActive: dto.isActive });
+    return this.packageService.updateTeacherTierSetting(
+      teacherProfile.id,
+      tierId,
+      { isEnabled: dto.isEnabled },
+    );
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN, UserRole.TEACHER)
-  async getPackageById(@Param('id') id: string) {
-    return this.packageService.getPackageById(id);
+  async getPackageById(@Req() req: any, @Param('id') id: string) {
+    const pkg = await this.packageService.getPackageById(id);
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    // SECURITY FIX: Verify ownership before returning package details
+    // Admins can view all packages
+    if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+      return pkg;
+    }
+
+    // Teachers can only view packages where they are the teacher
+    if (userRole === 'TEACHER') {
+      const teacherProfile = await this.getTeacherProfile(userId);
+      if (pkg.teacherId !== teacherProfile.id) {
+        throw new ForbiddenException(
+          'You are not authorized to view this package',
+        );
+      }
+      return pkg;
+    }
+
+    // Parents/Students can only view packages where they are payer or student
+    if (pkg.payerId !== userId && pkg.studentId !== userId) {
+      throw new ForbiddenException(
+        'You are not authorized to view this package',
+      );
+    }
+
+    return pkg;
   }
 
   // =====================================================
@@ -319,7 +358,8 @@ export class PackageController {
 
     // For students, they are both payer and beneficiary
     // For parents, studentId should be provided (their child's ID)
-    const studentId = req.user.role === 'STUDENT' ? req.user.userId : dto.studentId;
+    const studentId =
+      req.user.role === 'STUDENT' ? req.user.userId : dto.studentId;
 
     return this.packageService.purchaseSmartPackage({
       ...dto,
@@ -356,7 +396,7 @@ export class PackageController {
 
   @Post('smart-pack/:packageId/book-floating')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT)
+  @Roles(UserRole.STUDENT, UserRole.PARENT) // SECURITY FIX: Allow parents to book floating sessions for their children
   async bookFloatingSession(
     @Req() req: any,
     @Param('packageId') packageId: string,
@@ -375,7 +415,7 @@ export class PackageController {
 
   @Patch('smart-pack/bookings/:bookingId/reschedule')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT)
+  @Roles(UserRole.STUDENT, UserRole.PARENT) // SECURITY FIX: Allow parents to reschedule sessions for their children
   async reschedulePackageSession(
     @Req() req: any,
     @Param('bookingId') bookingId: string,

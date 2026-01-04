@@ -148,7 +148,7 @@ export const adminApi = {
     },
 
     getBookingById: async (id: string) => {
-        const response = await api.get(`/bookings/${id}`);
+        const response = await api.get(`/admin/bookings/${id}`);
         return response.data;
     },
 
@@ -158,9 +158,16 @@ export const adminApi = {
     },
 
     completeBooking: async (id: string) => {
-        const response = await api.patch(`/bookings/${id}/complete`);
+        const response = await api.post(`/admin/bookings/${id}/complete`);
         return response.data;
     },
+
+    rescheduleBooking: async (id: string, newStartTime: Date) => {
+        const response = await api.patch(`/admin/bookings/${id}/reschedule`, { newStartTime: newStartTime.toISOString() });
+        return response.data;
+    },
+
+
 
     // =================== DISPUTES ===================
 
@@ -213,7 +220,9 @@ export const adminApi = {
         allowedSessionDurations?: number[];
         meetingLinkAccessMinutesBefore?: number;
         maxVacationDays?: number;
+
         searchConfig?: any;
+        cancellationPolicies?: any;
     }) => {
         const response = await api.patch('/admin/settings', data);
         return response.data;
@@ -261,6 +270,19 @@ export const adminApi = {
 
     getInterviewTimeSlots: async (id: string) => {
         const response = await api.get(`/admin/teacher-applications/${id}/interview-slots`);
+        return response.data;
+    },
+
+    updateTeacherProfile: async (profileId: string, data: {
+        displayName?: string;
+        fullName?: string;
+        bio?: string;
+        introVideoUrl?: string;
+        whatsappNumber?: string;
+        city?: string;
+        country?: string;
+    }) => {
+        const response = await api.patch(`/admin/teachers/${profileId}/profile`, data);
         return response.data;
     },
 

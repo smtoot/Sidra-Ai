@@ -8,6 +8,7 @@ import { Child } from '@/lib/api/auth';
 import { BookingSummaryCard } from '../BookingSummaryCard';
 import { BookingTypeOption, SlotWithTimezone, RecurringPattern, ScheduledSession, MultiSlotAvailabilityResponse, Weekday } from '../types';
 import { formatTime, parseUtcDate } from '../formatUtils';
+import { StudentInfoSection } from '../StudentInfoSection';
 
 // Arabic weekday labels
 const WEEKDAY_LABELS: Record<Weekday, string> = {
@@ -48,6 +49,8 @@ interface Step4DetailsProps {
     onAddChild?: () => void;
     termsAccepted: boolean;
     onTermsChange: (accepted: boolean) => void;
+    studentProfile?: any;
+    onProfileUpdate?: () => void;
 }
 
 export function Step4Details({
@@ -69,11 +72,26 @@ export function Step4Details({
     onNotesChange,
     onAddChild,
     termsAccepted,
-    onTermsChange
+    onTermsChange,
+    studentProfile,
+    onProfileUpdate
 }: Step4DetailsProps) {
     // Check if this is a new package purchase with multi-slot patterns
     const isNewPackagePurchase = bookingOption?.tierId !== undefined;
     const hasMultiSlotPatterns = recurringPatterns.length > 0;
+
+    // Calculate Summary Info
+    const summaryCurriculumName = userRole === 'STUDENT'
+        ? studentProfile?.curriculum?.nameAr
+        : userRole === 'PARENT' && selectedChildId
+            ? children.find(c => c.id === selectedChildId)?.curriculum?.nameAr
+            : undefined;
+
+    const summaryGradeName = userRole === 'STUDENT'
+        ? studentProfile?.gradeLevel
+        : userRole === 'PARENT' && selectedChildId
+            ? children.find(c => c.id === selectedChildId)?.gradeLevel
+            : undefined;
 
     return (
         <div className="space-y-6">
@@ -163,8 +181,12 @@ export function Step4Details({
                             subjectName={subjectName}
                             selectedDate={selectedDate}
                             selectedTime={formatTime(parseUtcDate(selectedSlot.startTimeUtc))}
-                            price={0} // Hide price in summary to highlight it separately
+                            price={bookingOption.price}
+                            // Ensuring price row is hidden for Paid Sessions
+                            hidePriceRow={true} // Hide price row in summary card as it is shown prominently below
                             bookingType={bookingOption.type === 'DEMO' ? 'حصة تجريبية' : bookingOption.type === 'SINGLE' ? 'حصة واحدة' : 'باقة'}
+                            curriculumName={summaryCurriculumName}
+                            gradeName={summaryGradeName}
                         />
                     </div>
 
@@ -248,15 +270,29 @@ export function Step4Details({
                             ))}
                         </div>
                     )}
+                    {/* Student Info Editor for selected child */}
+                    {selectedChildId && children.find(c => c.id === selectedChildId) && (
+                        <div className="mt-4">
+                            <StudentInfoSection
+                                userRole="PARENT"
+                                selectedChild={children.find(c => c.id === selectedChildId)}
+                                onValidChange={() => { }}
+                                onUpdate={onProfileUpdate}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Student view */}
             {userRole === 'STUDENT' && (
-                <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-sm text-gray-700">
-                        هذا الحجز لـ: <span className="font-semibold">{userName}</span>
-                    </p>
+                <div className="mb-4">
+                    <StudentInfoSection
+                        userRole="STUDENT"
+                        studentProfile={studentProfile}
+                        onValidChange={() => { }}
+                        onUpdate={onProfileUpdate}
+                    />
                 </div>
             )}
 

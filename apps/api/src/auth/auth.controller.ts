@@ -1,5 +1,14 @@
-import { Controller, Post, Body, Get, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { Public } from './public.decorator';
@@ -13,24 +22,104 @@ interface AuthRequest {
     email: string;
     role: string;
   };
+  cookies?: {
+    access_token?: string;
+    refresh_token?: string;
+    csrf_token?: string;
+  };
 }
+
+/**
+ * SECURITY FIX: Cookie configuration for httpOnly tokens
+ * - httpOnly: Prevents XSS attacks from accessing tokens via JavaScript
+ * - secure: Only send over HTTPS in production
+ * - sameSite: Prevents CSRF attacks by not sending cookies with cross-site requests
+ * - path: Restrict cookie scope
+ */
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const, // 'lax' allows top-level navigation, 'strict' for max security
+  path: '/',
+};
+
+const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15 minutes
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
+
+  /**
+   * SECURITY FIX: Helper to set auth cookies
+   */
+  private setAuthCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+    csrfToken: string,
+  ) {
+    res.cookie('access_token', accessToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: ACCESS_TOKEN_MAX_AGE,
+    });
+    res.cookie('refresh_token', refreshToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    });
+    // CSRF token is NOT httpOnly - frontend needs to read it to include in headers
+    res.cookie('csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: ACCESS_TOKEN_MAX_AGE,
+    });
+  }
+
+  /**
+   * SECURITY FIX: Helper to clear auth cookies
+   */
+  private clearAuthCookies(res: Response) {
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/' });
+    res.clearCookie('csrf_token', { path: '/' });
+  }
 
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute
-  register(@Body() createAuthDto: RegisterDto) {
-    return this.authService.register(createAuthDto);
+  async register(
+    @Body() createAuthDto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.register(createAuthDto);
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
+    // Still return tokens in body for backwards compatibility during transition
+    return tokens;
   }
 
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.login(loginDto);
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
+    // Still return tokens in body for backwards compatibility during transition
+    return tokens;
   }
 
   // SECURITY: Protected by global JwtAuthGuard - requires JWT token
@@ -56,18 +145,46 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // higher limit for auto-refresh
-  refreshToken(
-    @Body() body: { refresh_token: string },
-    @Req() req: any, // To get IP/User Agent
+  async refreshToken(
+    @Body() body: { refresh_token?: string },
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const ip = req.ip || 'Unknown';
     const deviceInfo = `${userAgent} (${ip})`;
-    return this.authService.refreshToken(body.refresh_token, deviceInfo);
+
+    // SECURITY FIX: Read refresh token from cookie if not in body
+    const refreshToken = body.refresh_token || req.cookies?.refresh_token;
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token provided');
+    }
+
+    const tokens = await this.authService.refreshToken(
+      refreshToken,
+      deviceInfo,
+    );
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
+    return tokens;
   }
 
   @Post('logout')
-  logout(@Body() body: { refresh_token: string }) {
-    return this.authService.logout(body.refresh_token);
+  async logout(
+    @Body() body: { refresh_token?: string },
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // SECURITY FIX: Read refresh token from cookie if not in body
+    const refreshToken = body.refresh_token || req.cookies?.refresh_token;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    this.clearAuthCookies(res);
+    return { message: 'Logged out successfully' };
   }
 }

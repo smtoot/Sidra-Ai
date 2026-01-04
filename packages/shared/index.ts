@@ -47,6 +47,9 @@ export * from './src/enums';
 // Common
 export * from './src/common/pagination';
 
+// Analytics
+export * from './src/analytics-events';
+
 
 // Global enums
 export enum UserRole {

@@ -59,7 +59,7 @@ export class StorageController {
   constructor(
     private readonly storageService: StorageService,
     private readonly jwtService: JwtService,
-  ) { }
+  ) {}
 
   /**
    * Upload a file.
@@ -168,7 +168,14 @@ export class StorageController {
       // Validate ownership or admin access for private files
       const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
       const isOwner = fileOwnerId === userId;
-      const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
+      const adminRoles = [
+        'ADMIN',
+        'SUPER_ADMIN',
+        'MODERATOR',
+        'CONTENT_ADMIN',
+        'FINANCE',
+        'SUPPORT',
+      ];
       const isAdmin = adminRoles.includes(userRole as string);
 
       if (!isOwner && !isAdmin) {
@@ -231,7 +238,14 @@ export class StorageController {
       // Validate ownership or admin access for private files
       const fileOwnerId = this.storageService.extractUserIdFromKey(fileKey);
       const isOwner = fileOwnerId === userId;
-      const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
+      const adminRoles = [
+        'ADMIN',
+        'SUPER_ADMIN',
+        'MODERATOR',
+        'CONTENT_ADMIN',
+        'FINANCE',
+        'SUPPORT',
+      ];
       const isAdmin = adminRoles.includes(userRole as string);
 
       if (!isOwner && !isAdmin) {

@@ -64,7 +64,9 @@ export class DemoService {
       };
     }
 
-    // 4. MONTHLY QUOTA CHECK: Count COMPLETED + CANCELLED this month
+    // 4. MONTHLY QUOTA CHECK: Only count COMPLETED demos (not CANCELLED)
+    // SECURITY FIX: Cancelled demos should NOT count toward quota
+    // This allows users to retry if a demo was cancelled
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -72,7 +74,7 @@ export class DemoService {
     const usedDemosThisMonth = await this.prisma.demoSession.count({
       where: {
         demoOwnerId,
-        status: { in: ['COMPLETED', 'CANCELLED'] },
+        status: 'COMPLETED', // Only completed demos count toward quota
         createdAt: { gte: startOfMonth },
       },
     });
@@ -164,11 +166,32 @@ export class DemoService {
   }
 
   // =====================================================
-  // CANCEL DEMO (COUNTS TOWARD QUOTA - NO DELETE)
+  // CANCEL DEMO - Now deletes the record to allow retry
+  // SECURITY FIX: Cancelled demos no longer count toward quota
   // =====================================================
 
   async cancelDemoRecord(demoOwnerId: string, teacherId: string) {
-    const demoSession = await this.prisma.demoSession.findUnique({
+    return this.cancelDemoRecordInternal(demoOwnerId, teacherId, this.prisma);
+  }
+
+  /**
+   * Cancel demo record within an existing transaction
+   * Used when booking cancellation needs to be atomic with demo cleanup
+   */
+  async cancelDemoRecordInTransaction(
+    demoOwnerId: string,
+    teacherId: string,
+    tx: any, // Prisma.TransactionClient
+  ) {
+    return this.cancelDemoRecordInternal(demoOwnerId, teacherId, tx);
+  }
+
+  private async cancelDemoRecordInternal(
+    demoOwnerId: string,
+    teacherId: string,
+    prisma: any,
+  ) {
+    const demoSession = await prisma.demoSession.findUnique({
       where: {
         demoOwnerId_teacherId: { demoOwnerId, teacherId },
       },
@@ -178,19 +201,18 @@ export class DemoService {
       return; // Nothing to cancel
     }
 
-    if (demoSession.status === 'CANCELLED') {
-      // Idempotent
+    // Only cancel SCHEDULED demos (not already completed)
+    if (demoSession.status !== 'SCHEDULED') {
       return demoSession;
     }
 
-    // CRITICAL: Do NOT delete - mark as cancelled (counts toward quota)
-    return this.prisma.demoSession.update({
+    // SECURITY FIX: Delete the demo record to allow the user to try again
+    // This enables users to book another demo with this teacher after cancellation
+    await prisma.demoSession.delete({
       where: { id: demoSession.id },
-      data: {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-      },
     });
+
+    return { deleted: true, demoSessionId: demoSession.id };
   }
 
   // =====================================================
@@ -241,26 +263,40 @@ export class DemoService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const [usedThisMonth, totalLifetime] = await Promise.all([
-      this.prisma.demoSession.count({
-        where: {
-          demoOwnerId,
-          status: { in: ['COMPLETED', 'CANCELLED'] },
-          createdAt: { gte: startOfMonth },
-        },
-      }),
-      this.prisma.demoSession.count({
-        where: { demoOwnerId },
-      }),
-    ]);
+    const [completedThisMonth, totalCompleted, totalScheduled] =
+      await Promise.all([
+        // Only COMPLETED demos count toward monthly quota
+        this.prisma.demoSession.count({
+          where: {
+            demoOwnerId,
+            status: 'COMPLETED',
+            createdAt: { gte: startOfMonth },
+          },
+        }),
+        // Total completed ever
+        this.prisma.demoSession.count({
+          where: {
+            demoOwnerId,
+            status: 'COMPLETED',
+          },
+        }),
+        // Currently scheduled (pending)
+        this.prisma.demoSession.count({
+          where: {
+            demoOwnerId,
+            status: 'SCHEDULED',
+          },
+        }),
+      ]);
 
     return {
-      usedThisMonth,
+      usedThisMonth: completedThisMonth,
       remainingThisMonth: Math.max(
         0,
-        DEMO_POLICY.maxDemosPerOwnerPerMonth - usedThisMonth,
+        DEMO_POLICY.maxDemosPerOwnerPerMonth - completedThisMonth,
       ),
-      totalLifetime,
+      totalCompleted,
+      scheduledCount: totalScheduled,
     };
   }
 

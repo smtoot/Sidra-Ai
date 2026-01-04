@@ -1,15 +1,33 @@
 import axios from 'axios';
 
+/**
+ * SECURITY FIX: Helper to get CSRF token from cookie
+ * The csrf_token cookie is NOT httpOnly so JS can read it
+ */
+function getCsrfToken(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 export const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
     headers: {
         'Content-Type': 'application/json',
     },
+    // SECURITY FIX: Include cookies in requests for httpOnly token auth
+    withCredentials: true,
 });
 
 // Track if we're currently refreshing to prevent multiple refresh attempts
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
+
+// P1 FIX: Add retry limit to prevent infinite refresh loops
+const MAX_REFRESH_RETRIES = 3;
+let refreshRetryCount = 0;
+let lastRefreshAttempt = 0;
+const REFRESH_COOLDOWN_MS = 5000; // 5 seconds cooldown between retry counts reset
 
 const subscribeTokenRefresh = (cb: (token: string) => void) => {
     refreshSubscribers.push(cb);
@@ -22,6 +40,18 @@ const onRefreshed = (token: string) => {
 
 api.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
+        // SECURITY FIX: Add CSRF token header for state-changing requests
+        // Token is stored in non-httpOnly cookie, sent as header for double-submit protection
+        const method = config.method?.toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '')) {
+            const csrfToken = getCsrfToken();
+            if (csrfToken) {
+                config.headers['X-CSRF-Token'] = csrfToken;
+            }
+        }
+
+        // BACKWARDS COMPATIBILITY: Also send Authorization header during transition period
+        // This will be removed once all clients use cookie-based auth
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -58,23 +88,42 @@ api.interceptors.response.use(
                     !window.location.pathname.includes('/register');
 
                 if (shouldRedirect && !isAuthEndpoint) {
+                    // SECURITY FIX: Clear localStorage during transition, cookies cleared by server
                     localStorage.removeItem('token');
                     localStorage.removeItem('refresh_token');
-                    localStorage.removeItem('userRole');
-                    localStorage.removeItem('userName');
                     window.location.href = '/login';
                 }
                 return Promise.reject(error);
             }
 
-            // Attempt token refresh
-            const refreshToken = localStorage.getItem('refresh_token');
-            if (refreshToken) {
+            // SECURITY FIX: Check for cookie-based auth OR localStorage (backwards compat)
+            // With httpOnly cookies, we can't check if refresh_token exists - just try refresh
+            const hasLocalStorageToken = !!localStorage.getItem('refresh_token');
+            const hasCookieAuth = !!getCsrfToken(); // If CSRF token exists, cookies are set
+
+            if (hasLocalStorageToken || hasCookieAuth) {
+                // P1 FIX: Check retry limit before attempting refresh
+                const now = Date.now();
+                if (now - lastRefreshAttempt > REFRESH_COOLDOWN_MS) {
+                    // Reset retry count if enough time has passed
+                    refreshRetryCount = 0;
+                }
+
+                if (refreshRetryCount >= MAX_REFRESH_RETRIES) {
+                    console.warn('Max refresh retries exceeded, logging out');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('refresh_token');
+                    if (!isPublicPage && !isOptionalAuthRequest) {
+                        window.location.href = '/login';
+                    }
+                    return Promise.reject(new Error('Max refresh retries exceeded'));
+                }
+
                 // If already refreshing, queue this request
                 if (isRefreshing) {
                     return new Promise((resolve) => {
-                        subscribeTokenRefresh((newToken: string) => {
-                            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                        subscribeTokenRefresh(() => {
+                            // SECURITY FIX: No need to set Authorization header, cookies handle it
                             resolve(api(originalRequest));
                         });
                     });
@@ -82,31 +131,37 @@ api.interceptors.response.use(
 
                 originalRequest._retry = true;
                 isRefreshing = true;
+                lastRefreshAttempt = now;
+                refreshRetryCount++;
 
                 try {
+                    // SECURITY FIX: Send refresh request with credentials (cookies)
+                    // Server reads refresh_token from httpOnly cookie
+                    const refreshToken = localStorage.getItem('refresh_token');
                     const response = await axios.post(
                         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/refresh`,
-                        { refreshToken }
+                        refreshToken ? { refresh_token: refreshToken } : {},
+                        { withCredentials: true }
                     );
 
                     const { access_token, refresh_token } = response.data;
-                    localStorage.setItem('token', access_token);
-                    localStorage.setItem('refresh_token', refresh_token);
+                    // BACKWARDS COMPAT: Still store in localStorage during transition
+                    if (access_token) localStorage.setItem('token', access_token);
+                    if (refresh_token) localStorage.setItem('refresh_token', refresh_token);
 
                     // Notify all queued requests
                     onRefreshed(access_token);
                     isRefreshing = false;
+                    // Reset retry count on successful refresh
+                    refreshRetryCount = 0;
 
-                    // Retry original request with new token
-                    originalRequest.headers.Authorization = `Bearer ${access_token}`;
+                    // Retry original request - cookies are automatically included
                     return api(originalRequest);
                 } catch (refreshError) {
                     // Refresh failed - clear tokens and redirect
                     isRefreshing = false;
                     localStorage.removeItem('token');
                     localStorage.removeItem('refresh_token');
-                    localStorage.removeItem('userRole');
-                    localStorage.removeItem('userName');
 
                     if (!isPublicPage && !isOptionalAuthRequest) {
                         window.location.href = '/login';
@@ -122,8 +177,6 @@ api.interceptors.response.use(
 
                 if (shouldRedirect) {
                     localStorage.removeItem('token');
-                    localStorage.removeItem('userRole');
-                    localStorage.removeItem('userName');
                     window.location.href = '/login';
                 }
             }

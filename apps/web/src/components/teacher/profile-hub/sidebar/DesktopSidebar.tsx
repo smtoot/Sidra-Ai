@@ -194,8 +194,8 @@ export function DesktopSidebar({
                 })}
             </div>
 
-            {/* Locked Items Tooltip - Only show when expanded */}
-            {!isCollapsed && (
+            {/* Locked Items Tooltip - Only show when expanded AND there are locked items */}
+            {!isCollapsed && items.some(item => item.isLocked) && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700 mt-4">
                     <Lock className="w-3 h-3 inline ml-1" />
                     العناصر المقفلة ستفتح بعد موافقة الإدارة

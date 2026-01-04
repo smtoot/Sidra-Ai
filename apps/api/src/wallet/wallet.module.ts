@@ -11,4 +11,4 @@ import { ReadableIdModule } from '../common/readable-id/readable-id.module';
   providers: [WalletService, LedgerAuditService],
   exports: [WalletService, LedgerAuditService],
 })
-export class WalletModule { }
+export class WalletModule {}

@@ -188,7 +188,10 @@ export class SupportTicketService {
       );
     } catch (error) {
       // Don't fail ticket creation if notification fails
-      this.logger.error('Failed to send admin notifications for new ticket', error);
+      this.logger.error(
+        'Failed to send admin notifications for new ticket',
+        error,
+      );
     }
   }
 

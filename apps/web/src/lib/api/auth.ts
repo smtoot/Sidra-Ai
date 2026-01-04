@@ -28,6 +28,17 @@ export interface UserProfile {
         id: string;
         displayName: string;
         // Add other teacher fields if needed
+        // Add other teacher fields if needed
+    };
+    studentProfile?: {
+        id: string;
+        gradeLevel?: string;
+        curriculumId?: string;
+        curriculum?: {
+            id: string;
+            nameAr: string;
+            nameEn: string;
+        };
     };
 }
 

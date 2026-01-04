@@ -25,7 +25,7 @@ import { Public } from '../auth/public.decorator';
 
 @Controller('marketplace')
 export class MarketplaceController {
-  constructor(private readonly marketplaceService: MarketplaceService) { }
+  constructor(private readonly marketplaceService: MarketplaceService) {}
 
   // --- Platform Configuration (Public) ---
   @Public()

@@ -494,26 +494,23 @@ export default function StudentProfilePage() {
                                         value={formData.gradeLevel}
                                         onChange={(e) => setFormData(f => ({ ...f, gradeLevel: e.target.value }))}
                                         className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
+                                        disabled={!formData.curriculumId}
                                     >
                                         <option value="">اختر المرحلة...</option>
-                                        <optgroup label="المرحلة الابتدائية">
-                                            <option value="ابتدائي 1">ابتدائي 1</option>
-                                            <option value="ابتدائي 2">ابتدائي 2</option>
-                                            <option value="ابتدائي 3">ابتدائي 3</option>
-                                            <option value="ابتدائي 4">ابتدائي 4</option>
-                                            <option value="ابتدائي 5">ابتدائي 5</option>
-                                            <option value="ابتدائي 6">ابتدائي 6</option>
-                                        </optgroup>
-                                        <optgroup label="المرحلة المتوسطة">
-                                            <option value="متوسط 1">متوسط 1</option>
-                                            <option value="متوسط 2">متوسط 2</option>
-                                            <option value="متوسط 3">متوسط 3</option>
-                                        </optgroup>
-                                        <optgroup label="المرحلة الثانوية">
-                                            <option value="ثانوي 1">ثانوي 1</option>
-                                            <option value="ثانوي 2">ثانوي 2</option>
-                                            <option value="ثانوي 3">ثانوي 3</option>
-                                        </optgroup>
+                                        {formData.curriculumId && curricula
+                                            .find(c => c.id === formData.curriculumId)
+                                            ?.stages?.sort((a: any, b: any) => a.sequence - b.sequence)
+                                            .map((stage: any) => (
+                                                <optgroup key={stage.id} label={stage.nameAr}>
+                                                    {stage.grades
+                                                        .sort((a: any, b: any) => a.sequence - b.sequence)
+                                                        .map((grade: any) => (
+                                                            <option key={grade.id} value={grade.nameAr}>
+                                                                {grade.nameAr}
+                                                            </option>
+                                                        ))}
+                                                </optgroup>
+                                            ))}
                                     </select>
                                 ) : (
                                     <div

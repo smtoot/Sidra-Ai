@@ -13,6 +13,9 @@ interface BookingSummaryCardProps {
     bookingType: string;
     notes?: string;
     userTimezone?: string;
+    curriculumName?: string;
+    gradeName?: string;
+    hidePriceRow?: boolean;
 }
 
 export function BookingSummaryCard({
@@ -24,7 +27,10 @@ export function BookingSummaryCard({
     price,
     bookingType,
     notes,
-    userTimezone
+    userTimezone,
+    curriculumName,
+    gradeName,
+    hidePriceRow = false
 }: BookingSummaryCardProps) {
     return (
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
@@ -55,6 +61,26 @@ export function BookingSummaryCard({
                             label="الطالب"
                             value={childName}
                         />
+                    )}
+
+                    {/* New: Curriculum & Grade Info */}
+                    {(curriculumName || gradeName) && (
+                        <div className="grid grid-cols-2 gap-3">
+                            {curriculumName && (
+                                <SummaryRow
+                                    icon={<BookOpen className="w-3.5 h-3.5 text-gray-500" />}
+                                    label="المنهج"
+                                    value={curriculumName}
+                                />
+                            )}
+                            {gradeName && (
+                                <SummaryRow
+                                    icon={<FileText className="w-3.5 h-3.5 text-gray-500" />}
+                                    label="الصف"
+                                    value={gradeName}
+                                />
+                            )}
+                        </div>
                     )}
 
                     <div className="grid grid-cols-2 gap-3">
@@ -92,16 +118,18 @@ export function BookingSummaryCard({
                 )}
 
                 {/* Price Section - Cleaner & Reassuring */}
-                <div className="pt-3 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-500">
-                            الإجمالي المستحق لاحقًا
-                        </span>
-                        <span className={`text-base font-bold ${price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                            {price === 0 ? 'مجاناً' : formatCurrency(price).replace('SDG', '') + ' SDG'}
-                        </span>
+                {!hidePriceRow && (
+                    <div className="pt-3 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-gray-500">
+                                الإجمالي المستحق لاحقًا
+                            </span>
+                            <span className={`text-base font-bold ${price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                {price === 0 ? 'مجاناً' : formatCurrency(price).replace('SDG', '') + ' SDG'}
+                            </span>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Reassurance Message - Blue Style */}
                 <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex items-start gap-2.5">

@@ -64,10 +64,28 @@ export interface Booking {
         id: string;
         email: string;
     };
-    studentUser?: any; // Independent student user
+    studentUser?: { // Independent student user
+        id: string;
+        email?: string;
+        displayName?: string;
+        studentProfile?: {
+            gradeLevel?: string;
+            curriculum?: {
+                id: string;
+                nameAr: string;
+                nameEn: string;
+            };
+        };
+    };
     child?: { // Child entity for parent bookings
         id: string;
         name: string;
+        gradeLevel?: string;
+        curriculum?: {
+            id: string;
+            nameAr: string;
+            nameEn: string;
+        };
     };
     student?: any; // Legacy compatibility
     meetingLink?: string;
@@ -129,8 +147,22 @@ export const bookingApi = {
 
     // Get all teacher bookings (for requests page - shows all statuses)
     getAllTeacherBookings: async (): Promise<Booking[]> => {
-        const response = await api.get('/bookings/teacher/all');
-        return response.data;
+        try {
+            const response = await api.get('/bookings/teacher/all');
+            // Backend returns paginated response: { data: Booking[], meta: {...} }
+            const result = response.data;
+            // Handle both paginated response and direct array (for backwards compatibility)
+            if (result && Array.isArray(result.data)) {
+                return result.data;
+            }
+            if (Array.isArray(result)) {
+                return result;
+            }
+            return [];
+        } catch (error) {
+            console.error('Failed to load teacher bookings', error);
+            return [];
+        }
     },
 
     getBookingById: async (id: string): Promise<Booking> => {

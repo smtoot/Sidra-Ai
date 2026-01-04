@@ -29,7 +29,7 @@ export function SystemConfigProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const data = await systemApi.getConfig();
+                const data = await systemApi.getPublicConfig();
                 setConfig(data);
             } catch (error) {
                 console.error('Failed to load system config', error);

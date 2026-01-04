@@ -12,7 +12,7 @@ export class SystemSettingsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) { }
+  ) {}
 
   /**
    * Get settings with safe upsert
@@ -32,6 +32,25 @@ export class SystemSettingsService {
           id: this.SETTINGS_ID,
           // defaults are handled by Prisma schema
         },
+      });
+    }
+
+    // Initialize default cancellation policies if missing
+    if (!settings.cancellationPolicies) {
+      const defaultPolicies = {
+        flexible: { fullRefundHours: 24, lateRefundPercent: 50 },
+        moderate: {
+          fullRefundHours: 48,
+          partialRefundHours: 24,
+          partialRefundPercent: 50,
+        },
+        strict: { fullRefundHours: 168 }, // 7 days
+      };
+
+      // Update DB with defaults
+      settings = await this.prisma.systemSettings.update({
+        where: { id: this.SETTINGS_ID },
+        data: { cancellationPolicies: defaultPolicies },
       });
     }
 
@@ -56,6 +75,7 @@ export class SystemSettingsService {
       meetingLinkAccessMinutesBefore?: number; // Minutes before session when meeting link becomes accessible
       maxVacationDays?: number; // Maximum vacation duration allowed for teachers
       searchConfig?: any;
+      cancellationPolicies?: any;
     },
   ) {
     // Get old settings for diff logging
@@ -116,6 +136,10 @@ export class SystemSettingsService {
     if (data.searchConfig !== undefined) {
       // Direct JSON object update
       updateData.searchConfig = data.searchConfig;
+    }
+
+    if (data.cancellationPolicies !== undefined) {
+      updateData.cancellationPolicies = data.cancellationPolicies;
     }
 
     // Execute update

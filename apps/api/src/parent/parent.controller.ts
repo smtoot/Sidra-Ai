@@ -18,7 +18,7 @@ import { UserRole } from '@sidra/shared';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.PARENT)
 export class ParentController {
-  constructor(private readonly parentService: ParentService) { }
+  constructor(private readonly parentService: ParentService) {}
 
   @Get('dashboard')
   getDashboardStats(@Request() req: any) {

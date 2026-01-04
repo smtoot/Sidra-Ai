@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 export class ConfigValidationService implements OnModuleInit {
   private readonly logger = new Logger(ConfigValidationService.name);
 
-  constructor(private configService: ConfigService) { }
+  constructor(private configService: ConfigService) {}
 
   /**
    * Validate critical environment variables on app startup
@@ -45,7 +45,9 @@ export class ConfigValidationService implements OnModuleInit {
       !this.configService.get('R2_SECRET_ACCESS_KEY') ||
       !this.configService.get('R2_BUCKET_NAME')
     ) {
-      errors.push('R2 Storage configuration missing (ACCOUNT_ID, ACCESS_KEY_ID, SECRET_ACCESS_KEY, BUCKET_NAME)');
+      errors.push(
+        'R2 Storage configuration missing (ACCOUNT_ID, ACCESS_KEY_ID, SECRET_ACCESS_KEY, BUCKET_NAME)',
+      );
     } else {
       this.logger.log('✅ Cloudflare R2 storage configured');
     }

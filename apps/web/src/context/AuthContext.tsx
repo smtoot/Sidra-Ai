@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api } from '@/lib/api';
-import { LoginDto, RegisterDto } from '@sidra/shared';
+import { LoginDto, RegisterDto, TEACHER_EVENTS, STUDENT_EVENTS } from '@sidra/shared';
 import { useRouter } from 'next/navigation';
+import { aliasUser, identifyUser, resetUser, getDeviceType, trackEvent } from '@/lib/analytics';
 
 interface User {
     id: string;
@@ -19,7 +20,7 @@ interface AuthContextType {
     user: User | null;
     login: (dto: LoginDto) => Promise<void>;
     register: (dto: RegisterDto) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     updateUser: (updates: Partial<User>) => void;
     isLoading: boolean;
 }
@@ -39,6 +40,25 @@ function parseJwt(token: string) {
     }
 }
 
+/**
+ * SECURITY FIX: Helper to extract user from token
+ * Used for cross-tab synchronization
+ */
+function getUserFromToken(token: string | null): User | null {
+    if (!token) return null;
+    const payload = parseJwt(token);
+    if (!payload || !payload.sub) return null;
+    return {
+        id: payload.sub,
+        email: payload.email,
+        phoneNumber: payload.phoneNumber,
+        role: payload.role,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        displayName: payload.displayName
+    };
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -46,28 +66,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
-        // Check initial session
+    /**
+     * SECURITY FIX: Sync auth state from localStorage
+     * Called on mount and when storage changes in another tab
+     */
+    const syncAuthState = useCallback(() => {
         const token = localStorage.getItem('token');
-        if (token) {
-            // Decode simple payload or fetch profile (simulating decode for now)
-            const payload = parseJwt(token);
-            if (payload && payload.sub) {
-                setUser({
-                    id: payload.sub,
-                    email: payload.email,
-                    phoneNumber: payload.phoneNumber,
-                    role: payload.role,
-                    firstName: payload.firstName,
-                    lastName: payload.lastName,
-                    displayName: payload.displayName
-                });
-            } else {
-                localStorage.removeItem('token');
+        const newUser = getUserFromToken(token);
+
+        setUser(currentUser => {
+            // If no token, clear user
+            if (!newUser) {
+                if (currentUser) {
+                    console.log('[Auth] Session ended in another tab, logging out');
+                    resetUser();
+                }
+                return null;
             }
-        }
-        setIsLoading(false);
+
+            // If different user logged in, update state
+            if (!currentUser || currentUser.id !== newUser.id) {
+                console.log('[Auth] Different user detected, syncing state');
+                // Re-identify with PostHog
+                identifyUser(newUser.id, {
+                    user_role: newUser.role,
+                    device_type: getDeviceType(),
+                });
+                return newUser;
+            }
+
+            return currentUser;
+        });
     }, []);
+
+    // Initial session check
+    useEffect(() => {
+        syncAuthState();
+        setIsLoading(false);
+    }, [syncAuthState]);
+
+    /**
+     * SECURITY FIX: Listen for storage changes from other tabs
+     * When another tab logs in/out, this tab syncs its state
+     */
+    useEffect(() => {
+        const handleStorageChange = (event: StorageEvent) => {
+            // Only react to token changes
+            if (event.key === 'token') {
+                console.log('[Auth] Token changed in another tab');
+                syncAuthState();
+
+                // If token was removed (logout in another tab), redirect to login
+                if (!event.newValue && user) {
+                    console.log('[Auth] Logged out in another tab, redirecting to login');
+                    router.push('/login');
+                }
+                // If a different user logged in, redirect to their dashboard
+                else if (event.newValue && event.newValue !== event.oldValue) {
+                    const newUser = getUserFromToken(event.newValue);
+                    if (newUser && (!user || user.id !== newUser.id)) {
+                        console.log('[Auth] Different user logged in another tab, redirecting');
+                        // Redirect based on new user's role
+                        if (newUser.role === 'PARENT') {
+                            router.push('/parent');
+                        } else if (newUser.role === 'TEACHER') {
+                            router.push('/teacher');
+                        } else if (['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'].includes(newUser.role)) {
+                            router.push('/admin');
+                        } else if (newUser.role === 'STUDENT') {
+                            router.push('/student');
+                        } else {
+                            router.push('/');
+                        }
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [user, router, syncAuthState]);
 
     /**
      * Helper to redirect teachers based on their applicationStatus
@@ -96,16 +174,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (dto: LoginDto) => {
         const { data } = await api.post('/auth/login', dto);
+        // BACKWARDS COMPAT: Store tokens in localStorage during transition to httpOnly cookies
         localStorage.setItem('token', data.access_token);
         if (data.refresh_token) {
             localStorage.setItem('refresh_token', data.refresh_token);
         }
         const payload = parseJwt(data.access_token);
 
-        // Store user info for Navigation
+        // SECURITY FIX: Remove role from localStorage - use context only
+        // This prevents client-side role tampering
         const displayName = payload.displayName || payload.firstName || payload.phoneNumber || payload.email?.split('@')[0] || 'User';
-        localStorage.setItem('userRole', payload.role);
-        localStorage.setItem('userName', displayName);
+        localStorage.setItem('userName', displayName); // Display name is non-sensitive
 
         setUser({
             id: payload.sub,
@@ -115,6 +194,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             firstName: payload.firstName,
             lastName: payload.lastName,
             displayName: payload.displayName
+        });
+
+        // PostHog: Alias anonymous user to identified user, then identify
+        aliasUser(payload.sub);
+        identifyUser(payload.sub, {
+            user_role: payload.role,
+            device_type: getDeviceType(),
         });
 
         // Role-based redirect
@@ -134,16 +220,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const register = async (dto: RegisterDto) => {
         const { data } = await api.post('/auth/register', dto);
+        // BACKWARDS COMPAT: Store tokens in localStorage during transition to httpOnly cookies
         localStorage.setItem('token', data.access_token);
         if (data.refresh_token) {
             localStorage.setItem('refresh_token', data.refresh_token);
         }
         const payload = parseJwt(data.access_token);
 
-        // Store user info for Navigation
+        // SECURITY FIX: Remove role from localStorage - use context only
         const displayName = payload.displayName || payload.firstName || payload.phoneNumber || payload.email?.split('@')[0] || 'User';
-        localStorage.setItem('userRole', payload.role);
-        localStorage.setItem('userName', displayName);
+        localStorage.setItem('userName', displayName); // Display name is non-sensitive
 
         setUser({
             id: payload.sub,
@@ -153,6 +239,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             firstName: payload.firstName,
             lastName: payload.lastName,
             displayName: payload.displayName
+        });
+
+        // PostHog: Alias, track signup, and identify
+        aliasUser(payload.sub);
+        if (payload.role === 'TEACHER') {
+            trackEvent(TEACHER_EVENTS.SIGNUP_COMPLETED);
+        } else {
+            trackEvent(STUDENT_EVENTS.SIGNUP_COMPLETED);
+        }
+        identifyUser(payload.sub, {
+            user_role: payload.role,
+            device_type: getDeviceType(),
         });
 
         // Role-based redirect
@@ -170,9 +268,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            // SECURITY FIX: Call logout API to clear httpOnly cookies
+            await api.post('/auth/logout', {});
+        } catch (e) {
+            // Ignore errors - still clear local state
+            console.debug('Logout API call failed, clearing local state anyway');
+        }
+        // Clear localStorage during transition period
         localStorage.removeItem('token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('userName');
+        resetUser(); // Reset PostHog identification
         setUser(null);
         router.push('/login');
     };

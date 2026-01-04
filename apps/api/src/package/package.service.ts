@@ -335,7 +335,10 @@ export class PackageService {
           });
         } catch (error) {
           // Log error but don't fail the purchase
-          this.logger.error('Failed to send package purchase notification:', error);
+          this.logger.error(
+            'Failed to send package purchase notification:',
+            error,
+          );
         }
 
         return studentPackage;
@@ -436,9 +439,7 @@ export class PackageService {
         { weekday: data.recurringWeekday, time: data.recurringTime },
       ];
     } else {
-      throw new BadRequestException(
-        'يجب تحديد مواعيد الحصص المتكررة',
-      );
+      throw new BadRequestException('يجب تحديد مواعيد الحصص المتكررة');
     }
 
     // 7. Validate recurring availability using multi-slot checker
@@ -586,7 +587,7 @@ export class PackageService {
                 timezone: data.timezone || 'Africa/Khartoum', // Use provided timezone or default
                 price: discountedPrice,
                 commissionRate: 0.18,
-                status: 'SCHEDULED',
+                status: 'PENDING_TEACHER_APPROVAL', // CHANGED: Require teacher approval for all package sessions
                 packageSessionType: 'AUTO_SCHEDULED',
                 maxReschedules: tier.rescheduleLimit,
                 rescheduleCount: 0,
@@ -636,6 +637,23 @@ export class PackageService {
               subjectId: data.subjectId,
             },
           });
+
+          // Notify Teacher: New Smart Pack Requests
+          if (recurringSessionCount > 0) {
+            await this.notificationService.notifyUser({
+              userId: data.teacherId,
+              type: 'BOOKING_REQUEST',
+              title: 'طلب باقة ذكية جديد',
+              message: `تم حجز باقة ذكية تحتوي على ${recurringSessionCount} حصص بانتظار موافقتك.`,
+              link: '/teacher/requests',
+              dedupeKey: `SMART_PACK_REQUEST:${studentPackage.id}:${data.teacherId}`,
+              metadata: {
+                packageId: studentPackage.id,
+                studentId,
+                count: recurringSessionCount,
+              },
+            });
+          }
         } catch (error) {
           // Log error but don't fail the purchase
           this.logger.error(
@@ -834,16 +852,13 @@ export class PackageService {
 
     // Generate scheduled sessions chronologically
     const scheduledSessions: ScheduledSession[] = [];
-    const patternAvailability: Map<
-      string,
-      PatternAvailability
-    > = new Map();
+    const patternAvailability: Map<string, PatternAvailability> = new Map();
 
     // Initialize pattern availability tracking
     for (const pattern of data.patterns) {
       const key = `${pattern.weekday}-${pattern.time}`;
       patternAvailability.set(key, {
-        weekday: pattern.weekday as Weekday,
+        weekday: pattern.weekday,
         time: pattern.time,
         availableWeeks: 0,
         conflicts: [],
@@ -851,11 +866,15 @@ export class PackageService {
     }
 
     let sessionNumber = 1;
-    let currentWeekStart = new Date(startDate);
+    const currentWeekStart = new Date(startDate);
     let weeksChecked = 0;
-    const maxWeeks = Math.ceil(data.recurringSessionCount / data.patterns.length) + 2; // Buffer
+    const maxWeeks =
+      Math.ceil(data.recurringSessionCount / data.patterns.length) + 2; // Buffer
 
-    while (sessionNumber <= data.recurringSessionCount && weeksChecked < maxWeeks) {
+    while (
+      sessionNumber <= data.recurringSessionCount &&
+      weeksChecked < maxWeeks
+    ) {
       // For each week, iterate through all patterns in order
       for (const pattern of sortedPatterns) {
         if (sessionNumber > data.recurringSessionCount) break;
@@ -943,7 +962,7 @@ export class PackageService {
           patternInfo.availableWeeks++;
           scheduledSessions.push({
             date: sessionDate.toISOString(),
-            weekday: pattern.weekday as Weekday,
+            weekday: pattern.weekday,
             time: pattern.time,
             sessionNumber: sessionNumber++,
           });
@@ -962,7 +981,8 @@ export class PackageService {
     );
     const available = scheduledSessions.length >= data.recurringSessionCount;
 
-    const firstSession = scheduledSessions.length > 0 ? scheduledSessions[0].date : null;
+    const firstSession =
+      scheduledSessions.length > 0 ? scheduledSessions[0].date : null;
     const lastSession =
       scheduledSessions.length > 0
         ? scheduledSessions[scheduledSessions.length - 1].date
@@ -970,7 +990,8 @@ export class PackageService {
 
     const packageEndDate = lastSession
       ? new Date(
-        new Date(lastSession).getTime() + gracePeriodDays * 24 * 60 * 60 * 1000,
+        new Date(lastSession).getTime() +
+        gracePeriodDays * 24 * 60 * 60 * 1000,
       ).toISOString()
       : null;
 
@@ -1029,7 +1050,7 @@ export class PackageService {
       throw new BadRequestException('Package has expired');
     }
 
-    // Verify floating sessions available
+    // Verify floating sessions available (preliminary check - final check inside TX)
     if (pkg.floatingSessionsUsed >= pkg.floatingSessionCount!) {
       throw new BadRequestException('No floating sessions remaining');
     }
@@ -1042,7 +1063,7 @@ export class PackageService {
     const endTime = new Date(sessionDate);
     endTime.setHours(endTime.getHours() + 1);
 
-    // Check 1: Teacher Availability (Schedule & Exceptions)
+    // Check 1: Teacher Availability (Schedule & Exceptions) - preliminary check
     const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       pkg.teacherId,
       sessionDate,
@@ -1054,35 +1075,55 @@ export class PackageService {
       );
     }
 
-    // Check 2: Booking Conflicts
-    const conflict = await this.prisma.booking.findFirst({
-      where: {
-        teacherId: pkg.teacherId,
-        status: 'SCHEDULED',
-        OR: [
-          {
-            AND: [
-              { startTime: { lte: sessionDate } },
-              { endTime: { gt: sessionDate } },
-            ],
-          },
-          {
-            AND: [
-              { startTime: { lt: endTime } },
-              { endTime: { gte: endTime } },
-            ],
-          },
-        ],
-      },
-    });
-
-    if (conflict) {
-      throw new BadRequestException('Teacher is not available at this time');
-    }
-
-    // Create booking in transaction
+    // Create booking in transaction with all critical checks INSIDE
+    // SECURITY: All race-condition-prone checks are inside the SERIALIZABLE transaction
     return this.prisma.$transaction(
       async (tx) => {
+        // P0 FIX: Re-check floating sessions inside transaction with conditional update
+        const updateResult = await tx.studentPackage.updateMany({
+          where: {
+            id: packageId,
+            status: 'ACTIVE',
+            floatingSessionsUsed: { lt: pkg.floatingSessionCount! },
+          },
+          data: {
+            floatingSessionsUsed: { increment: 1 },
+            sessionsUsed: { increment: 1 },
+          },
+        });
+
+        if (updateResult.count === 0) {
+          throw new ConflictException(
+            'No floating sessions remaining or package is no longer active',
+          );
+        }
+
+        // P0 FIX: Check booking conflicts INSIDE the transaction
+        const conflict = await tx.booking.findFirst({
+          where: {
+            teacherId: pkg.teacherId,
+            status: 'SCHEDULED',
+            OR: [
+              {
+                AND: [
+                  { startTime: { lte: sessionDate } },
+                  { endTime: { gt: sessionDate } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { lt: endTime } },
+                  { endTime: { gte: endTime } },
+                ],
+              },
+            ],
+          },
+        });
+
+        if (conflict) {
+          throw new ConflictException('Teacher is not available at this time');
+        }
+
         // Create booking
         const booking = await tx.booking.create({
           data: {
@@ -1110,15 +1151,6 @@ export class PackageService {
             packageId,
             bookingId: booking.id,
             status: 'RESERVED',
-          },
-        });
-
-        // Increment floating sessions used and total sessions used
-        await tx.studentPackage.update({
-          where: { id: packageId },
-          data: {
-            floatingSessionsUsed: { increment: 1 },
-            sessionsUsed: { increment: 1 },
           },
         });
 
@@ -1186,7 +1218,7 @@ export class PackageService {
     const newEndTime = new Date(newDate);
     newEndTime.setHours(newEndTime.getHours() + 1);
 
-    // Check 1: Teacher Availability at new time
+    // Check 1: Teacher Availability at new time (preliminary check)
     const isTeacherAvailable = await this.teacherService.isSlotAvailable(
       booking.teacherId,
       newDate,
@@ -1198,42 +1230,67 @@ export class PackageService {
       );
     }
 
-    // Check 2: Booking Conflicts
-    const conflict = await this.prisma.booking.findFirst({
-      where: {
-        teacherId: booking.teacherId,
-        id: { not: bookingId }, // Exclude current booking
-        status: 'SCHEDULED',
-        OR: [
-          {
-            AND: [
-              { startTime: { lte: newDate } },
-              { endTime: { gt: newDate } },
+    // P0 FIX: Use SERIALIZABLE transaction with conditional update to prevent race conditions
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Check booking conflicts INSIDE the transaction
+        const conflict = await tx.booking.findFirst({
+          where: {
+            teacherId: booking.teacherId,
+            id: { not: bookingId }, // Exclude current booking
+            status: 'SCHEDULED',
+            OR: [
+              {
+                AND: [
+                  { startTime: { lte: newDate } },
+                  { endTime: { gt: newDate } },
+                ],
+              },
+              {
+                AND: [
+                  { startTime: { lt: newEndTime } },
+                  { endTime: { gte: newEndTime } },
+                ],
+              },
             ],
           },
-          {
-            AND: [
-              { startTime: { lt: newEndTime } },
-              { endTime: { gte: newEndTime } },
-            ],
+        });
+
+        if (conflict) {
+          throw new ConflictException(
+            'Teacher is not available at the new time',
+          );
+        }
+
+        // Use conditional update to detect if booking was modified concurrently
+        const updateResult = await tx.booking.updateMany({
+          where: {
+            id: bookingId,
+            status: 'SCHEDULED',
+            rescheduleCount: booking.rescheduleCount, // Optimistic lock
           },
-        ],
-      },
-    });
+          data: {
+            startTime: newDate,
+            endTime: newEndTime,
+            rescheduleCount: { increment: 1 },
+          },
+        });
 
-    if (conflict) {
-      throw new BadRequestException('Teacher is not available at the new time');
-    }
+        if (updateResult.count === 0) {
+          throw new ConflictException(
+            'Booking was modified by another request. Please refresh and try again.',
+          );
+        }
 
-    // Update booking
-    return this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        startTime: newDate,
-        endTime: newEndTime,
-        rescheduleCount: { increment: 1 },
+        // Return the updated booking
+        return tx.booking.findUnique({
+          where: { id: bookingId },
+        });
       },
-    });
+      {
+        isolationLevel: 'Serializable',
+      },
+    );
   }
 
   // =====================================================
@@ -1462,8 +1519,7 @@ export class PackageService {
       });
 
       // P1 FIX: Add wallet Transaction for teacher earnings (audit trail)
-      const teacherTxId =
-        await this.readableIdService.generate('TRANSACTION');
+      const teacherTxId = await this.readableIdService.generate('TRANSACTION');
       await tx.transaction.create({
         data: {
           readableId: teacherTxId,
@@ -1631,57 +1687,72 @@ export class PackageService {
       });
       if (existingTx) continue;
 
-      await this.prisma.$transaction(async (tx) => {
-        // 1. Refund remaining escrow to payer
-        await tx.wallet.update({
-          where: { userId: pkg.payerId },
-          data: { balance: { increment: pkg.escrowRemaining } },
-        });
+      // P0 FIX: Use SERIALIZABLE isolation to prevent double-refund on multi-instance deployments
+      await this.prisma.$transaction(
+        async (tx) => {
+          // Re-verify package status inside transaction (double-check with idempotency)
+          const currentPkg = await tx.studentPackage.findUnique({
+            where: { id: pkg.id },
+          });
+          if (!currentPkg || currentPkg.status !== 'ACTIVE') {
+            // Already processed by another instance
+            return;
+          }
 
-        // 1.1 Create Refund Transaction
-        const wallet = await tx.wallet.findUnique({
-          where: { userId: pkg.payerId },
-        });
-        if (wallet) {
-          const refundTxId =
-            await this.readableIdService.generate('TRANSACTION');
-          await tx.transaction.create({
+          // 1. Refund remaining escrow to payer
+          await tx.wallet.update({
+            where: { userId: pkg.payerId },
+            data: { balance: { increment: pkg.escrowRemaining } },
+          });
+
+          // 1.1 Create Refund Transaction
+          const wallet = await tx.wallet.findUnique({
+            where: { userId: pkg.payerId },
+          });
+          if (wallet) {
+            const refundTxId =
+              await this.readableIdService.generate('TRANSACTION');
+            await tx.transaction.create({
+              data: {
+                readableId: refundTxId,
+                walletId: wallet.id,
+                amount: pkg.escrowRemaining,
+                type: 'REFUND',
+                status: 'APPROVED',
+                adminNote: `Package ${pkg.id} expired - auto refund`,
+              },
+            });
+          }
+
+          // 2. Cancel pending redemptions
+          await tx.packageRedemption.updateMany({
+            where: { packageId: pkg.id, status: 'RESERVED' },
+            data: { status: 'CANCELLED' },
+          });
+
+          // 3. Mark package as expired
+          await tx.studentPackage.update({
+            where: { id: pkg.id },
             data: {
-              readableId: refundTxId,
-              walletId: wallet.id,
-              amount: pkg.escrowRemaining,
-              type: 'REFUND',
-              status: 'APPROVED',
-              adminNote: `Package ${pkg.id} expired - auto refund`,
+              status: 'EXPIRED',
+              escrowRemaining: new Decimal(0),
             },
           });
-        }
 
-        // 2. Cancel pending redemptions
-        await tx.packageRedemption.updateMany({
-          where: { packageId: pkg.id, status: 'RESERVED' },
-          data: { status: 'CANCELLED' },
-        });
-
-        // 3. Mark package as expired
-        await tx.studentPackage.update({
-          where: { id: pkg.id },
-          data: {
-            status: 'EXPIRED',
-            escrowRemaining: new Decimal(0),
-          },
-        });
-
-        // 4. Record transaction
-        await tx.packageTransaction.create({
-          data: {
-            idempotencyKey,
-            type: 'EXPIRE',
-            packageId: pkg.id,
-            amount: pkg.escrowRemaining,
-          },
-        });
-      });
+          // 4. Record transaction
+          await tx.packageTransaction.create({
+            data: {
+              idempotencyKey,
+              type: 'EXPIRE',
+              packageId: pkg.id,
+              amount: pkg.escrowRemaining,
+            },
+          });
+        },
+        {
+          isolationLevel: 'Serializable',
+        },
+      );
     }
 
     return { expiredCount: expiredPackages.length };
@@ -1694,59 +1765,71 @@ export class PackageService {
   async createRedemption(packageId: string, bookingId: string) {
     // SECURITY: Use transaction to prevent double-spending race condition
     return await this.prisma.$transaction(async (tx) => {
-      const pkg = await tx.studentPackage.findUnique({
-        where: { id: packageId },
-      });
+      return this.createRedemptionInTransaction(packageId, bookingId, tx);
+    });
+  }
 
-      if (!pkg) {
-        throw new NotFoundException('Package not found');
-      }
+  /**
+   * Create redemption within an existing transaction
+   * Used when booking creation needs to be atomic with package redemption
+   */
+  async createRedemptionInTransaction(
+    packageId: string,
+    bookingId: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const pkg = await tx.studentPackage.findUnique({
+      where: { id: packageId },
+    });
 
-      if (pkg.status !== 'ACTIVE') {
-        throw new BadRequestException(
-          `Cannot use package: status is ${pkg.status}`,
-        );
-      }
+    if (!pkg) {
+      throw new NotFoundException('Package not found');
+    }
 
-      if (pkg.sessionsUsed >= pkg.sessionCount) {
-        throw new BadRequestException(
-          'All sessions in this package have been used',
-        );
-      }
+    if (pkg.status !== 'ACTIVE') {
+      throw new BadRequestException(
+        `Cannot use package: status is ${pkg.status}`,
+      );
+    }
 
-      // Check expiry
-      if (new Date() > pkg.expiresAt) {
-        throw new BadRequestException('Package has expired');
-      }
+    if (pkg.sessionsUsed >= pkg.sessionCount) {
+      throw new BadRequestException(
+        'All sessions in this package have been used',
+      );
+    }
 
-      // SECURITY: Atomic increment with conditional update to prevent race conditions
-      const updateResult = await tx.studentPackage.updateMany({
-        where: {
-          id: packageId,
-          sessionsUsed: { lt: pkg.sessionCount }, // Only update if sessions available
-          status: 'ACTIVE',
-          expiresAt: { gt: new Date() },
-        },
-        data: {
-          sessionsUsed: { increment: 1 },
-        },
-      });
+    // Check expiry
+    if (new Date() > pkg.expiresAt) {
+      throw new BadRequestException('Package has expired');
+    }
 
-      // If no rows updated, package became unavailable (race condition detected)
-      if (updateResult.count === 0) {
-        throw new BadRequestException(
-          'Package session no longer available (concurrent booking detected)',
-        );
-      }
+    // SECURITY: Atomic increment with conditional update to prevent race conditions
+    const updateResult = await tx.studentPackage.updateMany({
+      where: {
+        id: packageId,
+        sessionsUsed: { lt: pkg.sessionCount }, // Only update if sessions available
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        sessionsUsed: { increment: 1 },
+      },
+    });
 
-      // Create redemption record
-      return tx.packageRedemption.create({
-        data: {
-          packageId,
-          bookingId,
-          status: 'RESERVED',
-        },
-      });
+    // If no rows updated, package became unavailable (race condition detected)
+    if (updateResult.count === 0) {
+      throw new BadRequestException(
+        'Package session no longer available (concurrent booking detected)',
+      );
+    }
+
+    // Create redemption record
+    return tx.packageRedemption.create({
+      data: {
+        packageId,
+        bookingId,
+        status: 'RESERVED',
+      },
     });
   }
 

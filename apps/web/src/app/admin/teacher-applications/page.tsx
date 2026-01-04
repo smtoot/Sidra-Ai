@@ -12,7 +12,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import {
     CheckCircle, XCircle, MessageSquare, Phone, Calendar,
-    Eye, Clock, User, FileText, Video, Award, BookOpen, Loader2
+    Eye, Clock, User, FileText, Video, Award, BookOpen, Loader2, Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -51,6 +51,16 @@ export default function TeacherApplicationsPage() {
         { dateTime: '', meetingLink: '' }
     ]);
     const [processing, setProcessing] = useState(false);
+    const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        displayName: '',
+        fullName: '',
+        bio: '',
+        introVideoUrl: '',
+        whatsappNumber: '',
+        city: '',
+        country: '',
+    });
 
     useEffect(() => {
         loadApplications();
@@ -161,6 +171,37 @@ export default function TeacherApplicationsPage() {
         const updated = [...interviewSlots];
         updated[index][field] = value;
         setInterviewSlots(updated);
+    };
+
+    const openEditProfile = (app: any) => {
+        setEditFormData({
+            displayName: app.displayName || '',
+            fullName: app.fullName || '',
+            bio: app.bio || '',
+            introVideoUrl: app.introVideoUrl || '',
+            whatsappNumber: app.whatsappNumber || '',
+            city: app.city || '',
+            country: app.country || '',
+        });
+        setShowEditProfileModal(true);
+    };
+
+    const handleSaveProfile = async () => {
+        if (!selectedApp) return;
+        setProcessing(true);
+        try {
+            await adminApi.updateTeacherProfile(selectedApp.id, editFormData);
+            toast.success('تم حفظ التعديلات بنجاح ✅');
+            setShowEditProfileModal(false);
+            // Reload the details
+            const fullDetails = await adminApi.getTeacherApplication(selectedApp.id);
+            setSelectedApp(fullDetails);
+            loadApplications();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل حفظ التعديلات');
+        } finally {
+            setProcessing(false);
+        }
     };
 
     const handleViewDocument = async (fileKey: string, fileName: string) => {
@@ -634,6 +675,18 @@ export default function TeacherApplicationsPage() {
                                         </Button>
                                     </div>
                                 )}
+
+                            {/* Edit Profile - Always visible for admin */}
+                            <div className="flex gap-3 mt-3 pt-3 border-t border-gray-200">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => openEditProfile(selectedApp)}
+                                    className="flex-1"
+                                >
+                                    <Edit2 className="w-5 h-5 ml-2" />
+                                    تعديل الملف الشخصي
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -770,6 +823,117 @@ export default function TeacherApplicationsPage() {
                                     {processing && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
                                     <Calendar className="w-4 h-4 ml-2" />
                                     إرسال الخيارات للمعلم
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Edit Profile Modal */}
+            {showEditProfileModal && selectedApp && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <Card className="max-w-2xl w-full my-8">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Edit2 className="w-5 h-5" />
+                                تعديل الملف الشخصي
+                            </CardTitle>
+                            <p className="text-sm text-gray-600 mt-2">
+                                تعديل بيانات المعلم: {selectedApp.displayName || selectedApp.user?.email}
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">الاسم المعروض</label>
+                                    <Input
+                                        value={editFormData.displayName}
+                                        onChange={(e) => setEditFormData({ ...editFormData, displayName: e.target.value })}
+                                        placeholder="أحمد محمد"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">الاسم الكامل (الرسمي)</label>
+                                    <Input
+                                        value={editFormData.fullName}
+                                        onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
+                                        placeholder="أحمد محمد علي"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">النبذة التعريفية</label>
+                                <textarea
+                                    value={editFormData.bio}
+                                    onChange={(e) => setEditFormData({ ...editFormData, bio: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg min-h-[100px] focus:ring-2 focus:ring-primary-500"
+                                    placeholder="معلم رياضيات بخبرة ١٠ سنوات..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">رابط الفيديو التعريفي</label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="url"
+                                        value={editFormData.introVideoUrl}
+                                        onChange={(e) => setEditFormData({ ...editFormData, introVideoUrl: e.target.value })}
+                                        placeholder="https://youtube.com/..."
+                                        dir="ltr"
+                                        className="flex-1"
+                                    />
+                                    {editFormData.introVideoUrl && (
+                                        <a
+                                            href={editFormData.introVideoUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-3 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 flex items-center gap-1"
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                            معاينة
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">رقم واتساب</label>
+                                    <Input
+                                        type="tel"
+                                        value={editFormData.whatsappNumber}
+                                        onChange={(e) => setEditFormData({ ...editFormData, whatsappNumber: e.target.value })}
+                                        placeholder="+249..."
+                                        dir="ltr"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">المدينة</label>
+                                    <Input
+                                        value={editFormData.city}
+                                        onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+                                        placeholder="الخرطوم"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">الدولة</label>
+                                    <Input
+                                        value={editFormData.country}
+                                        onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })}
+                                        placeholder="السودان"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 justify-end pt-4 border-t">
+                                <Button variant="outline" onClick={() => setShowEditProfileModal(false)}>
+                                    إلغاء
+                                </Button>
+                                <Button onClick={handleSaveProfile} disabled={processing}>
+                                    {processing && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
+                                    حفظ التعديلات
                                 </Button>
                             </div>
                         </CardContent>

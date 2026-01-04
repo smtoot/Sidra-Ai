@@ -31,7 +31,7 @@ export function BioField({
     disabled = false,
     minLength = 50,
     useWordCount = false,
-    placeholder = 'اكتب نبذة تعريفية عن نفسك وأسلوبك في التدريس...',
+    placeholder = 'اكتب نبذة تعريفية عن نفسك وشغفك بالتعليم...',
     rows = 5,
 }: BioFieldProps) {
     const count = useWordCount
@@ -54,7 +54,7 @@ export function BioField({
             />
             <div className="flex justify-between text-sm">
                 <p className="text-amber-600 flex items-center gap-1">
-                    💡 اذكر أسلوبك في التدريس وإنجازاتك مع الطلاب
+                    💡 تحدث عن نفسك وشغفك بالتعليم، واجعل الطلاب وأولياء الأمور يتشوقون للدراسة معك
                 </p>
                 <span className={cn(
                     "font-medium",

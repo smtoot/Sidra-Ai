@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+// Removed Select imports
 import {
     User,
     Sparkles,
@@ -9,8 +12,11 @@ import {
     MessageCircle,
     MapPin,
     Globe,
-    Calendar
+    Calendar,
+    Lock,
+    Copy
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface PersonalInfoSectionProps {
     // Name fields
@@ -39,6 +45,27 @@ interface PersonalInfoSectionProps {
     }) => void;
 }
 
+const PRIORITY_COUNTRIES = [
+    'السودان',
+    'مصر',
+    'السعودية',
+    'الإمارات',
+    'قطر',
+    'الكويت',
+    'البحرين',
+    'عمان',
+    'الأردن',
+    'ليبيا',
+    'العراق',
+    'لبنان',
+    'الجزائر',
+    'المغرب',
+    'تونس',
+    'اليمن',
+    'فلسطين',
+    'سوريا'
+];
+
 export function PersonalInfoSection({
     firstName,
     lastName,
@@ -52,8 +79,34 @@ export function PersonalInfoSection({
     isReadOnly = false,
     onUpdate,
 }: PersonalInfoSectionProps) {
+    // Lock slug if it was already set on initial load
+    // We use a lazy initializer to calculate this only once on mount
+    const [isSlugLocked] = useState(() => (slug || '').trim().length > 0);
+
     // Format date for input (YYYY-MM-DD)
     const formattedDate = dateOfBirth ? dateOfBirth.split('T')[0] : '';
+
+    // Country logic - Initialize based on incoming country
+    const [isCustomCountry, setIsCustomCountry] = useState(() => {
+        return !!(country && !PRIORITY_COUNTRIES.includes(country) && country !== 'other');
+    });
+
+    const handleCountryChange = (value: string) => {
+        if (value === 'other') {
+            setIsCustomCountry(true);
+            onUpdate({ country: '' });
+        } else {
+            setIsCustomCountry(false);
+            onUpdate({ country: value });
+        }
+    };
+
+    const handleCopyPhoneToWhatsapp = () => {
+        if (phoneNumber) {
+            // Remove any non-digit chars if needed, but phone usually comes clean or with +
+            onUpdate({ whatsappNumber: phoneNumber });
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -123,12 +176,23 @@ export function PersonalInfoSection({
 
                 {/* Public Profile URL Slug */}
                 <div className="space-y-2">
-                    <Label className="text-base font-medium flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-blue-500" />
-                        رابط صفحتك العامة
+                    <Label className="text-base font-medium flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-blue-500" />
+                            رابط صفحتك العامة
+                        </div>
+                        {isSlugLocked && (
+                            <span className="text-xs text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-full">
+                                <Lock className="w-3 h-3" />
+                                لا يمكن تغيير الرابط
+                            </span>
+                        )}
                     </Label>
                     <div className="flex items-center gap-2" dir="ltr">
-                        <span className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                        <span className={cn(
+                            "text-sm px-3 py-2 rounded-lg border",
+                            isSlugLocked ? "bg-gray-100 text-gray-400 border-gray-200" : "bg-gray-50 text-gray-500 border-gray-200"
+                        )}>
                             sidra.sd/teachers/
                         </span>
                         <Input
@@ -138,13 +202,27 @@ export function PersonalInfoSection({
                                 onUpdate({ slug: val });
                             }}
                             placeholder="my-name"
-                            className="text-left flex-1 font-mono text-sm"
-                            disabled={isReadOnly}
+                            className={cn(
+                                "text-left flex-1 font-mono text-sm shadow-sm",
+                                isSlugLocked && "bg-gray-50 text-gray-500"
+                            )}
+                            disabled={isReadOnly || isSlugLocked}
                         />
                     </div>
-                    <p className="text-xs text-gray-500 text-right">
-                        يمكنك تخصيص الرابط الخاص بصفحتك. استخدم أحرف إنجليزية وأرقام فقط.
-                    </p>
+                    {isSlugLocked ? (
+                        <p className="text-xs text-gray-400 text-right">
+                            لقد قمت بتعيين الرابط الخاص بك مسبقاً ولا يمكن تغييره.
+                        </p>
+                    ) : (
+                        <div className="flex justify-between items-start">
+                            <p className="text-xs text-amber-600 text-right">
+                                تنبيه: بمجرد تعيين الرابط وحفظه، لن تتمكن من تغييره لاحقاً.
+                            </p>
+                            <p className="text-xs text-gray-500 text-right">
+                                استخدم أحرف إنجليزية وأرقام فقط.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -164,7 +242,7 @@ export function PersonalInfoSection({
                 </Label>
                 <Input
                     value={phoneNumber || ''}
-                    className="text-right bg-gray-50"
+                    className="text-right bg-gray-50 direction-ltr text-left"
                     disabled={true}
                     dir="ltr"
                 />
@@ -175,15 +253,29 @@ export function PersonalInfoSection({
 
             {/* WhatsApp Number */}
             <div className="space-y-2">
-                <Label className="text-base font-medium flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4 text-green-500" />
-                    رقم الواتساب
+                <Label className="text-base font-medium flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-green-500" />
+                        رقم الواتساب
+                    </div>
+                    {!isReadOnly && phoneNumber && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2"
+                            onClick={handleCopyPhoneToWhatsapp}
+                        >
+                            <Copy className="w-3 h-3 ml-1" />
+                            نسخ رقم الهاتف
+                        </Button>
+                    )}
                 </Label>
                 <Input
                     value={whatsappNumber}
                     onChange={(e) => onUpdate({ whatsappNumber: e.target.value })}
                     placeholder="+249 9XXXXXXXX"
-                    className="text-right"
+                    className="text-right direction-ltr text-left"
                     disabled={isReadOnly}
                     dir="ltr"
                 />
@@ -208,14 +300,46 @@ export function PersonalInfoSection({
                         <Globe className="w-4 h-4 text-gray-500" />
                         دولة الإقامة
                     </Label>
-                    <Input
-                        value={country}
-                        onChange={(e) => onUpdate({ country: e.target.value })}
-                        placeholder="مثال: السودان"
-                        className="text-right"
-                        disabled={isReadOnly}
-                        dir="rtl"
-                    />
+
+                    {!isCustomCountry ? (
+                        <select
+                            value={country}
+                            onChange={(e) => handleCountryChange(e.target.value)}
+                            disabled={isReadOnly}
+                            dir="rtl"
+                            className="w-full text-right px-3 py-2 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="" disabled>اختر الدولة</option>
+                            {PRIORITY_COUNTRIES.map((c) => (
+                                <option key={c} value={c}>
+                                    {c}
+                                </option>
+                            ))}
+                            <option value="other" className="font-semibold text-primary">
+                                دولة أخرى...
+                            </option>
+                        </select>
+                    ) : (
+                        <div className="flex gap-2">
+                            <Input
+                                value={country}
+                                onChange={(e) => onUpdate({ country: e.target.value })}
+                                placeholder="اكتب اسم الدولة..."
+                                className="text-right flex-1"
+                                disabled={isReadOnly}
+                                dir="rtl"
+                                autoFocus
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsCustomCountry(false)}
+                                title="العودة للقائمة"
+                            >
+                                ←
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* City of Residence */}

@@ -141,6 +141,13 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                             </div>
                         )}
 
+                        {/* Demo Badge */}
+                        {Number(booking.price) === 0 && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-100">
+                                <span className="font-bold text-xs">حصة تجريبية</span>
+                            </div>
+                        )}
+
                         {/* Date */}
                         <div className="flex items-center gap-1.5 px-1">
                             <Calendar className="w-4 h-4 text-gray-400 group-hover:text-primary/60 transition-colors" />
@@ -173,10 +180,21 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                         {/* Price */}
                         {showPrice && (
                             <div className={cn("text-right", isPaymentRequired && "px-1 pt-1")}>
-                                <p className="text-lg md:text-xl font-black text-gray-900 leading-none">
-                                    {booking.price.toLocaleString()} <span className="text-xs font-normal text-gray-500">SDG</span>
-                                </p>
-                                <p className="text-[10px] text-gray-400">للحصة الواحدة</p>
+                                {Number(booking.price) === 0 ? (
+                                    <div>
+                                        <p className="text-lg md:text-xl font-black text-purple-600 leading-none">
+                                            مجاني
+                                        </p>
+                                        <p className="text-[10px] text-purple-400">عرض خاص</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <p className="text-lg md:text-xl font-black text-gray-900 leading-none">
+                                            {booking.price.toLocaleString()} <span className="text-xs font-normal text-gray-500">SDG</span>
+                                        </p>
+                                        <p className="text-[10px] text-gray-400">للحصة الواحدة</p>
+                                    </>
+                                )}
                             </div>
                         )}
 

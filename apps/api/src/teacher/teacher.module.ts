@@ -35,4 +35,4 @@ import { NotificationModule } from '../notification/notification.module';
   ],
   exports: [TeacherService],
 })
-export class TeacherModule { }
+export class TeacherModule {}

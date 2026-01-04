@@ -111,7 +111,10 @@ export class WalletService {
       });
     } catch (error) {
       // Log error but don't fail the deposit
-      this.logger.error('Failed to send deposit submitted notification:', error);
+      this.logger.error(
+        'Failed to send deposit submitted notification:',
+        error,
+      );
     }
 
     return transaction;
@@ -438,14 +441,26 @@ export class WalletService {
               );
 
               try {
-                // Lock funds for booking (same logic as payForBooking)
-                await this.lockFundsForBooking(userId, booking.id, price, tx);
-
-                // Update booking status
-                await tx.booking.update({
-                  where: { id: booking.id, status: 'WAITING_FOR_PAYMENT' },
+                // P1 FIX: Idempotency check - skip if already processed
+                // Use conditional update to prevent double-payment on retry
+                const updateResult = await tx.booking.updateMany({
+                  where: {
+                    id: booking.id,
+                    status: 'WAITING_FOR_PAYMENT', // Only transition if still waiting
+                  },
                   data: { status: 'SCHEDULED', paymentDeadline: null },
                 });
+
+                // If no rows updated, booking was already processed (idempotent)
+                if (updateResult.count === 0) {
+                  this.logger.log(
+                    `Booking ${booking.id} already processed, skipping`,
+                  );
+                  continue;
+                }
+
+                // Lock funds for booking (same logic as payForBooking)
+                await this.lockFundsForBooking(userId, booking.id, price, tx);
 
                 // Update available balance for next iteration
                 currentAvailableBalance -= price;
@@ -677,6 +692,7 @@ export class WalletService {
     totalLockedAmount: number,
     refundAmount: number,
     teacherCompAmount: number,
+    platformRevenue: number = 0,
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
@@ -684,9 +700,13 @@ export class WalletService {
     const teacherWallet = await this.getBalance(teacherUserId, prisma);
 
     // Validate the amounts add up
-    if (Math.abs(refundAmount + teacherCompAmount - totalLockedAmount) > 0.01) {
+    if (
+      Math.abs(
+        refundAmount + teacherCompAmount + platformRevenue - totalLockedAmount,
+      ) > 0.01
+    ) {
       throw new BadRequestException(
-        'Refund + teacher compensation must equal locked amount',
+        'Refund + teacher compensation + platform revenue must equal locked amount',
       );
     }
 

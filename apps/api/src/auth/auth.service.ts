@@ -110,7 +110,9 @@ export class AuthService {
     const phoneNumber = dto.phoneNumber?.trim();
     const email = dto.email?.trim().toLowerCase();
 
-    this.logger.log(`Login attempt for: phone=${phoneNumber ? '***' + phoneNumber.slice(-4) : 'N/A'}, email=${email || 'N/A'}`);
+    this.logger.log(
+      `Login attempt for: phone=${phoneNumber ? '***' + phoneNumber.slice(-4) : 'N/A'}, email=${email || 'N/A'}`,
+    );
 
     // PHONE-FIRST: Try phone number first, fallback to email
     let user = null;
@@ -170,10 +172,23 @@ export class AuthService {
       include: {
         parentProfile: {
           include: {
-            children: true,
+            children: {
+              include: {
+                curriculum: {
+                  select: { id: true, nameAr: true, nameEn: true, code: true }
+                }
+              }
+            },
           },
         },
         teacherProfile: true,
+        studentProfile: {
+          include: {
+            curriculum: {
+              select: { id: true, nameAr: true, nameEn: true, code: true }
+            }
+          }
+        }
       },
     });
 
@@ -213,7 +228,8 @@ export class AuthService {
   }
 
   /**
-   * Generates a pair of Access and Refresh tokens
+   * Generates a pair of Access and Refresh tokens plus CSRF token
+   * SECURITY FIX: Added CSRF token generation for state-changing requests
    */
   private async signToken(
     userId: string,
@@ -258,21 +274,26 @@ export class AuthService {
       },
     });
 
+    // SECURITY FIX: Generate CSRF token - tied to user session
+    // This is a random token the frontend must include in headers for state-changing requests
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+
     return {
       access_token: accessToken,
       // Format: {id}:{secret}
       // This allows efficient lookup by ID and secure verification by secret
       refresh_token: `${tokenRecord.id}:${refreshTokenPlain}`,
+      csrf_token: csrfToken,
     };
   }
 
   // --- REFRESH TOKEN ROTATION ---
 
   async refreshToken(oldRefreshToken: string, deviceInfo?: string) {
-    // 1. Find all tokens for this user that match the hash? 
+    // 1. Find all tokens for this user that match the hash?
     // Wait, we can't find by hash because it's bcrypt (salted).
-    // We ideally should have sent an ID + Token, OR we have to iterate? 
-    // Iterating is bad. 
+    // We ideally should have sent an ID + Token, OR we have to iterate?
+    // Iterating is bad.
     // Better strategy for MVP: Send UUID as token? No, if leaked DB is compromised.
     // Correction: We can store a 'tokenFamily' ID in the JWT? No, refresh token is opaque.
     // Standard approach with bcrypt: You can't lookup by plain token.
@@ -303,7 +324,9 @@ export class AuthService {
         where: { userId: tokenRecord.userId },
         data: { revoked: true },
       });
-      throw new UnauthorizedException('Security Alert: Token reuse detected. All sessions revoked.');
+      throw new UnauthorizedException(
+        'Security Alert: Token reuse detected. All sessions revoked.',
+      );
     }
 
     // 3. Verify Hash
@@ -321,11 +344,17 @@ export class AuthService {
     // We replace it with a new one. valid usage consumes the token.
     await this.prisma.refreshToken.update({
       where: { id: tokenId },
-      data: { revoked: true, revokedAt: new Date(), replacedByToken: 'ROTATED' }, // Ideally store new ID but we create it next
+      data: {
+        revoked: true,
+        revokedAt: new Date(),
+        replacedByToken: 'ROTATED',
+      }, // Ideally store new ID but we create it next
     });
 
     // 6. Issue New Pair
-    const user = await this.prisma.user.findUnique({ where: { id: tokenRecord.userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: tokenRecord.userId },
+    });
     if (!user) throw new UnauthorizedException('User not found');
 
     // Generating new token requires calling signToken, but signToken creates a DB entry.
@@ -334,10 +363,16 @@ export class AuthService {
     // Refactored logic inline to avoid cyclic dependency or deep refactor of signToken signature mismatch
     // Actually, let's just call signToken. It works.
 
-    return this.signToken(user.id, user.email || undefined, user.role, {
-      firstName: user.firstName,
-      lastName: user.lastName,
-    }, deviceInfo);
+    return this.signToken(
+      user.id,
+      user.email || undefined,
+      user.role,
+      {
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      deviceInfo,
+    );
   }
 
   async logout(refreshToken: string) {
@@ -348,10 +383,13 @@ export class AuthService {
     try {
       await this.prisma.refreshToken.update({
         where: { id: tokenId },
-        data: { revoked: true, revokedAt: new Date() }
+        data: { revoked: true, revokedAt: new Date() },
       });
     } catch (e) {
-      // Ignore if not found
+      // Token not found or already revoked - log but don't fail logout
+      this.logger.debug(
+        `Logout: token ${tokenId.slice(0, 8)}... not found or already revoked`,
+      );
     }
     return { message: 'Logged out successfully' };
   }

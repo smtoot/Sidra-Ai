@@ -19,4 +19,4 @@ import { ReadableIdModule } from '../common/readable-id/readable-id.module';
   providers: [PackageService, DemoService, PackageScheduler],
   exports: [PackageService, DemoService],
 })
-export class PackageModule { }
+export class PackageModule {}

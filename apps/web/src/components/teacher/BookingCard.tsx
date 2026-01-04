@@ -122,6 +122,8 @@ interface BookingCardProps {
     readableId?: string | null;
     studentName: string;
     studentAvatar?: string; // Future proofing
+    studentGrade?: string; // e.g., "ابتدائي 3"
+    studentCurriculum?: string; // e.g., "المنهج السوداني"
     subjectName: string;
     startTime: string;
     endTime: string;
@@ -146,6 +148,8 @@ export function BookingCard({
     id,
     readableId,
     studentName,
+    studentGrade,
+    studentCurriculum,
     subjectName,
     startTime,
     endTime,
@@ -213,6 +217,24 @@ export function BookingCard({
                                     </span>
                                 )}
                             </div>
+                            {/* Grade & Curriculum - Beautiful pill design */}
+                            {(studentGrade || studentCurriculum) && (
+                                <div className="flex items-center gap-1.5 mt-2">
+                                    <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-full border border-blue-100">
+                                        <span className="text-[11px] font-semibold text-blue-700">
+                                            {studentGrade || 'الصف غير محدد'}
+                                        </span>
+                                        {studentCurriculum && (
+                                            <>
+                                                <span className="text-blue-300">•</span>
+                                                <span className="text-[11px] text-blue-600">
+                                                    {studentCurriculum}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

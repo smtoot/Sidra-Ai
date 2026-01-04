@@ -28,7 +28,7 @@ export class TeacherService {
     private walletService: WalletService,
     private systemSettingsService: SystemSettingsService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async getProfile(userId: string) {
     const profile = await this.prisma.teacherProfile.findUnique({
@@ -1252,10 +1252,10 @@ export class TeacherService {
         warning:
           conflictingBookings.length > 0
             ? {
-              message:
-                'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
-              conflictingBookingsCount: conflictingBookings.length,
-            }
+                message:
+                  'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
+                conflictingBookingsCount: conflictingBookings.length,
+              }
             : undefined,
       };
     } else {

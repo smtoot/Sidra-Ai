@@ -89,7 +89,10 @@ export class SkillsService {
     }
 
     // If name is being changed, check for duplicates
-    if (dto.name && normalizeSkillName(dto.name) !== normalizeSkillName(skill.name)) {
+    if (
+      dto.name &&
+      normalizeSkillName(dto.name) !== normalizeSkillName(skill.name)
+    ) {
       await this.checkDuplicateSkill(profile.id, dto.name, skillId);
     }
 

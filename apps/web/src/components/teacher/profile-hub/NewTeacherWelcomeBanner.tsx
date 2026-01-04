@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Sparkles,
     Calendar,
     CreditCard,
-    Settings,
     CheckCircle,
     X,
     ChevronLeft
@@ -29,8 +28,6 @@ interface NewTeacherWelcomeBannerProps {
     hasAvailability: boolean;
     /** Whether bank info is added */
     hasBankInfo: boolean;
-    /** Whether meeting link is set */
-    hasMeetingLink: boolean;
     /** Callback when dismissed */
     onDismiss?: () => void;
 }
@@ -44,7 +41,6 @@ export function NewTeacherWelcomeBanner({
     displayName = 'معلم/ة',
     hasAvailability,
     hasBankInfo,
-    hasMeetingLink,
     onDismiss,
 }: NewTeacherWelcomeBannerProps) {
     const [isVisible, setIsVisible] = useState(true);
@@ -65,13 +61,7 @@ export function NewTeacherWelcomeBanner({
             icon: CreditCard,
             isComplete: hasBankInfo,
         },
-        {
-            id: 'meeting',
-            title: 'رابط الاجتماع',
-            href: '/teacher/profile-hub?section=settings',
-            icon: Settings,
-            isComplete: hasMeetingLink,
-        },
+        // Note: Meeting link removed - now handled per-session
     ];
 
     const completedCount = nextSteps.filter(s => s.isComplete).length;

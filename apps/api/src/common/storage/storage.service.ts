@@ -221,7 +221,9 @@ export class StorageService {
 
     if (buffer.length > maxSize) {
       const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1);
-      throw new BadRequestException(`File too large. Maximum size is ${maxSizeMB}MB`);
+      throw new BadRequestException(
+        `File too large. Maximum size is ${maxSizeMB}MB`,
+      );
     }
   }
 

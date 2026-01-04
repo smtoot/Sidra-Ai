@@ -36,8 +36,15 @@ export function PhotoStep() {
     // Suggest display name based on firstName if not set
     useEffect(() => {
         if (user?.firstName && !data.displayName) {
-            // Suggest a simple format like "أ. محمد"
-            updateData({ displayName: `أ. ${user.firstName}` });
+            // Check if name contains Arabic characters
+            const isArabic = /[\u0600-\u06FF]/.test(user.firstName);
+
+            if (isArabic) {
+                updateData({ displayName: `أ. ${user.firstName}` });
+            } else {
+                // For English names, just use the first name without prefix to avoid incorrect honorifics
+                updateData({ displayName: user.firstName });
+            }
         }
     }, [user?.firstName, data.displayName, updateData]);
 

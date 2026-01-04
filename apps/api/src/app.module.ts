@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { CsrfGuard } from './auth/csrf.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
 import { FavoritesModule } from './favorites/favorites.module';
@@ -24,6 +26,7 @@ import { ConfigValidationService } from './common/config/config-validation.servi
 import { PackageModule } from './package/package.module';
 import { TeachingApproachModule } from './teaching-approach/teaching-approach.module';
 import { SupportTicketModule } from './support-ticket/support-ticket.module';
+import { PostHogModule } from './common/posthog/posthog.module';
 
 @Module({
   imports: [
@@ -52,16 +55,28 @@ import { SupportTicketModule } from './support-ticket/support-ticket.module';
     TeachingApproachModule,
     FavoritesModule,
     SupportTicketModule,
+    PostHogModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     ConfigValidationService,
+    // SECURITY: Global exception filter - sanitizes all error responses
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
     // SECURITY: Global authentication guard - all routes require JWT by default
     // Use @Public() decorator to mark routes as public
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // SECURITY FIX: Global CSRF guard for state-changing requests
+    // Validates X-CSRF-Token header matches csrf_token cookie
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
   ],
 })

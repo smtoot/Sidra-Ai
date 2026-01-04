@@ -20,9 +20,14 @@ import {
 import { formatInTimezone } from '../common/utils/timezone.util';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { normalizeMoney } from '../utils/money';
-import { BOOKING_POLICY } from './booking-policy.constants';
+import {
+  BOOKING_POLICY,
+  isValidStatusTransition,
+  getAllowedTransitions,
+} from './booking-policy.constants';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { TeacherService } from '../teacher/teacher.service';
+import { SystemSettingsService } from '../admin/system-settings.service';
 
 @Injectable()
 export class BookingService {
@@ -36,6 +41,7 @@ export class BookingService {
     private demoService: DemoService,
     private readableIdService: ReadableIdService,
     private teacherService: TeacherService,
+    private systemSettingsService: SystemSettingsService,
   ) { }
 
   // Create a booking request (Parent or Student)
@@ -137,11 +143,7 @@ export class BookingService {
         startTime: { lte: new Date(dto.startTime) },
         endTime: { gt: new Date(dto.startTime) },
         status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ],
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
         },
       },
     });
@@ -177,7 +179,20 @@ export class BookingService {
     // Let's use Number() for simplicity in this logic, but ideally Decimal.js.
     const pricePerHour = Number(teacherSubject.pricePerHour);
     const rawPrice = pricePerHour * durationHours;
-    const calculatedPrice = normalizeMoney(rawPrice); // MONEY NORMALIZATION: Round to integer
+
+    // DEMO LOGIC: Demo sessions are free (Price = 0)
+    // SECURITY FIX: Validate isDemo flag server-side against teacher settings
+    let isValidDemo = false;
+    if (dto.isDemo) {
+      const demoEnabled = await this.demoService.isTeacherDemoEnabled(
+        dto.teacherId,
+      );
+      if (!demoEnabled) {
+        throw new BadRequestException('هذا المعلم لا يقدم حصص تجريبية حالياً');
+      }
+      isValidDemo = true;
+    }
+    const calculatedPrice = isValidDemo ? 0 : normalizeMoney(rawPrice);
 
     // Snapshot commission rate (from system settings or default)
     // Hardcoded default for now or fetch settings. Using 0.18 as per schema default.
@@ -190,65 +205,13 @@ export class BookingService {
     // Meeting links are now set per-session by the teacher, not copied from global profile
     // Teacher will be prompted to add meeting link before each session
 
-    // Create booking
-    const booking = await this.prisma.booking.create({
-      data: {
-        readableId,
-        teacherId: dto.teacherId,
-        bookedByUserId: user.userId,
-        beneficiaryType,
-        childId,
-        studentUserId,
-
-        subjectId: dto.subjectId,
-        startTime: new Date(dto.startTime),
-        endTime: new Date(dto.endTime),
-        timezone: dto.timezone || 'UTC', // Store user's timezone
-        price: calculatedPrice, // P0-1: Server-calculated, normalized to integer
-        commissionRate: commissionRate,
-        bookingNotes: dto.bookingNotes || null, // Notes from parent/student
-        meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
-        status: 'PENDING_TEACHER_APPROVAL',
-        pendingTierId: dto.tierId || null, // For deferred package purchases
-      },
-      include: {
-        teacherProfile: { include: { user: true } },
-        bookedByUser: true,
-        child: true,
-        studentUser: true,
-        subject: true,
-      },
-    });
-
     // =====================================================
-    // PACKAGE INTEGRATION: Create redemption if packageId provided
+    // SECURITY FIX: Atomic transaction for booking + demo/package
+    // Prevents race conditions and ensures consistent cleanup
     // =====================================================
-    if (dto.packageId) {
-      try {
-        await this.packageService.createRedemption(dto.packageId, booking.id);
-        this.logger.log(
-          `Package redemption created for booking ${booking.id} using package ${dto.packageId}`,
-        );
-      } catch (err: any) {
-        // If redemption fails, we should cancel the booking
-        this.logger.error(
-          `Failed to create package redemption: ${err.message}`,
-          err,
-        );
-        // Clean up the booking
-        await this.prisma.booking.delete({ where: { id: booking.id } });
-        throw new BadRequestException(
-          `Package redemption failed: ${err.message}`,
-        );
-      }
-    }
-
-    // =====================================================
-    // DEMO INTEGRATION: Create demo record if isDemo
-    // Anti-Abuse: demoOwnerId is the bookedBy user (parent or standalone student)
-    // =====================================================
-    if (dto.isDemo && studentUserId) {
-      try {
+    const booking = await this.prisma.$transaction(async (tx) => {
+      // 1. For demo bookings, verify eligibility AND create record atomically
+      if (isValidDemo) {
         // Determine demoOwner: The person booking (parent or standalone student)
         const demoOwnerId = user.userId;
         const demoOwnerType =
@@ -256,25 +219,79 @@ export class BookingService {
         const beneficiaryId =
           beneficiaryType === 'CHILD' ? (childId ?? undefined) : undefined;
 
-        await this.demoService.createDemoRecord(
+        // Check eligibility within transaction (atomic with record creation)
+        const eligibility = await this.demoService.canBookDemo(
           demoOwnerId,
-          demoOwnerType,
           dto.teacherId,
-          beneficiaryId,
+        );
+        if (!eligibility.allowed) {
+          throw new BadRequestException(
+            `لا يمكن حجز حصة تجريبية: ${eligibility.details || eligibility.reason}`,
+          );
+        }
+
+        // Create demo record atomically within transaction
+        await tx.demoSession.create({
+          data: {
+            demoOwnerId,
+            demoOwnerType,
+            teacherId: dto.teacherId,
+            beneficiaryId,
+            status: 'SCHEDULED',
+            rescheduleCount: 0,
+          },
+        });
+        this.logger.log(
+          `Demo session record created atomically for owner ${demoOwnerId} with teacher ${dto.teacherId}`,
+        );
+      }
+
+      // 2. Create booking
+      const newBooking = await tx.booking.create({
+        data: {
+          readableId,
+          teacherId: dto.teacherId,
+          bookedByUserId: user.userId,
+          beneficiaryType,
+          childId,
+          studentUserId,
+
+          subjectId: dto.subjectId,
+          startTime: new Date(dto.startTime),
+          endTime: new Date(dto.endTime),
+          timezone: dto.timezone || 'UTC', // Store user's timezone
+          price: calculatedPrice, // P0-1: Server-calculated, normalized to integer (0 for demo)
+          commissionRate: commissionRate,
+          bookingNotes: dto.bookingNotes || null, // Notes from parent/student
+          meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
+          status: 'PENDING_TEACHER_APPROVAL',
+          pendingTierId: dto.tierId || null, // For deferred package purchases
+        },
+        include: {
+          teacherProfile: { include: { user: true } },
+          bookedByUser: true,
+          child: true,
+          studentUser: true,
+          subject: true,
+        },
+      });
+
+      // 3. Package redemption (if applicable)
+      if (dto.packageId) {
+        await this.packageService.createRedemptionInTransaction(
+          dto.packageId,
+          newBooking.id,
+          tx,
         );
         this.logger.log(
-          `Demo session record created for owner ${demoOwnerId} with teacher ${dto.teacherId}`,
+          `Package redemption created for booking ${newBooking.id} using package ${dto.packageId}`,
         );
-      } catch (err: any) {
-        // If demo record fails, we should cancel the booking
-        this.logger.error(`Failed to create demo record: ${err.message}`, err);
-        // Clean up the booking
-        await this.prisma.booking.delete({ where: { id: booking.id } });
-        throw new BadRequestException(`Demo booking failed: ${err.message}`);
       }
-    }
 
-    // Notify teacher about new booking request
+      return newBooking;
+    });
+
+    // Notify teacher about new booking request (outside transaction)
     await this.notificationService.notifyUser({
       userId: booking.teacherProfile.user.id,
       title: 'طلب حجز جديد',
@@ -306,6 +323,7 @@ export class BookingService {
           include: {
             teacherProfile: { include: { user: true } },
             bookedByUser: true,
+            packageRedemption: true, // Include redemption info
           },
         });
 
@@ -406,6 +424,25 @@ export class BookingService {
           };
         }
 
+        // Check if this is a pre-paid package redemption
+        if (booking.packageRedemption) {
+          // Funds already handled in package purchase. Just update status.
+          const updatedBooking = await tx.booking.update({
+            where: { id: bookingId },
+            data: {
+              status: 'SCHEDULED',
+              paymentDeadline: null,
+            },
+          });
+
+          return {
+            booking: updatedBooking,
+            paymentRequired: false,
+            isPackage: false,
+            isRedemption: true,
+          };
+        }
+
         // For single sessions, lock funds in escrow
         // P0-2 FIX: Atomic wallet lock and booking update
         await this.walletService.lockFundsForBooking(
@@ -441,6 +478,7 @@ export class BookingService {
           booking: any;
           paymentRequired: boolean;
           isPackage?: boolean;
+          isRedemption?: boolean;
           pendingTierId?: string;
           bookedByUserId?: string;
         }) => {
@@ -448,6 +486,7 @@ export class BookingService {
             booking: bookingFromTx,
             paymentRequired,
             isPackage,
+            isRedemption,
             pendingTierId,
             bookedByUserId,
           } = result;
@@ -507,8 +546,10 @@ export class BookingService {
             } catch (error: any) {
               this.logger.error(
                 `Package purchase failed in approveRequest: ${error.message}`,
+                error.stack,
               );
-              throw new BadRequestException(error.message || 'فشل شراء الباقة');
+              // Don't expose internal error details to client
+              throw new BadRequestException('فشل شراء الباقة');
             }
           }
 
@@ -523,6 +564,18 @@ export class BookingService {
               dedupeKey: `PAYMENT_REQUIRED:${updatedBooking.id}`,
               metadata: { bookingId: updatedBooking.id },
             });
+          } else if (isRedemption) {
+            // Notify parent: Confirmed via Package (No new charge)
+            await this.notificationService.notifyUser({
+              userId: updatedBooking.bookedByUserId,
+              title: 'تم قبول طلب الحجز (باقة)',
+              message:
+                'وافق المعلم على طلبك وتم تأكيد الحصة من رصيد الباقة.',
+              type: 'BOOKING_APPROVED',
+              link: '/parent/bookings',
+              dedupeKey: `BOOKING_APPROVED_PKG:${result.booking.id}:${updatedBooking.bookedByUserId}`, // Use result.booking.id in case bookingId is ambiguous
+              metadata: { bookingId: updatedBooking.id },
+            });
           } else {
             // Notify parent: Confirmed & Paid
             await this.notificationService.notifyUser({
@@ -532,7 +585,7 @@ export class BookingService {
                 'تم قبول طلب الحجز وخصم المبلغ من المحفظة. الحصة مجدولة الآن.',
               type: 'BOOKING_APPROVED',
               link: '/parent/bookings',
-              dedupeKey: `BOOKING_APPROVED:${bookingId}:${updatedBooking.bookedByUserId}`,
+              dedupeKey: `BOOKING_APPROVED:${result.booking.id}:${updatedBooking.bookedByUserId}`,
               metadata: { bookingId: updatedBooking.id },
             });
           }
@@ -550,7 +603,10 @@ export class BookingService {
   ) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { teacherProfile: { include: { user: true } } },
+      include: {
+        teacherProfile: { include: { user: true } },
+        packageRedemption: true, // Include redemption to handle package refunds
+      },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');
@@ -568,6 +624,42 @@ export class BookingService {
         cancelReason: dto.cancelReason,
       },
     });
+
+    // PACKAGE FIX: If this is a package session, return it to the package
+    if (booking.packageRedemption) {
+      await this.prisma.$transaction([
+        // 1. Mark redemption as CANCELLED
+        this.prisma.packageRedemption.update({
+          where: { id: booking.packageRedemption.id },
+          data: { status: 'CANCELLED' },
+        }),
+        // 2. Decrement sessionsUsed on the package
+        this.prisma.studentPackage.update({
+          where: { id: booking.packageRedemption.packageId },
+          data: { sessionsUsed: { decrement: 1 } },
+        }),
+      ]);
+      this.logger.log(
+        `Returned session to package ${booking.packageRedemption.packageId} due to teacher rejection of booking ${bookingId}`,
+      );
+    }
+
+    // DEMO FIX: If this is a demo booking, delete the DemoSession record
+    // This allows the user to book another demo with the same teacher
+    // Business rule: Teacher rejection should NOT count against user's demo quota
+    const isDemo = Number(booking.price) === 0;
+    if (isDemo) {
+      await this.prisma.demoSession.deleteMany({
+        where: {
+          demoOwnerId: booking.bookedByUserId,
+          teacherId: booking.teacherId,
+          status: 'SCHEDULED', // Only delete scheduled (not completed) demos
+        },
+      });
+      this.logger.log(
+        `Deleted DemoSession for user ${booking.bookedByUserId} with teacher ${booking.teacherId} due to teacher rejection`,
+      );
+    }
 
     // Notify parent about booking rejection
     await this.notificationService.notifyUser({
@@ -601,9 +693,11 @@ export class BookingService {
         bookedByUser: {
           include: { parentProfile: { include: { user: true } } },
         },
-        studentUser: true,
+        studentUser: {
+          include: { studentProfile: { include: { curriculum: true } } },
+        },
         subject: true,
-        child: true,
+        child: { include: { curriculum: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -624,9 +718,11 @@ export class BookingService {
         bookedByUser: {
           include: { parentProfile: { include: { user: true } } },
         },
-        studentUser: true,
+        studentUser: {
+          include: { studentProfile: { include: { curriculum: true } } },
+        },
         subject: true,
-        child: true,
+        child: { include: { curriculum: true } },
       },
       orderBy: { startTime: 'desc' },
     });
@@ -660,9 +756,11 @@ export class BookingService {
         bookedByUser: {
           include: { parentProfile: { include: { user: true } } },
         },
-        studentUser: true,
+        studentUser: {
+          include: { studentProfile: { include: { curriculum: true } } },
+        },
         subject: true,
-        child: true,
+        child: { include: { curriculum: true } },
       },
       orderBy: { createdAt: 'desc' }, // Newest requests first
       skip,
@@ -672,9 +770,7 @@ export class BookingService {
     // Enrich with tier session count for package bookings
     const pendingTierIds = [
       ...new Set(
-        bookings
-          .map((b) => b.pendingTierId)
-          .filter((id): id is string => !!id),
+        bookings.map((b) => b.pendingTierId).filter((id): id is string => !!id),
       ),
     ];
 
@@ -692,6 +788,8 @@ export class BookingService {
       pendingTierSessionCount: booking.pendingTierId
         ? tierMap.get(booking.pendingTierId) || null
         : null,
+      // Demo sessions have price = 0 (free)
+      isDemo: Number(booking.price) === 0,
     }));
 
     return {
@@ -745,9 +843,7 @@ export class BookingService {
     // Enrich with tier session count for package bookings
     const pendingTierIds = [
       ...new Set(
-        bookings
-          .map((b) => b.pendingTierId)
-          .filter((id): id is string => !!id),
+        bookings.map((b) => b.pendingTierId).filter((id): id is string => !!id),
       ),
     ];
 
@@ -1052,8 +1148,6 @@ export class BookingService {
           bookingId,
         );
 
-
-
         updatedBooking = await this.prisma.booking.update({
           where: { id: bookingId },
           data: { pendingTierId: null, status: 'SCHEDULED' },
@@ -1168,10 +1262,12 @@ export class BookingService {
       throw new BadRequestException('Not authorized to complete this session');
     }
 
-    // Only SCHEDULED sessions can be marked complete
-    if (booking.status !== 'SCHEDULED') {
+    // P1 FIX: State machine validation for status transition
+    const targetStatus = 'PENDING_CONFIRMATION';
+    if (!isValidStatusTransition(booking.status, targetStatus)) {
+      const allowed = getAllowedTransitions(booking.status);
       throw new BadRequestException(
-        'Session must be SCHEDULED to mark complete',
+        `Cannot transition from ${booking.status} to ${targetStatus}. Allowed: ${allowed.join(', ') || 'none'}`,
       );
     }
 
@@ -1251,6 +1347,7 @@ export class BookingService {
     userId: string,
     bookingId: string,
     rating?: number,
+    userRole: string = 'STUDENT',
   ) {
     const result = await this.prisma.$transaction(
       async (tx) => {
@@ -1267,7 +1364,7 @@ export class BookingService {
         if (!booking) throw new NotFoundException('Booking not found');
 
         // Auth check
-        if (booking.bookedByUserId !== userId) {
+        if (userRole !== 'ADMIN' && booking.bookedByUserId !== userId) {
           throw new ForbiddenException(
             'Not authorized to confirm this session',
           );
@@ -1282,9 +1379,13 @@ export class BookingService {
           };
         }
 
-        // Status check
-        if (booking.status !== 'PENDING_CONFIRMATION') {
-          throw new BadRequestException('Session is not pending confirmation');
+        // P1 FIX: State machine validation for status transition
+        const targetStatus = 'COMPLETED';
+        if (!isValidStatusTransition(booking.status, targetStatus)) {
+          const allowed = getAllowedTransitions(booking.status);
+          throw new BadRequestException(
+            `Cannot transition from ${booking.status} to ${targetStatus}. Allowed: ${allowed.join(', ') || 'none'}`,
+          );
         }
 
         // Dispute window check
@@ -1322,7 +1423,11 @@ export class BookingService {
           // --- Package Release ---
           // Atomic call to PackageService with this transaction client
           const idempotencyKey = `RELEASE_${bookingId}`;
-          await this.packageService.releaseSession(bookingId, idempotencyKey, tx);
+          await this.packageService.releaseSession(
+            bookingId,
+            idempotencyKey,
+            tx,
+          );
         } else {
           // --- Single Session Release ---
           // Release from locked wallet funds
@@ -1362,15 +1467,17 @@ export class BookingService {
     // Package Release call REMOVED (Moved inside atomic transaction above)
 
     // Demo Complete
+    // SECURITY FIX: Use bookedByUserId (the payer) not studentUserId
+    // This correctly handles parent bookings for children
     const isDemo = normalizeMoney(bookingContext.price) === 0;
-    if (isDemo && bookingContext.studentUserId) {
+    if (isDemo && bookingContext.bookedByUserId) {
       try {
         await this.demoService.markDemoCompleted(
-          bookingContext.studentUserId,
+          bookingContext.bookedByUserId, // The demo owner is who booked/paid
           bookingContext.teacherId,
         );
         this.logger.log(
-          `Demo marked complete for student ${bookingContext.studentUserId}`,
+          `Demo marked complete for owner ${bookingContext.bookedByUserId}`,
         );
       } catch (err) {
         this.logger.error(
@@ -1592,7 +1699,6 @@ export class BookingService {
   // --- Phase 3: Booking Validation ---
   // validateSlotAvailability logic moved to TeacherService.isSlotAvailable
 
-
   private formatTime(date: Date): string {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -1728,7 +1834,17 @@ export class BookingService {
           // Only calculate policy-based refund for SCHEDULED bookings
           if (booking.status === 'SCHEDULED') {
             const policy = booking.teacherProfile.cancellationPolicy;
-            const refund = this.calculateRefund(booking, policy, userRole);
+            // Fetch global cancellation policies
+            const systemSettings =
+              await this.systemSettingsService.getSettings();
+            const config = systemSettings.cancellationPolicies;
+
+            const refund = this.calculateRefund(
+              booking,
+              policy,
+              userRole,
+              config,
+            );
             refundPercent = refund.percent;
           }
         }
@@ -1737,7 +1853,23 @@ export class BookingService {
         const paidAmount = Number(booking.price);
         if (booking.status === 'SCHEDULED' && paidAmount > 0) {
           refundAmount = (paidAmount * refundPercent) / 100;
-          teacherCompAmount = paidAmount - refundAmount;
+
+          // Calculate Platform Fee on Retained Amount
+          // Retained = Paid - Refund.
+          // Teacher gets (Retained * (1 - Commission))
+          // Platform gets (Retained * Commission)
+          const retainedAmount = paidAmount - refundAmount;
+          let platformRevenue = 0;
+
+          if (retainedAmount > 0) {
+            const systemSettings =
+              await this.systemSettingsService.getSettings(); // Re-fetch to be safe or reuse
+            const commissionRate = systemSettings.defaultCommissionRate || 0.18;
+            platformRevenue = retainedAmount * commissionRate;
+            teacherCompAmount = retainedAmount - platformRevenue;
+          } else {
+            teacherCompAmount = 0;
+          }
 
           // Settle via wallet (atomic with booking update)
           await this.walletService.settleCancellation(
@@ -1747,6 +1879,7 @@ export class BookingService {
             paidAmount,
             refundAmount,
             teacherCompAmount,
+            platformRevenue,
             tx, // Pass transaction client for atomicity
           );
         }
@@ -1780,6 +1913,27 @@ export class BookingService {
           },
           data: { status: 'CANCELLED' },
         });
+
+        // =====================================================
+        // DEMO INTEGRATION: Cancel demo record if this was a demo booking
+        // SECURITY FIX: Deletes demo record to allow user to retry
+        // =====================================================
+        const isDemo = normalizeMoney(booking.price) === 0;
+        if (isDemo && booking.bookedByUserId && booking.teacherId) {
+          try {
+            await this.demoService.cancelDemoRecordInTransaction(
+              booking.bookedByUserId,
+              booking.teacherId,
+              tx,
+            );
+            this.logger.log(`Demo record cancelled for booking ${bookingId}`);
+          } catch (err) {
+            // Log but don't fail the cancellation - demo cleanup is best effort
+            this.logger.warn(
+              `Failed to cancel demo record for booking ${bookingId}: ${err}`,
+            );
+          }
+        }
 
         // Return booking with extra context for notification
         return {
@@ -1879,8 +2033,20 @@ export class BookingService {
     booking: any,
     policy: string,
     userRole: string,
+    config?: any,
   ): { percent: number; amount: number; message: string } {
     const paidAmount = Number(booking.price);
+
+    // Default Configuration (Binary Cutoff)
+    const defaults = {
+      flexible: { cutoffHours: 12 },
+      moderate: { cutoffHours: 24 },
+      strict: { cutoffHours: 48 },
+    };
+
+    const flexibleConfig = config?.flexible || defaults.flexible;
+    const moderateConfig = config?.moderate || defaults.moderate;
+    const strictConfig = config?.strict || defaults.strict;
 
     // Teacher cancellation = always 100% refund
     if (userRole === 'TEACHER') {
@@ -1910,48 +2076,28 @@ export class BookingService {
 
     let percent: number;
     let message: string;
+    let cutoff: number;
 
     switch (policy) {
       case 'FLEXIBLE':
-        if (hoursUntilSession > 24) {
-          percent = 100;
-          message = 'قبل ٢٤ ساعة - استرداد كامل';
-        } else {
-          percent = 50;
-          message = 'أقل من ٢٤ ساعة - استرداد ٥٠٪';
-        }
+        cutoff = flexibleConfig.cutoffHours || 12;
         break;
-
       case 'MODERATE':
-        if (hoursUntilSession > 48) {
-          percent = 100;
-          message = 'قبل ٤٨ ساعة - استرداد كامل';
-        } else if (hoursUntilSession > 24) {
-          percent = 50;
-          message = 'بين ٢٤-٤٨ ساعة - استرداد ٥٠٪';
-        } else {
-          percent = 0;
-          message = 'أقل من ٢٤ ساعة - لا استرداد';
-        }
+        cutoff = moderateConfig.cutoffHours || 24;
         break;
-
       case 'STRICT':
-        if (hoursUntilSession > 72) {
-          percent = 100;
-          message = 'قبل ٧٢ ساعة - استرداد كامل';
-        } else if (hoursUntilSession > 48) {
-          percent = 50;
-          message = 'بين ٤٨-٧٢ ساعة - استرداد ٥٠٪';
-        } else {
-          percent = 0;
-          message = 'أقل من ٤٨ ساعة - لا استرداد';
-        }
+        cutoff = strictConfig.cutoffHours || 48;
         break;
-
       default:
-        // Default to FLEXIBLE if unknown
-        percent = hoursUntilSession > 24 ? 100 : 50;
-        message = 'سياسة افتراضية';
+        cutoff = 24;
+    }
+
+    if (hoursUntilSession > cutoff) {
+      percent = 100;
+      message = `قبل ${cutoff} ساعة - استرداد كامل`;
+    } else {
+      percent = 0;
+      message = `بعد تجاوز مهلة الإلغاء (${cutoff} ساعة) - لا استرداد`;
     }
 
     return { percent, amount: (paidAmount * percent) / 100, message };
@@ -2083,11 +2229,7 @@ export class BookingService {
         startTime: { lte: newStartTime },
         endTime: { gt: newStartTime },
         status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ],
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
         },
       },
     });
@@ -2376,11 +2518,7 @@ export class BookingService {
         startTime: { lte: newStartTime },
         endTime: { gt: newStartTime },
         status: {
-          in: [
-            'SCHEDULED',
-            'PENDING_TEACHER_APPROVAL',
-            'WAITING_FOR_PAYMENT',
-          ],
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
         },
       },
     });
@@ -2637,5 +2775,92 @@ export class BookingService {
 
     logger.log(`Successfully sent ${remindersSent} meeting link reminders`);
     return { remindersSent };
+  }
+  /**
+   * Admin-forced reschedule.
+   * Checks availability but bypasses policy windows.
+   */
+  async adminReschedule(bookingId: string, newStartTime: Date) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        teacherProfile: { include: { user: true } },
+        bookedByUser: true,
+        studentUser: true,
+        child: true,
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const durationMs = booking.endTime.getTime() - booking.startTime.getTime();
+    const newEndTime = new Date(newStartTime.getTime() + durationMs);
+
+    // 1. Check Teacher Schedule (Working Hours)
+    const isWorking = await this.teacherService.isSlotAvailable(
+      booking.teacherId,
+      newStartTime,
+    );
+    if (!isWorking) {
+      throw new BadRequestException(
+        'Teacher is not available (outside working hours/exceptions).',
+      );
+    }
+
+    // 2. Check Conflicts (Other Bookings)
+    const conflict = await this.prisma.booking.findFirst({
+      where: {
+        teacherId: booking.teacherId,
+        id: { not: bookingId }, // Exclude self
+        status: {
+          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
+        },
+        startTime: { lt: newEndTime },
+        endTime: { gt: newStartTime },
+      },
+    });
+
+    if (conflict) {
+      throw new BadRequestException(
+        'Teacher has another booking overlapping this time.',
+      );
+    }
+
+    // 3. Update
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        rescheduledByRole: 'ADMIN',
+        rescheduleCount: { increment: 1 },
+        status: 'SCHEDULED', // Force to SCHEDULED
+      },
+    });
+
+    // 4. Notifications
+    const dateStr = formatInTimezone(
+      newStartTime,
+      booking.teacherProfile.timezone,
+      'yyyy-MM-dd HH:mm',
+    );
+
+    // Notify Teacher
+    await this.notificationService.notifyUser({
+      userId: booking.teacherProfile.userId,
+      title: 'تم تغيير موعد الحصة بواسطة الإدارة',
+      message: `تم تغيير موعد الحصة مع ${booking.studentUser?.firstName || booking.child?.name || 'الطالب'} إلى ${dateStr}`,
+      type: 'BOOKING_RESCHEDULED',
+    });
+
+    // Notify Student/Parent
+    await this.notificationService.notifyUser({
+      userId: booking.bookedByUserId,
+      title: 'تم تغيير موعد الحصة بواسطة الإدارة',
+      message: `تم تغيير موعد الحصة مع المعلم ${booking.teacherProfile.displayName} إلى ${dateStr}`,
+      type: 'BOOKING_RESCHEDULED',
+    });
+
+    return updated;
   }
 }

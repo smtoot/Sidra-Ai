@@ -25,6 +25,7 @@ import {
     Video,
     FileText,
     History,
+    TrendingUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -147,6 +148,38 @@ export default function AdminBookingDetailPage() {
     const params = useParams();
     const router = useRouter();
     const bookingId = params.id as string;
+    const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+    const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
+    const [rescheduleDate, setRescheduleDate] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const handleComplete = async () => {
+        if (!confirm('هل أنت متأكد من إكمال هذه الحصة يدوياً؟ سيتم تحويل المبلغ للمعلم.')) return;
+        setActionLoading(true);
+        try {
+            await adminApi.completeBooking(bookingId);
+            alert('تم إكمال الحصة بنجاح');
+            window.location.reload();
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'فشل إكمال الحصة');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleReschedule = async () => {
+        if (!rescheduleDate) return;
+        setActionLoading(true);
+        try {
+            await adminApi.rescheduleBooking(bookingId, new Date(rescheduleDate));
+            alert('تم تغيير الموعد بنجاح');
+            window.location.reload();
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'فشل تغيير الموعد');
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
     const [booking, setBooking] = useState<BookingDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -492,36 +525,51 @@ export default function AdminBookingDetailPage() {
                 </div>
 
                 {/* Payment Info */}
-                {booking.payment && (
+                {(booking.payment || Number(booking.price) === 0) && (
                     <Card padding="lg">
                         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <DollarSign className="w-5 h-5 text-primary" />
                             معلومات الدفع
                         </h2>
-                        <div className="grid grid-cols-4 gap-4">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">المبلغ</p>
-                                <p className="font-bold text-primary text-lg">{booking.payment.amount} SDG</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">حالة الدفع</p>
-                                <StatusBadge variant={booking.payment.status === 'PAID' ? 'success' : 'warning'}>
-                                    {booking.payment.status === 'PAID' ? 'مدفوع' : booking.payment.status}
-                                </StatusBadge>
-                            </div>
-                            {booking.payment.paymentMethod && (
-                                <div>
-                                    <p className="text-sm text-gray-500 mb-1">طريقة الدفع</p>
-                                    <p className="font-medium text-gray-900">{booking.payment.paymentMethod}</p>
+                        {Number(booking.price) === 0 ? (
+                            <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                        <TrendingUp className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-purple-900 text-lg">حصة تجريبية (مجانية)</p>
+                                        <p className="text-sm text-purple-700">لا يتطلب دفع رسوم</p>
+                                    </div>
                                 </div>
-                            )}
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">تاريخ الدفع</p>
-                                <p className="font-medium text-gray-900">
-                                    {format(new Date(booking.payment.createdAt), 'dd MMM yyyy', { locale: ar })}
-                                </p>
+                                <div className="text-xl font-bold text-gray-900">0.00 SDG</div>
                             </div>
-                        </div>
+                        ) : booking.payment ? (
+                            <div className="grid grid-cols-4 gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">المبلغ</p>
+                                    <p className="font-bold text-primary text-lg">{booking.payment.amount} SDG</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">حالة الدفع</p>
+                                    <StatusBadge variant={booking.payment.status === 'PAID' ? 'success' : 'warning'}>
+                                        {booking.payment.status === 'PAID' ? 'مدفوع' : booking.payment.status}
+                                    </StatusBadge>
+                                </div>
+                                {booking.payment.paymentMethod && (
+                                    <div>
+                                        <p className="text-sm text-gray-500 mb-1">طريقة الدفع</p>
+                                        <p className="font-medium text-gray-900">{booking.payment.paymentMethod}</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-sm text-gray-500 mb-1">تاريخ الدفع</p>
+                                    <p className="font-medium text-gray-900">
+                                        {format(new Date(booking.payment.createdAt), 'dd MMM yyyy', { locale: ar })}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : null}
                     </Card>
                 )}
 
@@ -582,6 +630,22 @@ export default function AdminBookingDetailPage() {
                                 </Button>
                             </Link>
                         )}
+
+                        {/* Force Complete */}
+                        {(booking.status === 'SCHEDULED' || booking.status === 'PENDING_CONFIRMATION' || booking.status === 'PENDING_TEACHER_APPROVAL') && (
+                            <Button variant="outline" onClick={handleComplete} disabled={actionLoading}>
+                                <CheckCircle className="w-4 h-4 ml-2 text-green-600" />
+                                إكمال بالقوة
+                            </Button>
+                        )}
+
+                        {/* Force Reschedule */}
+                        {!['COMPLETED', 'CANCELLED_BY_TEACHER', 'CANCELLED_BY_PARENT', 'CANCELLED_BY_ADMIN', 'REJECTED_BY_TEACHER'].includes(booking.status) && (
+                            <Button variant="outline" onClick={() => setShowRescheduleDialog(true)}>
+                                <Calendar className="w-4 h-4 ml-2 text-blue-600" />
+                                تغيير الموعد
+                            </Button>
+                        )}
                     </div>
                 </Card>
 
@@ -598,38 +662,40 @@ export default function AdminBookingDetailPage() {
                                 onChange={(e) => setCancelReason(e.target.value)}
                                 placeholder="اكتب سبب الإلغاء هنا..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-4"
-                                rows={4}
                             />
-                            <div className="flex gap-3 justify-end">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowCancelDialog(false)}
-                                    disabled={processing}
-                                >
-                                    إلغاء
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={handleCancelBooking}
-                                    disabled={processing || !cancelReason.trim()}
-                                >
-                                    {processing ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-                                            جاري الإلغاء...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <XCircle className="w-4 h-4 ml-2" />
-                                            تأكيد الإلغاء
-                                        </>
-                                    )}
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" onClick={() => setShowCancelDialog(false)}>إلغاء</Button>
+                                <Button variant="destructive" onClick={handleCancelBooking}>تأكيد الإلغاء</Button>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Reschedule Dialog */}
+                {showRescheduleDialog && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <Card padding="lg" className="max-w-md w-full">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">تغيير موعد الحصة</h3>
+                            <p className="text-gray-600 mb-4 text-sm">
+                                تجاوز القواعد وسياسات الإلغاء. يرجى التأكد من اتفاق الطرفين.
+                            </p>
+                            <input
+                                type="datetime-local"
+                                className="w-full px-3 py-2 border rounded-lg mb-4"
+                                value={rescheduleDate}
+                                onChange={(e) => setRescheduleDate(e.target.value)}
+                            />
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" onClick={() => setShowRescheduleDialog(false)}>إلغاء</Button>
+                                <Button onClick={handleReschedule} disabled={actionLoading || !rescheduleDate}>
+                                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ التغيير'}
                                 </Button>
                             </div>
                         </Card>
                     </div>
                 )}
-            </div>
-        </div>
+
+            </div >
+        </div >
     );
 }

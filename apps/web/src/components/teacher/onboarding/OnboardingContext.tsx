@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { teacherApi, TeacherApplicationStatus } from '@/lib/api/teacher';
-import { Gender } from '@sidra/shared';
+import { Gender, TEACHER_EVENTS } from '@sidra/shared';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
 
 // Onboarding data shape
 export interface OnboardingData {
@@ -88,6 +89,27 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const updateData = useCallback((partial: Partial<OnboardingData>) => {
         setData(prev => ({ ...prev, ...partial }));
     }, []);
+
+    // Step names for analytics
+    const STEP_NAMES = ['welcome', 'photo', 'experience', 'subjects', 'identity', 'review', 'status'];
+
+    // Wrapped setCurrentStep to track step views
+    const handleSetCurrentStep = useCallback((step: number) => {
+        const stepName = STEP_NAMES[step] || `step_${step}`;
+
+        // Track step view
+        if (step > 0 && step < 6) {
+            trackEvent(TEACHER_EVENTS.ONBOARDING_STEP_VIEWED, { onboarding_step: stepName });
+        }
+
+        // Track step completion (when moving forward from a step)
+        if (step > currentStep && currentStep > 0 && currentStep < 6) {
+            const completedStepName = STEP_NAMES[currentStep] || `step_${currentStep}`;
+            trackEvent(TEACHER_EVENTS.ONBOARDING_STEP_COMPLETED, { onboarding_step: completedStepName });
+        }
+
+        setCurrentStep(step);
+    }, [currentStep]);
 
     const loadProfile = useCallback(async () => {
         setLoading(true);
@@ -213,6 +235,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             await teacherApi.submitForReview();
             const status = await teacherApi.getApplicationStatus();
             updateData({ applicationStatus: status });
+
+            // Track application submission
+            trackEvent(TEACHER_EVENTS.APPLICATION_SUBMITTED);
+
             setCurrentStep(6); // Go to status dashboard
         } catch (error: any) {
             console.error('Failed to submit for review', error);
@@ -318,7 +344,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         <OnboardingContext.Provider
             value={{
                 currentStep,
-                setCurrentStep,
+                setCurrentStep: handleSetCurrentStep, // Use wrapped version with analytics
                 data,
                 updateData,
                 loading,
