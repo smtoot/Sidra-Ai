@@ -786,14 +786,16 @@ export class BookingService {
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
 
-    const enrichedBookings = bookings.map((booking) => ({
-      ...bookings,
-      pendingTierSessionCount: booking.pendingTierId
-        ? tierMap.get(booking.pendingTierId) || null
-        : null,
-      // Demo sessions have price = 0 (free)
-      isDemo: Number(booking.price) === 0,
-    }));
+    const enrichedBookings = bookings.map((booking) => {
+      const enriched = {
+        ...booking,
+        pendingTierSessionCount: booking.pendingTierId
+          ? tierMap.get(booking.pendingTierId) || null
+          : null,
+        isDemo: Number(booking.price) === 0,
+      };
+      return this.transformBooking(enriched);
+    });
 
     return {
       data: enrichedBookings,
@@ -859,12 +861,15 @@ export class BookingService {
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
 
-    const enrichedBookings = bookings.map((booking) => ({
-      ...bookings,
-      pendingTierSessionCount: booking.pendingTierId
-        ? tierMap.get(booking.pendingTierId) || null
-        : null,
-    }));
+    const enrichedBookings = bookings.map((booking) => {
+      const enriched = {
+        ...booking,
+        pendingTierSessionCount: booking.pendingTierId
+          ? tierMap.get(booking.pendingTierId) || null
+          : null,
+      };
+      return this.transformBooking(enriched);
+    });
 
     return {
       data: enrichedBookings,
