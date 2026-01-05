@@ -21,6 +21,7 @@ import {
     TEACHER_STATUS_LABELS
 } from '@/config/teacher-status';
 import { useSystemConfig } from '@/context/SystemConfigContext';
+import { parseVideoUrl } from '@/lib/utils/video-thumbnail';
 
 // --- Helper Functions & Constants ---
 const DAY_LABELS: Record<string, string> = {
@@ -526,27 +527,43 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                     {/* Right Content - Teacher Details */}
                     <div className="flex-grow space-y-8">
                         {/* Intro Video */}
-                        {teacher.introVideoUrl ? (
-                            <section className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-100">
-                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
-                                    <Video className="w-5 h-5" />
-                                    فيديو تعريفي
-                                </h2>
-                                <div className="relative rounded-xl overflow-hidden shadow-lg" style={{ paddingBottom: '56.25%' }}>
-                                    <video
-                                        src={getFileUrl(teacher.introVideoUrl)}
-                                        controls
-                                        className="absolute top-0 left-0 w-full h-full object-cover"
-                                        poster={teacher.profilePhotoUrl ? getFileUrl(teacher.profilePhotoUrl) : undefined}
-                                    >
-                                        متصفحك لا يدعم تشغيل الفيديو
-                                    </video>
-                                </div>
-                                <p className="text-xs text-text-subtle mt-3 text-center">
-                                    شاهد المعلم يتحدث عن نفسه وأسلوبه في التدريس
-                                </p>
-                            </section>
-                        ) : isPreview && (
+                        {teacher.introVideoUrl ? (() => {
+                            const videoInfo = parseVideoUrl(teacher.introVideoUrl);
+
+                            return (
+                                <section className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-100">
+                                    <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
+                                        <Video className="w-5 h-5" />
+                                        فيديو تعريفي
+                                    </h2>
+                                    {videoInfo ? (
+                                        <div className="relative rounded-xl overflow-hidden shadow-lg" style={{ paddingBottom: '56.25%' }}>
+                                            <iframe
+                                                src={videoInfo.embedUrl}
+                                                className="absolute top-0 left-0 w-full h-full"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                                title="فيديو تعريفي للمعلم"
+                                            ></iframe>
+                                        </div>
+                                    ) : (
+                                        <div className="relative rounded-xl overflow-hidden shadow-lg" style={{ paddingBottom: '56.25%' }}>
+                                            <video
+                                                src={getFileUrl(teacher.introVideoUrl)}
+                                                controls
+                                                className="absolute top-0 left-0 w-full h-full object-cover"
+                                                poster={teacher.profilePhotoUrl ? getFileUrl(teacher.profilePhotoUrl) : undefined}
+                                            >
+                                                متصفحك لا يدعم تشغيل الفيديو
+                                            </video>
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-text-subtle mt-3 text-center">
+                                        شاهد المعلم يتحدث عن نفسه وأسلوبه في التدريس
+                                    </p>
+                                </section>
+                            );
+                        })() : isPreview && (
                             <section className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-100">
                                 <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
                                     <Video className="w-5 h-5" />
