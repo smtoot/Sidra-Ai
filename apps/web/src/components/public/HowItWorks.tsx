@@ -1,42 +1,36 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, Calendar, Video, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { Search, User, Calendar, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const STEPS = [
     {
+        number: 1,
         icon: Search,
-        title: 'ابحث عن معلم',
-        description: 'تصفح قائمة المعلمين المعتمدين وفلتر حسب المادة والمنهج والسعر',
-        color: 'from-blue-500 to-blue-600',
-        lightColor: 'bg-blue-50',
+        title: 'ابحث واختر المعلم المناسب',
+        description: 'المادة – المرحلة – المنهج',
     },
     {
+        number: 2,
+        icon: User,
+        title: 'راجع صفحة المعلم بالتفاصيل',
+        description: 'الخبرة – التخصص – المنهج – توفر حصة تجريبية إن وُجدت',
+    },
+    {
+        number: 3,
         icon: Calendar,
-        title: 'احجز موعدك',
-        description: 'اختر الموعد المناسب من جدول المعلم واحجز جلستك بسهولة',
-        color: 'from-green-500 to-green-600',
-        lightColor: 'bg-green-50',
-    },
-    {
-        icon: Video,
-        title: 'ابدأ التعلم',
-        description: 'انضم للحصة عبر الإنترنت وتعلم مع أفضل المعلمين',
-        color: 'from-purple-500 to-purple-600',
-        lightColor: 'bg-purple-50',
+        title: 'احجز حصة فردية (واحد لواحد)',
+        description: 'وابدأ التعلم أونلاين',
     },
 ];
 
 export function HowItWorks() {
-    const router = useRouter();
     const [isVisible, setIsVisible] = useState(false);
-    const [activeStep, setActiveStep] = useState<number | null>(null);
     const sectionRef = useRef<HTMLElement>(null);
 
-    // Intersection observer for entrance animation
     useEffect(() => {
         const observer = new IntersectionObserver(
             ([entry]) => {
@@ -54,116 +48,77 @@ export function HowItWorks() {
         return () => observer.disconnect();
     }, []);
 
-    const handleStepClick = (index: number) => {
-        if (index === 0) {
-            // Scroll to hero search
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else if (index === 1) {
-            router.push('/search');
-        } else {
-            router.push('/register');
-        }
-    };
-
     return (
-        <section ref={sectionRef} id="how-it-works" className="py-20 bg-white relative overflow-hidden">
-            {/* Subtle background pattern */}
-            <div className="absolute inset-0 opacity-[0.02]">
-                <div
-                    className="w-full h-full"
-                    style={{
-                        backgroundImage: `radial-gradient(circle at 1px 1px, #003366 1px, transparent 0)`,
-                        backgroundSize: '40px 40px',
-                    }}
-                />
-            </div>
-
-            <div className="container mx-auto px-4 relative">
+        <section ref={sectionRef} id="how-it-works" className="py-20 bg-[#F9F5F0]">
+            <div className="container mx-auto px-4">
                 {/* Header */}
                 <div className={cn(
-                    "text-center mb-16 transition-all duration-700",
+                    "text-center mb-8 transition-all duration-700",
                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 )}>
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900">كيف يعمل سدرة؟</h2>
-                    <p className="text-gray-500 mt-2">ثلاث خطوات بسيطة للبدء</p>
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                        كيف تعمل سدرة؟
+                    </h2>
+                    <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                        في سدرة، ولي الأمر أو الطالب يختار المعلم بنفسه.
+                        <br />
+                        تتصفح، تقارن، وتقرر بكل راحة.
+                    </p>
                 </div>
 
                 {/* Steps */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto relative">
-                    {/* Connector Lines - Desktop only */}
-                    <div className="hidden md:block absolute top-12 right-[20%] left-[20%] h-1">
-                        <div className={cn(
-                            "h-full bg-gradient-to-l from-green-300 via-blue-300 to-purple-300 rounded-full transition-all duration-1000 delay-500",
-                            isVisible ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
-                        )} />
-                    </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
                     {STEPS.map((step, index) => {
                         const Icon = step.icon;
-                        const isActive = activeStep === index;
 
                         return (
                             <div
-                                key={index}
+                                key={step.number}
                                 className={cn(
-                                    "relative text-center transition-all duration-700 cursor-pointer group",
+                                    "relative transition-all duration-700",
                                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                                 )}
                                 style={{ transitionDelay: `${index * 200}ms` }}
-                                onClick={() => handleStepClick(index)}
-                                onMouseEnter={() => setActiveStep(index)}
-                                onMouseLeave={() => setActiveStep(null)}
                             >
-                                {/* Step Card */}
-                                <div className={cn(
-                                    "bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300",
-                                    "border border-gray-100 hover:border-transparent",
-                                    "group-hover:-translate-y-2",
-                                    isActive && step.lightColor
-                                )}>
-                                    {/* Step Number & Icon Container */}
-                                    <div className="relative z-10 mb-6">
-                                        <div className={cn(
-                                            "w-24 h-24 rounded-3xl bg-gradient-to-br mx-auto flex items-center justify-center shadow-xl transition-transform duration-300 group-hover:scale-110",
-                                            step.color
-                                        )}>
-                                            <Icon className="w-10 h-10 text-white" />
-                                        </div>
+                                {/* Card */}
+                                <div className="bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow-lg transition-shadow">
+                                    {/* Number Badge */}
+                                    <div className="absolute -top-4 right-1/2 translate-x-1/2 w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
+                                        {step.number}
+                                    </div>
 
-                                        {/* Step Number Badge */}
-                                        <div className="absolute -top-2 -right-2 md:right-auto md:-top-3 md:left-1/2 md:-translate-x-1/2 md:translate-x-12 w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg border-4 border-white">
-                                            {index + 1}
-                                        </div>
+                                    {/* Icon */}
+                                    <div className="w-20 h-20 bg-[#F9F5F0] rounded-2xl mx-auto mb-4 mt-4 flex items-center justify-center">
+                                        <Icon className="w-10 h-10 text-primary" />
                                     </div>
 
                                     {/* Content */}
-                                    <h3 className="font-bold text-xl text-gray-900 mb-3 group-hover:text-primary transition-colors">
+                                    <h3 className="font-bold text-lg text-gray-900 mb-2">
                                         {step.title}
                                     </h3>
-                                    <p className="text-gray-500 leading-relaxed text-sm md:text-base">
+                                    <p className="text-gray-500 text-sm">
                                         {step.description}
                                     </p>
 
-                                    {/* Hover Action Hint */}
-                                    <div className={cn(
-                                        "mt-4 text-primary text-sm font-medium flex items-center justify-center gap-1 transition-all duration-300",
-                                        isActive ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-                                    )}>
-                                        <span>اضغط للبدء</span>
-                                        <ArrowLeft className="w-4 h-4" />
-                                    </div>
+                                    {/* Rating stars for step 2 and 3 */}
+                                    {(step.number === 2 || step.number === 3) && (
+                                        <div className="flex justify-center gap-1 mt-3">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <Star
+                                                    key={star}
+                                                    className="w-4 h-4 fill-amber-400 text-amber-400"
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Mobile Connector */}
+                                {/* Connector Arrow (except last) */}
                                 {index < STEPS.length - 1 && (
-                                    <div className="md:hidden flex justify-center my-4">
-                                        <div className={cn(
-                                            "w-1 h-8 bg-gradient-to-b rounded-full transition-all duration-500",
-                                            step.color,
-                                            isVisible ? "opacity-100" : "opacity-0"
-                                        )}
-                                            style={{ transitionDelay: `${index * 200 + 100}ms` }}
-                                        />
+                                    <div className="hidden md:block absolute top-1/2 -left-4 transform -translate-y-1/2">
+                                        <svg className="w-8 h-8 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                                        </svg>
                                     </div>
                                 )}
                             </div>
@@ -171,36 +126,16 @@ export function HowItWorks() {
                     })}
                 </div>
 
-                {/* CTA Section */}
+                {/* CTA */}
                 <div className={cn(
-                    "text-center mt-16 transition-all duration-700 delay-700",
+                    "text-center transition-all duration-700 delay-700",
                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 )}>
-                    <div className="bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
-                        <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                            هل أنت مستعد للبدء؟
-                        </h3>
-                        <p className="text-gray-600 mb-6">
-                            انضم لآلاف الطلاب الذين يتعلمون مع سدرة
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <Button
-                                size="lg"
-                                onClick={() => router.push('/search')}
-                                className="gap-2 shadow-lg shadow-primary/20"
-                            >
-                                <Search className="w-5 h-5" />
-                                ابحث عن معلم الآن
-                            </Button>
-                            <Button
-                                size="lg"
-                                variant="outline"
-                                onClick={() => router.push('/register')}
-                            >
-                                أنشئ حسابك المجاني
-                            </Button>
-                        </div>
-                    </div>
+                    <Link href="/search">
+                        <Button size="lg" className="px-8">
+                            تصفح المعلمين
+                        </Button>
+                    </Link>
                 </div>
             </div>
         </section>
