@@ -233,7 +233,7 @@ function SearchPageContent() {
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            {results.map(result => (
+                            {results.filter(result => result && result.teacherProfile).map(result => (
                                 <TeacherPowerCard
                                     key={result.id}
                                     teacher={result}
