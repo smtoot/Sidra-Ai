@@ -5,3 +5,4 @@ export { FeaturedTeachers } from './FeaturedTeachers';
 export { SubjectCategories } from './SubjectCategories';
 export { HowItWorks } from './HowItWorks';
 export { TeacherCTA } from './TeacherCTA';
+export { ScrollToTop } from './ScrollToTop';

@@ -6,6 +6,7 @@ import {
   SubjectCategories,
   HowItWorks,
   TeacherCTA,
+  ScrollToTop,
 } from '@/components/public';
 
 export default function HomePage() {
@@ -27,6 +28,9 @@ export default function HomePage() {
         {/* Teacher CTA */}
         <TeacherCTA />
       </main>
+
+      {/* Scroll to Top Button */}
+      <ScrollToTop />
     </div>
   );
 }
