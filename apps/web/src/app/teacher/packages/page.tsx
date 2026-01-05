@@ -130,7 +130,7 @@ function PackageCard({ pkg, onClick }: { pkg: TeacherPackage; onClick: () => voi
                             <h3 className="font-bold text-lg text-gray-800 truncate">{studentName}</h3>
                             <p className="text-sm text-gray-500 flex items-center gap-1">
                                 <BookOpen className="w-4 h-4 shrink-0" />
-                                <span className="truncate">{pkg.subject.nameAr}</span>
+                                <span className="truncate">{pkg.subject?.nameAr || 'مادة غير محددة'}</span>
                             </p>
                         </div>
                     </div>
