@@ -94,8 +94,8 @@ function getStudentName(pkg: TeacherPackage): string {
         return pkg.payer.parentProfile.children[0].name;
     }
 
-    // Fallback to email username
-    return pkg.student?.email?.split('@')[0] || 'طالب';
+    // Fallback to generic name (PRIVACY: Do not share email)
+    return 'طالب';
 }
 
 // Package Card Component

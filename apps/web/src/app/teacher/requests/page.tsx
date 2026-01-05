@@ -240,8 +240,8 @@ export default function TeacherRequestsPage() {
                                             return `${b.studentUser.firstName} ${b.studentUser.lastName}`;
                                         }
                                         if (b.studentUser?.displayName) return b.studentUser.displayName;
-                                        // Fallback to email username if nothing else
-                                        return b.studentUser?.email?.split('@')[0] || b.bookedByUser?.email?.split('@')[0] || 'طالب';
+                                        // PRIVACY: Never show email/phone. Fallback to generic name.
+                                        return 'طالب';
                                     };
 
                                     return paginatedRequests.map((booking) => {
