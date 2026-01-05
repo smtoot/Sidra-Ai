@@ -156,7 +156,7 @@ export class MarketplaceService {
         averageRating: result.teacher_profiles.averageRating,
         totalReviews: result.teacher_profiles.totalReviews,
         education: result.teacher_profiles.education,
-        yearsOfExperi ence: result.teacher_profiles.yearsOfExperience,
+        yearsOfExperience: result.teacher_profiles.yearsOfExperience,
         applicationStatus: result.teacher_profiles.applicationStatus,
       },
       subject: {
