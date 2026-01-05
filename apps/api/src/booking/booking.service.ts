@@ -964,13 +964,14 @@ export class BookingService {
       );
     }
 
-    return this.prisma.bookings.update({
+    const updated = await this.prisma.bookings.update({
       where: { id: bookingId },
       data: {
         teacherPrepNotes: dto.teacherPrepNotes,
         teacherSummary: dto.teacherSummary,
       },
     });
+    return this.transformBooking(updated);
   }
 
   // Teacher updates meeting link for a specific session
@@ -1022,12 +1023,13 @@ export class BookingService {
       }
     }
 
-    return this.prisma.bookings.update({
+    const updated = await this.prisma.bookings.update({
       where: { id: bookingId },
       data: {
         meetingLink: dto.meetingLink || null,
       },
     });
+    return this.transformBooking(updated);
   }
 
   // Cron job: Expire old pending requests (24 hours)
@@ -1271,10 +1273,11 @@ export class BookingService {
     );
 
     // Update booking status
-    return this.prisma.bookings.update({
+    const updated = await this.prisma.bookings.update({
       where: { id: bookingId },
       data: { status: 'COMPLETED' },
     });
+    return this.transformBooking(updated);
   }
 
   async completeSession(teacherUserId: string, bookingId: string, dto?: any) {
