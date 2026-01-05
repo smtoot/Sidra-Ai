@@ -72,7 +72,7 @@ export class AuthService {
       data: {
         id: crypto.randomUUID(),
         updatedAt: new Date(),
-        email: dto.email, // Email is now required
+        email: dto.email!, // Email is now required
         phoneNumber: dto.phoneNumber, // Phone remains required
         firstName: dto.firstName || null,
         lastName: dto.lastName || null,
