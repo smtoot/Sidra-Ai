@@ -90,24 +90,24 @@ export default function TeacherDashboardPage() {
                     isOnVacation={profile?.isOnVacation ?? false}
                     vacationEndDate={profile?.vacationEndDate ?? null}
                 />
-                <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+                <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-5 md:space-y-6">
                     {/* Header Section - Modern & Clean */}
-                    <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-2">
-                        <div className="flex items-center gap-4">
+                    <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6 mb-2">
+                        <div className="flex items-center gap-3 md:gap-4">
                             <Avatar
                                 src={profile.photo ? getFileUrl(profile.photo) : undefined}
                                 fallback={profile.displayName || 'م'}
-                                size="xl"
-                                className="ring-4 ring-white shadow-lg"
+                                size="lg"
+                                className="ring-2 md:ring-4 ring-white shadow-lg w-14 h-14 md:w-16 md:h-16"
                             />
                             <div>
-                                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">
+                                <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-0.5 md:mb-1">
                                     مرحباً، {profile.firstName || profile.displayName || 'أستاذ'}
                                 </h1>
-                                <p className="text-gray-600 flex items-center gap-2">
+                                <p className="text-gray-600 flex items-center gap-1.5 md:gap-2 text-sm md:text-base">
                                     <span>لوحة التحكم</span>
                                     <span className="text-gray-400">•</span>
-                                    <span className="text-sm">{format(new Date(), 'EEEE، d MMMM', { locale: ar })}</span>
+                                    <span className="text-xs md:text-sm">{format(new Date(), 'EEEE، d MMMM', { locale: ar })}</span>
                                 </p>
                             </div>
                         </div>
@@ -130,7 +130,7 @@ export default function TeacherDashboardPage() {
                     </header>
 
                     {/* Stats Overview - Enhanced Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                         <StatCard
                             title="حصص اليوم"
                             value={counts.todaySessions}
@@ -165,50 +165,79 @@ export default function TeacherDashboardPage() {
                         />
                     </div>
 
+                    {/* Quick Actions - Mobile */}
+                    <div className="lg:hidden">
+                        <Card className="border-none shadow-md">
+                            <CardContent className="p-3">
+                                <div className="grid grid-cols-4 gap-2">
+                                    <Link href="/teacher/requests" className="flex flex-col items-center gap-1 p-2 rounded-lg bg-amber-50 text-amber-700">
+                                        <MessageCircle className="w-5 h-5" />
+                                        <span className="text-[10px] font-medium">الطلبات</span>
+                                        {counts.pendingRequests > 0 && (
+                                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[10px] rounded-full flex items-center justify-center">{counts.pendingRequests}</span>
+                                        )}
+                                    </Link>
+                                    <Link href="/teacher/sessions" className="flex flex-col items-center gap-1 p-2 rounded-lg bg-blue-50 text-blue-700">
+                                        <Calendar className="w-5 h-5" />
+                                        <span className="text-[10px] font-medium">حصصي</span>
+                                    </Link>
+                                    <Link href="/teacher/wallet" className="flex flex-col items-center gap-1 p-2 rounded-lg bg-purple-50 text-purple-700">
+                                        <Wallet className="w-5 h-5" />
+                                        <span className="text-[10px] font-medium">المحفظة</span>
+                                    </Link>
+                                    <Link href="/teacher/profile-hub" className="flex flex-col items-center gap-1 p-2 rounded-lg bg-gray-100 text-gray-700">
+                                        <Users className="w-5 h-5" />
+                                        <span className="text-[10px] font-medium">الملف</span>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
                     {/* Main Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-6">
                         {/* Left Column - Main Content */}
-                        <div className="lg:col-span-2 space-y-6">
+                        <div className="lg:col-span-2 space-y-5 md:space-y-6">
                             {/* Next Session Highlight */}
                             {upcomingSession ? (
                                 <Card className="border-none shadow-lg overflow-hidden bg-gradient-to-br from-primary-600 to-primary-700">
-                                    <CardContent className="p-6 text-white">
-                                        <div className="flex items-start justify-between mb-6">
+                                    <CardContent className="p-4 md:p-6 text-white">
+                                        <div className="flex items-start justify-between mb-4 md:mb-6">
                                             <div>
-                                                <div className="flex items-center gap-2 mb-2 opacity-90">
-                                                    <PlayCircle className="w-5 h-5" />
-                                                    <span className="text-sm font-medium">الحصة القادمة</span>
+                                                <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2 opacity-90">
+                                                    <PlayCircle className="w-4 md:w-5 h-4 md:h-5" />
+                                                    <span className="text-xs md:text-sm font-medium">الحصة القادمة</span>
                                                 </div>
-                                                <h2 className="text-2xl font-bold mb-1">
+                                                <h2 className="text-xl md:text-2xl font-bold mb-1">
                                                     {upcomingSession.subject?.nameAr || 'مادة دراسية'}
                                                 </h2>
-                                                <div className="flex items-center gap-2 text-primary-100">
-                                                    <Clock className="w-4 h-4" />
-                                                    <span className="text-sm">{sessionDateLabel} • {sessionTimeLabel}</span>
+                                                <div className="flex items-center gap-1.5 md:gap-2 text-primary-100">
+                                                    <Clock className="w-3.5 md:w-4 h-3.5 md:h-4" />
+                                                    <span className="text-xs md:text-sm">{sessionDateLabel} • {sessionTimeLabel}</span>
                                                 </div>
                                             </div>
-                                            <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                                                <span className="text-xs font-medium">قريباً</span>
+                                            <div className="bg-white/20 backdrop-blur-sm px-2.5 md:px-4 py-1 md:py-2 rounded-full">
+                                                <span className="text-[10px] md:text-xs font-medium">قريباً</span>
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-white/20">
-                                            <div className="flex items-center gap-3">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4 pt-3 md:pt-4 border-t border-white/20">
+                                            <div className="flex items-center gap-2 md:gap-3">
                                                 <Avatar
                                                     fallback={upcomingSession.studentName?.[0] || 'ط'}
-                                                    size="md"
-                                                    className="ring-2 ring-white/50"
+                                                    size="sm"
+                                                    className="ring-2 ring-white/50 w-9 h-9 md:w-10 md:h-10"
                                                 />
                                                 <div>
-                                                    <div className="font-semibold">
+                                                    <div className="font-semibold text-sm md:text-base">
                                                         {upcomingSession.studentName || 'طالب'}
                                                     </div>
-                                                    <div className="text-xs text-primary-100">الطالب</div>
+                                                    <div className="text-[10px] md:text-xs text-primary-100">الطالب</div>
                                                 </div>
                                             </div>
                                             <Button
-                                                size="lg"
-                                                className="w-full sm:w-auto bg-white text-primary-600 hover:bg-primary-50 shadow-lg"
+                                                size="default"
+                                                className="w-full sm:w-auto bg-white text-primary-600 hover:bg-primary-50 shadow-lg text-sm md:text-base"
                                                 disabled={!upcomingSession.meetingLink}
                                                 onClick={() => {
                                                     if (upcomingSession.meetingLink) {
@@ -216,15 +245,15 @@ export default function TeacherDashboardPage() {
                                                     }
                                                 }}
                                             >
-                                                <Video className="w-4 h-4 ml-2" />
+                                                <Video className="w-4 h-4 ml-1.5 md:ml-2" />
                                                 انضم للدرس
                                             </Button>
                                         </div>
 
                                         {!upcomingSession.meetingLink && (
-                                            <div className="mt-4 p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg">
-                                                <div className="flex items-start gap-2 text-sm">
-                                                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <div className="mt-3 md:mt-4 p-2.5 md:p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg">
+                                                <div className="flex items-start gap-2 text-xs md:text-sm">
+                                                    <AlertCircle className="w-3.5 md:w-4 h-3.5 md:h-4 mt-0.5 shrink-0" />
                                                     <div>
                                                         <strong>تنبيه:</strong> لم تقم بإضافة رابط الاجتماع.
                                                         <Link href="/teacher/sessions" className="underline font-semibold mr-1">
@@ -238,14 +267,14 @@ export default function TeacherDashboardPage() {
                                 </Card>
                             ) : (
                                 <Card className="border-2 border-dashed border-gray-200">
-                                    <CardContent className="p-12 text-center">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Calendar className="w-8 h-8 text-gray-400" />
+                                    <CardContent className="p-8 md:p-12 text-center">
+                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
+                                            <Calendar className="w-6 h-6 md:w-8 md:h-8 text-gray-400" />
                                         </div>
-                                        <h3 className="font-semibold text-gray-900 mb-2">لا توجد حصص قادمة</h3>
-                                        <p className="text-gray-500 text-sm mb-4">تحقق من جدولك أو قم بتحديث المواعيد المتاحة</p>
+                                        <h3 className="font-semibold text-gray-900 mb-1.5 md:mb-2 text-sm md:text-base">لا توجد حصص قادمة</h3>
+                                        <p className="text-gray-500 text-xs md:text-sm mb-3 md:mb-4">تحقق من جدولك أو قم بتحديث المواعيد المتاحة</p>
                                         <Link href="/teacher/availability">
-                                            <Button variant="outline">تحديث الجدول</Button>
+                                            <Button variant="outline" size="sm" className="md:h-10">تحديث الجدول</Button>
                                         </Link>
                                     </CardContent>
                                 </Card>
@@ -253,14 +282,14 @@ export default function TeacherDashboardPage() {
 
                             {/* Week Timeline */}
                             <Card className="border-none shadow-md">
-                                <CardHeader className="border-b bg-gray-50/50">
-                                    <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-primary-600" />
+                                <CardHeader className="border-b bg-gray-50/50 px-4 md:px-6 py-3 md:py-4">
+                                    <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                                        <Calendar className="w-4 md:w-5 h-4 md:h-5 text-primary-600" />
                                         جدول الأسبوع
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-4">
-                                    <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="grid grid-cols-7 gap-1 md:gap-2">
                                         {weekDays.map((day, index) => {
                                             const isCurrentDay = isToday(day);
                                             const hasSession = upcomingSession && isSameDay(new Date(upcomingSession.startTime), day);
@@ -293,43 +322,44 @@ export default function TeacherDashboardPage() {
                             {/* Recent Activity */}
                             {recentSessions && recentSessions.length > 0 && (
                                 <Card className="border-none shadow-md">
-                                    <CardHeader className="border-b bg-gray-50/50">
+                                    <CardHeader className="border-b bg-gray-50/50 px-4 md:px-6 py-3 md:py-4">
                                         <div className="flex items-center justify-between">
-                                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                                <TrendingUp className="w-5 h-5 text-success-600" />
+                                            <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                                                <TrendingUp className="w-4 md:w-5 h-4 md:h-5 text-success-600" />
                                                 آخر النشاطات
                                             </CardTitle>
-                                            <Link href="/teacher/sessions" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                                            <Link href="/teacher/sessions" className="text-xs md:text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
                                                 <span>عرض الكل</span>
-                                                <ChevronRight className="w-4 h-4" />
+                                                <ChevronRight className="w-3.5 md:w-4 h-3.5 md:h-4" />
                                             </Link>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="p-0">
                                         <div className="divide-y divide-gray-100">
                                             {recentSessions.map((session: any) => (
-                                                <div key={session.id} className="p-4 hover:bg-gray-50/50 transition-colors">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
+                                                <div key={session.id} className="p-3 md:p-4 hover:bg-gray-50/50 transition-colors">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-2 md:gap-3 min-w-0">
                                                             <Avatar
                                                                 fallback={session.studentName?.[0] || 'ط'}
-                                                                size="md"
+                                                                size="sm"
+                                                                className="w-9 h-9 md:w-10 md:h-10 flex-shrink-0"
                                                             />
-                                                            <div>
-                                                                <div className="font-semibold text-gray-900">{session.studentName}</div>
-                                                                <div className="text-sm text-gray-500">{session.subjectName}</div>
+                                                            <div className="min-w-0">
+                                                                <div className="font-semibold text-gray-900 text-sm md:text-base truncate">{session.studentName}</div>
+                                                                <div className="text-xs md:text-sm text-gray-500 truncate">{session.subjectName}</div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-left">
-                                                            <div className="font-bold text-success-600 mb-1 flex items-center gap-1">
-                                                                <span className="text-lg">+{Math.round(session.earnings || 0)}</span>
-                                                                <span className="text-xs">SDG</span>
+                                                        <div className="text-left flex-shrink-0">
+                                                            <div className="font-bold text-success-600 mb-0.5 md:mb-1 flex items-center gap-1">
+                                                                <span className="text-base md:text-lg">+{Math.round(session.earnings || 0)}</span>
+                                                                <span className="text-[10px] md:text-xs">SDG</span>
                                                             </div>
-                                                            <div className="text-xs text-gray-500">
+                                                            <div className="text-[10px] md:text-xs text-gray-500">
                                                                 {format(new Date(session.startTime), 'd MMM', { locale: ar })}
                                                             </div>
                                                             {session.rating && (
-                                                                <div className="flex items-center gap-1 text-xs text-amber-500 mt-1">
+                                                                <div className="flex items-center gap-1 text-[10px] md:text-xs text-amber-500 mt-0.5 md:mt-1">
                                                                     <span>⭐</span>
                                                                     <span>{session.rating}</span>
                                                                 </div>
@@ -344,8 +374,8 @@ export default function TeacherDashboardPage() {
                             )}
                         </div>
 
-                        {/* Right Sidebar - Quick Actions & Notifications */}
-                        <div className="space-y-6">
+                        {/* Right Sidebar - Quick Actions & Notifications - Desktop */}
+                        <div className="hidden lg:block space-y-6">
                             {/* Quick Actions Panel */}
                             <Card className="border-none shadow-md">
                                 <CardHeader className="border-b bg-gray-50/50">
@@ -460,20 +490,20 @@ function StatCard({ title, value, icon: Icon, gradient, subtext, suffix, href }:
 }) {
     const content = (
         <Card className="border-none shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer">
-            <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
-                        <Icon className="w-6 h-6 text-white" />
+            <CardContent className="p-3 md:p-6">
+                <div className="flex items-center justify-between mb-2 md:mb-4">
+                    <div className={`p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
+                        <Icon className="w-4 h-4 md:w-6 md:h-6 text-white" />
                     </div>
-                    {href && <ArrowUpRight className="w-5 h-5 text-gray-400 group-hover:text-primary-600 transition-colors" />}
+                    {href && <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 text-gray-400 group-hover:text-primary-600 transition-colors" />}
                 </div>
                 <div>
-                    <div className="text-sm text-gray-600 mb-1">{title}</div>
-                    <div className="flex items-baseline gap-2">
-                        <div className="text-3xl font-bold text-gray-900">{value}</div>
-                        {suffix && <span className="text-sm text-gray-500">{suffix}</span>}
+                    <div className="text-xs md:text-sm text-gray-600 mb-0.5 md:mb-1">{title}</div>
+                    <div className="flex items-baseline gap-1 md:gap-2">
+                        <div className="text-xl md:text-3xl font-bold text-gray-900">{value}</div>
+                        {suffix && <span className="text-[10px] md:text-sm text-gray-500">{suffix}</span>}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{subtext}</div>
+                    <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1 hidden sm:block">{subtext}</div>
                 </div>
             </CardContent>
         </Card>

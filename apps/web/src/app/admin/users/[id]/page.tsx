@@ -36,7 +36,7 @@ export default function AdminUserDetailPage() {
 
     // Edit State
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [editForm, setEditForm] = useState({ email: '', phoneNumber: '' });
+    const [editForm, setEditForm] = useState({ email: '', phoneNumber: '', firstName: '', lastName: '' });
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -80,7 +80,9 @@ export default function AdminUserDetailPage() {
                 setUser(userData);
                 setEditForm({
                     email: userData.email || '',
-                    phoneNumber: userData.phoneNumber || ''
+                    phoneNumber: userData.phoneNumber || '',
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || ''
                 });
             } catch (userError) {
                 console.error('Error loading user:', userError);
@@ -687,6 +689,26 @@ export default function AdminUserDetailPage() {
                             <DialogTitle>تعديل بيانات المستخدم</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="firstName">الاسم الأول</Label>
+                                    <Input
+                                        id="firstName"
+                                        value={editForm.firstName}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                                        placeholder="الاسم الأول"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="lastName">الاسم الأخير</Label>
+                                    <Input
+                                        id="lastName"
+                                        value={editForm.lastName}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                                        placeholder="الاسم الأخير"
+                                    />
+                                </div>
+                            </div>
                             <div className="space-y-2">
                                 <Label htmlFor="email">البريد الإلكتروني</Label>
                                 <Input

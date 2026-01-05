@@ -46,7 +46,7 @@ export class UserAdminController {
   @Patch(':id')
   async updateUser(
     @Param('id') id: string,
-    @Body() body: { email?: string; phoneNumber?: string },
+    @Body() body: { email?: string; phoneNumber?: string; firstName?: string; lastName?: string },
   ) {
     this.logger.debug(`PATCH /admin/users/${id} hit`, { body });
     return this.userService.updateUser(id, body);

@@ -39,7 +39,7 @@ export class UserService {
     });
   }
 
-  async updateUser(userId: string, data: { email?: string; phoneNumber?: string }) {
+  async updateUser(userId: string, data: { email?: string; phoneNumber?: string; firstName?: string; lastName?: string }) {
     const user = await this.prisma.users.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -48,6 +48,8 @@ export class UserService {
       data: {
         email: data.email,
         phoneNumber: data.phoneNumber,
+        firstName: data.firstName,
+        lastName: data.lastName,
       },
     });
   }

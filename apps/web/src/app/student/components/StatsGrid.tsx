@@ -26,25 +26,25 @@ export function StatsGrid({
     const isUrgent = nextClass && differenceInHours(new Date(nextClass.startTime), new Date()) < 24;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
             {/* Card 1: Upcoming Session (Priority) */}
             <Card className={cn(
                 "h-full border-none shadow-md transition-shadow hover:shadow-lg relative overflow-hidden group",
                 isUrgent ? "ring-2 ring-primary-500/20" : ""
             )}>
-                <CardContent className="p-6 h-full flex flex-col">
-                    <div className="flex items-center gap-2 mb-4 text-primary-600 font-medium">
-                        <Calendar className="w-5 h-5" />
-                        <span>الحصة القادمة</span>
+                <CardContent className="p-4 md:p-6 h-full flex flex-col">
+                    <div className="flex items-center gap-2 mb-3 md:mb-4 text-primary-600 font-medium">
+                        <Calendar className="w-4 md:w-5 h-4 md:h-5" />
+                        <span className="text-sm md:text-base">الحصة القادمة</span>
                     </div>
 
                     {nextClass ? (
                         <div className="flex-1 flex flex-col justify-between">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-1">
                                     {nextClass.subject?.nameAr || 'مادة دراسية'}
                                 </h3>
-                                <div className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+                                <div className="text-sm text-gray-500 mb-3 md:mb-4 flex items-center gap-2">
                                     <Clock className="w-4 h-4" />
                                     {isToday(new Date(nextClass.startTime)) ? 'اليوم' :
                                         isTomorrow(new Date(nextClass.startTime)) ? 'غداً' :
@@ -52,7 +52,7 @@ export function StatsGrid({
                                     {' • '}
                                     {format(new Date(nextClass.startTime), 'h:mm a', { locale: ar })}
                                 </div>
-                                <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg mb-4">
+                                <div className="flex items-center gap-3 bg-gray-50 p-2.5 md:p-3 rounded-lg mb-3 md:mb-4">
                                     <Avatar
                                         src={nextClass.teacherProfile?.user?.photoUrl}
                                         fallback={nextClass.teacherProfile?.user?.displayName?.[0] || 'م'}
@@ -90,14 +90,14 @@ export function StatsGrid({
 
             {/* Card 2: Wallet Balance */}
             <Card className="h-full border-none shadow-md transition-shadow hover:shadow-lg">
-                <CardContent className="p-6 h-full flex flex-col">
-                    <div className="flex items-center gap-2 mb-4 text-emerald-600 font-medium">
-                        <Wallet className="w-5 h-5" />
-                        <span>رصيد المحفظة</span>
+                <CardContent className="p-4 md:p-6 h-full flex flex-col">
+                    <div className="flex items-center gap-2 mb-3 md:mb-4 text-emerald-600 font-medium">
+                        <Wallet className="w-4 md:w-5 h-4 md:h-5" />
+                        <span className="text-sm md:text-base">رصيد المحفظة</span>
                     </div>
 
-                    <div className="flex-1 flex flex-col justify-center mb-4">
-                        <div className="text-4xl font-bold text-gray-900 mb-1" style={{ direction: 'ltr' }}>
+                    <div className="flex-1 flex flex-col justify-center mb-3 md:mb-4">
+                        <div className="text-3xl md:text-4xl font-bold text-gray-900 mb-1" style={{ direction: 'ltr' }}>
                             {balance.toLocaleString()} <span className="text-xl text-gray-500 font-normal">SDG</span>
                         </div>
                         <p className="text-sm text-gray-500">رصيدك الحالي المتاح</p>
@@ -115,28 +115,28 @@ export function StatsGrid({
 
             {/* Card 3: Sessions Summary */}
             <Card className="h-full border-none shadow-md transition-shadow hover:shadow-lg">
-                <CardContent className="p-6 h-full flex flex-col">
-                    <div className="flex items-center gap-2 mb-6 text-blue-600 font-medium">
-                        <CheckCircle className="w-5 h-5" />
-                        <span>ملخص الحصص</span>
+                <CardContent className="p-4 md:p-6 h-full flex flex-col">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6 text-blue-600 font-medium">
+                        <CheckCircle className="w-4 md:w-5 h-4 md:h-5" />
+                        <span className="text-sm md:text-base">ملخص الحصص</span>
                     </div>
 
-                    <div className="space-y-4 flex-1">
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                    <div className="space-y-3 md:space-y-4 flex-1">
+                        <div className="flex items-center justify-between p-2.5 md:p-3 rounded-lg bg-gray-50">
                             <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
                                 <span className="text-gray-600">مكتملة</span>
                             </div>
                             {/* Use accurate completed count, fallback to total for legacy compatibility if missing */}
-                            <span className="text-2xl font-bold text-gray-900">{completedClassesCount ?? totalClasses}</span>
+                            <span className="text-xl md:text-2xl font-bold text-gray-900">{completedClassesCount ?? totalClasses}</span>
                         </div>
 
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                        <div className="flex items-center justify-between p-2.5 md:p-3 rounded-lg bg-gray-50">
                             <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-blue-500" />
                                 <span className="text-gray-600">ساعات تعلم</span>
                             </div>
-                            <span className="text-2xl font-bold text-gray-900" dir="ltr">{totalHoursLearned || 0}h</span>
+                            <span className="text-xl md:text-2xl font-bold text-gray-900" dir="ltr">{totalHoursLearned || 0}h</span>
                         </div>
                     </div>
                 </CardContent>

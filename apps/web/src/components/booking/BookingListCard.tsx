@@ -93,20 +93,20 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
         >
             {/* --- 1. COLORED HEADER --- */}
             <div className={cn(
-                "px-5 py-3 md:py-3.5 flex items-center justify-between gap-2 border-b transition-colors",
+                "px-4 md:px-5 py-2.5 md:py-3.5 flex items-center justify-between gap-2 border-b transition-colors",
                 config.headerBg,
                 config.borderColor,
                 config.headerText,
                 "group-hover:bg-opacity-80"
             )}>
-                <div className="flex items-start gap-2.5">
-                    <StatusIcon className="w-5 h-5 mt-0.5 opacity-90" />
+                <div className="flex items-start gap-2">
+                    <StatusIcon className="w-4 md:w-5 h-4 md:h-5 mt-0.5 opacity-90 flex-shrink-0" />
                     <div>
-                        <h3 className="font-bold text-base md:text-lg leading-tight">
+                        <h3 className="font-bold text-sm md:text-lg leading-tight">
                             {config.label}
                         </h3>
                         {config.microcopy && (
-                            <p className="text-sm opacity-85 mt-0.5 font-medium text-current/90">
+                            <p className="text-xs md:text-sm opacity-85 mt-0.5 font-medium text-current/90 hidden sm:block">
                                 {config.microcopy}
                             </p>
                         )}
@@ -115,26 +115,26 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
             </div>
 
             {/* --- 2. CARD BODY --- */}
-            <div className="p-5 md:p-6 flex flex-col md:flex-row gap-6 items-start md:items-center relative">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center relative">
 
                 {/* RIGHT BLOCK: Booking Info */}
-                <div className="flex-1 min-w-0 space-y-3">
+                <div className="flex-1 min-w-0 space-y-2 md:space-y-3">
 
                     {/* Subject | Teacher */}
                     <div>
-                        <h4 className="text-lg md:text-xl font-bold text-gray-900 leading-tight group-hover:text-primary-700 transition-colors">
+                        <h4 className="text-base md:text-xl font-bold text-gray-900 leading-tight group-hover:text-primary-700 transition-colors">
                             {booking.subject?.nameAr || booking.subject?.nameEn}
-                            <span className="text-gray-300 mx-2 font-light">|</span>
+                            <span className="text-gray-300 mx-1.5 md:mx-2 font-light">|</span>
                             <span className="text-primary-700 group-hover:text-primary-800">{booking.teacherProfile?.displayName}</span>
                         </h4>
                     </div>
 
                     {/* Meta Row: Date, Time, Student */}
-                    <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-y-1.5 gap-x-3 md:gap-x-4 text-xs md:text-sm text-gray-500">
                         {/* Student Name (Parent Only) */}
                         {userRole === 'PARENT' && (
-                            <div className="flex items-center gap-1.5 text-gray-700 bg-gray-50 px-2.5 py-1 rounded-md">
-                                <User className="w-4 h-4 text-gray-400" />
+                            <div className="flex items-center gap-1 md:gap-1.5 text-gray-700 bg-gray-50 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md">
+                                <User className="w-3 md:w-4 h-3 md:h-4 text-gray-400" />
                                 <span className="font-medium">
                                     {booking.child?.name || booking.student?.name || 'الابن'}
                                 </span>
@@ -143,22 +143,22 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
 
                         {/* Demo Badge */}
                         {Number(booking.price) === 0 && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-100">
-                                <span className="font-bold text-xs">حصة تجريبية</span>
+                            <div className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-100">
+                                <span className="font-bold text-[10px] md:text-xs">حصة تجريبية</span>
                             </div>
                         )}
 
                         {/* Date */}
-                        <div className="flex items-center gap-1.5 px-1">
-                            <Calendar className="w-4 h-4 text-gray-400 group-hover:text-primary/60 transition-colors" />
+                        <div className="flex items-center gap-1 md:gap-1.5 px-1">
+                            <Calendar className="w-3 md:w-4 h-3 md:h-4 text-gray-400 group-hover:text-primary/60 transition-colors" />
                             <span dir="rtl" className="font-medium text-gray-600 group-hover:text-gray-900 transition-colors">
                                 {new Date(booking.startTime).toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' })}
                             </span>
                         </div>
 
                         {/* Time */}
-                        <div className="flex items-center gap-1.5 px-1">
-                            <Clock className="w-4 h-4 text-gray-400 group-hover:text-primary/60 transition-colors" />
+                        <div className="flex items-center gap-1 md:gap-1.5 px-1">
+                            <Clock className="w-3 md:w-4 h-3 md:h-4 text-gray-400 group-hover:text-primary/60 transition-colors" />
                             <span dir="rtl" className="font-medium text-gray-600 group-hover:text-gray-900 transition-colors">
                                 {new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: 'numeric', minute: 'numeric' })}
                             </span>
@@ -167,10 +167,10 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                 </div>
 
                 {/* DIVIDER (Mobile) */}
-                <div className="h-px bg-gray-100 w-full md:hidden" />
+                <div className="h-px bg-gray-100 w-full md:hidden -mx-4 px-4" />
 
                 {/* LEFT BLOCK: Price & Actions & Affordance */}
-                <div className="flex flex-col justify-between items-end gap-4 w-full md:w-auto min-w-[160px]">
+                <div className="flex flex-col justify-between items-end gap-3 md:gap-4 w-full md:w-auto md:min-w-[160px]">
 
                     {/* Price & Primary Action Grouping */}
                     <div className={cn(
@@ -182,17 +182,17 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                             <div className={cn("text-right", isPaymentRequired && "px-1 pt-1")}>
                                 {Number(booking.price) === 0 ? (
                                     <div>
-                                        <p className="text-lg md:text-xl font-black text-purple-600 leading-none">
+                                        <p className="text-base md:text-xl font-black text-purple-600 leading-none">
                                             مجاني
                                         </p>
                                         <p className="text-[10px] text-purple-400">عرض خاص</p>
                                     </div>
                                 ) : (
                                     <>
-                                        <p className="text-lg md:text-xl font-black text-gray-900 leading-none">
+                                        <p className="text-base md:text-xl font-black text-gray-900 leading-none">
                                             {booking.price.toLocaleString()} <span className="text-xs font-normal text-gray-500">SDG</span>
                                         </p>
-                                        <p className="text-[10px] text-gray-400">للحصة الواحدة</p>
+                                        <p className="text-[10px] text-gray-400 hidden sm:block">للحصة الواحدة</p>
                                     </>
                                 )}
                             </div>
@@ -201,10 +201,10 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                         {/* Primary Button */}
                         {config.primaryAction && (
                             <Button
-                                size="default"
+                                size="sm"
                                 variant={config.primaryAction.variant || 'default'}
                                 className={cn(
-                                    "w-full md:w-auto font-bold shadow-sm transition-all z-10",
+                                    "w-full md:w-auto font-bold shadow-sm transition-all z-10 text-sm",
                                     config.primaryAction.className,
                                     isPaymentRequired && "w-full shadow-blue-200 shadow-md"
                                 )}
@@ -213,7 +213,7 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                                     onAction(config.primaryAction!.actionType, booking);
                                 }}
                             >
-                                {config.primaryAction.icon && <config.primaryAction.icon className="w-4 h-4 ml-1.5" />}
+                                {config.primaryAction.icon && <config.primaryAction.icon className="w-3.5 md:w-4 h-3.5 md:h-4 ml-1 md:ml-1.5" />}
                                 {config.primaryAction.label}
                             </Button>
                         )}
@@ -224,7 +224,7 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
                                 size="sm"
                                 variant="ghost"
                                 className={cn(
-                                    "w-full md:w-auto h-8 text-xs font-medium hover:bg-gray-50 transition-colors",
+                                    "w-full md:w-auto h-7 md:h-8 text-xs font-medium hover:bg-gray-50 transition-colors",
                                     config.secondaryAction.className
                                 )}
                                 onClick={(e) => {
@@ -239,11 +239,11 @@ export function BookingListCard({ booking, userRole, onAction }: BookingListCard
 
                     {/* Persistent "View Details" Affordance */}
                     <div className={cn(
-                        "flex items-center gap-1 text-xs font-medium transition-colors mt-auto",
+                        "flex items-center gap-1 text-[11px] md:text-xs font-medium transition-colors mt-auto",
                         config.primaryAction ? "text-gray-400 group-hover:text-primary/80" : "text-primary group-hover:text-primary-700"
                     )}>
                         <span>عرض تفاصيل الحجز</span>
-                        <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                        <ChevronLeft className="w-3.5 md:w-4 h-3.5 md:h-4 transition-transform group-hover:-translate-x-1" />
                     </div>
 
                 </div>

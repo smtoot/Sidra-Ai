@@ -96,8 +96,8 @@ export class AuthService {
     });
 
     return this.signToken(user.id, user.email, user.role, {
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: user.firstName || undefined,
+      lastName: user.lastName || undefined,
     });
   }
 
@@ -156,8 +156,8 @@ export class AuthService {
 
     this.logger.log(`Login successful for user ${user.id}`);
     return this.signToken(user.id, user.email || undefined, user.role, {
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: user.firstName || undefined,
+      lastName: user.lastName || undefined,
       displayName: user.teacher_profiles?.displayName || undefined,
     });
   }
@@ -265,6 +265,78 @@ export class AuthService {
     });
 
     return { message: 'تم تغيير كلمة المرور بنجاح' };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.users.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Don't reveal that user doesn't exist for security
+      return { message: 'If account exists, email sent' };
+    }
+
+    // Generate token
+    const token = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiry
+
+    // Save to DB
+    await this.prisma.passwordResetToken.create({
+      data: {
+        email,
+        token,
+        expiresAt,
+      },
+    });
+
+    // TODO: PRODUCTION - Integrate with SendGrid/Resend to send real email
+    // This is currently a mock for development. Replace this logger with email service call.
+    this.logger.log(`[MOCK EMAIL] Password Reset Link: http://localhost:3000/reset-password?token=${token}`);
+
+    return { message: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    // 1. Find valid token
+    const resetRecord = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+    });
+
+    if (!resetRecord) {
+      throw new BadRequestException('الرابط غير صالح أو منتهي الصلاحية');
+    }
+
+    if (resetRecord.expiresAt < new Date()) {
+      throw new BadRequestException('الرابط منتهي الصلاحية');
+    }
+
+    // 2. Find user
+    const user = await this.prisma.users.findUnique({
+      where: { email: resetRecord.email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('المستخدم غير موجود');
+    }
+
+    // 3. Validate strong password
+    this.validateStrongPassword(newPassword);
+
+    // 4. Update password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.users.update({
+      where: { id: user.id },
+      data: { passwordHash: hashedPassword },
+    });
+
+    // 5. Delete used token (and potentially all tokens for this email to invalidate others)
+    await this.prisma.passwordResetToken.delete({
+      where: { id: resetRecord.id },
+    });
+
+    return { message: 'تم إعادة تعيين كلمة المرور بنجاح' };
   }
 
   /**

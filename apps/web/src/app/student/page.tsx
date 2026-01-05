@@ -70,7 +70,7 @@ export default function StudentDashboardPage() {
 
     return (
         <div className="min-h-screen bg-gray-50/50 font-sans" dir="rtl">
-            <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
+            <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8">
                 {/* Header */}
                 <DashboardHeader />
 
@@ -83,16 +83,21 @@ export default function StudentDashboardPage() {
                     totalHoursLearned={totalHoursLearned}
                 />
 
+                {/* Quick Actions - Show on mobile first */}
+                <div className="lg:hidden">
+                    <QuickActions />
+                </div>
+
                 {/* Main Content & Sidebar Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
                     {/* Left Column: Main Content */}
                     <div className="lg:col-span-2 space-y-6">
                         {hasUpcoming ? (
                             <Card className="border-none shadow-md overflow-hidden">
-                                <CardHeader className="border-b bg-white px-6 py-4 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-primary-600" />
+                                <CardHeader className="border-b bg-white px-4 md:px-6 py-3 md:py-4 flex flex-row items-center justify-between">
+                                    <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                                        <Calendar className="w-4 md:w-5 h-4 md:h-5 text-primary-600" />
                                         جميع الحصص القادمة
                                     </CardTitle>
                                     <Link href="/student/bookings" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
@@ -164,8 +169,8 @@ export default function StudentDashboardPage() {
                         )}
                     </div>
 
-                    {/* Right Column: Quick Actions */}
-                    <div className="space-y-6">
+                    {/* Right Column: Quick Actions - Hidden on mobile (shown above) */}
+                    <div className="hidden lg:block space-y-6">
                         <QuickActions />
                     </div>
                 </div>

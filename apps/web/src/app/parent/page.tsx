@@ -67,16 +67,16 @@ export default function ParentDashboardPage() {
 
     return (
         <div className="min-h-screen bg-gray-50/50 font-sans" dir="rtl">
-            <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+            <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-5 md:space-y-6">
 
                 {/* Header Section */}
-                <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-2">
+                <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6 mb-2">
                     <div>
-                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">
+                        <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-1">
                             مرحباً، {user?.firstName || 'ولي الأمر'}
                         </h1>
-                        <p className="text-gray-600 flex items-center gap-2">
-                            <Heart className="w-5 h-5 text-red-500 fill-red-50" />
+                        <p className="text-gray-600 flex items-center gap-2 text-sm md:text-base">
+                            <Heart className="w-4 md:w-5 h-4 md:h-5 text-red-500 fill-red-50" />
                             <span>لوحة تحكم لمتابعة أبنائك</span>
                         </p>
                     </div>
@@ -104,8 +104,13 @@ export default function ParentDashboardPage() {
                     childrenCount={children?.length || 0}
                 />
 
+                {/* Quick Actions - Mobile First */}
+                <div className="lg:hidden">
+                    <ParentQuickActions />
+                </div>
+
                 {/* Main Content Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
                     {/* Left Column: Dynamic Main Content */}
                     <div className="lg:col-span-2 space-y-6">
@@ -123,8 +128,8 @@ export default function ParentDashboardPage() {
                         {/* Additional Sections (e.g. Recommendations) can go here later */}
                     </div>
 
-                    {/* Right Column: Quick Actions */}
-                    <div className="space-y-6">
+                    {/* Right Column: Quick Actions - Desktop Only */}
+                    <div className="hidden lg:block space-y-6">
                         <ParentQuickActions />
                     </div>
                 </div>

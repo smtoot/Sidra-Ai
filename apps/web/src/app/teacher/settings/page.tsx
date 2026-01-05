@@ -9,6 +9,7 @@ import { TimezoneSettings } from '@/components/teacher/settings/TimezoneSettings
 import { SlugSettings } from '@/components/teacher/settings/SlugSettings';
 import { CancellationPolicySettings } from '@/components/teacher/settings/CancellationPolicySettings';
 import { VacationModeSettings } from '@/components/teacher/settings/VacationModeSettings';
+import { ChangePasswordForm } from '@/components/auth/ChangePasswordForm';
 
 export default function TeacherSettingsPage() {
     const { isApproved, loading: loadingStatus } = useTeacherApplicationStatus();
@@ -45,7 +46,10 @@ export default function TeacherSettingsPage() {
                     <PackageSettings isReadOnly={isReadOnly} />
                     <TimezoneSettings isReadOnly={isReadOnly} />
                     <SlugSettings isReadOnly={isReadOnly} />
+                    <SlugSettings isReadOnly={isReadOnly} />
                     <CancellationPolicySettings isReadOnly={isReadOnly} />
+                    {!isReadOnly && <ChangePasswordForm />} // Password change only if approved/editable? Or always? Assuming always but keeping consistent with "settings" flow. Actually change password should probably be allowed even if not approved, but the page is guarded.
+                // Wait, I need to import it first. 
                 </div>
             </div>
         </TeacherApprovalGuard>

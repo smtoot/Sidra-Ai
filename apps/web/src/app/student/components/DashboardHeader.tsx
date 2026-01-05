@@ -14,22 +14,23 @@ export function DashboardHeader() {
     else greeting = 'مرحباً،';
 
     return (
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6 mb-6 md:mb-8">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2 font-tajawal">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2 font-tajawal">
                     {greeting} {user?.firstName}
                     <span className="inline-block animate-wave origin-bottom-right px-2">👋</span>
                 </h1>
-                <p className="text-gray-500 flex items-center gap-2 text-lg">
+                <p className="text-gray-500 flex items-center gap-2 text-base md:text-lg">
                     <GraduationCap className="w-5 h-5 text-primary-500" />
                     <span>جاهز تحجز حصتك الجاية؟</span>
                 </p>
             </div>
 
-            <div className="text-left md:text-left rtl:text-left ltr:text-right hidden md:block">
-                <div className="text-lg font-bold text-gray-700 font-sans">
+            <div className="flex items-center gap-2 md:block text-right md:text-left rtl:text-left ltr:text-right">
+                <div className="text-sm md:text-lg font-bold text-gray-700 font-sans">
                     {format(now, 'd MMMM yyyy', { locale: ar })}
                 </div>
+                <span className="text-gray-300 md:hidden">•</span>
                 <div className="text-sm text-gray-400 font-medium">
                     {format(now, 'EEEE', { locale: ar })}
                 </div>

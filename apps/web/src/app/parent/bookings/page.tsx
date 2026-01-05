@@ -227,15 +227,15 @@ export default function ParentBookingsPage() {
             <div className="max-w-5xl mx-auto space-y-8">
 
                 {/* 1. Page Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">حجوزاتي</h1>
-                        <p className="text-gray-500 mt-1 text-lg">إدارة حجوزات الأبناء ومتابعة المدفوعات</p>
+                        <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">حجوزاتي</h1>
+                        <p className="text-gray-500 mt-1 text-base md:text-lg">إدارة حجوزات الأبناء ومتابعة المدفوعات</p>
                     </div>
                     <div>
                         <Link href="/search">
-                            <Button size="lg" className="w-full md:w-auto font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
-                                <Plus className="w-5 h-5 ml-2" />
+                            <Button size="default" className="w-full md:w-auto font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all md:text-base">
+                                <Plus className="w-4 md:w-5 h-4 md:h-5 ml-2" />
                                 حجز حصة جديدة
                             </Button>
                         </Link>
@@ -244,23 +244,25 @@ export default function ParentBookingsPage() {
 
                 {/* 2. Pending Actions Alert */}
                 {pendingConfirmations.length > 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm animate-in fade-in slide-in-from-top-2">
-                        <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 text-amber-600">
-                                <AlertTriangle className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-bold text-amber-900 text-lg">
-                                    لديك {pendingConfirmations.length} حصص بانتظار التأكيد
-                                </h3>
-                                <p className="text-amber-800/80 mt-1 leading-relaxed">
-                                    يرجى تأكيد اكتمال الحصص المعلقة أو الإبلاغ عن مشكلة لضمان حقك وحق المعلم.
-                                    سيتم إغلاق الطلبات تلقائياً خلال 48 ساعة.
-                                </p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl md:rounded-2xl p-4 md:p-5 shadow-sm animate-in fade-in slide-in-from-top-2">
+                        <div className="flex flex-col sm:flex-row items-start gap-3 md:gap-4">
+                            <div className="flex items-start gap-3 flex-1">
+                                <div className="w-9 h-9 md:w-10 md:h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 text-amber-600">
+                                    <AlertTriangle className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-amber-900 text-base md:text-lg">
+                                        لديك {pendingConfirmations.length} حصص بانتظار التأكيد
+                                    </h3>
+                                    <p className="text-amber-800/80 mt-1 leading-relaxed text-sm md:text-base">
+                                        يرجى تأكيد اكتمال الحصص المعلقة. سيتم إغلاق الطلبات تلقائياً خلال 48 ساعة.
+                                    </p>
+                                </div>
                             </div>
                             <Button
                                 variant="outline"
-                                className="bg-white border-amber-200 text-amber-800 hover:bg-amber-100 font-bold"
+                                size="sm"
+                                className="w-full sm:w-auto bg-white border-amber-200 text-amber-800 hover:bg-amber-100 font-bold"
                                 onClick={() => {
                                     setStatusFilter('UPCOMING');
                                     setTimeFilter('ALL');
@@ -273,29 +275,29 @@ export default function ParentBookingsPage() {
                 )}
 
                 {/* 3. Filter Bar */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
+                <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-4 shadow-sm border border-gray-100 space-y-3 md:space-y-4">
                     {/* Top Row: Search, Child & Sort */}
-                    <div className="flex flex-col md:flex-row gap-4 justify-between">
+                    <div className="flex flex-col md:flex-row gap-3 md:gap-4 justify-between">
 
                         {/* Search */}
-                        <div className="relative flex-1 max-w-md">
+                        <div className="relative flex-1 md:max-w-md">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
                                 placeholder="ابحث باسم المعلم، المادة، أو الابن..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                                className="w-full pl-4 pr-10 py-2 md:py-2.5 rounded-lg md:rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                             />
                         </div>
 
                         {/* Child Filter & Sort */}
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3">
                             {uniqueChildren.length > 0 && (
                                 <select
                                     value={childFilter}
                                     onChange={(e) => { setChildFilter(e.target.value); setCurrentPage(1); }}
-                                    className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    className="px-3 md:px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg md:rounded-xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 flex-1 sm:flex-none"
                                 >
                                     <option value="ALL">جميع الأبناء</option>
                                     {uniqueChildren.map(([id, name]) => (
@@ -308,20 +310,20 @@ export default function ParentBookingsPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setSortBy(sortBy === 'DATE_DESC' ? 'DATE_ASC' : 'DATE_DESC')}
-                                className="text-gray-600 border-gray-200 h-10 px-4 rounded-xl"
+                                className="text-gray-600 border-gray-200 h-9 md:h-10 px-3 md:px-4 rounded-lg md:rounded-xl text-xs md:text-sm"
                             >
-                                <ArrowUpDown className="w-4 h-4 ml-2" />
+                                <ArrowUpDown className="w-3.5 md:w-4 h-3.5 md:h-4 ml-1.5 md:ml-2" />
                                 {sortBy === 'DATE_DESC' ? 'الأحدث أولاً' : 'الأقدم أولاً'}
                             </Button>
                         </div>
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        <Filter className="w-5 h-5 text-gray-400 ml-2" />
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                        <Filter className="w-4 md:w-5 h-4 md:h-5 text-gray-400 ml-1 md:ml-2 flex-shrink-0" />
                         {[
                             { id: 'ALL', label: 'الكل' },
-                            { id: 'PENDING', label: 'بانتظار الموافقة/الدفع' },
+                            { id: 'PENDING', label: 'بانتظار', labelFull: 'بانتظار الموافقة/الدفع' },
                             { id: 'UPCOMING', label: 'القادمة' },
                             { id: 'COMPLETED', label: 'المكتملة' },
                             { id: 'CANCELLED', label: 'الملغاة' },
@@ -330,13 +332,14 @@ export default function ParentBookingsPage() {
                                 key={tab.id}
                                 onClick={() => { setStatusFilter(tab.id); setCurrentPage(1); }}
                                 className={cn(
-                                    "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all",
+                                    "px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all flex-shrink-0",
                                     statusFilter === tab.id
                                         ? "bg-gray-900 text-white shadow-md"
                                         : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                                 )}
                             >
-                                {tab.label}
+                                <span className="md:hidden">{tab.label}</span>
+                                <span className="hidden md:inline">{'labelFull' in tab ? tab.labelFull : tab.label}</span>
                             </button>
                         ))}
                     </div>

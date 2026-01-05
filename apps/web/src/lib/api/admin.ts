@@ -31,7 +31,7 @@ export const adminApi = {
         return response.data;
     },
 
-    updateUser: async (id: string, data: { email?: string; phoneNumber?: string }) => {
+    updateUser: async (id: string, data: { email?: string; phoneNumber?: string; firstName?: string; lastName?: string }) => {
         const response = await api.patch(`/admin/users/${id}`, data);
         return response.data;
     },
