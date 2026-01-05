@@ -1174,6 +1174,7 @@ export class BookingService {
           curriculum: booking.children.curricula,
         }
         : undefined,
+      subject: booking.subjects,
     };
   }
 
