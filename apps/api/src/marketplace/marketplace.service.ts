@@ -127,11 +127,49 @@ export class MarketplaceService {
         teacher_profiles: true,
         subjects: true,
         curricula: true,
+        grades: {
+          include: {
+            grade_levels: true,
+          },
+        },
       },
       orderBy: orderBy,
     });
 
-    return results;
+    // Transform to match frontend expected structure
+    return results.map((result) => ({
+      id: result.id,
+      pricePerHour: result.pricePerHour?.toString() || '0',
+      gradeLevels: result.grades?.map((g: any) => ({
+        id: g.grade_levels?.id,
+        nameAr: g.grade_levels?.nameAr,
+        nameEn: g.grade_levels?.nameEn,
+      })) || [],
+      teacherProfile: {
+        id: result.teacher_profiles.id,
+        slug: result.teacher_profiles.slug,
+        displayName: result.teacher_profiles.displayName,
+        profilePhotoUrl: result.teacher_profiles.profilePhotoUrl,
+        introVideoUrl: result.teacher_profiles.introVideoUrl,
+        gender: result.teacher_profiles.gender,
+        bio: result.teacher_profiles.bio,
+        averageRating: result.teacher_profiles.averageRating,
+        totalReviews: result.teacher_profiles.totalReviews,
+        education: result.teacher_profiles.education,
+        yearsOfExperi ence: result.teacher_profiles.yearsOfExperience,
+        applicationStatus: result.teacher_profiles.applicationStatus,
+      },
+      subject: {
+        id: result.subjects.id,
+        nameAr: result.subjects.nameAr,
+        nameEn: result.subjects.nameEn,
+      },
+      curriculum: {
+        id: result.curricula.id,
+        nameAr: result.curricula.nameAr,
+        nameEn: result.curricula.nameEn,
+      },
+    }));
   }
 
   // --- Curricula ---
