@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import { Bookings } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
@@ -345,7 +346,11 @@ export class BookingService {
           booking.status === 'COMPLETED' ||
           booking.status === 'PENDING_CONFIRMATION'
         ) {
-          return { bookings: booking, paymentRequired: false, isPackage: false };
+          return {
+            bookings: booking,
+            paymentRequired: false,
+            isPackage: false,
+          };
         }
 
         // Allow re-approval if it was WAITING_FOR_PAYMENT (e.g. parent asks teacher to try again manually?)
@@ -478,7 +483,7 @@ export class BookingService {
       })
       .then(
         async (result: {
-          bookings: any;
+          bookings: Bookings;
           paymentRequired: boolean;
           isPackage?: boolean;
           isRedemption?: boolean;
@@ -572,8 +577,7 @@ export class BookingService {
             await this.notificationService.notifyUser({
               userId: updatedBooking.bookedByUserId,
               title: 'تم قبول طلب الحجز (باقة)',
-              message:
-                'وافق المعلم على طلبك وتم تأكيد الحصة من رصيد الباقة.',
+              message: 'وافق المعلم على طلبك وتم تأكيد الحصة من رصيد الباقة.',
               type: 'BOOKING_APPROVED',
               link: '/parent/bookings',
               dedupeKey: `BOOKING_APPROVED_PKG:${result.bookings.id}:${updatedBooking.bookedByUserId}`, // Use result.bookings.id in case bookingId is ambiguous
@@ -704,7 +708,7 @@ export class BookingService {
       },
       orderBy: { createdAt: 'asc' },
     });
-    return bookings.map(b => this.transformBooking(b));
+    return bookings.map((b) => this.transformBooking(b));
   }
 
   // Get teacher's all sessions (for My Sessions page)
@@ -730,7 +734,7 @@ export class BookingService {
       },
       orderBy: { startTime: 'desc' },
     });
-    return bookings.map(b => this.transformBooking(b));
+    return bookings.map((b) => this.transformBooking(b));
   }
 
   // Get ALL teacher bookings (for requests page - shows all statuses) (PAGINATED)
@@ -903,7 +907,7 @@ export class BookingService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return bookings.map(b => this.transformBooking(b));
+    return bookings.map((b) => this.transformBooking(b));
   }
 
   // Get single booking by ID (for session detail page)
@@ -1058,22 +1062,34 @@ export class BookingService {
     // Transform relations to match frontend expected structure (camelCase)
     return {
       ...booking,
-      teacherProfile: booking.teacher_profiles ? {
-        ...booking.teacher_profiles,
-        user: booking.teacher_profiles.users
-      } : undefined,
+      teacherProfile: booking.teacher_profiles
+        ? {
+          ...booking.teacher_profiles,
+          user: booking.teacher_profiles.users,
+        }
+        : undefined,
       bookedByUser: booking.users_bookings_bookedByUserIdTousers,
-      studentUser: booking.users_bookings_studentUserIdTousers ? {
-        ...booking.users_bookings_studentUserIdTousers,
-        studentProfile: booking.users_bookings_studentUserIdTousers.student_profiles ? {
-          ...booking.users_bookings_studentUserIdTousers.student_profiles,
-          curriculum: booking.users_bookings_studentUserIdTousers.student_profiles.curricula
-        } : undefined
-      } : undefined,
-      child: booking.children ? {
-        ...booking.children,
-        curriculum: booking.children.curricula
-      } : undefined,
+      studentUser: booking.users_bookings_studentUserIdTousers
+        ? {
+          ...booking.users_bookings_studentUserIdTousers,
+          studentProfile: booking.users_bookings_studentUserIdTousers
+            .student_profiles
+            ? {
+              ...booking.users_bookings_studentUserIdTousers
+                .student_profiles,
+              curriculum:
+                booking.users_bookings_studentUserIdTousers.student_profiles
+                  .curricula,
+            }
+            : undefined,
+        }
+        : undefined,
+      child: booking.children
+        ? {
+          ...booking.children,
+          curriculum: booking.children.curricula,
+        }
+        : undefined,
     };
   }
 
@@ -1906,7 +1922,8 @@ export class BookingService {
           if (retainedAmount > 0) {
             const system_settings =
               await this.system_settingsService.getSettings(); // Re-fetch to be safe or reuse
-            const commissionRate = system_settings.defaultCommissionRate || 0.18;
+            const commissionRate =
+              system_settings.defaultCommissionRate || 0.18;
             platformRevenue = retainedAmount * commissionRate;
             teacherCompAmount = retainedAmount - platformRevenue;
           } else {
@@ -2782,7 +2799,9 @@ export class BookingService {
       try {
         const teacherUserId = booking.teacher_profiles.userId;
         const studentName =
-          booking.children?.name || booking.users_bookings_studentUserIdTousers?.email || 'الطالب';
+          booking.children?.name ||
+          booking.users_bookings_studentUserIdTousers?.email ||
+          'الطالب';
         const subjectName = booking.subjects?.nameAr || 'الدرس';
         const minutesUntilStart = Math.round(
           (booking.startTime.getTime() - now.getTime()) / (60 * 1000),
