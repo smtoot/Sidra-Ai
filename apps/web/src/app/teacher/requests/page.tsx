@@ -270,7 +270,7 @@ export default function TeacherRequestsPage() {
                                                 studentName={getStudentName(booking)}
                                                 studentGrade={booking.child?.gradeLevel || booking.studentUser?.studentProfile?.gradeLevel}
                                                 studentCurriculum={booking.child?.curriculum?.nameAr || booking.studentUser?.studentProfile?.curriculum?.nameAr}
-                                                subjectName={booking.subject?.nameAr || booking.subjectId}
+                                                subjectName={booking.subject?.nameAr || 'مادة عامة'}
                                                 startTime={booking.startTime}
                                                 endTime={booking.endTime}
                                                 price={booking.price}

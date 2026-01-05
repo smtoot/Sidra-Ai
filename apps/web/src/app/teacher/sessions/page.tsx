@@ -303,7 +303,7 @@ export default function TeacherSessionsPage() {
                                                     id={booking.id}
                                                     readableId={booking.readableId}
                                                     studentName={booking.child?.name || booking.studentUser?.displayName || 'طالب مجهول'}
-                                                    subjectName={booking.subject?.nameAr || booking.subjectId}
+                                                    subjectName={booking.subject?.nameAr || 'مادة عامة'}
                                                     startTime={booking.startTime}
                                                     endTime={booking.endTime}
                                                     price={booking.price}
