@@ -46,10 +46,16 @@ export default function TeacherSettingsPage() {
                     <PackageSettings isReadOnly={isReadOnly} />
                     <TimezoneSettings isReadOnly={isReadOnly} />
                     <SlugSettings isReadOnly={isReadOnly} />
-                    <SlugSettings isReadOnly={isReadOnly} />
                     <CancellationPolicySettings isReadOnly={isReadOnly} />
-                    {!isReadOnly && <ChangePasswordForm />} // Password change only if approved/editable? Or always? Assuming always but keeping consistent with "settings" flow. Actually change password should probably be allowed even if not approved, but the page is guarded.
-                // Wait, I need to import it first. 
+                    {!isReadOnly && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                                <Lock className="w-5 h-5 text-primary" />
+                                تغيير كلمة المرور
+                            </h2>
+                            <ChangePasswordForm />
+                        </div>
+                    )}
                 </div>
             </div>
         </TeacherApprovalGuard>
