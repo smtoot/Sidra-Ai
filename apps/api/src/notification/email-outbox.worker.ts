@@ -156,11 +156,9 @@ export class EmailOutboxWorker {
 
     // If no Resend API key, fall back to logging
     if (!apiKey) {
-      this.logger.warn(
-        `RESEND_API_KEY not configured - email not sent. ` +
-        `To: ${email.to}, Subject: ${email.subject}, Template: ${email.templateId}`,
-      );
-      return;
+      const msg = `RESEND_API_KEY not configured - cannot send email to ${email.to}`;
+      this.logger.warn(msg);
+      throw new Error(msg);
     }
 
     try {
