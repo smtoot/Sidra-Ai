@@ -38,17 +38,24 @@ export class PermissionsGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
+    // Get route info for debugging
+    const request = context.switchToHttp().getRequest();
+    const routePath = request.route?.path || request.url;
+    const method = request.method;
+
     // No permissions required = allow
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
     }
 
     // Get user from request (set by JwtAuthGuard)
-    const request = context.switchToHttp().getRequest();
     const user = request.user;
 
     if (!user || !user.userId) {
-      this.logger.warn('PermissionsGuard: User not found in request (Auth failed?)');
+      this.logger.warn(
+        `PermissionsGuard: Auth failed - No user in request. ` +
+        `Route: ${method} ${routePath}`,
+      );
       throw new ForbiddenException('Authentication required');
     }
 
@@ -64,12 +71,26 @@ export class PermissionsGuard implements CanActivate {
     });
 
     if (!fullUser) {
+      this.logger.warn(
+        `PermissionsGuard: User not found in DB. ` +
+        `UserId: ${user.userId}, Route: ${method} ${routePath}`,
+      );
       throw new ForbiddenException('User not found');
     }
 
     if (!fullUser.isActive) {
+      this.logger.warn(
+        `PermissionsGuard: Account deactivated. ` +
+        `UserId: ${fullUser.id}, Role: ${fullUser.role}, Route: ${method} ${routePath}`,
+      );
       throw new ForbiddenException('Account is deactivated');
     }
+
+    // Log permission check attempt (debug level for staging diagnostics)
+    this.logger.debug(
+      `PermissionsGuard: Checking permissions for User ${fullUser.id} (${fullUser.role}). ` +
+      `Required: [${requiredPermissions.join(', ')}]. Route: ${method} ${routePath}`,
+    );
 
     // Check if user has ALL required permissions
     const hasAllPermissions = this.permissionService.hasAllPermissions(
@@ -87,12 +108,19 @@ export class PermissionsGuard implements CanActivate {
       });
 
       this.logger.warn(
-        `PermissionsGuard Denied: User ${fullUser.id} (${fullUser.role}) ` +
-        `lacks permissions: ${requiredPermissions.join(', ')}. ` +
-        `Effective permissions: [${effective.join(', ')}]`,
+        `PermissionsGuard DENIED: User ${fullUser.id} (role=${fullUser.role}) ` +
+        `tried to access ${method} ${routePath}. ` +
+        `Required: [${requiredPermissions.join(', ')}]. ` +
+        `User's effective permissions: [${effective.join(', ')}]. ` +
+        `PermissionOverrides: ${JSON.stringify(fullUser.permissionOverrides)}`,
       );
       throw new ForbiddenException('Insufficient permissions');
     }
+
+    this.logger.debug(
+      `PermissionsGuard ALLOWED: User ${fullUser.id} (${fullUser.role}) ` +
+      `accessing ${method} ${routePath}`,
+    );
 
     return true;
   }
