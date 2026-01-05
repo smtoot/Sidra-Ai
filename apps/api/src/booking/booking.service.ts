@@ -303,6 +303,20 @@ export class BookingService {
       link: '/teacher/requests',
       dedupeKey: `BOOKING_REQUEST:${booking.id}:${booking.teacher_profiles.users.id}`,
       metadata: { bookingId: booking.id },
+      email: booking.teacher_profiles.users.email
+        ? {
+          to: booking.teacher_profiles.users.email,
+          subject: 'طلب حجز جديد | New Booking Request',
+          templateId: 'booking-request',
+          payload: {
+            recipientName: booking.teacher_profiles.users.firstName || 'المعلم',
+            title: 'طلب حجز جديد',
+            message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'}. يرجى مراجعة الطلب في لوحة التحكم.`,
+            link: `${process.env.FRONTEND_URL}/teacher/requests`,
+            actionLabel: 'عرض الطلبات',
+          },
+        }
+        : undefined,
     });
 
     return this.transformBooking(booking);
@@ -581,6 +595,18 @@ export class BookingService {
               dedupeKey: `PAYMENT_REQUIRED:${updatedBooking.id}`,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               metadata: { bookingId: updatedBooking.id },
+              email: parentUser?.email ? {
+                to: parentUser.email,
+                subject: 'تم قبول طلب الحجز - يرجى الدفع | Payment Required',
+                templateId: 'booking_approved',
+                payload: {
+                  recipientName: parentUser.firstName || 'ولي الأمر',
+                  title: 'تم قبول طلب الحجز',
+                  message: `وافق المعلم على طلبك. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
+                  link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                  actionLabel: 'ادفع الآن'
+                }
+              } : undefined
             });
           } else if (isRedemption) {
             // Notify parent_profiles: Confirmed via Package (No new charge)
@@ -595,6 +621,18 @@ export class BookingService {
               dedupeKey: `BOOKING_APPROVED_PKG:${result.bookings.id}:${updatedBooking.bookedByUserId}`, // Use result.bookings.id in case bookingId is ambiguous
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               metadata: { bookingId: updatedBooking.id },
+              email: parentUser?.email ? {
+                to: parentUser.email,
+                subject: 'تم تأكيد الحجز (باقة) | Booking Confirmed',
+                templateId: 'booking_approved',
+                payload: {
+                  recipientName: parentUser.firstName || 'ولي الأمر',
+                  title: 'تم تأكيد الحجز',
+                  message: 'وافق المعلم على طلبك وتم تأكيد الحصة من رصيد الباقة.',
+                  link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                  actionLabel: 'عرض الحجوزات'
+                }
+              } : undefined
             });
           } else {
             // Notify parent_profiles: Confirmed & Paid
@@ -610,6 +648,18 @@ export class BookingService {
               dedupeKey: `BOOKING_APPROVED:${result.bookings.id}:${updatedBooking.bookedByUserId}`,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               metadata: { bookingId: updatedBooking.id },
+              email: parentUser?.email ? {
+                to: parentUser.email,
+                subject: 'تم تأكيد الحجز | Booking Confirmed',
+                templateId: 'booking_approved',
+                payload: {
+                  recipientName: parentUser.firstName || 'ولي الأمر',
+                  title: 'تم تأكيد الحجز',
+                  message: 'وافق المعلم على طلبك وتم تأكيد الحصة. تم خصم المبلغ من رصيدك.',
+                  link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                  actionLabel: 'عرض الحجوزات'
+                }
+              } : undefined
             });
           }
 
@@ -1441,7 +1491,7 @@ export class BookingService {
           );
         }
 
-        // Idempotency: Already COMPLETED - return early with flag
+        // Idempotency: Already COMPLETED
         if (booking.status === 'COMPLETED') {
           return {
             updatedBooking: booking,
