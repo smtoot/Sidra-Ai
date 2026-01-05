@@ -311,7 +311,9 @@ export class BookingService {
           payload: {
             recipientName: booking.teacher_profiles.users.firstName || 'المعلم',
             title: 'طلب حجز جديد',
-            message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'}. يرجى مراجعة الطلب في لوحة التحكم.`,
+            message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
+            sessionDate: new Date(booking.startTime).toLocaleDateString('ar-EG'),
+            sessionTime: new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
             link: `${process.env.FRONTEND_URL}/teacher/requests`,
             actionLabel: 'عرض الطلبات',
           },
@@ -610,7 +612,9 @@ export class BookingService {
                 payload: {
                   recipientName: parentUser.firstName || 'ولي الأمر',
                   title: 'تم قبول طلب الحجز',
-                  message: `وافق المعلم على طلبك. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
+                  message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
+                  sessionDate: new Date(updatedBooking.startTime).toLocaleDateString('ar-EG'),
+                  sessionTime: new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                   link: `${process.env.FRONTEND_URL}/parent/bookings`,
                   actionLabel: 'ادفع الآن'
                 }
@@ -636,7 +640,9 @@ export class BookingService {
                 payload: {
                   recipientName: parentUser.firstName || 'ولي الأمر',
                   title: 'تم تأكيد الحجز',
-                  message: 'وافق المعلم على طلبك وتم تأكيد الحصة من رصيد الباقة.',
+                  message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} وتم تأكيد الحصة من رصيد الباقة.`,
+                  sessionDate: new Date(updatedBooking.startTime).toLocaleDateString('ar-EG'),
+                  sessionTime: new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                   link: `${process.env.FRONTEND_URL}/parent/bookings`,
                   actionLabel: 'عرض الحجوزات'
                 }
@@ -663,7 +669,9 @@ export class BookingService {
                 payload: {
                   recipientName: parentUser.firstName || 'ولي الأمر',
                   title: 'تم تأكيد الحجز',
-                  message: 'وافق المعلم على طلبك وتم تأكيد الحصة. تم خصم المبلغ من رصيدك.',
+                  message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. تم خصم المبلغ من رصيدك.`,
+                  sessionDate: new Date(updatedBooking.startTime).toLocaleDateString('ar-EG'),
+                  sessionTime: new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                   link: `${process.env.FRONTEND_URL}/parent/bookings`,
                   actionLabel: 'عرض الحجوزات'
                 }
