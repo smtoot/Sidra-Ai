@@ -217,7 +217,13 @@ export class StudentService {
       include: { users: true, curricula: true },
     });
     if (!profile) throw new NotFoundException('Student profile not found');
-    return profile;
+
+    // Transform relations to match frontend expected structure
+    return {
+      ...profile,
+      user: profile.users, // Map users -> user
+      curriculum: profile.curricula, // Map curricula -> curriculum
+    };
   }
 
   async updateProfile(
@@ -262,11 +268,16 @@ export class StudentService {
       include: { users: true, curricula: true },
     });
 
-    return profile;
+    // Transform relations to match frontend expected structure
+    return {
+      ...profile,
+      user: profile.users, // Map users -> user
+      curriculum: profile.curricula, // Map curricula -> curriculum
+    };
   }
 
   async getCurricula() {
-    return this.prisma.curricula.findMany({
+    const curricula = await this.prisma.curricula.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
       include: {
@@ -282,5 +293,14 @@ export class StudentService {
         },
       },
     });
+
+    // Transform to match frontend expected structure
+    return curricula.map(c => ({
+      ...c,
+      stages: c.educational_stages.map(s => ({
+        ...s,
+        grades: s.grade_levels
+      }))
+    }));
   }
 }
