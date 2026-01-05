@@ -137,7 +137,7 @@ export class MarketplaceService {
     });
 
     // Transform to match frontend expected structure
-    return results.map((result) => ({
+    return results.map((result: any) => ({
       id: result.id,
       pricePerHour: result.pricePerHour?.toString() || '0',
       gradeLevels: result.grades?.map((g: any) => ({
