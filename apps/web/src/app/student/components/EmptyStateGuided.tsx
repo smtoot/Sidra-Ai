@@ -72,7 +72,7 @@ export function EmptyStateGuided({ suggestedTeachers = [] }: EmptyStateGuidedPro
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {suggestedTeachers.slice(0, 3).map((teacher) => (
+                        {suggestedTeachers.filter(teacher => teacher).slice(0, 3).map((teacher) => (
                             <Card key={teacher.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-4">

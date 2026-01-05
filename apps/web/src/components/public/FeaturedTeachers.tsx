@@ -24,9 +24,10 @@ export function FeaturedTeachers() {
         const fetchTeachers = async () => {
             try {
                 const results = await searchApi.searchTeachers({});
-                // Sort by rating and take top 8
-                const sorted = results.sort((a, b) =>
-                    (b.teacherProfile.averageRating || 0) - (a.teacherProfile.averageRating || 0)
+                // Filter out results without teacherProfile and sort by rating
+                const validResults = results.filter((r) => r.teacherProfile);
+                const sorted = validResults.sort((a, b) =>
+                    (b.teacherProfile?.averageRating || 0) - (a.teacherProfile?.averageRating || 0)
                 );
                 setTeachers(sorted.slice(0, 8));
             } catch (err) {
@@ -196,10 +197,10 @@ export function FeaturedTeachers() {
                             gap: `${gapPercentage}%`,
                         }}
                     >
-                        {teachers.map((teacher, index) => (
+                        {teachers.filter(teacher => teacher && teacher.teacherProfile).map((teacher, index) => (
                             <Link
                                 key={teacher.id}
-                                href={`/teachers/${teacher.teacherProfile.slug || teacher.teacherProfile.id}`}
+                                href={`/teachers/${teacher.teacherProfile?.slug || teacher.teacherProfile?.id || teacher.id}`}
                                 className="group"
                                 style={{
                                     flex: `0 0 calc(${cardWidth}% - ${gapPercentage * (visibleCount - 1) / visibleCount}%)`,
@@ -218,7 +219,7 @@ export function FeaturedTeachers() {
                                         <div className="w-full h-full flex items-center justify-center">
                                             <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center shadow-lg">
                                                 <span className="text-3xl font-bold text-primary">
-                                                    {teacher.teacherProfile.displayName?.charAt(0) || 'م'}
+                                                    {teacher.teacherProfile?.displayName?.charAt(0) || 'م'}
                                                 </span>
                                             </div>
                                         </div>
@@ -239,11 +240,11 @@ export function FeaturedTeachers() {
                                     {/* Content */}
                                     <div className="p-4 space-y-3">
                                         <h3 className="font-bold text-lg text-gray-900 truncate group-hover:text-primary transition-colors">
-                                            {teacher.teacherProfile.displayName}
+                                            {teacher.teacherProfile?.displayName || 'معلم'}
                                         </h3>
 
                                         {/* Bio Preview */}
-                                        {teacher.teacherProfile.bio && (
+                                        {teacher.teacherProfile?.bio && (
                                             <p className="text-sm text-gray-500 line-clamp-1">
                                                 {teacher.teacherProfile.bio}
                                             </p>
@@ -265,8 +266,8 @@ export function FeaturedTeachers() {
                                         <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                                             <div className="flex items-center gap-1">
                                                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                                                <span className="font-medium">{teacher.teacherProfile.averageRating?.toFixed(1) || '5.0'}</span>
-                                                <span className="text-gray-400 text-sm">({teacher.teacherProfile.totalReviews || 0})</span>
+                                                <span className="font-medium">{teacher.teacherProfile?.averageRating?.toFixed(1) || '5.0'}</span>
+                                                <span className="text-gray-400 text-sm">({teacher.teacherProfile?.totalReviews || 0})</span>
                                             </div>
                                             <div className="text-primary font-bold">
                                                 {teacher.pricePerHour} <span className="text-xs font-normal">ج.س/ساعة</span>
