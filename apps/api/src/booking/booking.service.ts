@@ -1241,7 +1241,7 @@ export class BookingService {
       metadata: { bookingId },
     });
 
-    return updatedBooking;
+    return this.transformBooking(updatedBooking);
   }
 
   /**
@@ -1375,7 +1375,7 @@ export class BookingService {
       disputeDeadline: disputeWindowClosesAt,
     });
 
-    return updatedBooking;
+    return this.transformBooking(updatedBooking);
   }
 
   /**
@@ -1497,7 +1497,7 @@ export class BookingService {
 
     // Skip side effects if already completed (idempotency)
     if (result.alreadyCompleted) {
-      return result.updatedBooking;
+      return this.transformBooking(result.updatedBooking);
     }
 
     // 4. Post-Transaction: Best-effort side effects
@@ -1538,7 +1538,7 @@ export class BookingService {
       releaseType: 'CONFIRMED',
     });
 
-    return updatedBooking;
+    return this.transformBooking(updatedBooking);
   }
 
   /**
