@@ -305,7 +305,7 @@ export class BookingService {
       metadata: { bookingId: booking.id },
     });
 
-    return booking;
+    return this.transformBooking(booking);
   }
 
   /**
@@ -593,7 +593,7 @@ export class BookingService {
             });
           }
 
-          return updatedBooking;
+          return this.transformBooking(updatedBooking);
         },
       );
   }
@@ -675,7 +675,7 @@ export class BookingService {
       metadata: { bookingId },
     });
 
-    return updatedBooking;
+    return this.transformBooking(updatedBooking);
   }
 
   // Get teacher's incoming requests
