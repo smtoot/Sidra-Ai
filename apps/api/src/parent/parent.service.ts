@@ -11,12 +11,12 @@ export class ParentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) { }
+  ) {}
 
   async getDashboardStats(userId: string) {
     const [wallet, upcomingBookings, parentProfile] = await Promise.all([
       this.walletService.getBalance(userId),
-      this.prisma.booking.findMany({
+      this.prisma.bookings.findMany({
         where: {
           bookedByUserId: userId,
           status: 'SCHEDULED',
@@ -24,12 +24,12 @@ export class ParentService {
         orderBy: { startTime: 'asc' },
         take: 5, // Limit to next 5 upcoming classes
         include: {
-          teacherProfile: { include: { user: true } },
-          subject: true,
-          child: true, // Include child name
+          teacher_profiles: { include: { users: true } },
+          subjects: true,
+          children: true, // Include child name
         },
       }),
-      this.prisma.parentProfile.findUnique({
+      this.prisma.parent_profiles.findUnique({
         where: { userId },
         include: { children: true },
       }),
@@ -51,12 +51,12 @@ export class ParentService {
   // --- Children Management ---
 
   async getChildren(userId: string) {
-    const parentProfile = await this.prisma.parentProfile.findUnique({
+    const parentProfile = await this.prisma.parent_profiles.findUnique({
       where: { userId },
       include: {
         children: {
           include: {
-            curriculum: true,
+            curricula: true,
             bookings: {
               where: { status: 'SCHEDULED' },
               select: { id: true }, // Lightweight, just for counting
@@ -77,7 +77,7 @@ export class ParentService {
 
   async getChild(userId: string, childId: string) {
     // 1. Get Parent Profile ID first (more robust than nested query)
-    const parentProfile = await this.prisma.parentProfile.findUnique({
+    const parentProfile = await this.prisma.parent_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -87,13 +87,13 @@ export class ParentService {
     }
 
     // 2. Verify child ownership using parentId
-    const child = await this.prisma.child.findFirst({
+    const child = await this.prisma.children.findFirst({
       where: {
         id: childId,
         parentId: parentProfile.id,
       },
       include: {
-        curriculum: true,
+        curricula: true,
       },
     });
 
@@ -108,25 +108,25 @@ export class ParentService {
     try {
       const [upcomingCount, completedCount, upcomingClasses] =
         await Promise.all([
-          this.prisma.booking.count({
+          this.prisma.bookings.count({
             where: {
               childId,
               status: 'SCHEDULED',
             },
           }),
-          this.prisma.booking.count({
+          this.prisma.bookings.count({
             where: {
               childId,
               status: 'COMPLETED',
             },
           }),
-          this.prisma.booking.findMany({
+          this.prisma.bookings.findMany({
             where: { childId },
             orderBy: { startTime: 'desc' },
             take: 5,
             include: {
-              teacherProfile: { include: { user: true } },
-              subject: true,
+              teacher_profiles: { include: { users: true } },
+              subjects: true,
             },
           }),
         ]);
@@ -152,21 +152,22 @@ export class ParentService {
       curriculumId?: string;
     },
   ) {
-    const parentProfile = await this.prisma.parentProfile.findUnique({
+    const parentProfile = await this.prisma.parent_profiles.findUnique({
       where: { userId },
     });
 
     if (!parentProfile) throw new NotFoundException('Parent profile not found');
 
-    return this.prisma.child.create({
+    return this.prisma.children.create({
       data: {
+        id: crypto.randomUUID(),
         parentId: parentProfile.id,
         name: data.name,
         gradeLevel: data.gradeLevel,
         schoolName: data.schoolName,
         curriculumId: data.curriculumId || null,
       },
-      include: { curriculum: true },
+      include: { curricula: true },
     });
   }
 
@@ -181,16 +182,16 @@ export class ParentService {
     },
   ) {
     // Verify ownership
-    const child = await this.prisma.child.findFirst({
+    const child = await this.prisma.children.findFirst({
       where: {
         id: childId,
-        parent: { userId },
+        parent_profiles: { userId },
       },
     });
 
     if (!child) throw new NotFoundException('Child not found or unauthorized');
 
-    return this.prisma.child.update({
+    return this.prisma.children.update({
       where: { id: childId },
       data: {
         name: data.name,
@@ -198,20 +199,20 @@ export class ParentService {
         schoolName: data.schoolName,
         curriculumId: data.curriculumId || null,
       },
-      include: { curriculum: true },
+      include: { curricula: true },
     });
   }
 
   async getCurricula() {
-    return this.prisma.curriculum.findMany({
+    const curricula = await this.prisma.curricula.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
       include: {
-        stages: {
+        educational_stages: {
           where: { isActive: true },
           orderBy: { sequence: 'asc' },
           include: {
-            grades: {
+            grade_levels: {
               where: { isActive: true },
               orderBy: { sequence: 'asc' },
             },
@@ -219,21 +220,35 @@ export class ParentService {
         },
       },
     });
+
+    // Transform to match frontend expected structure
+    return curricula.map((c) => ({
+      ...c,
+      stages: c.educational_stages.map((s) => ({
+        ...s,
+        grades: s.grade_levels,
+      })),
+    }));
   }
 
   // --- Profile Management ---
 
   async getProfile(userId: string) {
-    const parentProfile = await this.prisma.parentProfile.findUnique({
+    const parentProfile = await this.prisma.parent_profiles.findUnique({
       where: { userId },
       include: {
-        user: true,
+        users: true,
         children: true,
       },
     });
 
     if (!parentProfile) throw new NotFoundException('Parent profile not found');
-    return parentProfile;
+
+    // Transform relations
+    return {
+      ...parentProfile,
+      user: parentProfile.users,
+    };
   }
 
   async updateProfile(
@@ -248,7 +263,7 @@ export class ParentService {
   ) {
     // Update user fields (firstName, lastName)
     if (data.firstName !== undefined || data.lastName !== undefined) {
-      await this.prisma.user.update({
+      await this.prisma.users.update({
         where: { id: userId },
         data: {
           firstName: data.firstName,
@@ -258,7 +273,7 @@ export class ParentService {
     }
 
     // Update parent profile fields
-    const profile = await this.prisma.parentProfile.update({
+    const profile = await this.prisma.parent_profiles.update({
       where: { userId },
       data: {
         whatsappNumber: data.whatsappNumber,
@@ -266,11 +281,15 @@ export class ParentService {
         country: data.country,
       },
       include: {
-        user: true,
+        users: true,
         children: true,
       },
     });
 
-    return profile;
+    // Transform relations
+    return {
+      ...profile,
+      user: profile.users,
+    };
   }
 }

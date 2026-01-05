@@ -5,15 +5,15 @@ import { Public } from '../auth/public.decorator';
 @Public()
 @Controller('curricula')
 export class CurriculumController {
-  constructor(private readonly curriculumService: CurriculumService) {}
+  constructor(private readonly curriculaService: CurriculumService) {}
 
   @Get()
   findAll() {
-    return this.curriculumService.findAll();
+    return this.curriculaService.findAll();
   }
 
   @Get(':id/hierarchy')
   getHierarchy(@Param('id') id: string) {
-    return this.curriculumService.getHierarchy(id);
+    return this.curriculaService.getHierarchy(id);
   }
 }

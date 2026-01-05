@@ -20,16 +20,17 @@ export class SystemSettingsService {
    */
   async getSettings() {
     // Try to get existing
-    let settings = await this.prisma.systemSettings.findUnique({
+    let settings = await this.prisma.system_settings.findUnique({
       where: { id: this.SETTINGS_ID },
     });
 
     // If not found, create defaults
     if (!settings) {
       this.logger.log('Initializing default system settings...');
-      settings = await this.prisma.systemSettings.create({
+      settings = await this.prisma.system_settings.create({
         data: {
           id: this.SETTINGS_ID,
+          updatedAt: new Date(),
           // defaults are handled by Prisma schema
         },
       });
@@ -48,7 +49,7 @@ export class SystemSettingsService {
       };
 
       // Update DB with defaults
-      settings = await this.prisma.systemSettings.update({
+      settings = await this.prisma.system_settings.update({
         where: { id: this.SETTINGS_ID },
         data: { cancellationPolicies: defaultPolicies },
       });
@@ -143,7 +144,7 @@ export class SystemSettingsService {
     }
 
     // Execute update
-    const newSettings = await this.prisma.systemSettings.update({
+    const newSettings = await this.prisma.system_settings.update({
       where: { id: this.SETTINGS_ID },
       data: updateData,
     });

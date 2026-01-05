@@ -14,6 +14,7 @@ import {
   type PermissionOverrides,
 } from '../auth/permissions.constants';
 import { UserRole } from '@prisma/client';
+import * as crypto from 'crypto';
 
 /**
  * AdminTeamService
@@ -45,7 +46,7 @@ export class AdminTeamService {
       UserRole.SUPPORT,
     ];
 
-    const users = await this.prisma.user.findMany({
+    const users = await this.prisma.users.findMany({
       where: {
         role: { in: adminRoles },
       },
@@ -60,9 +61,6 @@ export class AdminTeamService {
         createdAt: true,
         permissionOverrides: true,
         createdByAdminId: true,
-        createdByAdmin: {
-          select: { id: true, email: true, firstName: true, lastName: true },
-        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -120,7 +118,7 @@ export class AdminTeamService {
 
     // Check for existing user
     const existingEmail = data.email
-      ? await this.prisma.user.findUnique({
+      ? await this.prisma.users.findUnique({
           where: { email: data.email },
         })
       : null;
@@ -129,7 +127,7 @@ export class AdminTeamService {
       throw new ConflictException('Email already in use');
     }
 
-    const existingPhone = await this.prisma.user.findFirst({
+    const existingPhone = await this.prisma.users.findFirst({
       where: { phoneNumber: data.phoneNumber },
     });
 
@@ -153,8 +151,10 @@ export class AdminTeamService {
     const passwordHash = await bcrypt.hash(data.password, 10);
 
     // Create user
-    const user = await this.prisma.user.create({
+    const user = await this.prisma.users.create({
       data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         email: data.email,
         phoneNumber: data.phoneNumber,
         passwordHash,
@@ -181,8 +181,9 @@ export class AdminTeamService {
     });
 
     // Audit log
-    await this.prisma.auditLog.create({
+    await this.prisma.audit_logs.create({
       data: {
+        id: crypto.randomUUID(),
         action: 'ADMIN_USER_CREATED',
         actorId: creatorId,
         targetId: user.id,
@@ -221,7 +222,7 @@ export class AdminTeamService {
     }
 
     // Get target user
-    const targetUser = await this.prisma.user.findUnique({
+    const targetUser = await this.prisma.users.findUnique({
       where: { id: targetUserId },
       select: { id: true, role: true, permissionOverrides: true },
     });
@@ -253,7 +254,7 @@ export class AdminTeamService {
     }
 
     // Update user - cast to JSON-compatible type for Prisma
-    const updatedUser = await this.prisma.user.update({
+    const updatedUser = await this.prisma.users.update({
       where: { id: targetUserId },
       data: { permissionOverrides: JSON.parse(JSON.stringify(overrides)) },
       select: {
@@ -268,8 +269,9 @@ export class AdminTeamService {
     });
 
     // Audit log
-    await this.prisma.auditLog.create({
+    await this.prisma.audit_logs.create({
       data: {
+        id: crypto.randomUUID(),
         action: 'PERMISSION_OVERRIDE_UPDATE',
         actorId: actorId,
         targetId: targetUserId,
@@ -305,7 +307,7 @@ export class AdminTeamService {
     }
 
     // Get target user
-    const targetUser = await this.prisma.user.findUnique({
+    const targetUser = await this.prisma.users.findUnique({
       where: { id: targetUserId },
       select: { id: true, role: true },
     });
@@ -327,14 +329,15 @@ export class AdminTeamService {
     }
 
     // Deactivate (soft delete)
-    await this.prisma.user.update({
+    await this.prisma.users.update({
       where: { id: targetUserId },
       data: { isActive: false },
     });
 
     // Audit log
-    await this.prisma.auditLog.create({
+    await this.prisma.audit_logs.create({
       data: {
+        id: crypto.randomUUID(),
         action: 'ADMIN_USER_DEACTIVATED',
         actorId: actorId,
         targetId: targetUserId,
@@ -349,7 +352,7 @@ export class AdminTeamService {
    * Get a single admin user by ID
    */
   async getAdminUser(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -362,9 +365,6 @@ export class AdminTeamService {
         createdAt: true,
         permissionOverrides: true,
         createdByAdminId: true,
-        createdByAdmin: {
-          select: { id: true, email: true, firstName: true, lastName: true },
-        },
       },
     });
 

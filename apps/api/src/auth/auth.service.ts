@@ -46,60 +46,56 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    // PHONE-FIRST: Check by phone number (primary identifier), not email
-    const existingByPhone = dto.phoneNumber
-      ? await this.prisma.user.findFirst({
-        where: { phoneNumber: dto.phoneNumber },
-      })
-      : null;
+    // Check Email Uniqueness (Email is now required)
+    const existingByEmail = await this.prisma.users.findUnique({
+      where: { email: dto.email },
+    });
 
-    // P1-6 FIX: Use generic message to prevent account enumeration
-    if (existingByPhone) {
-      throw new ConflictException(
-        'An account with these credentials already exists',
-      );
+    if (existingByEmail) {
+      throw new ConflictException('An account with this email already exists');
     }
 
-    // Optional: Also check email if provided
-    if (dto.email) {
-      const existingByEmail = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
-      // P1-6 FIX: Use generic message to prevent account enumeration
-      if (existingByEmail) {
-        throw new ConflictException(
-          'An account with these credentials already exists',
-        );
-      }
+    // Check Phone Uniqueness (Phone remains required)
+    const existingByPhone = await this.prisma.users.findUnique({
+      where: { phoneNumber: dto.phoneNumber },
+    });
+
+    if (existingByPhone) {
+      throw new ConflictException(
+        'An account with this phone number already exists',
+      );
     }
 
     // 2. Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // 3. Create User & Profile
-    const user = await this.prisma.user.create({
+    const user = await this.prisma.users.create({
       data: {
-        email: dto.email || null, // Email is optional
-        phoneNumber: dto.phoneNumber, // Phone is required
-        firstName: dto.firstName || null, // Display name for Parents/Students
-        lastName: dto.lastName || null, // Optional family name
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
+        email: dto.email!, // Email is now required
+        phoneNumber: dto.phoneNumber, // Phone remains required
+        firstName: dto.firstName || null,
+        lastName: dto.lastName || null,
         passwordHash: hashedPassword,
         role: dto.role,
-        isVerified: false, // Default
+        isVerified: false,
+        emailVerified: false, // New field for email verification
         // Create empty profile based on role
         ...(dto.role === 'TEACHER' && {
-          teacherProfile: { create: {} },
+          teacher_profiles: { create: { id: crypto.randomUUID() } },
         }),
         ...(dto.role === 'PARENT' && {
-          parentProfile: { create: {} },
+          parent_profiles: { create: { id: crypto.randomUUID() } },
         }),
         ...(dto.role === 'STUDENT' && {
-          studentProfile: { create: {} },
+          student_profiles: { create: { id: crypto.randomUUID() } },
         }),
       },
     });
 
-    return this.signToken(user.id, user.email || undefined, user.role, {
+    return this.signToken(user.id, user.email, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,
     });
@@ -119,9 +115,9 @@ export class AuthService {
 
     if (phoneNumber) {
       // 1. Try exact match
-      user = await this.prisma.user.findFirst({
+      user = await this.prisma.users.findFirst({
         where: { phoneNumber },
-        include: { teacherProfile: true },
+        include: { teacher_profiles: true },
       });
 
       // 2. If not found, try to normalize (Sudan specific context)
@@ -133,15 +129,15 @@ export class AuthService {
         }
 
         // Try with +249 prefix
-        user = await this.prisma.user.findFirst({
+        user = await this.prisma.users.findFirst({
           where: { phoneNumber: `+249${cleanNumber}` },
-          include: { teacherProfile: true },
+          include: { teacher_profiles: true },
         });
       }
     } else if (email) {
-      user = await this.prisma.user.findUnique({
+      user = await this.prisma.users.findUnique({
         where: { email },
-        include: { teacherProfile: true },
+        include: { teacher_profiles: true },
       });
     }
 
@@ -162,40 +158,84 @@ export class AuthService {
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName,
       lastName: user.lastName,
-      displayName: user.teacherProfile?.displayName || undefined,
+      displayName: user.teacher_profiles?.displayName || undefined,
     });
   }
 
   async getProfile(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: {
-        parentProfile: {
+        parent_profiles: {
           include: {
             children: {
               include: {
-                curriculum: {
-                  select: { id: true, nameAr: true, nameEn: true, code: true }
-                }
-              }
+                curricula: {
+                  select: { id: true, nameAr: true, nameEn: true, code: true },
+                },
+              },
             },
           },
         },
-        teacherProfile: true,
-        studentProfile: {
+        teacher_profiles: true,
+        student_profiles: {
           include: {
-            curriculum: {
-              select: { id: true, nameAr: true, nameEn: true, code: true }
-            }
-          }
-        }
+            curricula: {
+              select: { id: true, nameAr: true, nameEn: true, code: true },
+            },
+          },
+        },
       },
     });
 
     if (!user) throw new UnauthorizedException('User not found');
 
-    const { passwordHash, ...result } = user;
-    return result;
+    this.logger.log(`DEBUG: getProfile for user ${userId}`);
+    this.logger.log(`DEBUG: Found parent_profiles? ${!!user.parent_profiles}`);
+    if (user.parent_profiles) {
+      this.logger.log(`DEBUG: Children count: ${user.parent_profiles.children?.length}`);
+      this.logger.log(`DEBUG: Children IDs: ${user.parent_profiles.children?.map(c => c.id).join(', ')}`);
+    }
+
+    const {
+      passwordHash,
+      parent_profiles,
+      student_profiles,
+      teacher_profiles,
+      ...rest
+    } = user;
+
+    const response = {
+      ...rest,
+      parentProfile: parent_profiles
+        ? {
+          ...parent_profiles,
+          children: parent_profiles.children.map((child) => {
+            // Map curricula -> curriculum for children
+            const { curricula, ...childRest } = child as any;
+            return {
+              ...childRest,
+              curriculum: curricula,
+            };
+          }),
+        }
+        : undefined,
+      studentProfile: student_profiles
+        ? {
+          ...student_profiles,
+          // Map curricula -> curriculum for student
+          curriculum: (student_profiles as any).curricula,
+        }
+        : undefined,
+      teacherProfile: teacher_profiles || undefined,
+    };
+
+    // Log the transformed parentProfile structure
+    if (response.parentProfile) {
+      this.logger.log(`DEBUG: Transformed parentProfile.children length: ${response.parentProfile.children?.length}`);
+    }
+
+    return response;
   }
 
   async changePassword(
@@ -203,7 +243,7 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
     });
 
@@ -219,7 +259,7 @@ export class AuthService {
 
     // Hash new password and update
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.prisma.user.update({
+    await this.prisma.users.update({
       where: { id: userId },
       data: { passwordHash: hashedPassword },
     });
@@ -265,7 +305,7 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     // 4. Store in DB
-    const tokenRecord = await this.prisma.refreshToken.create({
+    const tokenRecord = await this.prisma.refresh_tokens.create({
       data: {
         userId,
         tokenHash: refreshTokenHash,
@@ -306,7 +346,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid token format');
     }
 
-    const tokenRecord = await this.prisma.refreshToken.findUnique({
+    const tokenRecord = await this.prisma.refresh_tokens.findUnique({
       where: { id: tokenId },
     });
 
@@ -320,7 +360,7 @@ export class AuthService {
       // SECURITY ALARM: Attempt to use a revoked token!
       // This implies the user OR an attacker is retrying an old token.
       // We must REVOKE ALL tokens for this user to be safe.
-      await this.prisma.refreshToken.updateMany({
+      await this.prisma.refresh_tokens.updateMany({
         where: { userId: tokenRecord.userId },
         data: { revoked: true },
       });
@@ -342,7 +382,7 @@ export class AuthService {
 
     // 5. ROTATION: Revoke the old token
     // We replace it with a new one. valid usage consumes the token.
-    await this.prisma.refreshToken.update({
+    await this.prisma.refresh_tokens.update({
       where: { id: tokenId },
       data: {
         revoked: true,
@@ -352,7 +392,7 @@ export class AuthService {
     });
 
     // 6. Issue New Pair
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: tokenRecord.userId },
     });
     if (!user) throw new UnauthorizedException('User not found');
@@ -381,7 +421,7 @@ export class AuthService {
 
     // Just revoke it
     try {
-      await this.prisma.refreshToken.update({
+      await this.prisma.refresh_tokens.update({
         where: { id: tokenId },
         data: { revoked: true, revokedAt: new Date() },
       });

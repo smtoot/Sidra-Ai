@@ -6,17 +6,17 @@ export class FavoritesService {
   constructor(private prisma: PrismaService) {}
 
   async getUserFavorites(userId: string) {
-    return this.prisma.savedTeacher.findMany({
+    return this.prisma.saved_teachers.findMany({
       where: { userId },
       include: {
-        teacher: {
+        teacher_profiles: {
           select: {
             id: true,
             displayName: true,
             profilePhotoUrl: true,
             slug: true,
-            subjects: {
-              include: { subject: { select: { nameAr: true, nameEn: true } } },
+            teacher_subjects: {
+              include: { subjects: { select: { nameAr: true, nameEn: true } } },
             },
           },
         },
@@ -26,24 +26,24 @@ export class FavoritesService {
   }
 
   async toggleFavorite(userId: string, teacherId: string) {
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { id: teacherId },
     });
     if (!teacher) throw new NotFoundException('Teacher not found');
 
-    const existing = await this.prisma.savedTeacher.findUnique({
+    const existing = await this.prisma.saved_teachers.findUnique({
       where: {
         userId_teacherId: { userId, teacherId },
       },
     });
 
     if (existing) {
-      await this.prisma.savedTeacher.delete({
+      await this.prisma.saved_teachers.delete({
         where: { id: existing.id },
       });
       return { favorited: false };
     } else {
-      await this.prisma.savedTeacher.create({
+      await this.prisma.saved_teachers.create({
         data: { userId, teacherId },
       });
       return { favorited: true };

@@ -1,9 +1,9 @@
 /**
  * Backfill Readable IDs for Existing Records
- * 
+ *
  * This script adds readable IDs to existing records that don't have them.
  * It's safe to run multiple times - it will only update records where readableId is null.
- * 
+ *
  * Usage: npx ts-node scripts/backfill-readable-ids.ts
  */
 
@@ -19,7 +19,7 @@ async function getNextId(type: string, yearMonth: string, prefix: string, paddin
 
     if (!counterCache.has(key)) {
         // Get current max counter from DB
-        const existing = await prisma.readableIdCounter.findUnique({
+        const existing = await prisma.readable_id_counters.findUnique({
             where: { type_yearMonth: { type, yearMonth } }
         });
         counterCache.set(key, existing?.counter || 0);
@@ -35,16 +35,16 @@ async function updateCounters(): Promise<void> {
     // Persist all counter updates to DB
     for (const [key, counter] of counterCache.entries()) {
         const [type, yearMonth] = key.split(':');
-        await prisma.readableIdCounter.upsert({
+        await prisma.readable_id_counters.upsert({
             where: { type_yearMonth: { type, yearMonth } },
-            create: { type, yearMonth, counter },
-            update: { counter }
+            create: { type, yearMonth, counter, updatedAt: new Date() },
+            update: { counter, updatedAt: new Date() }
         });
     }
 }
 
 async function backfillWallets(): Promise<number> {
-    const walletsWithoutId = await prisma.wallet.findMany({
+    const walletsWithoutId = await prisma.wallets.findMany({
         where: { readableId: null },
         select: { id: true }
     });
@@ -53,7 +53,7 @@ async function backfillWallets(): Promise<number> {
 
     for (const wallet of walletsWithoutId) {
         const readableId = await getNextId('WALLET', 'GLOBAL', 'WAL', 6);
-        await prisma.wallet.update({
+        await prisma.wallets.update({
             where: { id: wallet.id },
             data: { readableId }
         });
@@ -63,7 +63,7 @@ async function backfillWallets(): Promise<number> {
 }
 
 async function backfillTransactions(): Promise<number> {
-    const txWithoutId = await prisma.transaction.findMany({
+    const txWithoutId = await prisma.transactions.findMany({
         where: { readableId: null },
         select: { id: true, createdAt: true }
     });
@@ -74,7 +74,7 @@ async function backfillTransactions(): Promise<number> {
         const d = tx.createdAt;
         const yearMonth = `${(d.getFullYear() % 100).toString().padStart(2, '0')}${(d.getMonth() + 1).toString().padStart(2, '0')}`;
         const readableId = await getNextId('TRANSACTION', yearMonth, `TX-${yearMonth}`, 4);
-        await prisma.transaction.update({
+        await prisma.transactions.update({
             where: { id: tx.id },
             data: { readableId }
         });
@@ -84,7 +84,7 @@ async function backfillTransactions(): Promise<number> {
 }
 
 async function backfillBookings(): Promise<number> {
-    const bookingsWithoutId = await prisma.booking.findMany({
+    const bookingsWithoutId = await prisma.bookings.findMany({
         where: { readableId: null },
         select: { id: true, createdAt: true }
     });
@@ -95,7 +95,7 @@ async function backfillBookings(): Promise<number> {
         const d = booking.createdAt;
         const yearMonth = `${(d.getFullYear() % 100).toString().padStart(2, '0')}${(d.getMonth() + 1).toString().padStart(2, '0')}`;
         const readableId = await getNextId('BOOKING', yearMonth, `BK-${yearMonth}`, 4);
-        await prisma.booking.update({
+        await prisma.bookings.update({
             where: { id: booking.id },
             data: { readableId }
         });
@@ -105,7 +105,7 @@ async function backfillBookings(): Promise<number> {
 }
 
 async function backfillPackages(): Promise<number> {
-    const packagesWithoutId = await prisma.studentPackage.findMany({
+    const packagesWithoutId = await prisma.student_packages.findMany({
         where: { readableId: null },
         select: { id: true, purchasedAt: true }
     });
@@ -116,7 +116,7 @@ async function backfillPackages(): Promise<number> {
         const d = pkg.purchasedAt;
         const yearMonth = `${(d.getFullYear() % 100).toString().padStart(2, '0')}${(d.getMonth() + 1).toString().padStart(2, '0')}`;
         const readableId = await getNextId('PACKAGE', yearMonth, `PKG-${yearMonth}`, 4);
-        await prisma.studentPackage.update({
+        await prisma.student_packages.update({
             where: { id: pkg.id },
             data: { readableId }
         });

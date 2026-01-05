@@ -65,7 +65,7 @@ export class ReadableIdService {
     // Use a transaction with row-level locking
     return this.prisma.$transaction(async (tx) => {
       // Try to find existing counter
-      const existing = await tx.readableIdCounter.findUnique({
+      const existing = await tx.readable_id_counters.findUnique({
         where: {
           type_yearMonth: {
             type,
@@ -76,18 +76,20 @@ export class ReadableIdService {
 
       if (existing) {
         // Increment and return
-        const updated = await tx.readableIdCounter.update({
+        const updated = await tx.readable_id_counters.update({
           where: { id: existing.id },
           data: { counter: { increment: 1 } },
         });
         return updated.counter;
       } else {
         // Create new counter starting at 1
-        const created = await tx.readableIdCounter.create({
+        const created = await tx.readable_id_counters.create({
           data: {
+            id: 'cnt_' + crypto.randomUUID(), // Manual ID generation for counter
             type,
             yearMonth: yearMonth ?? '',
             counter: 1,
+            updatedAt: new Date(),
           },
         });
         return created.counter;

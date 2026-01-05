@@ -29,10 +29,10 @@ export class TicketAccessGuard implements CanActivate {
     }
 
     // Fetch ticket
-    const ticket = await this.prisma.supportTicket.findUnique({
+    const ticket = await this.prisma.support_tickets.findUnique({
       where: { id: ticketId },
       include: {
-        accessControls: {
+        ticket_access_controls: {
           where: {
             userId: user.userId,
             canView: true,
@@ -66,7 +66,7 @@ export class TicketAccessGuard implements CanActivate {
     }
 
     // Check access control
-    if (ticket.accessControls.length > 0) {
+    if (ticket.ticket_access_controls.length > 0) {
       return true;
     }
 

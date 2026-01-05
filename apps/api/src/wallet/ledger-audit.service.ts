@@ -41,7 +41,7 @@ export class LedgerAuditService {
 
     try {
       // Get all wallets
-      const wallets = await this.prisma.wallet.findMany({
+      const wallets = await this.prisma.wallets.findMany({
         select: {
           id: true,
           readableId: true,
@@ -80,8 +80,9 @@ export class LedgerAuditService {
       const status = discrepancies.length > 0 ? 'DISCREPANCY_FOUND' : 'SUCCESS';
 
       // Store audit result
-      const auditLog = await this.prisma.ledgerAuditLog.create({
+      const auditLog = await this.prisma.ledger_audit_logs.create({
         data: {
+          id: crypto.randomUUID(),
           totalWallets,
           walletsChecked,
           discrepancyCount: discrepancies.length,
@@ -113,8 +114,9 @@ export class LedgerAuditService {
       const durationMs = Date.now() - startTime;
 
       // Store error result
-      await this.prisma.ledgerAuditLog.create({
+      await this.prisma.ledger_audit_logs.create({
         data: {
+          id: crypto.randomUUID(),
           totalWallets: 0,
           walletsChecked: 0,
           discrepancyCount: 0,
@@ -134,7 +136,7 @@ export class LedgerAuditService {
    */
   private async calculateWalletBalance(walletId: string): Promise<number> {
     // Get all APPROVED transactions for this wallet
-    const transactions = await this.prisma.transaction.findMany({
+    const transactions = await this.prisma.transactions.findMany({
       where: {
         walletId,
         status: 'APPROVED',
@@ -191,7 +193,7 @@ export class LedgerAuditService {
    * Get recent audit logs for admin dashboard
    */
   async getRecentAudits(limit: number = 10) {
-    return this.prisma.ledgerAuditLog.findMany({
+    return this.prisma.ledger_audit_logs.findMany({
       orderBy: { runAt: 'desc' },
       take: limit,
     });
@@ -201,7 +203,7 @@ export class LedgerAuditService {
    * Get a specific audit log with details
    */
   async getAuditById(id: string) {
-    return this.prisma.ledgerAuditLog.findUnique({
+    return this.prisma.ledger_audit_logs.findUnique({
       where: { id },
     });
   }
@@ -210,7 +212,7 @@ export class LedgerAuditService {
    * Mark a discrepancy as resolved
    */
   async resolveAudit(id: string, userId: string, note: string) {
-    return this.prisma.ledgerAuditLog.update({
+    return this.prisma.ledger_audit_logs.update({
       where: { id },
       data: {
         resolvedAt: new Date(),

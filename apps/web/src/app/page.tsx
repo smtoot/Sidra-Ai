@@ -2,31 +2,49 @@
 
 import {
   HeroSection,
-  FeaturedTeachers,
-  SubjectCategories,
   HowItWorks,
-  TeacherCTA,
+  TeachersPreview,
+  WhySidra,
+  GradesSection,
+  SubjectsSection,
+  FAQSection,
+  BottomCTA,
+  ScrollToTop,
 } from '@/components/public';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white font-tajawal rtl">
       <main>
-        {/* Hero with Search */}
+        {/* Hero Section - Blue */}
         <HeroSection />
 
-        {/* Featured Teachers */}
-        <FeaturedTeachers />
-
-        {/* Subject Categories */}
-        <SubjectCategories />
-
-        {/* How It Works */}
+        {/* How It Works - Beige */}
         <HowItWorks />
 
-        {/* Teacher CTA */}
-        <TeacherCTA />
+        {/* Teachers Preview - White */}
+        <TeachersPreview />
+
+        {/* Why Sidra - Beige */}
+        <WhySidra />
+
+        {/* Grades Section - White */}
+        <GradesSection />
+
+        {/* Subjects Section - Beige */}
+        <section id="subjects">
+          <SubjectsSection />
+        </section>
+
+        {/* FAQ Section - White */}
+        <FAQSection />
+
+        {/* Bottom CTA - Green */}
+        <BottomCTA />
       </main>
+
+      {/* Scroll to Top Button */}
+      <ScrollToTop />
     </div>
   );
 }

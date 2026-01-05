@@ -7,13 +7,13 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   async getUsers(query?: string) {
-    return this.prisma.user.findMany({
+    return this.prisma.users.findMany({
       where: {
         OR: query
           ? [
               { email: { contains: query, mode: 'insensitive' } },
               {
-                teacherProfile: {
+                teacher_profiles: {
                   displayName: { contains: query, mode: 'insensitive' },
                 },
               },
@@ -21,8 +21,8 @@ export class UserService {
           : undefined,
       },
       include: {
-        teacherProfile: true,
-        parentProfile: true,
+        teacher_profiles: true,
+        parent_profiles: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -30,10 +30,10 @@ export class UserService {
   }
 
   async toggleBan(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    return this.prisma.user.update({
+    return this.prisma.users.update({
       where: { id: userId },
       data: { isActive: !user.isActive },
     });

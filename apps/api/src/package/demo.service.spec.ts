@@ -20,13 +20,13 @@ describe('DemoService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
-    teacherProfile: {
+    teacher_profiles: {
       findUnique: jest.fn(),
     },
     booking: {
       findFirst: jest.fn(),
     },
-    systemSettings: {
+    system_settings: {
       findFirst: jest.fn().mockResolvedValue({ demosEnabled: true }),
     },
   };
@@ -156,7 +156,11 @@ describe('DemoService', () => {
       });
 
       // Pass 'STUDENT' as demoOwnerType (2nd arg)
-      const result = await service.createDemoRecord('student-1', 'STUDENT' as any, 'teacher-1');
+      const result = await service.createDemoRecord(
+        'student-1',
+        'STUDENT' as any,
+        'teacher-1',
+      );
 
       expect(mockPrismaBase.demoSession.create).toHaveBeenCalledWith({
         data: {

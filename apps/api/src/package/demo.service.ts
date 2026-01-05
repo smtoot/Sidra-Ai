@@ -35,13 +35,13 @@ export class DemoService {
     teacherId: string,
   ): Promise<DemoEligibility> {
     // 1. Check if demo feature is globally enabled
-    const settings = await this.prisma.systemSettings.findFirst();
+    const settings = await this.prisma.system_settings.findFirst();
     if (settings && !settings.demosEnabled) {
       return { allowed: false, reason: 'FEATURE_DISABLED' };
     }
 
     // 2. Check if teacher has demos enabled
-    const demoSettings = await this.prisma.teacherDemoSettings.findUnique({
+    const demoSettings = await this.prisma.teacher_demo_settings.findUnique({
       where: { teacherId },
     });
 
@@ -50,7 +50,7 @@ export class DemoService {
     }
 
     // 3. LIFETIME CHECK: One demo per owner-teacher (any status)
-    const existingDemo = await this.prisma.demoSession.findUnique({
+    const existingDemo = await this.prisma.demo_sessions.findUnique({
       where: {
         demoOwnerId_teacherId: { demoOwnerId, teacherId },
       },
@@ -71,7 +71,7 @@ export class DemoService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const usedDemosThisMonth = await this.prisma.demoSession.count({
+    const usedDemosThisMonth = await this.prisma.demo_sessions.count({
       where: {
         demoOwnerId,
         status: 'COMPLETED', // Only completed demos count toward quota
@@ -88,7 +88,7 @@ export class DemoService {
     }
 
     // 5. Check for pending demo with this teacher (shouldn't exist due to unique constraint)
-    const pendingDemo = await this.prisma.demoSession.findFirst({
+    const pendingDemo = await this.prisma.demo_sessions.findFirst({
       where: {
         demoOwnerId,
         teacherId,
@@ -123,8 +123,9 @@ export class DemoService {
     }
 
     // Create record with status = SCHEDULED
-    return this.prisma.demoSession.create({
+    return this.prisma.demo_sessions.create({
       data: {
+        id: crypto.randomUUID(),
         demoOwnerId,
         demoOwnerType,
         teacherId,
@@ -141,7 +142,7 @@ export class DemoService {
   // =====================================================
 
   async markDemoCompleted(demoOwnerId: string, teacherId: string) {
-    const demoSession = await this.prisma.demoSession.findUnique({
+    const demoSession = await this.prisma.demo_sessions.findUnique({
       where: {
         demoOwnerId_teacherId: { demoOwnerId, teacherId },
       },
@@ -156,7 +157,7 @@ export class DemoService {
       return demoSession;
     }
 
-    return this.prisma.demoSession.update({
+    return this.prisma.demo_sessions.update({
       where: { id: demoSession.id },
       data: {
         status: 'COMPLETED',
@@ -191,7 +192,7 @@ export class DemoService {
     teacherId: string,
     prisma: any,
   ) {
-    const demoSession = await prisma.demoSession.findUnique({
+    const demoSession = await prisma.demo_sessions.findUnique({
       where: {
         demoOwnerId_teacherId: { demoOwnerId, teacherId },
       },
@@ -208,7 +209,7 @@ export class DemoService {
 
     // SECURITY FIX: Delete the demo record to allow the user to try again
     // This enables users to book another demo with this teacher after cancellation
-    await prisma.demoSession.delete({
+    await prisma.demo_sessions.delete({
       where: { id: demoSession.id },
     });
 
@@ -224,7 +225,7 @@ export class DemoService {
     teacherId: string,
     newStartTime: Date,
   ) {
-    const demoSession = await this.prisma.demoSession.findUnique({
+    const demoSession = await this.prisma.demo_sessions.findUnique({
       where: {
         demoOwnerId_teacherId: { demoOwnerId, teacherId },
       },
@@ -246,7 +247,7 @@ export class DemoService {
       );
     }
 
-    return this.prisma.demoSession.update({
+    return this.prisma.demo_sessions.update({
       where: { id: demoSession.id },
       data: {
         rescheduleCount: { increment: 1 },
@@ -266,7 +267,7 @@ export class DemoService {
     const [completedThisMonth, totalCompleted, totalScheduled] =
       await Promise.all([
         // Only COMPLETED demos count toward monthly quota
-        this.prisma.demoSession.count({
+        this.prisma.demo_sessions.count({
           where: {
             demoOwnerId,
             status: 'COMPLETED',
@@ -274,14 +275,14 @@ export class DemoService {
           },
         }),
         // Total completed ever
-        this.prisma.demoSession.count({
+        this.prisma.demo_sessions.count({
           where: {
             demoOwnerId,
             status: 'COMPLETED',
           },
         }),
         // Currently scheduled (pending)
-        this.prisma.demoSession.count({
+        this.prisma.demo_sessions.count({
           where: {
             demoOwnerId,
             status: 'SCHEDULED',
@@ -305,21 +306,26 @@ export class DemoService {
   // =====================================================
 
   async getDemoSettings(teacherId: string) {
-    return this.prisma.teacherDemoSettings.findUnique({
+    return this.prisma.teacher_demo_settings.findUnique({
       where: { teacherId },
     });
   }
 
   async updateDemoSettings(teacherId: string, demoEnabled: boolean) {
-    return this.prisma.teacherDemoSettings.upsert({
+    return this.prisma.teacher_demo_settings.upsert({
       where: { teacherId },
-      create: { teacherId, demoEnabled },
+      create: {
+        id: crypto.randomUUID(),
+        teacherId,
+        demoEnabled,
+        updatedAt: new Date(),
+      },
       update: { demoEnabled },
     });
   }
 
   async isTeacherDemoEnabled(teacherId: string): Promise<boolean> {
-    const settings = await this.prisma.teacherDemoSettings.findUnique({
+    const settings = await this.prisma.teacher_demo_settings.findUnique({
       where: { teacherId },
     });
     return settings?.demoEnabled ?? false;
@@ -330,9 +336,9 @@ export class DemoService {
   // =====================================================
 
   async getAllDemoSessions() {
-    return this.prisma.demoSession.findMany({
+    return this.prisma.demo_sessions.findMany({
       include: {
-        owner: {
+        users: {
           select: {
             id: true,
             email: true,
@@ -340,7 +346,7 @@ export class DemoService {
             role: true,
           },
         },
-        teacher: {
+        teacher_profiles: {
           select: {
             id: true,
             displayName: true,

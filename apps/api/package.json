@@ -35,6 +35,8 @@
     "@nestjs/schedule": "^6.1.0",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^5.22.0",
+    "@react-email/components": "^1.0.3",
+    "@react-email/render": "^2.0.1",
     "@sendgrid/mail": "^8.1.6",
     "@sidra/database": "^1.0.0",
     "@sidra/shared": "^1.0.0",
@@ -45,7 +47,9 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "posthog-node": "^5.18.1",
+    "react": "^19.2.3",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.6.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
@@ -60,6 +64,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
+    "@types/react": "^19.2.7",
     "@types/supertest": "^6.0.2",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.18.0",

@@ -48,6 +48,18 @@ export interface TeacherTeachingApproach {
     tagIds: string[]; // List of Tag IDs
 }
 
+export interface InterviewTimeSlot {
+    id: string;
+    proposedDateTime: string;
+    meetingLink?: string;
+    isSelected: boolean;
+}
+
+export interface InterviewSlotsResponse {
+    applicationStatus: string;
+    slots: InterviewTimeSlot[];
+}
+
 export interface TeacherQualification {
     id: string;
     teacherId: string;
@@ -276,6 +288,17 @@ export const teacherApi = {
 
     updateTeachingApproach: async (data: TeacherTeachingApproach): Promise<void> => {
         await api.patch('/teacher/me/profile/teaching-approach', data);
+    },
+
+    // --- Interview Slots ---
+    getInterviewSlots: async (): Promise<InterviewSlotsResponse> => {
+        const response = await api.get('/teacher/me/interview-slots');
+        return response.data;
+    },
+
+    selectInterviewSlot: async (slotId: string): Promise<{ message: string; scheduledAt: string; meetingLink?: string }> => {
+        const response = await api.post(`/teacher/me/interview-slots/${slotId}/select`);
+        return response.data;
     }
 };
 

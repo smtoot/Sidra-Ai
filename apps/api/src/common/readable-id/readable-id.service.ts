@@ -48,7 +48,7 @@ export class ReadableIdService {
 
     try {
       // Optimistic update: assume it exists
-      const counter = await this.prisma.readableIdCounter.update({
+      const counter = await this.prisma.readable_id_counters.update({
         where: { type_yearMonth: { type, yearMonth } },
         data: { counter: { increment: 1 } },
       });
@@ -56,13 +56,19 @@ export class ReadableIdService {
     } catch (error) {
       // If it doesn't exist, create it. Handle race condition with another try-catch or upsert.
       try {
-        const counter = await this.prisma.readableIdCounter.create({
-          data: { type, yearMonth, counter: 1 },
+        const counter = await this.prisma.readable_id_counters.create({
+          data: {
+            id: 'cnt_' + crypto.randomUUID(),
+            type,
+            yearMonth,
+            counter: 1,
+            updatedAt: new Date(),
+          },
         });
         return `${prefix}-${counter.counter.toString().padStart(padding, '0')}`;
       } catch (createError) {
         // If create fails, it means it was created concurrently, so update again.
-        const counter = await this.prisma.readableIdCounter.update({
+        const counter = await this.prisma.readable_id_counters.update({
           where: { type_yearMonth: { type, yearMonth } },
           data: { counter: { increment: 1 } },
         });

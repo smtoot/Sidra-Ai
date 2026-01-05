@@ -75,7 +75,7 @@ export default function FavoritesPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {favorites.map((fav) => (
+                    {favorites.filter(fav => fav && fav.teacher).map((fav) => (
                         <div key={fav.id} className="relative group">
                             <div className="border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow bg-white">
                                 <div className="flex items-start justify-between mb-4">

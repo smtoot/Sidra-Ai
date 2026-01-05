@@ -63,7 +63,7 @@ export class NotificationService {
     params: CreateNotificationParams,
   ): Promise<boolean> {
     try {
-      await this.prisma.notification.create({
+      await this.prisma.notifications.create({
         data: {
           userId: params.userId,
           title: params.title,
@@ -93,7 +93,7 @@ export class NotificationService {
    * NEVER sends email synchronously.
    */
   async enqueueEmail(params: SendEmailParams): Promise<void> {
-    await this.prisma.emailOutbox.create({
+    await this.prisma.email_outbox.create({
       data: {
         to: params.to,
         subject: params.subject,
@@ -151,13 +151,13 @@ export class NotificationService {
     const skip = (page - 1) * take;
 
     const [items, total] = await Promise.all([
-      this.prisma.notification.findMany({
+      this.prisma.notifications.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
-      this.prisma.notification.count({ where: { userId } }),
+      this.prisma.notifications.count({ where: { userId } }),
     ]);
 
     return {
@@ -176,7 +176,7 @@ export class NotificationService {
    * Validates ownership.
    */
   async markAsRead(notificationId: string, userId: string): Promise<boolean> {
-    const result = await this.prisma.notification.updateMany({
+    const result = await this.prisma.notifications.updateMany({
       where: {
         id: notificationId,
         userId,
@@ -195,7 +195,7 @@ export class NotificationService {
    * Mark all unread notifications as read for a user.
    */
   async markAllAsRead(userId: string): Promise<number> {
-    const result = await this.prisma.notification.updateMany({
+    const result = await this.prisma.notifications.updateMany({
       where: {
         userId,
         status: NotificationStatus.UNREAD,
@@ -214,7 +214,7 @@ export class NotificationService {
    * Optimized query using index.
    */
   async getUnreadCount(userId: string): Promise<number> {
-    return this.prisma.notification.count({
+    return this.prisma.notifications.count({
       where: {
         userId,
         status: NotificationStatus.UNREAD,
@@ -234,7 +234,7 @@ export class NotificationService {
   }): Promise<void> {
     const { bookingId, parentUserId, teacherName, disputeDeadline } = params;
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: parentUserId },
       select: { email: true, phoneNumber: true },
     });
@@ -266,7 +266,7 @@ export class NotificationService {
     hoursRemaining: number;
     teacherName: string;
   }): Promise<void> {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: params.parentUserId },
       select: { email: true },
     });
@@ -301,7 +301,7 @@ export class NotificationService {
     amount: number;
     releaseType: 'AUTO' | 'CONFIRMED';
   }): Promise<void> {
-    const teacher = await this.prisma.user.findUnique({
+    const teacher = await this.prisma.users.findUnique({
       where: { id: params.teacherId },
       select: { email: true, phoneNumber: true },
     });

@@ -11,8 +11,10 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     ArrowLeft, User, Mail, Phone, Calendar, Shield, Wallet,
-    TrendingUp, TrendingDown, Lock, CheckCircle, XCircle, Clock
+    TrendingUp, TrendingDown, Lock, CheckCircle, XCircle, Clock,
+    BookOpen, GraduationCap, Briefcase
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -63,13 +65,10 @@ export default function AdminUserDetailPage() {
             const walletData = await walletApi.getUserWallet(userId);
             setWallet(walletData);
 
-            // Fetch user data from users list
+            // Fetch user data
             try {
-                const usersData = await adminApi.getUsers('');
-                const foundUser = usersData.find((u: any) => u.id === userId);
-                if (foundUser) {
-                    setUser(foundUser);
-                }
+                const userData = await adminApi.getUser(userId);
+                setUser(userData);
             } catch (userError) {
                 console.error('Error loading user:', userError);
             }
@@ -262,33 +261,115 @@ export default function AdminUserDetailPage() {
 
                                 {/* Teacher Specific Info */}
                                 {user.role === 'TEACHER' && user.teacherProfile && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>معلومات المعلم</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <div className="text-xs text-gray-500 mb-1">الاسم المعروض</div>
-                                                    <div className="font-medium">{user.teacherProfile.displayName || '-'}</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs text-gray-500 mb-1">حالة الطلب</div>
-                                                    <StatusBadge variant={user.teacherProfile.applicationStatus === 'APPROVED' ? 'success' : 'warning'}>
-                                                        {user.teacherProfile.applicationStatus}
-                                                    </StatusBadge>
-                                                </div>
-                                                {user.teacherProfile.bio && (
-                                                    <div className="col-span-2">
-                                                        <div className="text-xs text-gray-500 mb-1">النبذة التعريفية</div>
-                                                        <div className="text-sm bg-gray-50 p-3 rounded-lg">
-                                                            {user.teacherProfile.bio}
+                                    <>
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <BookOpen className="w-5 h-5" />
+                                                    معلومات المعلم
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="grid grid-cols-2 gap-6">
+                                                    <div>
+                                                        <div className="text-xs text-gray-500 mb-1">الاسم المعروض</div>
+                                                        <div className="font-medium">{user.teacherProfile.displayName || '-'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-gray-500 mb-1">حالة الطلب</div>
+                                                        <StatusBadge variant={user.teacherProfile.applicationStatus === 'APPROVED' ? 'success' : 'warning'}>
+                                                            {user.teacherProfile.applicationStatus}
+                                                        </StatusBadge>
+                                                    </div>
+
+                                                    {user.teacherProfile.bio && (
+                                                        <div className="col-span-2">
+                                                            <div className="text-xs text-gray-500 mb-1">النبذة التعريفية</div>
+                                                            <div className="text-sm bg-gray-50 p-3 rounded-lg leading-relaxed">
+                                                                {user.teacherProfile.bio}
+                                                            </div>
                                                         </div>
+                                                    )}
+
+                                                    {/* Qualifications */}
+                                                    {user.teacherProfile.qualifications && user.teacherProfile.qualifications.length > 0 && (
+                                                        <div className="col-span-2">
+                                                            <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-gray-700">
+                                                                <GraduationCap className="w-4 h-4" />
+                                                                المؤهلات العلمية
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {user.teacherProfile.qualifications.map((qual: any, idx: number) => (
+                                                                    <div key={idx} className="flex justify-between items-center bg-white border border-gray-100 p-2 rounded-md shadow-sm">
+                                                                        <div>
+                                                                            <div className="font-medium text-sm">{qual.degreeName}</div>
+                                                                            <div className="text-xs text-gray-500">{qual.institution}</div>
+                                                                        </div>
+                                                                        <div className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                                                            {qual.graduationYear || '-'}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Subjects & Curriculums */}
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <Briefcase className="w-5 h-5" />
+                                                    المواد والمناهج الدراسية
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                {user.teacherProfile.subjects && user.teacherProfile.subjects.length > 0 ? (
+                                                    <div className="space-y-4">
+                                                        {user.teacherProfile.subjects.map((ts: any) => (
+                                                            <div key={ts.id} className="border border-gray-200 rounded-lg p-4">
+                                                                <div className="flex justify-between items-start mb-3">
+                                                                    <div>
+                                                                        <h4 className="font-bold text-lg text-primary-700">
+                                                                            {ts.subject?.nameAr || ts.subjectId}
+                                                                        </h4>
+                                                                        <div className="text-sm text-gray-500 font-medium mt-1">
+                                                                            {ts.curriculum?.nameAr || ts.curriculumId}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="font-mono bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">
+                                                                        {ts.pricePerHour} SDG/ساعة
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Grades */}
+                                                                <div>
+                                                                    <div className="text-xs text-gray-500 mb-2">المراحل الدراسية:</div>
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {ts.grades && ts.grades.length > 0 ? (
+                                                                            ts.grades.map((g: any) => (
+                                                                                <Badge key={g.gradeLevelId} variant="secondary">
+                                                                                    {g.gradeLevel?.nameAr || g.gradeLevelId}
+                                                                                </Badge>
+                                                                            ))
+                                                                        ) : (
+                                                                            <span className="text-sm text-gray-400 italic">لا توجد مراحل محددة</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-6 text-gray-500">
+                                                        لا توجد مواد مسجلة
                                                     </div>
                                                 )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                            </CardContent>
+                                        </Card>
+                                    </>
                                 )}
 
                                 {/* Wallet Summary */}

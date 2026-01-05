@@ -24,7 +24,7 @@ export class WorkExperienceService {
   async getWorkExperiences(userId: string) {
     const profile = await this.getTeacherProfile(userId);
 
-    return this.prisma.teacherWorkExperience.findMany({
+    return this.prisma.teacher_work_experiences.findMany({
       where: { teacherId: profile.id },
       orderBy: [
         { isCurrent: 'desc' },
@@ -42,7 +42,7 @@ export class WorkExperienceService {
     const profile = await this.getTeacherProfile(userId);
 
     // Check max limit
-    const existingCount = await this.prisma.teacherWorkExperience.count({
+    const existingCount = await this.prisma.teacher_work_experiences.count({
       where: { teacherId: profile.id },
     });
 
@@ -56,8 +56,9 @@ export class WorkExperienceService {
     const validatedData = this.validateAndNormalizeData(dto);
 
     // Create work experience
-    const experience = await this.prisma.teacherWorkExperience.create({
+    const experience = await this.prisma.teacher_work_experiences.create({
       data: {
+        id: crypto.randomUUID(),
         teacherId: profile.id,
         title: dto.title.trim(),
         organization: dto.organization.trim(),
@@ -67,6 +68,7 @@ export class WorkExperienceService {
         isCurrent: validatedData.isCurrent,
         description: dto.description?.trim(),
         subjects: validatedData.subjects,
+        updatedAt: new Date(),
       },
     });
 
@@ -86,7 +88,7 @@ export class WorkExperienceService {
     const profile = await this.getTeacherProfile(userId);
 
     // Verify ownership
-    const experience = await this.prisma.teacherWorkExperience.findFirst({
+    const experience = await this.prisma.teacher_work_experiences.findFirst({
       where: { id: experienceId, teacherId: profile.id },
     });
 
@@ -107,7 +109,7 @@ export class WorkExperienceService {
     const validatedData = this.validateAndNormalizeData(mergedData);
 
     // Update work experience
-    return this.prisma.teacherWorkExperience.update({
+    return this.prisma.teacher_work_experiences.update({
       where: { id: experienceId },
       data: {
         title: dto.title?.trim(),
@@ -130,7 +132,7 @@ export class WorkExperienceService {
     const profile = await this.getTeacherProfile(userId);
 
     // Verify ownership
-    const experience = await this.prisma.teacherWorkExperience.findFirst({
+    const experience = await this.prisma.teacher_work_experiences.findFirst({
       where: { id: experienceId, teacherId: profile.id },
     });
 
@@ -138,7 +140,7 @@ export class WorkExperienceService {
       throw new NotFoundException('الخبرة غير موجودة');
     }
 
-    await this.prisma.teacherWorkExperience.delete({
+    await this.prisma.teacher_work_experiences.delete({
       where: { id: experienceId },
     });
 
@@ -151,7 +153,7 @@ export class WorkExperienceService {
    * Get teacher profile or throw NotFoundException
    */
   private async getTeacherProfile(userId: string) {
-    const profile = await this.prisma.teacherProfile.findUnique({
+    const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: { id: true },
     });

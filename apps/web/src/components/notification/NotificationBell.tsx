@@ -7,6 +7,7 @@ import { Notification } from '@/lib/api/notification';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useNotifications, useUnreadCount, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNotifications';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Format relative time in Arabic
@@ -28,6 +29,7 @@ function formatRelativeTime(dateString: string): string {
 
 export function NotificationBell() {
     const router = useRouter();
+    const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +41,11 @@ export function NotificationBell() {
 
     const notifications = notificationsData?.items || [];
     const unreadCount = unreadData?.count || 0;
+
+    // Don't render notification bell if user is not authenticated
+    if (!user) {
+        return null;
+    }
 
     // Handle dropdown toggle
     const handleToggle = () => {

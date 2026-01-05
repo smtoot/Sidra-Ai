@@ -149,13 +149,19 @@ export default function AdminUsersPage() {
                                         <TableCell>
                                             <div className="flex items-center gap-3">
                                                 <Avatar
-                                                    fallback={user.email}
+                                                    fallback={user.teacherProfile?.displayName || user.firstName || user.email || '?'}
                                                     size="sm"
                                                 />
                                                 <div>
-                                                    <p className="font-semibold text-gray-900">{user.email}</p>
-                                                    {user.teacherProfile?.displayName && (
-                                                        <p className="text-sm text-gray-500">{user.teacherProfile.displayName}</p>
+                                                    <p className="font-semibold text-gray-900">
+                                                        {user.teacherProfile?.displayName ||
+                                                            (user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : null) ||
+                                                            user.email ||
+                                                            user.phoneNumber ||
+                                                            'مستخدم بدون اسم'}
+                                                    </p>
+                                                    {(user.teacherProfile?.displayName || user.firstName) && user.email && (
+                                                        <p className="text-sm text-gray-500">{user.email}</p>
                                                     )}
                                                 </div>
                                             </div>

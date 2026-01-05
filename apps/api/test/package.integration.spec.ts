@@ -83,7 +83,7 @@ describe('Package Integration Tests', () => {
 
       expect(result.success).toBe(true);
       expect(result.idempotent).toBe(true);
-      expect(result.booking.id).toBe('booking-existing');
+      expect((result as any).bookings.id).toBe('booking-existing');
     });
 
     it('should throw ConflictException on concurrent 0-row update', async () => {

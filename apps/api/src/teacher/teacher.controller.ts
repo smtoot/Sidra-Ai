@@ -185,6 +185,16 @@ export class TeacherController {
     return this.teacherService.getApplicationStatus(req.user.userId);
   }
 
+  @Get('me/interview-slots')
+  getInterviewSlots(@Request() req: any) {
+    return this.teacherService.getInterviewSlots(req.user.userId);
+  }
+
+  @Post('me/interview-slots/:slotId/select')
+  selectInterviewSlot(@Request() req: any, @Param('slotId') slotId: string) {
+    return this.teacherService.selectInterviewSlot(req.user.userId, slotId);
+  }
+
   // SECURITY: Rate limit terms acceptance to prevent abuse
   @Post('me/accept-terms')
   @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 acceptances per hour

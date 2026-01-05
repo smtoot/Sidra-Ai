@@ -183,8 +183,8 @@ export class PackageController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
   async getTeacherPackages(@Req() req: any) {
-    const teacherProfile = await this.getTeacherProfile(req.user.userId);
-    return this.packageService.getTeacherPackages(teacherProfile.id);
+    const teacher_profiles = await this.getTeacherProfile(req.user.userId);
+    return this.packageService.getTeacherPackages(teacher_profiles.id);
   }
 
   // =====================================================
@@ -213,10 +213,10 @@ export class PackageController {
   ) {
     // SECURITY FIX: Teachers can only toggle their OWN tier preferences
     // This updates TeacherPackageTierSetting, NOT the global PackageTier
-    const teacherProfile = await this.getTeacherProfile(req.user.userId);
+    const teacher_profiles = await this.getTeacherProfile(req.user.userId);
 
     return this.packageService.updateTeacherTierSetting(
-      teacherProfile.id,
+      teacher_profiles.id,
       tierId,
       { isEnabled: dto.isEnabled },
     );
@@ -238,8 +238,8 @@ export class PackageController {
 
     // Teachers can only view packages where they are the teacher
     if (userRole === 'TEACHER') {
-      const teacherProfile = await this.getTeacherProfile(userId);
-      if (pkg.teacherId !== teacherProfile.id) {
+      const teacher_profiles = await this.getTeacherProfile(userId);
+      if (pkg.teacherId !== teacher_profiles.id) {
         throw new ForbiddenException(
           'You are not authorized to view this package',
         );
@@ -330,9 +330,9 @@ export class PackageController {
     @Req() req: any,
     @Body() dto: UpdateDemoSettingsDto,
   ) {
-    const teacherProfile = await this.getTeacherProfile(req.user.userId);
+    const teacher_profiles = await this.getTeacherProfile(req.user.userId);
     return this.demoService.updateDemoSettings(
-      teacherProfile.id,
+      teacher_profiles.id,
       dto.demoEnabled,
     );
   }
@@ -341,8 +341,8 @@ export class PackageController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
   async getDemoSettings(@Req() req: any) {
-    const teacherProfile = await this.getTeacherProfile(req.user.userId);
-    return this.demoService.getDemoSettings(teacherProfile.id);
+    const teacher_profiles = await this.getTeacherProfile(req.user.userId);
+    return this.demoService.getDemoSettings(teacher_profiles.id);
   }
 
   // =====================================================
@@ -434,7 +434,7 @@ export class PackageController {
     // If it's not accessible, we can add a method to PackageService
     const profile = await (
       this.packageService as any
-    ).prisma.teacherProfile.findUnique({
+    ).prisma.teacher_profiles.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Teacher profile not found');

@@ -80,11 +80,14 @@ function SearchPageContent() {
 
             const data = await searchApi.searchTeachers(filters);
 
-            // Fetch availability for each teacher (non-blocking)
+            // Filter out null/incomplete results first
+            const validResults = data.filter(result => result && result.teacherProfile && result.teacherProfile.id);
+
+            // Fetch availability for each valid teacher (non-blocking)
             // Note: Parallel request limit might be an issue if results are large. 
             // For MVP (10-20 results) it's fine.
             const resultsWithAvailability = await Promise.all(
-                data.map(async (result) => {
+                validResults.map(async (result) => {
                     const nextSlot = await marketplaceApi.getNextAvailableSlot(result.teacherProfile.id);
                     return {
                         ...result,
@@ -233,7 +236,7 @@ function SearchPageContent() {
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            {results.map(result => (
+                            {results.filter(result => result && result.teacherProfile).map(result => (
                                 <TeacherPowerCard
                                     key={result.id}
                                     teacher={result}

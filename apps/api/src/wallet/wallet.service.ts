@@ -41,7 +41,7 @@ export class WalletService {
 
   async getBalance(userId: string, tx?: Prisma.TransactionClient) {
     const prisma = tx || this.prisma;
-    let wallet = await prisma.wallet.findUnique({
+    let wallet = await prisma.wallets.findUnique({
       where: { userId },
       include: {
         transactions: {
@@ -53,27 +53,32 @@ export class WalletService {
 
     if (!wallet) {
       const readableId = await this.readableIdService.generate('WALLET');
-      wallet = await prisma.wallet.create({
-        data: { userId, readableId },
+      wallet = await prisma.wallets.create({
+        data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
+          userId,
+          readableId,
+        },
         include: { transactions: true },
       });
     }
 
     // Fetch Bank Info for status check (Masked)
-    const profile = await prisma.teacherProfile.findUnique({
+    const profile = await prisma.teacher_profiles.findUnique({
       where: { userId },
-      include: { bankInfo: true },
+      include: { bank_info: true },
     });
 
     return {
       ...wallet,
-      bankInfo: profile?.bankInfo
+      bank_info: profile?.bank_info
         ? {
-            bankName: profile.bankInfo.bankName,
-            accountHolder: profile.bankInfo.accountHolderName,
-            accountNumberMasked: `***${profile.bankInfo.accountNumber.slice(-4)}`,
-            ibanMasked: profile.bankInfo.iban
-              ? `***${profile.bankInfo.iban.slice(-4)}`
+            bankName: profile.bank_info.bankName,
+            accountHolder: profile.bank_info.accountHolderName,
+            accountNumberMasked: `***${profile.bank_info.accountNumber.slice(-4)}`,
+            ibanMasked: profile.bank_info.iban
+              ? `***${profile.bank_info.iban.slice(-4)}`
               : undefined,
           }
         : null,
@@ -84,8 +89,10 @@ export class WalletService {
     const wallet = await this.getBalance(userId);
 
     const readableId = await this.readableIdService.generate('TRANSACTION');
-    const transaction = await this.prisma.transaction.create({
+    const transaction = await this.prisma.transactions.create({
       data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         readableId,
         walletId: wallet.id,
         amount: dto.amount,
@@ -126,7 +133,7 @@ export class WalletService {
     const [totalDeposits, pendingWithdrawals, completedPayouts] =
       await Promise.all([
         // Total Deposits
-        this.prisma.transaction.aggregate({
+        this.prisma.transactions.aggregate({
           where: {
             type: TransactionType.DEPOSIT,
             status: TransactionStatus.APPROVED,
@@ -134,7 +141,7 @@ export class WalletService {
           _sum: { amount: true },
         }),
         // Pending Withdrawals
-        this.prisma.transaction.aggregate({
+        this.prisma.transactions.aggregate({
           where: {
             type: TransactionType.WITHDRAWAL,
             status: TransactionStatus.PENDING,
@@ -143,7 +150,7 @@ export class WalletService {
           _count: true,
         }),
         // Completed Payouts
-        this.prisma.transaction.aggregate({
+        this.prisma.transactions.aggregate({
           where: {
             type: TransactionType.WITHDRAWAL,
             status: TransactionStatus.APPROVED,
@@ -171,11 +178,11 @@ export class WalletService {
     page: number = 1,
     limit: number = 50,
   ) {
-    const where: Prisma.TransactionWhereInput = {};
+    const where: Prisma.transactionsWhereInput = {};
 
     if (status && status !== ('ALL' as any)) where.status = status;
     if (type && type !== ('ALL' as any)) where.type = type;
-    if (userId) where.wallet = { userId };
+    if (userId) where.wallets = { userId };
 
     if (startDate || endDate) {
       where.createdAt = {};
@@ -186,13 +193,13 @@ export class WalletService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      this.prisma.transaction.findMany({
+      this.prisma.transactions.findMany({
         where,
         include: {
-          wallet: {
+          wallets: {
             include: {
-              user: {
-                include: { teacherProfile: { include: { bankInfo: true } } },
+              users: {
+                include: { teacher_profiles: { include: { bank_info: true } } },
               },
             },
           },
@@ -201,7 +208,7 @@ export class WalletService {
         take: limit,
         skip,
       }),
-      this.prisma.transaction.count({ where }),
+      this.prisma.transactions.count({ where }),
     ]);
 
     return {
@@ -216,7 +223,7 @@ export class WalletService {
   }
 
   async getAdminUserWallet(userId: string) {
-    const wallet = await this.prisma.wallet.findUnique({
+    const wallet = await this.prisma.wallets.findUnique({
       where: { userId },
       include: {
         transactions: {
@@ -232,16 +239,16 @@ export class WalletService {
   }
 
   async getAdminTransaction(id: string) {
-    const transaction = await this.prisma.transaction.findUnique({
+    const transaction = await this.prisma.transactions.findUnique({
       where: { id },
       include: {
-        wallet: {
+        wallets: {
           include: {
-            user: {
+            users: {
               include: {
-                teacherProfile: {
+                teacher_profiles: {
                   include: {
-                    bankInfo: true,
+                    bank_info: true,
                   },
                 },
               },
@@ -256,9 +263,9 @@ export class WalletService {
   }
 
   async processTransaction(transactionId: string, dto: ProcessTransactionDto) {
-    const transaction = await this.prisma.transaction.findUnique({
+    const transaction = await this.prisma.transactions.findUnique({
       where: { id: transactionId },
-      include: { wallet: true },
+      include: { wallets: true },
     });
 
     if (!transaction) throw new NotFoundException('Transaction not found');
@@ -274,7 +281,7 @@ export class WalletService {
     // Atomic update
     return this.prisma.$transaction(async (tx) => {
       // Update Transaction Status
-      const updatedTx = await tx.transaction.update({
+      const updatedTx = await tx.transactions.update({
         where: { id: transactionId },
         data: {
           status: dto.status as any,
@@ -298,7 +305,7 @@ export class WalletService {
             );
           }
 
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { id: transaction.walletId },
             data: {
               pendingBalance: { decrement: transaction.amount },
@@ -306,8 +313,10 @@ export class WalletService {
           });
 
           // P1-1: Create ledger transaction for withdrawal completion
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
               walletId: transaction.walletId,
               amount: transaction.amount,
               type: 'WITHDRAWAL_COMPLETED',
@@ -318,7 +327,7 @@ export class WalletService {
 
           // Notify User
           await this.notificationService.notifyUser({
-            userId: transaction.wallet.userId,
+            userId: transaction.wallets.userId,
             title: 'تم إيداع الأرباح',
             message: `تم إيداع مبلغ ${transaction.amount} SDG في حسابك البنكي.`,
             type: 'PAYMENT_RELEASED', // Reuse existing type or add new one? PAYMENT_RELEASED seems fit.
@@ -326,7 +335,7 @@ export class WalletService {
         }
         // REJECT: Refund (Pending -> Balance)
         else if (dto.status === TransactionStatus.REJECTED) {
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { id: transaction.walletId },
             data: {
               pendingBalance: { decrement: transaction.amount },
@@ -335,8 +344,10 @@ export class WalletService {
           });
 
           // P1-1: Create ledger transaction for withdrawal refund
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
               walletId: transaction.walletId,
               amount: transaction.amount,
               type: 'WITHDRAWAL_REFUNDED',
@@ -354,7 +365,7 @@ export class WalletService {
           transaction.status === TransactionStatus.PENDING
         ) {
           await this.notificationService.notifyUser({
-            userId: transaction.wallet.userId,
+            userId: transaction.wallets.userId,
             title: 'تم رفض طلب الإيداع',
             message: `تم رفض طلب إيداع مبلغ ${transaction.amount} SDG. السبب: ${dto.adminNote || 'لم يتم تحديد السبب'}`,
             type: 'PAYMENT_RELEASED', // Reuse existing type or could use SYSTEM_ALERT
@@ -370,7 +381,7 @@ export class WalletService {
           dto.status === TransactionStatus.APPROVED &&
           transaction.status === TransactionStatus.PENDING
         ) {
-          await tx.wallet.update({
+          await tx.wallets.update({
             where: { id: transaction.walletId },
             data: {
               balance: { increment: transaction.amount },
@@ -378,8 +389,10 @@ export class WalletService {
           });
 
           // P1-1: Create ledger transaction for deposit approval
-          await tx.transaction.create({
+          await tx.transactions.create({
             data: {
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
               walletId: transaction.walletId,
               amount: transaction.amount,
               type: 'DEPOSIT_APPROVED',
@@ -390,7 +403,7 @@ export class WalletService {
 
           // 🟡 MEDIUM PRIORITY - Gap #7 Fix: Notify parent that deposit was approved
           await this.notificationService.notifyUser({
-            userId: transaction.wallet.userId,
+            userId: transaction.wallets.userId,
             title: 'تم إضافة الرصيد',
             message: `تم قبول طلب الإيداع وإضافة مبلغ ${transaction.amount} SDG إلى رصيدك.`,
             type: 'PAYMENT_SUCCESS',
@@ -403,8 +416,8 @@ export class WalletService {
           });
 
           // AUTOMATIC PAYMENT: Check for pending bookings awaiting payment
-          const userId = transaction.wallet.userId;
-          const updatedWallet = await tx.wallet.findUnique({
+          const userId = transaction.wallets.userId;
+          const updatedWallet = await tx.wallets.findUnique({
             where: { userId },
           });
 
@@ -416,7 +429,7 @@ export class WalletService {
           }
 
           // Find all bookings in WAITING_FOR_PAYMENT status for this user
-          const pendingBookings = await tx.booking.findMany({
+          const pendingBookings = await tx.bookings.findMany({
             where: {
               bookedByUserId: userId,
               status: 'WAITING_FOR_PAYMENT',
@@ -443,7 +456,7 @@ export class WalletService {
               try {
                 // P1 FIX: Idempotency check - skip if already processed
                 // Use conditional update to prevent double-payment on retry
-                const updateResult = await tx.booking.updateMany({
+                const updateResult = await tx.bookings.updateMany({
                   where: {
                     id: booking.id,
                     status: 'WAITING_FOR_PAYMENT', // Only transition if still waiting
@@ -538,7 +551,7 @@ export class WalletService {
 
     const operation = async (transaction: Prisma.TransactionClient) => {
       // SECURITY: Conditional update prevents race condition - only update if balance sufficient
-      const updateResult = await transaction.wallet.updateMany({
+      const updateResult = await transaction.wallets.updateMany({
         where: {
           id: wallet.id,
           balance: { gte: normalizedAmount }, // Only update if balance >= amount
@@ -558,8 +571,10 @@ export class WalletService {
 
       // Create transaction record
       const readableId = await this.readableIdService.generate('TRANSACTION');
-      const txRecord = await transaction.transaction.create({
+      const txRecord = await transaction.transactions.create({
         data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           readableId,
           walletId: wallet.id,
           amount: normalizedAmount, // MONEY NORMALIZATION: Stored as integer
@@ -617,7 +632,7 @@ export class WalletService {
 
     const operation = async (transaction: Prisma.TransactionClient) => {
       // Parent: pending → 0 (release escrow)
-      await transaction.wallet.update({
+      await transaction.wallets.update({
         where: { id: parentWallet.id },
         data: {
           pendingBalance: { decrement: normalizedAmount }, // MONEY NORMALIZATION
@@ -625,7 +640,7 @@ export class WalletService {
       });
 
       // Teacher: 0 → balance (receive payment minus commission)
-      await transaction.wallet.update({
+      await transaction.wallets.update({
         where: { id: teacherWallet.id },
         data: {
           balance: { increment: teacherEarnings }, // Already normalized
@@ -635,8 +650,10 @@ export class WalletService {
       // Record parent transaction (release from escrow)
       const parentTxReadableId =
         await this.readableIdService.generate('TRANSACTION');
-      const parentTxRecord = await transaction.transaction.create({
+      const parentTxRecord = await transaction.transactions.create({
         data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           readableId: parentTxReadableId,
           walletId: parentWallet.id,
           amount: normalizedAmount, // MONEY NORMALIZATION: Stored as integer
@@ -649,8 +666,10 @@ export class WalletService {
       // Record teacher transaction (earnings)
       const teacherTxReadableId =
         await this.readableIdService.generate('TRANSACTION');
-      const teacherTxRecord = await transaction.transaction.create({
+      const teacherTxRecord = await transaction.transactions.create({
         data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           readableId: teacherTxReadableId,
           walletId: teacherWallet.id,
           amount: teacherEarnings, // MONEY NORMALIZATION: Already integer
@@ -719,7 +738,7 @@ export class WalletService {
 
     const operation = async (transaction: Prisma.TransactionClient) => {
       // 1. Decrement parent's pendingBalance (release all locked funds)
-      await transaction.wallet.update({
+      await transaction.wallets.update({
         where: { id: parentWallet.id },
         data: {
           pendingBalance: { decrement: totalLockedAmount },
@@ -728,7 +747,7 @@ export class WalletService {
 
       // 2. Credit refund to parent's balance (if any)
       if (refundAmount > 0) {
-        await transaction.wallet.update({
+        await transaction.wallets.update({
           where: { id: parentWallet.id },
           data: {
             balance: { increment: refundAmount },
@@ -737,8 +756,10 @@ export class WalletService {
 
         // Record parent refund transaction
         const refundTxId = await this.readableIdService.generate('TRANSACTION');
-        await transaction.transaction.create({
+        await transaction.transactions.create({
           data: {
+            id: crypto.randomUUID(),
+            updatedAt: new Date(),
             readableId: refundTxId,
             walletId: parentWallet.id,
             amount: refundAmount,
@@ -751,7 +772,7 @@ export class WalletService {
 
       // 3. Credit compensation to teacher's balance (if any)
       if (teacherCompAmount > 0) {
-        await transaction.wallet.update({
+        await transaction.wallets.update({
           where: { id: teacherWallet.id },
           data: {
             balance: { increment: teacherCompAmount },
@@ -760,8 +781,10 @@ export class WalletService {
 
         // Record teacher compensation transaction
         const compTxId = await this.readableIdService.generate('TRANSACTION');
-        await transaction.transaction.create({
+        await transaction.transactions.create({
           data: {
+            id: crypto.randomUUID(),
+            updatedAt: new Date(),
             readableId: compTxId,
             walletId: teacherWallet.id,
             amount: teacherCompAmount,
@@ -787,9 +810,9 @@ export class WalletService {
 
   async upsertBankInfo(userId: string, dto: UpsertBankInfoDto) {
     // 1. Get Teacher Profile
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
-      include: { bankInfo: true },
+      include: { bank_info: true },
     });
 
     if (!teacher) {
@@ -802,12 +825,12 @@ export class WalletService {
       throw new BadRequestException('Invalid IBAN format');
 
     // 3. Audit Logging (Redact full numbers)
-    const redactedOld = teacher.bankInfo
+    const redactedOld = teacher.bank_info
       ? {
-          ...teacher.bankInfo,
-          accountNumber: `***${teacher.bankInfo.accountNumber.slice(-4)}`,
-          iban: teacher.bankInfo.iban
-            ? `***${teacher.bankInfo.iban.slice(-4)}`
+          ...teacher.bank_info,
+          accountNumber: `***${teacher.bank_info.accountNumber.slice(-4)}`,
+          iban: teacher.bank_info.iban
+            ? `***${teacher.bank_info.iban.slice(-4)}`
             : undefined,
         }
       : null;
@@ -820,9 +843,10 @@ export class WalletService {
 
     return this.prisma.$transaction(async (tx) => {
       // Upsert Bank Info
-      const bankInfo = await tx.bankInfo.upsert({
+      const bank_info = await tx.bank_info.upsert({
         where: { teacherId: teacher.id },
         create: {
+          id: crypto.randomUUID(),
           teacherId: teacher.id,
           ...dto,
         },
@@ -832,20 +856,21 @@ export class WalletService {
       });
 
       // Log Audit
-      await tx.auditLog.create({
+      await tx.audit_logs.create({
         data: {
+          id: crypto.randomUUID(),
           action: 'SETTINGS_UPDATE' as any, // Cast to any to avoid enum issues
           actorId: userId,
           targetId: teacher.id,
           payload: {
-            field: 'bankInfo',
+            field: 'bank_info',
             old: redactedOld,
             new: redactedNew,
           },
         },
       });
 
-      return bankInfo;
+      return bank_info;
     });
   }
 
@@ -860,15 +885,15 @@ export class WalletService {
     }
 
     // 2. Get Bank Info for Snapshot
-    const teacher = await this.prisma.teacherProfile.findUnique({
+    const teacher = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
-      include: { bankInfo: true },
+      include: { bank_info: true },
     });
 
-    if (!teacher?.bankInfo) {
+    if (!teacher?.bank_info) {
       throw new BadRequestException('Bank info required for withdrawal');
     }
-    const bank = teacher.bankInfo;
+    const bank = teacher.bank_info;
 
     // 3. Store Full Snapshot (Unmasked for Admin Payouts)
     const bankSnapshot = {
@@ -880,7 +905,7 @@ export class WalletService {
       ibanMasked: bank.iban ? `***${bank.iban.slice(-4)}` : undefined,
       swift: bank.swiftCode,
       bankBranch: bank.bankBranch, // Include Branch
-      bankInfoId: bank.id,
+      bank_infoId: bank.id,
       snapshotDate: new Date().toISOString(),
     };
 
@@ -889,7 +914,7 @@ export class WalletService {
       async (tx) => {
         // A. ONE-OPEN-RULE: Check for active withdrawals
         // (Even with DB index, checking explicitly gives better error message)
-        const activeWithdrawal = await tx.transaction.findFirst({
+        const activeWithdrawal = await tx.transactions.findFirst({
           where: {
             walletId: wallet.id,
             type: TransactionType.WITHDRAWAL,
@@ -907,7 +932,7 @@ export class WalletService {
 
         // B. Conditional Wallet Update (Concurrency Guard)
         // Move funds from Balance -> PendingBalance
-        const updateResult = await tx.wallet.updateMany({
+        const updateResult = await tx.wallets.updateMany({
           where: {
             id: wallet.id,
             balance: { gte: amount }, // Conditional Check
@@ -926,8 +951,9 @@ export class WalletService {
 
         // C. Create Transaction Record
         const readableId = await this.readableIdService.generate('TRANSACTION');
-        return tx.transaction.create({
+        return tx.transactions.create({
           data: {
+            id: crypto.randomUUID(),
             readableId,
             walletId: wallet.id,
             amount,

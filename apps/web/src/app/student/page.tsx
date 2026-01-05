@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Calendar, ExternalLink, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { DashboardHeader } from './components/DashboardHeader';
 import { StatsGrid } from './components/StatsGrid';
@@ -127,10 +127,21 @@ export default function StudentDashboardPage() {
 
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
                                                         {booking.status === 'SCHEDULED' ? (
-                                                            <Button size="sm" className="w-full sm:w-auto gap-2 shadow-sm">
-                                                                <ExternalLink className="w-3 h-3" />
-                                                                دخول
-                                                            </Button>
+                                                            (() => {
+                                                                const isJoinable = differenceInMinutes(new Date(booking.startTime), new Date()) <= 30;
+                                                                return (
+                                                                    <Link href={`/student/bookings/${booking.id}`} className="w-full sm:w-auto">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant={isJoinable ? "default" : "outline"}
+                                                                            className="w-full sm:w-auto gap-2 shadow-sm"
+                                                                        >
+                                                                            {isJoinable ? <ExternalLink className="w-3 h-3" /> : <ChevronRight className="w-3 h-3 rotate-180" />}
+                                                                            {isJoinable ? 'دخول' : 'التفاصيل'}
+                                                                        </Button>
+                                                                    </Link>
+                                                                );
+                                                            })()
                                                         ) : (
                                                             <span className={`
                                                                 text-xs px-3 py-1.5 rounded-full font-bold

@@ -6,7 +6,7 @@ export class CurriculumService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.curriculum.findMany({
+    return this.prisma.curricula.findMany({
       where: { isActive: true },
       // Minimal fields for listing
       select: {
@@ -20,18 +20,18 @@ export class CurriculumService {
   }
 
   /**
-   * Returns full hierarchy tree for a curriculum in one go.
+   * Returns full hierarchy tree for a curricula in one go.
    * Optimized to avoid N+1 queries.
    */
   async getHierarchy(id: string) {
-    const curriculum = await this.prisma.curriculum.findUnique({
+    const curricula = await this.prisma.curricula.findUnique({
       where: { id },
       include: {
-        stages: {
+        educational_stages: {
           where: { isActive: true },
           orderBy: { sequence: 'asc' },
           include: {
-            grades: {
+            grade_levels: {
               where: { isActive: true },
               orderBy: { sequence: 'asc' },
               select: {
@@ -46,10 +46,10 @@ export class CurriculumService {
       },
     });
 
-    if (!curriculum) {
+    if (!curricula) {
       throw new NotFoundException(`Curriculum with ID ${id} not found`);
     }
 
-    return curriculum;
+    return curricula;
   }
 }

@@ -49,15 +49,15 @@ describe('EmailOutboxWorker', () => {
         createdAt: new Date(),
       };
 
-      (prisma.emailOutbox.findMany as jest.Mock).mockResolvedValue([
+      (prisma.email_outbox.findMany as jest.Mock).mockResolvedValue([
         emailWith4Attempts,
       ]);
-      (prisma.emailOutbox.updateMany as jest.Mock).mockResolvedValue({
+      (prisma.email_outbox.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
 
       // Mock the update to simulate the failure handling
-      (prisma.emailOutbox.update as jest.Mock).mockResolvedValue({
+      (prisma.email_outbox.update as jest.Mock).mockResolvedValue({
         id: 'email-1',
       });
 

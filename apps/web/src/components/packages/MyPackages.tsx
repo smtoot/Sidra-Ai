@@ -71,10 +71,13 @@ function PackageCard({ pkg, onBook }: PackageCardProps) {
     const isExpiringSoon = isActive && daysUntilExpiry <= 7;
 
     return (
-        <div className={cn(
-            "bg-white rounded-2xl border shadow-sm overflow-hidden transition-all hover:shadow-md",
-            pkg.status === 'ACTIVE' ? "border-green-200" : "border-gray-200"
-        )}>
+        <div
+            onClick={() => onBook(pkg)}
+            className={cn(
+                "bg-white rounded-2xl border shadow-sm overflow-hidden transition-all hover:shadow-md cursor-pointer",
+                pkg.status === 'ACTIVE' ? "border-green-200" : "border-gray-200"
+            )}
+        >
             {/* Header */}
             <div className="p-4 border-b border-gray-100">
                 <div className="flex items-start justify-between">
@@ -153,28 +156,16 @@ function PackageCard({ pkg, onBook }: PackageCardProps) {
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                         <CalendarDays className="w-3 h-3" />
                         <span>
-                            {pkg.status === 'ACTIVE' ? 'تنتهي ' : 'انتهت '}
+                            {(pkg.status === 'ACTIVE' || pkg.status === 'COMPLETED') && daysUntilExpiry >= 0 ? 'تنتهي ' : 'انتهت '}
                             {format(new Date(pkg.expiresAt), 'd MMM yyyy', { locale: ar })}
                         </span>
                     </div>
 
-                    {/* Book Button */}
-                    {isActive ? (
-                        <button
-                            onClick={() => onBook(pkg)}
-                            className="flex items-center gap-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-                        >
-                            جدول حصة
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                    ) : (
-                        <span className="text-xs text-gray-400">
-                            {pkg.status === 'COMPLETED' && 'تم استخدام كل الحصص'}
-                            {pkg.status === 'EXPIRED' && 'انتهت صلاحية الباقة'}
-                            {pkg.status === 'CANCELLED' && 'تم إلغاء الباقة'}
-                            {pkg.status === 'ACTIVE' && sessionsRemaining === 0 && 'لا توجد حصص متبقية'}
-                        </span>
-                    )}
+                    {/* View Details Indicator - Always show chevron */}
+                    <div className="flex items-center gap-1 text-sm font-medium text-primary">
+                        عرض التفاصيل
+                        <ChevronLeft className="w-4 h-4" />
+                    </div>
                 </div>
             </div>
         </div>

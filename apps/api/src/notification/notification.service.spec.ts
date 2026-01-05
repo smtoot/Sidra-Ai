@@ -43,7 +43,7 @@ describe('NotificationService', () => {
 
   describe('createInAppNotification', () => {
     it('should create a notification successfully', async () => {
-      (prisma.notification.create as jest.Mock).mockResolvedValue({
+      (prisma.notifications.create as jest.Mock).mockResolvedValue({
         id: 'test-id',
       });
 
@@ -55,7 +55,7 @@ describe('NotificationService', () => {
       });
 
       expect(result).toBe(true);
-      expect(prisma.notification.create).toHaveBeenCalledWith({
+      expect(prisma.notifications.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId: 'user-1',
           title: 'Test Title',
@@ -70,7 +70,7 @@ describe('NotificationService', () => {
       // Simulate unique constraint violation (P2002)
       const uniqueError = new Error('Unique constraint failed');
       (uniqueError as any).code = 'P2002';
-      (prisma.notification.create as jest.Mock).mockRejectedValue(uniqueError);
+      (prisma.notifications.create as jest.Mock).mockRejectedValue(uniqueError);
 
       const result = await service.createInAppNotification({
         userId: 'user-1',
@@ -86,7 +86,9 @@ describe('NotificationService', () => {
 
     it('should throw on non-dedupe errors', async () => {
       const genericError = new Error('Some other DB error');
-      (prisma.notification.create as jest.Mock).mockRejectedValue(genericError);
+      (prisma.notifications.create as jest.Mock).mockRejectedValue(
+        genericError,
+      );
 
       await expect(
         service.createInAppNotification({
@@ -101,7 +103,7 @@ describe('NotificationService', () => {
 
   describe('enqueueEmail', () => {
     it('should enqueue email to outbox', async () => {
-      (prisma.emailOutbox.create as jest.Mock).mockResolvedValue({
+      (prisma.email_outbox.create as jest.Mock).mockResolvedValue({
         id: 'email-1',
       });
 
@@ -112,7 +114,7 @@ describe('NotificationService', () => {
         payload: { bookingId: 'booking-1' },
       });
 
-      expect(prisma.emailOutbox.create).toHaveBeenCalledWith({
+      expect(prisma.email_outbox.create).toHaveBeenCalledWith({
         data: {
           to: 'test@example.com',
           subject: 'Test Subject',
@@ -125,12 +127,12 @@ describe('NotificationService', () => {
 
   describe('getUnreadCount', () => {
     it('should return correct unread count', async () => {
-      (prisma.notification.count as jest.Mock).mockResolvedValue(5);
+      (prisma.notifications.count as jest.Mock).mockResolvedValue(5);
 
       const count = await service.getUnreadCount('user-1');
 
       expect(count).toBe(5);
-      expect(prisma.notification.count).toHaveBeenCalledWith({
+      expect(prisma.notifications.count).toHaveBeenCalledWith({
         where: {
           userId: 'user-1',
           status: NotificationStatus.UNREAD,
@@ -141,14 +143,14 @@ describe('NotificationService', () => {
 
   describe('markAsRead', () => {
     it('should mark notification as read and set readAt', async () => {
-      (prisma.notification.updateMany as jest.Mock).mockResolvedValue({
+      (prisma.notifications.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
 
       const result = await service.markAsRead('notification-1', 'user-1');
 
       expect(result).toBe(true);
-      expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      expect(prisma.notifications.updateMany).toHaveBeenCalledWith({
         where: {
           id: 'notification-1',
           userId: 'user-1',
@@ -162,7 +164,7 @@ describe('NotificationService', () => {
     });
 
     it('should return false if notification not found or not owned by user', async () => {
-      (prisma.notification.updateMany as jest.Mock).mockResolvedValue({
+      (prisma.notifications.updateMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
