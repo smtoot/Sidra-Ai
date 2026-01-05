@@ -204,7 +204,7 @@ export class ParentService {
   }
 
   async getCurricula() {
-    return this.prisma.curricula.findMany({
+    const curricula = await this.prisma.curricula.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
       include: {
@@ -220,6 +220,15 @@ export class ParentService {
         },
       },
     });
+
+    // Transform to match frontend expected structure
+    return curricula.map(c => ({
+      ...c,
+      stages: c.educational_stages.map(s => ({
+        ...s,
+        grades: s.grade_levels
+      }))
+    }));
   }
 
   // --- Profile Management ---
@@ -234,7 +243,12 @@ export class ParentService {
     });
 
     if (!parentProfile) throw new NotFoundException('Parent profile not found');
-    return parentProfile;
+
+    // Transform relations
+    return {
+      ...parentProfile,
+      user: parentProfile.users,
+    };
   }
 
   async updateProfile(
@@ -272,6 +286,10 @@ export class ParentService {
       },
     });
 
-    return profile;
+    // Transform relations
+    return {
+      ...profile,
+      user: profile.users,
+    };
   }
 }
