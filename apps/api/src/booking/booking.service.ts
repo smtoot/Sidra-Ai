@@ -687,7 +687,7 @@ export class BookingService {
     if (!teacher_profiles)
       throw new NotFoundException('Teacher profile not found');
 
-    return this.prisma.bookings.findMany({
+    const bookings = await this.prisma.bookings.findMany({
       where: {
         teacherId: teacher_profiles.id,
         status: 'PENDING_TEACHER_APPROVAL',
@@ -704,6 +704,7 @@ export class BookingService {
       },
       orderBy: { createdAt: 'asc' },
     });
+    return bookings.map(b => this.transformBooking(b));
   }
 
   // Get teacher's all sessions (for My Sessions page)
@@ -715,7 +716,7 @@ export class BookingService {
     if (!teacher_profiles)
       throw new NotFoundException('Teacher profile not found');
 
-    return this.prisma.bookings.findMany({
+    const bookings = await this.prisma.bookings.findMany({
       where: { teacherId: teacher_profiles.id },
       include: {
         users_bookings_bookedByUserIdTousers: {
@@ -729,6 +730,7 @@ export class BookingService {
       },
       orderBy: { startTime: 'desc' },
     });
+    return bookings.map(b => this.transformBooking(b));
   }
 
   // Get ALL teacher bookings (for requests page - shows all statuses) (PAGINATED)
