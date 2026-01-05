@@ -893,7 +893,7 @@ export class BookingService {
     if (!student_profiles)
       throw new NotFoundException('Student profile not found');
 
-    return this.prisma.bookings.findMany({
+    const bookings = await this.prisma.bookings.findMany({
       where: { bookedByUserId: studentUserId },
       include: {
         teacher_profiles: { include: { users: true } },
@@ -903,6 +903,7 @@ export class BookingService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return bookings.map(b => this.transformBooking(b));
   }
 
   // Get single booking by ID (for session detail page)
@@ -936,7 +937,7 @@ export class BookingService {
       throw new ForbiddenException('Not authorized to view bookings');
     }
 
-    return booking;
+    return this.transformBooking(booking);
   }
 
   // Teacher updates their private notes (prep notes and summary)
