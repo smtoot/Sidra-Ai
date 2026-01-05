@@ -68,6 +68,8 @@ export interface Booking {
         id: string;
         email?: string;
         displayName?: string;
+        firstName?: string;
+        lastName?: string;
         studentProfile?: {
             gradeLevel?: string;
             curriculum?: {

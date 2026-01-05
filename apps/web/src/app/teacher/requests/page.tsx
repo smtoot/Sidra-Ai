@@ -233,6 +233,17 @@ export default function TeacherRequestsPage() {
                                     const endIndex = startIndex + ITEMS_PER_PAGE;
                                     const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
+                                    // Helper to get consistent student name
+                                    const getStudentName = (b: Booking) => {
+                                        if (b.child?.name) return b.child.name;
+                                        if (b.studentUser?.firstName && b.studentUser?.lastName) {
+                                            return `${b.studentUser.firstName} ${b.studentUser.lastName}`;
+                                        }
+                                        if (b.studentUser?.displayName) return b.studentUser.displayName;
+                                        // Fallback to email username if nothing else
+                                        return b.studentUser?.email?.split('@')[0] || b.bookedByUser?.email?.split('@')[0] || 'طالب';
+                                    };
+
                                     return paginatedRequests.map((booking) => {
                                         let alertNode: React.ReactNode = null;
                                         if (booking.status === 'PENDING_TEACHER_APPROVAL') {
@@ -256,7 +267,7 @@ export default function TeacherRequestsPage() {
                                                 key={booking.id}
                                                 id={booking.id}
                                                 readableId={booking.readableId}
-                                                studentName={booking.child?.name || booking.studentUser?.email || booking.bookedByUser?.email || 'طالب'}
+                                                studentName={getStudentName(booking)}
                                                 studentGrade={booking.child?.gradeLevel || booking.studentUser?.studentProfile?.gradeLevel}
                                                 studentCurriculum={booking.child?.curriculum?.nameAr || booking.studentUser?.studentProfile?.curriculum?.nameAr}
                                                 subjectName={booking.subject?.nameAr || booking.subjectId}
