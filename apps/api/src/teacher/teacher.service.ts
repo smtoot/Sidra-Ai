@@ -28,7 +28,7 @@ export class TeacherService {
     private walletService: WalletService,
     private system_settingsService: SystemSettingsService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async getProfile(userId: string) {
     const profile = await this.prisma.teacher_profiles.findUnique({
@@ -77,30 +77,6 @@ export class TeacherService {
       users: profile.users,
       user: profile.users, // Map users -> user
     };
-  }
-
-  async updateProfile(userId: string, dto: UpdateTeacherProfileDto) {
-    // ... (unchanged validation logic) ...
-
-    // Update teacher profile
-    const updatedProfile = await this.prisma.teacher_profiles.update({
-      where: { userId },
-      data: {
-        // ... (data update logic is inside update but not shown here, blindly trusting previous logic or just wrapping return?)
-        // Wait, I need to see the update call to replace it correctly. 
-        // But I can't see the whole file. 
-      }
-      // ...
-    });
-
-    // I need to be careful. I will only replace the return block of getProfile for now.
-    // updateProfile is huge and I don't have the content.
-    // I will use replace_file_content targeting specific lines I SAW.
-
-    // I saw getProfile return on lines 74-78.
-    // I haven't seen updateProfile return statement clearly.
-    // I'll stick to getProfile for now.
-
   }
 
   async updateProfile(userId: string, dto: UpdateTeacherProfileDto) {
@@ -843,7 +819,8 @@ export class TeacherService {
       const studentName =
         upcomingSession.beneficiaryType === 'CHILD'
           ? upcomingSession.children?.name
-          : (upcomingSession.users_bookings_studentUserIdTousers as any)?.firstName || 'طالب';
+          : (upcomingSession.users_bookings_studentUserIdTousers as any)
+              ?.firstName || 'طالب';
 
       formattedSession = {
         ...upcomingSession,
@@ -857,7 +834,8 @@ export class TeacherService {
       studentName:
         session.beneficiaryType === 'CHILD'
           ? session.children?.name || 'طالب'
-          : (session.users_bookings_studentUserIdTousers as any)?.firstName || 'طالب',
+          : (session.users_bookings_studentUserIdTousers as any)?.firstName ||
+            'طالب',
       subjectName: session.subjects?.nameAr || 'مادة',
       startTime: session.startTime,
       price: session.price,
@@ -1143,7 +1121,10 @@ export class TeacherService {
     }
 
     // CRITICAL: Validate Academic Qualifications (MANDATORY - Single Source of Truth)
-    if (!profile.teacher_qualifications || profile.teacher_qualifications.length === 0) {
+    if (
+      !profile.teacher_qualifications ||
+      profile.teacher_qualifications.length === 0
+    ) {
       throw new BadRequestException(
         'يجب إضافة مؤهل أكاديمي واحد على الأقل مع الشهادة قبل الإرسال',
       );
@@ -1377,10 +1358,10 @@ export class TeacherService {
         warning:
           conflictingBookings.length > 0
             ? {
-              message:
-                'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
-              conflictingBookingsCount: conflictingBookings.length,
-            }
+                message:
+                  'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
+                conflictingBookingsCount: conflictingBookings.length,
+              }
             : undefined,
       };
     } else {
@@ -1445,30 +1426,33 @@ export class TeacherService {
     }
 
     // 2. Check for ALL_DAY exceptions
-    const allDayException = await this.prisma.availability_exceptions.findFirst({
-      where: {
-        teacherId,
-        type: 'ALL_DAY',
-        startDate: { lte: dateForComparison },
-        endDate: { gte: dateForComparison },
+    const allDayException = await this.prisma.availability_exceptions.findFirst(
+      {
+        where: {
+          teacherId,
+          type: 'ALL_DAY',
+          startDate: { lte: dateForComparison },
+          endDate: { gte: dateForComparison },
+        },
       },
-    });
+    );
 
     if (allDayException) {
       return false; // Entire day is blocked
     }
 
     // 3. Check for PARTIAL_DAY exceptions
-    const partialException = await this.prisma.availability_exceptions.findFirst({
-      where: {
-        teacherId,
-        type: 'PARTIAL_DAY',
-        startDate: { lte: dateForComparison },
-        endDate: { gte: dateForComparison },
-        startTime: { lte: timeStr },
-        endTime: { gt: timeStr },
-      },
-    });
+    const partialException =
+      await this.prisma.availability_exceptions.findFirst({
+        where: {
+          teacherId,
+          type: 'PARTIAL_DAY',
+          startDate: { lte: dateForComparison },
+          endDate: { gte: dateForComparison },
+          startTime: { lte: timeStr },
+          endTime: { gt: timeStr },
+        },
+      });
 
     if (partialException) {
       return false; // Specific time is blocked
