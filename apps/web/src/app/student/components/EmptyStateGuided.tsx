@@ -100,7 +100,7 @@ export function EmptyStateGuided({ suggestedTeachers = [] }: EmptyStateGuidedPro
                                                 </div>
 
                                                 {/* CTA: Single action */}
-                                                <Link href={`/teachers/${teacher.slug}`}>
+                                                <Link href={`/teachers/${teacher.slug || teacher.id}`}>
                                                     <Button size="sm" variant="ghost" className="h-8 px-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50">
                                                         عرض الملف
                                                     </Button>
