@@ -8,7 +8,7 @@ import { COUNTRY_CODES } from '@/lib/constants/country-codes';
 
 export default function LoginPage() {
     const { login } = useAuth();
-    const [loginMethod, setLoginMethod] = useState<'PHONE' | 'EMAIL'>('PHONE');
+    const [loginMethod, setLoginMethod] = useState<'EMAIL' | 'PHONE'>('EMAIL'); // Default to EMAIL
     const [countryCode, setCountryCode] = useState('+249');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
@@ -80,15 +80,6 @@ export default function LoginPage() {
 
                     <div className="flex border-b border-gray-200 mb-6">
                         <button
-                            className={`flex-1 py-2 text-center font-medium text-sm border-b-2 transition-colors ${loginMethod === 'PHONE'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
-                            onClick={() => setLoginMethod('PHONE')}
-                        >
-                            رقم الجوال
-                        </button>
-                        <button
                             className={`flex-1 py-2 text-center font-medium text-sm border-b-2 transition-colors ${loginMethod === 'EMAIL'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -96,6 +87,15 @@ export default function LoginPage() {
                             onClick={() => setLoginMethod('EMAIL')}
                         >
                             البريد الإلكتروني
+                        </button>
+                        <button
+                            className={`flex-1 py-2 text-center font-medium text-sm border-b-2 transition-colors ${loginMethod === 'PHONE'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                            onClick={() => setLoginMethod('PHONE')}
+                        >
+                            رقم الجوال
                         </button>
                     </div>
 

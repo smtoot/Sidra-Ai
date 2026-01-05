@@ -31,6 +31,11 @@ export const adminApi = {
         return response.data;
     },
 
+    updateUser: async (id: string, data: { email?: string; phoneNumber?: string }) => {
+        const response = await api.patch(`/admin/users/${id}`, data);
+        return response.data;
+    },
+
     toggleBan: async (id: string) => {
         const response = await api.patch(`/admin/users/${id}/ban`);
         return response.data;

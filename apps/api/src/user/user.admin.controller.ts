@@ -7,6 +7,7 @@ import {
   Query,
   NotFoundException,
   Logger,
+  Body,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -20,7 +21,7 @@ import { UserRole } from '@sidra/shared';
 export class UserAdminController {
   private readonly logger = new Logger(UserAdminController.name);
 
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Get()
   getUsers(@Query('query') query: string) {
@@ -40,5 +41,14 @@ export class UserAdminController {
 
     // Actually implementing toggleBan properly in service now that I recall schema exists
     return user;
+  }
+
+  @Patch(':id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() body: { email?: string; phoneNumber?: string },
+  ) {
+    this.logger.debug(`PATCH /admin/users/${id} hit`, { body });
+    return this.userService.updateUser(id, body);
   }
 }

@@ -29,21 +29,25 @@ export default function RegisterPage() {
         e.preventDefault();
         setError('');
 
-        // Validate first name
+        // Validate email - PRIMARY
+        if (!email.trim()) {
+            setError('البريد الإلكتروني مطلوب');
+            return;
+        }
+
+        // Validate password
+        if (password.length < 8) {
+            setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+            return;
+        }
+
+        // Validate name
         if (!firstName.trim()) {
             setError('الاسم الأول مطلوب');
             return;
         }
-
-        // Validate last name
         if (!lastName.trim()) {
             setError('اسم العائلة مطلوب');
-            return;
-        }
-
-        // Validate email
-        if (!email.trim()) {
-            setError('البريد الإلكتروني مطلوب');
             return;
         }
 
@@ -177,6 +181,39 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
+                        {/* Email - Moved to Top */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                البريد الإلكتروني <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                placeholder="name@example.com"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                dir="ltr"
+                            />
+                        </div>
+
+                        {/* Password */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                كلمة المرور <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="password"
+                                required
+                                minLength={8}
+                                placeholder="••••••••"
+                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <p className="mt-1 text-xs text-gray-500">8 أحرف على الأقل</p>
+                        </div>
+
                         {/* Name Fields - firstName + lastName */}
                         <div className="grid grid-cols-2 gap-3">
                             {/* First Name */}
@@ -209,7 +246,7 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        {/* Phone Number with Country Code */}
+                        {/* Phone Number - Moved to Bottom & Optional */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 رقم الجوال <span className="text-red-500">*</span>
@@ -225,7 +262,7 @@ export default function RegisterPage() {
                                     onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                                     dir="ltr"
                                 />
-                                {/* Country Code Selector - Second in DOM = Left side in RTL */}
+                                {/* Country Code Selector */}
                                 <select
                                     value={countryCode}
                                     onChange={(e) => setCountryCode(e.target.value)}
@@ -239,39 +276,6 @@ export default function RegisterPage() {
                                     ))}
                                 </select>
                             </div>
-                        </div>
-
-                        {/* Email */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                البريد الإلكتروني <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="email"
-                                required
-                                placeholder="example@email.com"
-                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                dir="ltr"
-                            />
-                        </div>
-
-                        {/* Password */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                كلمة المرور <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="password"
-                                required
-                                minLength={8}
-                                placeholder="••••••••"
-                                className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                            <p className="mt-1 text-xs text-gray-500">8 أحرف على الأقل</p>
                         </div>
 
                         {/* Submit Button */}

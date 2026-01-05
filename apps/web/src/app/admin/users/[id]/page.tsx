@@ -12,11 +12,15 @@ import { Button } from '@/components/ui/button';
 import {
     ArrowLeft, User, Mail, Phone, Calendar, Shield, Wallet,
     TrendingUp, TrendingDown, Lock, CheckCircle, XCircle, Clock,
-    BookOpen, GraduationCap, Briefcase
+    BookOpen, GraduationCap, Briefcase, Edit2, Save, X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function AdminUserDetailPage() {
     const params = useParams();
@@ -29,6 +33,11 @@ export default function AdminUserDetailPage() {
     const [activeTab, setActiveTab] = useState<'details' | 'wallet' | 'bookings'>('details');
     const [isLoading, setIsLoading] = useState(true);
     const [bookingsLoading, setBookingsLoading] = useState(false);
+
+    // Edit State
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editForm, setEditForm] = useState({ email: '', phoneNumber: '' });
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -69,6 +78,10 @@ export default function AdminUserDetailPage() {
             try {
                 const userData = await adminApi.getUser(userId);
                 setUser(userData);
+                setEditForm({
+                    email: userData.email || '',
+                    phoneNumber: userData.phoneNumber || ''
+                });
             } catch (userError) {
                 console.error('Error loading user:', userError);
             }
@@ -76,6 +89,21 @@ export default function AdminUserDetailPage() {
             console.error('Error loading data', error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleUpdateUser = async () => {
+        if (!user) return;
+        setIsSaving(true);
+        try {
+            const updatedUser = await adminApi.updateUser(userId, editForm);
+            setUser(updatedUser);
+            setIsEditOpen(false);
+            toast.success('تم تحديث بيانات المستخدم بنجاح');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل تحديث البيانات');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -200,8 +228,12 @@ export default function AdminUserDetailPage() {
                             <div className="space-y-6">
                                 {/* User Profile Card */}
                                 <Card>
-                                    <CardHeader>
+                                    <CardHeader className="flex flex-row items-center justify-between">
                                         <CardTitle>الملف الشخصي</CardTitle>
+                                        <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="gap-2">
+                                            <Edit2 className="w-4 h-4" />
+                                            تعديل
+                                        </Button>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="flex items-start gap-6">
@@ -647,6 +679,55 @@ export default function AdminUserDetailPage() {
                         </div>
                     )}
                 </div>
+
+                {/* Edit User Dialog */}
+                <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>تعديل بيانات المستخدم</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="email">البريد الإلكتروني</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={editForm.email}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                                    placeholder="example@domain.com"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">رقم الهاتف</Label>
+                                <Input
+                                    id="phone"
+                                    value={editForm.phoneNumber}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                    placeholder="123456789"
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter className="flex gap-2 justify-end">
+                            <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>
+                                إلغاء
+                            </Button>
+                            <Button onClick={handleUpdateUser} disabled={isSaving}>
+                                {isSaving ? (
+                                    <>
+                                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                                        جاري الحفظ...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4 mr-2" />
+                                        حفظ التغييرات
+                                    </>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );

@@ -42,6 +42,8 @@ export default function TeacherProfileWizard() {
     const [yearsOfExperience, setYearsOfExperience] = useState<number>(0);
     // REMOVED: education state
     const [gender, setGender] = useState<Gender | undefined>(undefined);
+    const [email, setEmail] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
 
     // Step 2 State
     const [mySubjects, setMySubjects] = useState<any[]>([]); // TeacherSubject[]
@@ -82,6 +84,9 @@ export default function TeacherProfileWizard() {
                 // REMOVED: education field
                 setGender(profile.gender as Gender);
                 setMySubjects(profile.subjects || []);
+                // Set contact info from user relation
+                setEmail(profile.user?.email || '');
+                setPhoneNumber(profile.user?.phoneNumber || '');
             }
         } catch (error) {
             console.error("Failed to load profile", error);
@@ -222,6 +227,28 @@ export default function TeacherProfileWizard() {
                                 onChange={(e) => setDisplayName(e.target.value)}
                                 disabled={isReadOnly}
                             />
+                        </div>
+
+                        {/* Contact Info (Read Only) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <Label>البريد الإلكتروني</Label>
+                                <Input
+                                    value={email || 'غير محدد'}
+                                    disabled={true}
+                                    className="bg-gray-50 text-gray-500"
+                                    dir="ltr"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>رقم الهاتف</Label>
+                                <Input
+                                    value={phoneNumber || 'غير محدد'}
+                                    disabled={true}
+                                    className="bg-gray-50 text-gray-500"
+                                    dir="ltr"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
