@@ -39,7 +39,7 @@ export class TeacherController {
     private readonly teacherService: TeacherService,
     private readonly slugService: SlugService,
     private readonly packageService: PackageService,
-  ) { }
+  ) {}
 
   @Get('me')
   getProfile(@Request() req: any) {
@@ -191,10 +191,7 @@ export class TeacherController {
   }
 
   @Post('me/interview-slots/:slotId/select')
-  selectInterviewSlot(
-    @Request() req: any,
-    @Param('slotId') slotId: string,
-  ) {
+  selectInterviewSlot(@Request() req: any, @Param('slotId') slotId: string) {
     return this.teacherService.selectInterviewSlot(req.user.userId, slotId);
   }
 
@@ -222,9 +219,9 @@ export class TeacherController {
     const profile = await this.teacherService.getProfile(req.user.userId);
     const suggestedSlug = profile.displayName
       ? await this.slugService.generateUniqueSlug(
-        profile.displayName,
-        profile.id,
-      )
+          profile.displayName,
+          profile.id,
+        )
       : null;
 
     return {

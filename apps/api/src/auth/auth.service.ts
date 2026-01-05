@@ -61,7 +61,9 @@ export class AuthService {
     });
 
     if (existingByPhone) {
-      throw new ConflictException('An account with this phone number already exists');
+      throw new ConflictException(
+        'An account with this phone number already exists',
+      );
     }
 
     // 2. Hash password
@@ -169,9 +171,9 @@ export class AuthService {
             children: {
               include: {
                 curricula: {
-                  select: { id: true, nameAr: true, nameEn: true, code: true }
-                }
-              }
+                  select: { id: true, nameAr: true, nameEn: true, code: true },
+                },
+              },
             },
           },
         },
@@ -179,17 +181,61 @@ export class AuthService {
         student_profiles: {
           include: {
             curricula: {
-              select: { id: true, nameAr: true, nameEn: true, code: true }
-            }
-          }
-        }
+              select: { id: true, nameAr: true, nameEn: true, code: true },
+            },
+          },
+        },
       },
     });
 
     if (!user) throw new UnauthorizedException('User not found');
 
-    const { passwordHash, ...result } = user;
-    return result;
+    this.logger.log(`DEBUG: getProfile for user ${userId}`);
+    this.logger.log(`DEBUG: Found parent_profiles? ${!!user.parent_profiles}`);
+    if (user.parent_profiles) {
+      this.logger.log(`DEBUG: Children count: ${user.parent_profiles.children?.length}`);
+      this.logger.log(`DEBUG: Children IDs: ${user.parent_profiles.children?.map(c => c.id).join(', ')}`);
+    }
+
+    const {
+      passwordHash,
+      parent_profiles,
+      student_profiles,
+      teacher_profiles,
+      ...rest
+    } = user;
+
+    const response = {
+      ...rest,
+      parentProfile: parent_profiles
+        ? {
+          ...parent_profiles,
+          children: parent_profiles.children.map((child) => {
+            // Map curricula -> curriculum for children
+            const { curricula, ...childRest } = child as any;
+            return {
+              ...childRest,
+              curriculum: curricula,
+            };
+          }),
+        }
+        : undefined,
+      studentProfile: student_profiles
+        ? {
+          ...student_profiles,
+          // Map curricula -> curriculum for student
+          curriculum: (student_profiles as any).curricula,
+        }
+        : undefined,
+      teacherProfile: teacher_profiles || undefined,
+    };
+
+    // Log the transformed parentProfile structure
+    if (response.parentProfile) {
+      this.logger.log(`DEBUG: Transformed parentProfile.children length: ${response.parentProfile.children?.length}`);
+    }
+
+    return response;
   }
 
   async changePassword(

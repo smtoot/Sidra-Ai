@@ -29,7 +29,8 @@ export class SystemSettingsService {
       this.logger.log('Initializing default system settings...');
       settings = await this.prisma.system_settings.create({
         data: {
-          id: this.SETTINGS_ID, updatedAt: new Date(),
+          id: this.SETTINGS_ID,
+          updatedAt: new Date(),
           // defaults are handled by Prisma schema
         },
       });

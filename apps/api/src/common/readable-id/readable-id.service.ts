@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ReadableIdService {
   private readonly logger = new Logger(ReadableIdService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async generate(
     type: 'BOOKING' | 'TRANSACTION' | 'PACKAGE' | 'WALLET',

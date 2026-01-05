@@ -40,7 +40,7 @@ export class PackageService {
     private readableIdService: ReadableIdService,
     private notificationService: NotificationService,
     private teacherService: TeacherService,
-  ) { }
+  ) {}
 
   // =====================================================
   // PACKAGE TIERS (Admin config)
@@ -81,7 +81,8 @@ export class PackageService {
 
     return this.prisma.package_tiers.create({
       data: {
-        id: crypto.randomUUID(), updatedAt: new Date(),
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         sessionCount: data.sessionCount,
         discountPercent: new Decimal(data.discountPercent),
         recurringRatio: new Decimal(data.recurringRatio),
@@ -114,7 +115,8 @@ export class PackageService {
     return this.prisma.package_tiers.update({
       where: { id },
       data: {
-        id: crypto.randomUUID(), updatedAt: new Date(),
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.displayOrder !== undefined && {
           displayOrder: data.displayOrder,
@@ -245,7 +247,11 @@ export class PackageService {
           // 2. Debit payer wallet
           await tx.wallets.update({
             where: { userId: payerId },
-            data: { id: crypto.randomUUID(), updatedAt: new Date(), balance: { decrement: totalPaid } },
+            data: {
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
+              balance: { decrement: totalPaid },
+            },
           });
 
           // P0-PKG-4 FIX: Create Wallet Transaction record for purchase debit
@@ -253,7 +259,8 @@ export class PackageService {
             await this.readableIdService.generate('TRANSACTION');
           await tx.transactions.create({
             data: {
-              id: crypto.randomUUID(), updatedAt: new Date(),
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
 
               readableId: paymentTxId,
               walletId: wallet.id,
@@ -332,7 +339,6 @@ export class PackageService {
             link: '/parent/packages',
             dedupeKey: `PACKAGE_PURCHASED:${studentPackage.id}:${payerId}`,
             metadata: {
-
               packageId: studentPackage.id,
               sessionCount: tier.sessionCount,
               totalPaid,
@@ -378,14 +384,15 @@ export class PackageService {
     }
 
     // 3. Check if teacher has this specific tier enabled
-    const tierSetting = await this.prisma.teacher_package_tier_settings.findUnique({
-      where: {
-        teacherId_tierId: {
-          teacherId: data.teacherId,
-          tierId: data.tierId,
+    const tierSetting =
+      await this.prisma.teacher_package_tier_settings.findUnique({
+        where: {
+          teacherId_tierId: {
+            teacherId: data.teacherId,
+            tierId: data.tierId,
+          },
         },
-      },
-    });
+      });
     // If no record exists, default to enabled. If record exists, check isEnabled
     if (tierSetting && !tierSetting.isEnabled) {
       throw new BadRequestException(
@@ -401,7 +408,9 @@ export class PackageService {
       return this.prisma.student_packages.findUnique({
         where: { id: existingTx.packageId },
         include: {
-          teacher_profiles: { select: { displayName: true, profilePhotoUrl: true } },
+          teacher_profiles: {
+            select: { displayName: true, profilePhotoUrl: true },
+          },
           subjects: { select: { nameAr: true, nameEn: true } },
         },
       });
@@ -459,7 +468,7 @@ export class PackageService {
     if (!availabilityCheck.available) {
       throw new BadRequestException(
         availabilityCheck.message ||
-        `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
+          `تعذر جدولة ${recurringSessionCount} حصة. يوجد تعارضات في المواعيد المحددة.`,
       );
     }
 
@@ -494,7 +503,12 @@ export class PackageService {
       // Auto-create wallet with zero balance (same pattern as WalletService.getBalance)
       const walletReadableId = await this.readableIdService.generate('WALLET');
       payerWallet = await this.prisma.wallets.create({
-        data: { id: crypto.randomUUID(), updatedAt: new Date(), userId: walletUserId, readableId: walletReadableId },
+        data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
+          userId: walletUserId,
+          readableId: walletReadableId,
+        },
       });
     }
     if (payerWallet.balance.lessThan(totalPaid)) {
@@ -510,7 +524,10 @@ export class PackageService {
           // Debit payer wallet
           await tx.wallets.update({
             where: { userId: walletUserId },
-            data: { id: crypto.randomUUID(), balance: { decrement: totalPaid } },
+            data: {
+              id: crypto.randomUUID(),
+              balance: { decrement: totalPaid },
+            },
           });
 
           // Create wallet transaction record
@@ -518,7 +535,8 @@ export class PackageService {
             await this.readableIdService.generate('TRANSACTION');
           await tx.transactions.create({
             data: {
-              id: crypto.randomUUID(), updatedAt: new Date(),
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
               readableId: paymentTxId,
               walletId: payerWallet.id,
               amount: totalPaid,
@@ -564,7 +582,9 @@ export class PackageService {
               expiresAt: gracePeriodEnds, // Expires after grace period
             },
             include: {
-              teacher_profiles: { select: { displayName: true, profilePhotoUrl: true } },
+              teacher_profiles: {
+                select: { displayName: true, profilePhotoUrl: true },
+              },
               subjects: { select: { nameAr: true, nameEn: true } },
             },
           });
@@ -622,7 +642,10 @@ export class PackageService {
           // Update package sessionsUsed to reflect auto-scheduled sessions
           await tx.student_packages.update({
             where: { id: studentPackage.id },
-            data: { id: crypto.randomUUID(), sessionsUsed: availabilityCheck.scheduledSessions.length },
+            data: {
+              id: crypto.randomUUID(),
+              sessionsUsed: availabilityCheck.scheduledSessions.length,
+            },
           });
 
           return studentPackage;
@@ -642,7 +665,6 @@ export class PackageService {
             link: '/parent/packages',
             dedupeKey: `PACKAGE_PURCHASED:${studentPackage.id}:${studentId}`,
             metadata: {
-
               packageId: studentPackage.id,
               sessionCount: tier.sessionCount,
               recurringSessionCount,
@@ -663,7 +685,6 @@ export class PackageService {
               link: '/teacher/requests',
               dedupeKey: `SMART_PACK_REQUEST:${studentPackage.id}:${data.teacherId}`,
               metadata: {
-
                 packageId: studentPackage.id,
                 studentId,
                 count: recurringSessionCount,
@@ -786,8 +807,8 @@ export class PackageService {
     const lastSession = suggestedDates[suggestedDates.length - 1];
     const packageEndDate = lastSession
       ? new Date(
-        lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
-      )
+          lastSession.getTime() + tier.gracePeriodDays * 24 * 60 * 60 * 1000,
+        )
       : undefined;
 
     return {
@@ -1006,9 +1027,9 @@ export class PackageService {
 
     const packageEndDate = lastSession
       ? new Date(
-        new Date(lastSession).getTime() +
-        gracePeriodDays * 24 * 60 * 60 * 1000,
-      ).toISOString()
+          new Date(lastSession).getTime() +
+            gracePeriodDays * 24 * 60 * 60 * 1000,
+        ).toISOString()
       : null;
 
     const totalWeeksNeeded = Math.ceil(
@@ -1143,7 +1164,6 @@ export class PackageService {
 
         // Create booking
         const booking = await tx.bookings.create({
-
           data: {
             updatedAt: new Date(),
             id: crypto.randomUUID(),
@@ -1182,7 +1202,6 @@ export class PackageService {
       },
     );
   }
-
 
   // =====================================================
   // SMART PACK: Reschedule Session
@@ -1424,7 +1443,10 @@ export class PackageService {
           // Refund to payer
           await tx.wallets.update({
             where: { userId: pkg.payerId },
-            data: { id: crypto.randomUUID(), balance: { increment: refundAmount } },
+            data: {
+              id: crypto.randomUUID(),
+              balance: { increment: refundAmount },
+            },
           });
 
           // Create refund transaction
@@ -1436,8 +1458,8 @@ export class PackageService {
               await this.readableIdService.generate('TRANSACTION');
             await tx.transactions.create({
               data: {
-                id: crypto.randomUUID(), updatedAt: new Date(),
-
+                id: crypto.randomUUID(),
+                updatedAt: new Date(),
 
                 readableId: refundTxId,
                 walletId: wallet.id,
@@ -1507,7 +1529,9 @@ export class PackageService {
       // Find redemption for this booking
       const redemption = await tx.package_redemptions.findUnique({
         where: { bookingId },
-        include: { package_redemptions: { include: { teacher_profiles: true } } },
+        include: {
+          package_redemptions: { include: { teacher_profiles: true } },
+        },
       });
 
       if (!redemption) {
@@ -1547,14 +1571,18 @@ export class PackageService {
 
       await tx.wallets.update({
         where: { userId: pkg.teacher.userId },
-        data: { id: crypto.randomUUID(), balance: { increment: teacherAmount } },
+        data: {
+          id: crypto.randomUUID(),
+          balance: { increment: teacherAmount },
+        },
       });
 
       // P1 FIX: Add wallet Transaction for teacher earnings (audit trail)
       const teacherTxId = await this.readableIdService.generate('TRANSACTION');
       await tx.transactions.create({
         data: {
-          id: crypto.randomUUID(), updatedAt: new Date(),
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           readableId: teacherTxId,
           walletId: teacherWallet.id,
           amount: teacherAmount,
@@ -1569,7 +1597,8 @@ export class PackageService {
       await tx.student_packages.update({
         where: { id: pkg.id },
         data: {
-          id: crypto.randomUUID(), updatedAt: new Date(),
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           // sessionsUsed: { increment: 1 }, // REMOVED: Double counting fix
           escrowRemaining: { decrement: releaseAmount },
           status: isLast ? 'COMPLETED' : 'ACTIVE',
@@ -1580,7 +1609,8 @@ export class PackageService {
       await tx.package_redemptions.update({
         where: { id: redemption.id },
         data: {
-          id: crypto.randomUUID(), updatedAt: new Date(),
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           status: 'RELEASED',
           releasedAt: new Date(),
         },
@@ -1659,7 +1689,10 @@ export class PackageService {
         // 2. Refund to payer wallet
         await tx.wallets.update({
           where: { userId: pkg.payerId },
-          data: { id: crypto.randomUUID(), balance: { increment: refundAmount } },
+          data: {
+            id: crypto.randomUUID(),
+            balance: { increment: refundAmount },
+          },
         });
 
         // 3. Update package status
@@ -1742,7 +1775,10 @@ export class PackageService {
           // 1. Refund remaining escrow to payer
           await tx.wallets.update({
             where: { userId: pkg.payerId },
-            data: { id: crypto.randomUUID(), balance: { increment: pkg.escrowRemaining } },
+            data: {
+              id: crypto.randomUUID(),
+              balance: { increment: pkg.escrowRemaining },
+            },
           });
 
           // 1.1 Create Refund Transaction
@@ -1754,8 +1790,8 @@ export class PackageService {
               await this.readableIdService.generate('TRANSACTION');
             await tx.transactions.create({
               data: {
-                id: crypto.randomUUID(), updatedAt: new Date(),
-
+                id: crypto.randomUUID(),
+                updatedAt: new Date(),
 
                 readableId: refundTxId,
                 walletId: wallet.id,
@@ -1962,7 +1998,9 @@ export class PackageService {
         OR: [{ studentId: userId }, { payerId: userId }],
       },
       include: {
-        teacher_profiles: { select: { displayName: true, profilePhotoUrl: true } },
+        teacher_profiles: {
+          select: { displayName: true, profilePhotoUrl: true },
+        },
         subjects: { select: { nameAr: true, nameEn: true } },
         package_redemptions: {
           include: {
@@ -2144,12 +2182,6 @@ export class PackageService {
                 children: {
                   select: { id: true, name: true },
                 },
-
-
-
-
-
-
               },
             },
           },
@@ -2178,11 +2210,12 @@ export class PackageService {
     });
     if (existingTx && existingTx.type === 'SCHEDULE') {
       // Find and return the existing booking
-      const existingRedemption = await this.prisma.package_redemptions.findFirst({
-        where: { packageId },
-        include: { bookings: true },
-        orderBy: { createdAt: 'desc' },
-      });
+      const existingRedemption =
+        await this.prisma.package_redemptions.findFirst({
+          where: { packageId },
+          include: { bookings: true },
+          orderBy: { createdAt: 'desc' },
+        });
       if (existingRedemption) {
         return {
           success: true,

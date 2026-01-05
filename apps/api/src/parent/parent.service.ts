@@ -11,7 +11,7 @@ export class ParentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) { }
+  ) {}
 
   async getDashboardStats(userId: string) {
     const [wallet, upcomingBookings, parentProfile] = await Promise.all([
@@ -222,12 +222,12 @@ export class ParentService {
     });
 
     // Transform to match frontend expected structure
-    return curricula.map(c => ({
+    return curricula.map((c) => ({
       ...c,
-      stages: c.educational_stages.map(s => ({
+      stages: c.educational_stages.map((s) => ({
         ...s,
-        grades: s.grade_levels
-      }))
+        grades: s.grade_levels,
+      })),
     }));
   }
 

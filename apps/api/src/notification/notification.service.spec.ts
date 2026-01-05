@@ -86,7 +86,9 @@ describe('NotificationService', () => {
 
     it('should throw on non-dedupe errors', async () => {
       const genericError = new Error('Some other DB error');
-      (prisma.notifications.create as jest.Mock).mockRejectedValue(genericError);
+      (prisma.notifications.create as jest.Mock).mockRejectedValue(
+        genericError,
+      );
 
       await expect(
         service.createInAppNotification({

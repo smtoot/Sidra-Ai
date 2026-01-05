@@ -10,7 +10,7 @@ export class StudentService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
-  ) { }
+  ) {}
 
   private readonly logger = new Logger(StudentService.name);
 
@@ -140,7 +140,10 @@ export class StudentService {
           isOnVacation: false,
         },
         take: 1, // Suggest most recent/relevant one
-        include: { users: true, teacher_subjects: { include: { subjects: true } } },
+        include: {
+          users: true,
+          teacher_subjects: { include: { subjects: true } },
+        },
       });
 
       reconnectTeachers.forEach((t) => {
@@ -174,7 +177,10 @@ export class StudentService {
         where: matchQuery,
         take: needed,
         orderBy: { averageRating: 'desc' },
-        include: { users: true, teacher_subjects: { include: { subjects: true } } },
+        include: {
+          users: true,
+          teacher_subjects: { include: { subjects: true } },
+        },
       });
 
       matchedTeachers.forEach((t) => {
@@ -194,7 +200,10 @@ export class StudentService {
         },
         take: needed,
         orderBy: { averageRating: 'desc' },
-        include: { users: true, teacher_subjects: { include: { subjects: true } } },
+        include: {
+          users: true,
+          teacher_subjects: { include: { subjects: true } },
+        },
       });
 
       topTeachers.forEach((t) => suggestions.push(t));
@@ -295,12 +304,12 @@ export class StudentService {
     });
 
     // Transform to match frontend expected structure
-    return curricula.map(c => ({
+    return curricula.map((c) => ({
       ...c,
-      stages: c.educational_stages.map(s => ({
+      stages: c.educational_stages.map((s) => ({
         ...s,
-        grades: s.grade_levels
-      }))
+        grades: s.grade_levels,
+      })),
     }));
   }
 }

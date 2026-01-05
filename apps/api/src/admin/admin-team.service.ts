@@ -30,7 +30,7 @@ export class AdminTeamService {
   constructor(
     private prisma: PrismaService,
     private permissionService: PermissionService,
-  ) { }
+  ) {}
 
   /**
    * List all admin users (non-regular users)
@@ -119,8 +119,8 @@ export class AdminTeamService {
     // Check for existing user
     const existingEmail = data.email
       ? await this.prisma.users.findUnique({
-        where: { email: data.email },
-      })
+          where: { email: data.email },
+        })
       : null;
 
     if (existingEmail) {

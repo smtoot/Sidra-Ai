@@ -16,7 +16,7 @@ interface DiscrepancyDetail {
 export class LedgerAuditService {
   private readonly logger = new Logger(LedgerAuditService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Run the ledger audit - verifies all wallet balances against transaction sums

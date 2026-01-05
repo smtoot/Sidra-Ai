@@ -6,7 +6,7 @@ import { AuditAction, Prisma } from '@prisma/client';
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Log an admin or system action

@@ -139,7 +139,10 @@ export class TeachingApproachService {
 
     return {
       teachingStyle: profile?.teachingStyle,
-      tags: profile?.teacher_teaching_approach_tags.map((rel) => rel.teaching_approach_tags) || [],
+      tags:
+        profile?.teacher_teaching_approach_tags.map(
+          (rel) => rel.teaching_approach_tags,
+        ) || [],
     };
   }
 }

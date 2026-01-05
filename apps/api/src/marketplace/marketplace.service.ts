@@ -31,7 +31,7 @@ import { toZonedTime } from 'date-fns-tz';
 export class MarketplaceService {
   private readonly logger = new Logger(MarketplaceService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Get public platform configuration (for frontend booking UI)
@@ -140,11 +140,12 @@ export class MarketplaceService {
     return results.map((result: any) => ({
       id: result.id,
       pricePerHour: result.pricePerHour?.toString() || '0',
-      gradeLevels: result.teacher_subject_grades?.map((g: any) => ({
-        id: g.grade_levels?.id,
-        nameAr: g.grade_levels?.nameAr,
-        nameEn: g.grade_levels?.nameEn,
-      })) || [],
+      gradeLevels:
+        result.teacher_subject_grades?.map((g: any) => ({
+          id: g.grade_levels?.id,
+          nameAr: g.grade_levels?.nameAr,
+          nameEn: g.grade_levels?.nameEn,
+        })) || [],
       teacherProfile: {
         id: result.teacher_profiles.id,
         slug: result.teacher_profiles.slug,
@@ -701,9 +702,11 @@ export class MarketplaceService {
               stageNameAr: g.grade_levels?.educational_stages?.nameAr,
               stageNameEn: g.grade_levels?.educational_stages?.nameEn,
             })) || [],
-          gradeLevels: s.teacher_subject_grades?.map((g: any) => g.grade_levels?.code) || [],
+          gradeLevels:
+            s.teacher_subject_grades?.map((g: any) => g.grade_levels?.code) ||
+            [],
           subject: s.subjects,
-          curriculum: s.curricula,  // Fix: frontend expects 'curriculum' singular
+          curriculum: s.curricula, // Fix: frontend expects 'curriculum' singular
         })),
 
         // Academic qualifications (verified only)
@@ -750,16 +753,18 @@ export class MarketplaceService {
         vacationEndDate: teacher.vacationEndDate,
         teachingApproach:
           (teacher as any).teachingStyle ||
-            ((teacher as any).teacher_teaching_approach_tags &&
-              (teacher as any).teacher_teaching_approach_tags.length > 0)
+          ((teacher as any).teacher_teaching_approach_tags &&
+            (teacher as any).teacher_teaching_approach_tags.length > 0)
             ? {
-              text: (teacher as any).teachingStyle,
-              tags:
-                (teacher as any).teacher_teaching_approach_tags?.map((tt: any) => ({
-                  id: tt.teaching_approach_tags?.id,
-                  labelAr: tt.teaching_approach_tags?.labelAr,
-                })) || [],
-            }
+                text: (teacher as any).teachingStyle,
+                tags:
+                  (teacher as any).teacher_teaching_approach_tags?.map(
+                    (tt: any) => ({
+                      id: tt.teaching_approach_tags?.id,
+                      labelAr: tt.teaching_approach_tags?.labelAr,
+                    }),
+                  ) || [],
+              }
             : null,
       };
     } catch (error) {

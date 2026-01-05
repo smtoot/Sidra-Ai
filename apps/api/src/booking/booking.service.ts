@@ -295,6 +295,8 @@ export class BookingService {
     });
 
     // Notify teacher about new booking request (outside transaction)
+    // Verify code update
+    console.log('DEBUG: createRequest (NEW CODE) - notifying teacher with email payload', booking.teacher_profiles.users.email);
     await this.notificationService.notifyUser({
       userId: booking.teacher_profiles.users.id,
       title: 'طلب حجز جديد',

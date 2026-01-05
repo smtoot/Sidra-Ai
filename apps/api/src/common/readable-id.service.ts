@@ -9,7 +9,7 @@ type IdType = 'BOOKING' | 'TRANSACTION' | 'PACKAGE' | 'WALLET' | 'TICKET';
  */
 @Injectable()
 export class ReadableIdService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Generate a booking ID: BK-YYMM-NNNN

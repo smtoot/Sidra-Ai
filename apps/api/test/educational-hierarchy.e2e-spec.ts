@@ -41,25 +41,25 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
         passwordHash,
         role: 'SUPER_ADMIN',
         phoneNumber: '111111111',
-        isVerified: true
+        isVerified: true,
       },
     });
 
     // 0b. Seed Curricula (UPSERT for safety)
     // We utilize upsert to ensure it exists. For nested relations, it's complex.
     // Simpler hack for test: Clean up if exists? No.
-    // Let's just create SUDANESE if not found. If found, we assume it's good... 
+    // Let's just create SUDANESE if not found. If found, we assume it's good...
     // BUT we need Grade 2.
 
     // Deleting and recreating is safest for consistent test state if we own the DB
-    // await prisma.curriculum.deleteMany({ where: { code: { in: ['SUDANESE', 'BRITISH'] } } }); 
+    // await prisma.curriculum.deleteMany({ where: { code: { in: ['SUDANESE', 'BRITISH'] } } });
     // But that might break other things.
 
     // Instead, let's just make sure the Curriculum exists, then ensure Grade2 exists.
 
     let sudanese = await prisma.curricula.findUnique({
       where: { code: 'SUDANESE' },
-      include: { stages: { include: { grades: true } } }
+      include: { stages: { include: { grades: true } } },
     });
 
     if (!sudanese) {
@@ -72,44 +72,65 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
           stages: {
             create: [
               {
-                nameAr: 'أساس', nameEn: 'Primary (Foundation)', sequence: 1,
+                nameAr: 'أساس',
+                nameEn: 'Primary (Foundation)',
+                sequence: 1,
                 grades: {
                   create: [
-                    { nameAr: 'صف 1', nameEn: 'Grade 1', code: 'SUD_P1', sequence: 1 },
-                    { nameAr: 'صف 2', nameEn: 'Grade 2', code: 'SUD_P2', sequence: 2 }
-                  ]
-                }
+                    {
+                      nameAr: 'صف 1',
+                      nameEn: 'Grade 1',
+                      code: 'SUD_P1',
+                      sequence: 1,
+                    },
+                    {
+                      nameAr: 'صف 2',
+                      nameEn: 'Grade 2',
+                      code: 'SUD_P2',
+                      sequence: 2,
+                    },
+                  ],
+                },
               },
               {
-                nameAr: 'متوسط', nameEn: 'Intermediate', sequence: 2,
-                grades: { create: [] }
+                nameAr: 'متوسط',
+                nameEn: 'Intermediate',
+                sequence: 2,
+                grades: { create: [] },
               },
               {
-                nameAr: 'ثانوي', nameEn: 'Secondary', sequence: 3,
-                grades: { create: [] }
-              }
-            ]
-          }
+                nameAr: 'ثانوي',
+                nameEn: 'Secondary',
+                sequence: 3,
+                grades: { create: [] },
+              },
+            ],
+          },
         },
-        include: { stages: { include: { grades: true } } }
+        include: { stages: { include: { grades: true } } },
       });
     } else {
       // Ensure Grade 2 exists in Stage 1
-      const stage1 = sudanese.stages.find(s => s.sequence === 1);
+      const stage1 = sudanese.stages.find((s) => s.sequence === 1);
       if (stage1) {
-        const hasGrade2 = stage1.grades.find(g => g.code === 'SUD_P2');
+        const hasGrade2 = stage1.grades.find((g) => g.code === 'SUD_P2');
         if (!hasGrade2) {
           await prisma.grade_levels.create({
             data: {
               stageId: stage1.id,
-              nameAr: 'صف 2', nameEn: 'Grade 2', code: 'SUD_P2', sequence: 2
-            }
+              nameAr: 'صف 2',
+              nameEn: 'Grade 2',
+              code: 'SUD_P2',
+              sequence: 2,
+            },
           });
         }
       }
     }
 
-    const britishExists = await prisma.curricula.findUnique({ where: { code: 'BRITISH' } });
+    const britishExists = await prisma.curricula.findUnique({
+      where: { code: 'BRITISH' },
+    });
     if (!britishExists) {
       await prisma.curricula.create({
         data: {
@@ -120,14 +141,30 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
           stages: {
             create: [
               { nameAr: 'P', nameEn: 'P', sequence: 1, grades: { create: [] } },
-              { nameAr: 'LS', nameEn: 'LS', sequence: 2, grades: { create: [] } },
               {
-                nameAr: 'GCSE', nameEn: 'GCSE', sequence: 3,
-                grades: { create: [{ nameAr: 'Y10', nameEn: 'Year 10', code: 'Y10', sequence: 1 }] }
-              }
-            ]
-          }
-        }
+                nameAr: 'LS',
+                nameEn: 'LS',
+                sequence: 2,
+                grades: { create: [] },
+              },
+              {
+                nameAr: 'GCSE',
+                nameEn: 'GCSE',
+                sequence: 3,
+                grades: {
+                  create: [
+                    {
+                      nameAr: 'Y10',
+                      nameEn: 'Year 10',
+                      code: 'Y10',
+                      sequence: 1,
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
       });
     }
 
@@ -143,7 +180,9 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
       .get('/curricula')
       .expect(200);
 
-    const sudaneseCurriculum = curriculaRes.body.find((c: any) => c.code === 'SUDANESE');
+    const sudaneseCurriculum = curriculaRes.body.find(
+      (c: any) => c.code === 'SUDANESE',
+    );
     const british = curriculaRes.body.find((c: any) => c.code === 'BRITISH');
     sudaneseCurriculumId = sudaneseCurriculum.id;
     britishCurriculumId = british.id;
@@ -218,12 +257,16 @@ describe('Educational Hierarchy & Search (E2E Contract)', () => {
             isOnVacation: false,
             availability: {
               create: [
-                { dayOfWeek: DayOfWeek.MONDAY, startTime: '09:00', endTime: '17:00' }
-              ]
-            }
-          }
-        }
-      }
+                {
+                  dayOfWeek: DayOfWeek.MONDAY,
+                  startTime: '09:00',
+                  endTime: '17:00',
+                },
+              ],
+            },
+          },
+        },
+      },
     });
 
     const login = await request(app.getHttpServer())

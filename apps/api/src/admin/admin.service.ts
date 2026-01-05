@@ -26,7 +26,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) { }
+  ) {}
 
   async getDashboardStats() {
     const [
@@ -171,8 +171,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-          previousCompletedBookings) *
-        100
+            previousCompletedBookings) *
+          100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -199,8 +199,12 @@ export class AdminService {
         teacher_profiles: {
           include: { users: { select: { email: true } } },
         },
-        users_bookings_bookedByUserIdTousers: { select: { id: true, email: true } },
-        users_bookings_studentUserIdTousers: { select: { id: true, email: true } },
+        users_bookings_bookedByUserIdTousers: {
+          select: { id: true, email: true },
+        },
+        users_bookings_studentUserIdTousers: {
+          select: { id: true, email: true },
+        },
         children: true,
         subjects: true,
       },
@@ -287,12 +291,18 @@ export class AdminService {
             teacher_profiles: {
               include: { users: { select: { id: true, email: true } } },
             },
-            users_bookings_bookedByUserIdTousers: { select: { id: true, email: true } },
+            users_bookings_bookedByUserIdTousers: {
+              select: { id: true, email: true },
+            },
             subjects: true,
           },
         },
-        users_disputes_raisedByUserIdTousers: { select: { id: true, email: true } },
-        users_disputes_resolvedByAdminIdTousers: { select: { id: true, email: true } },
+        users_disputes_raisedByUserIdTousers: {
+          select: { id: true, email: true },
+        },
+        users_disputes_resolvedByAdminIdTousers: {
+          select: { id: true, email: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -310,14 +320,22 @@ export class AdminService {
             teacher_profiles: {
               include: { users: { select: { id: true, email: true } } },
             },
-            users_bookings_bookedByUserIdTousers: { select: { id: true, email: true } },
-            users_bookings_studentUserIdTousers: { select: { id: true, email: true } },
+            users_bookings_bookedByUserIdTousers: {
+              select: { id: true, email: true },
+            },
+            users_bookings_studentUserIdTousers: {
+              select: { id: true, email: true },
+            },
             children: true,
             subjects: true,
           },
         },
-        users_disputes_raisedByUserIdTousers: { select: { id: true, email: true } },
-        users_disputes_resolvedByAdminIdTousers: { select: { id: true, email: true } },
+        users_disputes_raisedByUserIdTousers: {
+          select: { id: true, email: true },
+        },
+        users_disputes_resolvedByAdminIdTousers: {
+          select: { id: true, email: true },
+        },
       },
     });
 
@@ -1639,7 +1657,9 @@ export class AdminService {
       await tx.ticket_messages.deleteMany({
         where: { support_tickets: { createdByUserId: userId } },
       });
-      await tx.support_tickets.deleteMany({ where: { createdByUserId: userId } });
+      await tx.support_tickets.deleteMany({
+        where: { createdByUserId: userId },
+      });
 
       // Update tickets where user was assignee (set to null)
       await tx.support_tickets.updateMany({
@@ -1741,7 +1761,9 @@ export class AdminService {
           where: { userId },
         });
         if (parentProfile) {
-          await tx.children.deleteMany({ where: { parentId: parentProfile.id } });
+          await tx.children.deleteMany({
+            where: { parentId: parentProfile.id },
+          });
         }
         // Delete parent profile
         await tx.parent_profiles.deleteMany({ where: { userId } });

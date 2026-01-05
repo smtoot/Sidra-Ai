@@ -27,10 +27,10 @@ describe('AppController', () => {
               demosEnabled: true,
               maintenanceMode: false,
               currency: 'SDG',
-              meetingLinkAccessMinutesBefore: 30
-            })
-          }
-        }
+              meetingLinkAccessMinutesBefore: 30,
+            }),
+          },
+        },
       ],
     }).compile();
 
