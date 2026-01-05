@@ -29,7 +29,7 @@ export class PermissionsGuard implements CanActivate {
     private reflector: Reflector,
     private prisma: PrismaService,
     private permissionService: PermissionService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required permissions from decorator
@@ -45,9 +45,10 @@ export class PermissionsGuard implements CanActivate {
 
     // Get user from request (set by JwtAuthGuard)
     const request = context.switchToHttp().getRequest();
-    const user = request.users;
+    const user = request.user;
 
     if (!user || !user.userId) {
+      this.logger.warn('PermissionsGuard: User not found in request (Auth failed?)');
       throw new ForbiddenException('Authentication required');
     }
 
@@ -80,9 +81,15 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasAllPermissions) {
+      const effective = this.permissionService.getEffectivePermissions({
+        role: fullUser.role,
+        permissionOverrides: fullUser.permissionOverrides as any,
+      });
+
       this.logger.warn(
         `PermissionsGuard Denied: User ${fullUser.id} (${fullUser.role}) ` +
-          `lacks permissions: ${requiredPermissions.join(', ')}`,
+        `lacks permissions: ${requiredPermissions.join(', ')}. ` +
+        `Effective permissions: [${effective.join(', ')}]`,
       );
       throw new ForbiddenException('Insufficient permissions');
     }
