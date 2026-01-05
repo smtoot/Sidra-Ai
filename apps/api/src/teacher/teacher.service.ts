@@ -74,8 +74,33 @@ export class TeacherService {
     return {
       ...profile,
       meetingLink: decryptedMeetingLink,
-      users: profile.users, // Add decrypted link for frontend use
+      users: profile.users,
+      user: profile.users, // Map users -> user
     };
+  }
+
+  async updateProfile(userId: string, dto: UpdateTeacherProfileDto) {
+    // ... (unchanged validation logic) ...
+
+    // Update teacher profile
+    const updatedProfile = await this.prisma.teacher_profiles.update({
+      where: { userId },
+      data: {
+        // ... (data update logic is inside update but not shown here, blindly trusting previous logic or just wrapping return?)
+        // Wait, I need to see the update call to replace it correctly. 
+        // But I can't see the whole file. 
+      }
+      // ...
+    });
+
+    // I need to be careful. I will only replace the return block of getProfile for now.
+    // updateProfile is huge and I don't have the content.
+    // I will use replace_file_content targeting specific lines I SAW.
+
+    // I saw getProfile return on lines 74-78.
+    // I haven't seen updateProfile return statement clearly.
+    // I'll stick to getProfile for now.
+
   }
 
   async updateProfile(userId: string, dto: UpdateTeacherProfileDto) {
