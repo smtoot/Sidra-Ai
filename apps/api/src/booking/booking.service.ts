@@ -514,6 +514,14 @@ export class BookingService {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           let updatedBooking = bookingFromTx;
 
+          // Fetch parent for email notifications
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const parentUserId = updatedBooking.bookedByUserId as string;
+          const parentUser = await this.prisma.users.findUnique({
+            where: { id: parentUserId },
+            select: { email: true, firstName: true }
+          });
+
           // Handle package purchase outside of transaction
           if (isPackage && pendingTierId && bookedByUserId) {
             try {
