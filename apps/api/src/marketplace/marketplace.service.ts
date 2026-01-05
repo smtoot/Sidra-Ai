@@ -127,7 +127,7 @@ export class MarketplaceService {
         teacher_profiles: true,
         subjects: true,
         curricula: true,
-        grades: {
+        teacher_subject_grades: {
           include: {
             grade_levels: true,
           },
@@ -140,7 +140,7 @@ export class MarketplaceService {
     return results.map((result: any) => ({
       id: result.id,
       pricePerHour: result.pricePerHour?.toString() || '0',
-      gradeLevels: result.grades?.map((g: any) => ({
+      gradeLevels: result.teacher_subject_grades?.map((g: any) => ({
         id: g.grade_levels?.id,
         nameAr: g.grade_levels?.nameAr,
         nameEn: g.grade_levels?.nameEn,
