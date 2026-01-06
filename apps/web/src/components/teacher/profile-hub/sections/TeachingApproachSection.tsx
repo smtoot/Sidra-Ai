@@ -67,7 +67,7 @@ export function TeachingApproachSection({
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 w-full overflow-hidden">
             {/* Teaching Style Text */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">

@@ -32,7 +32,7 @@ export function QualificationsSection({
     onUpdate,
 }: QualificationsSectionProps) {
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             {/* Years of Experience - Standalone field */}
             <div className="space-y-2">
                 <Label className="text-base font-medium flex items-center gap-2">

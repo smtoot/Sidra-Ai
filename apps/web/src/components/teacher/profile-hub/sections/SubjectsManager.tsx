@@ -165,7 +165,7 @@ export function SubjectsManager({ isReadOnly = false, onSubjectsChange }: Subjec
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             {/* Add Subject Form */}
             {!isReadOnly && (
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-4">

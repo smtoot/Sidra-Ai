@@ -19,7 +19,7 @@ export function SkillsExperienceSection({
     isReadOnly = false,
 }: SkillsExperienceSectionProps) {
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 w-full overflow-hidden">
             {/* Skills Manager */}
             <SkillsManager disabled={isReadOnly} />
 
