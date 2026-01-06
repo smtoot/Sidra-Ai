@@ -76,9 +76,9 @@ export function NewTeacherWelcomeBanner({
     if (!isVisible) return null;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden w-full">
             {/* Main Banner - Compact */}
-            <div className="px-4 py-3 flex items-center justify-between gap-4">
+            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 {/* Left: Icon + Message */}
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center flex-shrink-0">
@@ -95,7 +95,7 @@ export function NewTeacherWelcomeBanner({
                 </div>
 
                 {/* Right: Progress + Actions */}
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center justify-end gap-3">
                     {/* Progress Pills */}
                     <div className="hidden sm:flex items-center gap-1">
                         {nextSteps.map((step) => (
