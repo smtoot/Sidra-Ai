@@ -88,7 +88,7 @@ export function SearchFilters({
             <div className="space-y-2">
                 <Label>ترتيب حسب</Label>
                 <select
-                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full h-12 rounded-md border border-input bg-surface px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-primary"
                     value={sortBy || ''}
                     onChange={(e) => setSortBy(e.target.value as SearchSortBy || undefined)}
                 >
@@ -103,7 +103,7 @@ export function SearchFilters({
             <div className="space-y-2">
                 <Label>المادة</Label>
                 <select
-                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full h-12 rounded-md border border-input bg-surface px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-primary"
                     value={subjectId}
                     onChange={(e) => setSubjectId(e.target.value)}
                 >
@@ -117,7 +117,7 @@ export function SearchFilters({
             <div className="space-y-2">
                 <Label>المنهج</Label>
                 <select
-                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full h-12 rounded-md border border-input bg-surface px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-primary"
                     value={curriculumId}
                     onChange={(e) => setCurriculumId(e.target.value)}
                 >
@@ -133,7 +133,7 @@ export function SearchFilters({
                     الصف الدراسي {curriculumId && "(اختياري)"}
                 </Label>
                 <select
-                    className="w-full h-10 rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-400"
+                    className="w-full h-12 rounded-md border border-input bg-surface px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-400"
                     value={gradeLevelId}
                     onChange={(e) => setGradeLevelId(e.target.value)}
                     disabled={!curriculumId || loadingHierarchy}

@@ -34,7 +34,7 @@ export class WalletService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private readableIdService: ReadableIdService,
-  ) { }
+  ) {}
 
   // Circular dependency fix: Use forwardRef or inject dynamically
   // We'll add the auto-payment logic without circular dependency by using Prisma directly
@@ -74,13 +74,13 @@ export class WalletService {
       ...wallet,
       bank_info: profile?.bank_info
         ? {
-          bankName: profile.bank_info.bankName,
-          accountHolder: profile.bank_info.accountHolderName,
-          accountNumberMasked: `***${profile.bank_info.accountNumber.slice(-4)}`,
-          ibanMasked: profile.bank_info.iban
-            ? `***${profile.bank_info.iban.slice(-4)}`
-            : undefined,
-        }
+            bankName: profile.bank_info.bankName,
+            accountHolder: profile.bank_info.accountHolderName,
+            accountNumberMasked: `***${profile.bank_info.accountNumber.slice(-4)}`,
+            ibanMasked: profile.bank_info.iban
+              ? `***${profile.bank_info.iban.slice(-4)}`
+              : undefined,
+          }
         : null,
     };
   }
@@ -844,12 +844,12 @@ export class WalletService {
     // 3. Audit Logging (Redact full numbers)
     const redactedOld = teacher.bank_info
       ? {
-        ...teacher.bank_info,
-        accountNumber: `***${teacher.bank_info.accountNumber.slice(-4)}`,
-        iban: teacher.bank_info.iban
-          ? `***${teacher.bank_info.iban.slice(-4)}`
-          : undefined,
-      }
+          ...teacher.bank_info,
+          accountNumber: `***${teacher.bank_info.accountNumber.slice(-4)}`,
+          iban: teacher.bank_info.iban
+            ? `***${teacher.bank_info.iban.slice(-4)}`
+            : undefined,
+        }
       : null;
 
     const redactedNew = {

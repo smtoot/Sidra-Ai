@@ -11,11 +11,11 @@ import { DEMO_POLICY } from './demo-policy.constants';
 export type DemoEligibility = {
   allowed: boolean;
   reason?:
-  | 'QUOTA_EXCEEDED'
-  | 'TEACHER_ALREADY_USED'
-  | 'PENDING_EXISTS'
-  | 'DEMO_DISABLED'
-  | 'FEATURE_DISABLED';
+    | 'QUOTA_EXCEEDED'
+    | 'TEACHER_ALREADY_USED'
+    | 'PENDING_EXISTS'
+    | 'DEMO_DISABLED'
+    | 'FEATURE_DISABLED';
   details?: string;
 };
 
@@ -23,7 +23,7 @@ export type DemoOwnerType = 'PARENT' | 'STUDENT';
 
 @Injectable()
 export class DemoService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   // =====================================================
   // CHECK DEMO ELIGIBILITY (Anti-Abuse Hardened)

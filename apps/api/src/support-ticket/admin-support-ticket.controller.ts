@@ -31,7 +31,7 @@ export class AdminSupportTicketController {
   constructor(
     private readonly ticketService: SupportTicketService,
     private readonly messageService: TicketMessageService,
-  ) { }
+  ) {}
 
   /**
    * Get all tickets (admin view)
@@ -47,7 +47,9 @@ export class AdminSupportTicketController {
    */
   @Get('users/:userId')
   @RequirePermissions(PERMISSIONS.TICKETS_VIEW)
-  async findByUser(@Param('userId') userId: string): Promise<SupportTicketDto[]> {
+  async findByUser(
+    @Param('userId') userId: string,
+  ): Promise<SupportTicketDto[]> {
     return this.ticketService.findTicketsByUserId(userId);
   }
 

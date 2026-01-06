@@ -28,7 +28,7 @@ export class SupportTicketController {
   constructor(
     private readonly ticketService: SupportTicketService,
     private readonly messageService: TicketMessageService,
-  ) { }
+  ) {}
 
   /**
    * Create a new support ticket

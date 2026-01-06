@@ -29,7 +29,7 @@ export class SupportTicketService {
     private prisma: PrismaService,
     private readableIdService: ReadableIdService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   /**
    * Create a new support ticket
@@ -212,12 +212,12 @@ export class SupportTicketService {
       where: isAdmin
         ? {} // Admins can see all tickets
         : {
-          OR: [
-            { createdByUserId: userId },
-            { assignedToId: userId },
-            { ticket_access_controls: { some: { userId, canView: true } } },
-          ],
-        },
+            OR: [
+              { createdByUserId: userId },
+              { assignedToId: userId },
+              { ticket_access_controls: { some: { userId, canView: true } } },
+            ],
+          },
       include: {
         users_support_tickets_createdByUserIdTousers: {
           select: {
@@ -380,12 +380,12 @@ export class SupportTicketService {
         resolutionNote: dto.resolutionNote,
         resolvedAt:
           newStatus === TicketStatus.RESOLVED &&
-            oldStatus !== TicketStatus.RESOLVED
+          oldStatus !== TicketStatus.RESOLVED
             ? new Date()
             : ticket.resolvedAt,
         resolvedByUserId:
           newStatus === TicketStatus.RESOLVED &&
-            oldStatus !== TicketStatus.RESOLVED
+          oldStatus !== TicketStatus.RESOLVED
             ? userId
             : ticket.resolvedByUserId,
         closedAt:

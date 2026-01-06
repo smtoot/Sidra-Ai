@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CurriculumService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async findAll() {
     return this.prisma.curricula.findMany({
@@ -56,7 +56,7 @@ export class CurriculumService {
       code: curricula.code,
       nameAr: curricula.nameAr,
       nameEn: curricula.nameEn,
-      stages: curricula.educational_stages.map(stage => ({
+      stages: curricula.educational_stages.map((stage) => ({
         id: stage.id,
         nameAr: stage.nameAr,
         nameEn: stage.nameEn,

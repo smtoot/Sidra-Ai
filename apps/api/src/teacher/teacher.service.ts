@@ -21,7 +21,6 @@ import { formatInTimezone } from '../common/utils/timezone.util';
 import { TeacherProfileMapper } from './teacher-profile.mapper';
 import { BookingMapper } from '../booking/booking.mapper';
 
-
 @Injectable()
 export class TeacherService {
   private readonly logger = new Logger(TeacherService.name);
@@ -31,7 +30,7 @@ export class TeacherService {
     private walletService: WalletService,
     private system_settingsService: SystemSettingsService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async getProfile(userId: string) {
     const profile = await this.prisma.teacher_profiles.findUnique({
@@ -46,7 +45,7 @@ export class TeacherService {
                 grade_levels: true,
               },
             },
-          }
+          },
         },
         availability: true,
         documents: true,
@@ -1374,10 +1373,10 @@ export class TeacherService {
         warning:
           conflictingBookings.length > 0
             ? {
-              message:
-                'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
-              conflictingBookingsCount: conflictingBookings.length,
-            }
+                message:
+                  'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
+                conflictingBookingsCount: conflictingBookings.length,
+              }
             : undefined,
       };
     } else {

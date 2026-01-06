@@ -18,7 +18,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
   /**
    * Validate password requirements
@@ -74,7 +74,7 @@ export class AuthService {
       data: {
         id: crypto.randomUUID(),
         updatedAt: new Date(),
-        email: dto.email!, // Email is now required
+        email: dto.email, // Email is now required
         phoneNumber: dto.phoneNumber, // Phone remains required
         firstName: dto.firstName || null,
         lastName: dto.lastName || null,
@@ -193,8 +193,12 @@ export class AuthService {
     this.logger.log(`DEBUG: getProfile for user ${userId}`);
     this.logger.log(`DEBUG: Found parent_profiles? ${!!user.parent_profiles}`);
     if (user.parent_profiles) {
-      this.logger.log(`DEBUG: Children count: ${user.parent_profiles.children?.length}`);
-      this.logger.log(`DEBUG: Children IDs: ${user.parent_profiles.children?.map(c => c.id).join(', ')}`);
+      this.logger.log(
+        `DEBUG: Children count: ${user.parent_profiles.children?.length}`,
+      );
+      this.logger.log(
+        `DEBUG: Children IDs: ${user.parent_profiles.children?.map((c) => c.id).join(', ')}`,
+      );
     }
 
     const {
@@ -209,30 +213,32 @@ export class AuthService {
       ...rest,
       parentProfile: parent_profiles
         ? {
-          ...parent_profiles,
-          children: parent_profiles.children.map((child) => {
-            // Map curricula -> curriculum for children
-            const { curricula, ...childRest } = child as any;
-            return {
-              ...childRest,
-              curriculum: curricula,
-            };
-          }),
-        }
+            ...parent_profiles,
+            children: parent_profiles.children.map((child) => {
+              // Map curricula -> curriculum for children
+              const { curricula, ...childRest } = child as any;
+              return {
+                ...childRest,
+                curriculum: curricula,
+              };
+            }),
+          }
         : undefined,
       studentProfile: student_profiles
         ? {
-          ...student_profiles,
-          // Map curricula -> curriculum for student
-          curriculum: (student_profiles as any).curricula,
-        }
+            ...student_profiles,
+            // Map curricula -> curriculum for student
+            curriculum: (student_profiles as any).curricula,
+          }
         : undefined,
       teacherProfile: teacher_profiles || undefined,
     };
 
     // Log the transformed parentProfile structure
     if (response.parentProfile) {
-      this.logger.log(`DEBUG: Transformed parentProfile.children length: ${response.parentProfile.children?.length}`);
+      this.logger.log(
+        `DEBUG: Transformed parentProfile.children length: ${response.parentProfile.children?.length}`,
+      );
     }
 
     return response;
@@ -293,9 +299,13 @@ export class AuthService {
 
     // TODO: PRODUCTION - Integrate with SendGrid/Resend to send real email
     // This is currently a mock for development. Replace this logger with email service call.
-    this.logger.log(`[MOCK EMAIL] Password Reset Link: http://localhost:3000/reset-password?token=${token}`);
+    this.logger.log(
+      `[MOCK EMAIL] Password Reset Link: http://localhost:3000/reset-password?token=${token}`,
+    );
 
-    return { message: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني' };
+    return {
+      message: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني',
+    };
   }
 
   async resetPassword(token: string, newPassword: string) {
