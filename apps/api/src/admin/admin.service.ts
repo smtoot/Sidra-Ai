@@ -15,6 +15,7 @@ import { normalizeMoney } from '../utils/money';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
+import { TeacherProfileMapper } from '../teacher/teacher-profile.mapper';
 
 @Injectable()
 export class AdminService {
@@ -26,7 +27,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) {}
+  ) { }
 
   async getDashboardStats() {
     const [
@@ -171,8 +172,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-            previousCompletedBookings) *
-          100
+          previousCompletedBookings) *
+        100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -693,15 +694,25 @@ export class AdminService {
       where.applicationStatus = status;
     }
 
-    return this.prisma.teacher_profiles.findMany({
+    const applications = await this.prisma.teacher_profiles.findMany({
       where,
       include: {
         users: {
           select: { id: true, email: true, phoneNumber: true, createdAt: true },
         },
         documents: true,
+        // Also include subjects for the list view if needed (optional but good for preview)
+        teacher_subjects: { include: { subjects: true, curricula: true } },
       },
       orderBy: { submittedAt: 'desc' },
+    });
+
+    return applications.map((app) => {
+      const mapped = TeacherProfileMapper.mapProfile(app);
+      return {
+        ...mapped,
+        user: app.users,
+      };
     });
   }
 
@@ -725,7 +736,12 @@ export class AdminService {
       throw new NotFoundException('Teacher application not found');
     }
 
-    return profile;
+    const mappedProfile = TeacherProfileMapper.mapProfile(profile);
+
+    return {
+      ...mappedProfile,
+      user: profile.users,
+    };
   }
 
   /**
