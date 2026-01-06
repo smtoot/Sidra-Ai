@@ -58,5 +58,8 @@ export const authApi = {
     resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
         const response = await api.post('/auth/reset-password', { token, newPassword });
         return response.data;
+    },
+    markTourCompleted: async (): Promise<void> => {
+        await api.post('/auth/tour-completed');
     }
 };
