@@ -262,7 +262,7 @@ export function BookingCard({
                 {/* --- ZONE B: META GRID --- */}
                 {/* Separator mostly invisible or very subtle */}
                 <div className="px-5 pb-4">
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
                         {/* Date Col */}
                         <div className="flex items-start gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-400 shadow-sm border border-gray-100 shrink-0">
