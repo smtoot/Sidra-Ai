@@ -74,7 +74,7 @@ export function ProfileBasicsSection({
     const videoValidation = useMemo(() => validateVideoUrl(introVideoUrl || ''), [introVideoUrl]);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             {/* Photo & Video Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profile Photo - Using shared component */}

@@ -88,7 +88,7 @@ export function ProfileSection({
             </div>
 
             {/* Content */}
-            <div className="p-4 md:p-6">
+            <div className="p-4 md:p-6 overflow-hidden">
                 {isLocked ? (
                     <div className="text-center py-8 space-y-4">
                         <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">

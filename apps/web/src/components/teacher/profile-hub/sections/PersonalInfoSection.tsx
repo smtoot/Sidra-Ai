@@ -109,7 +109,7 @@ export function PersonalInfoSection({
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             {/* Name Section Header */}
             <div className="pb-2 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-500 flex items-center gap-2">
