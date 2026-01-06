@@ -11,7 +11,7 @@ echo "Waiting for database to be ready..."
 
 # Wait for database to be reachable
 retry_count=0
-until npx prisma db execute --schema=packages/database/prisma/schema.prisma --stdin <<< "SELECT 1" 2>/dev/null; do
+until echo "SELECT 1" | npx prisma db execute --schema=packages/database/prisma/schema.prisma --stdin 2>/dev/null; do
   retry_count=$((retry_count + 1))
   if [ $retry_count -ge $MAX_RETRIES ]; then
     echo "ERROR: Database not reachable after $MAX_RETRIES attempts"
