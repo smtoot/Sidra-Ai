@@ -25,9 +25,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "driver.js": [
-        "./src/types/driver.d.ts"
       ]
     }
   },
