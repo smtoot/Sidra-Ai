@@ -227,7 +227,7 @@ export function PersonalInfoSection({
             </div>
 
             {/* Contact Section Header */}
-            <div className="pb-2 border-b border-gray-100 mt-8">
+            <div className="pb-2 border-b border-gray-100 mt-6 md:mt-8">
                 <h3 className="text-sm font-semibold text-gray-500 flex items-center gap-2">
                     <Phone className="w-4 h-4" />
                     التواصل
@@ -285,7 +285,7 @@ export function PersonalInfoSection({
             </div>
 
             {/* Location Section Header */}
-            <div className="pb-2 border-b border-gray-100 mt-8">
+            <div className="pb-2 border-b border-gray-100 mt-6 md:mt-8">
                 <h3 className="text-sm font-semibold text-gray-500 flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     الموقع
@@ -307,7 +307,7 @@ export function PersonalInfoSection({
                             onChange={(e) => handleCountryChange(e.target.value)}
                             disabled={isReadOnly}
                             dir="rtl"
-                            className="w-full text-right px-3 py-2 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full h-12 text-base text-right px-3 py-2.5 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <option value="" disabled>اختر الدولة</option>
                             {PRIORITY_COUNTRIES.map((c) => (

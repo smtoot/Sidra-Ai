@@ -178,7 +178,7 @@ export function SubjectsManager({ isReadOnly = false, onSubjectsChange }: Subjec
                         <div className="space-y-1">
                             <Label className="text-sm">المادة</Label>
                             <select
-                                className="w-full h-10 rounded-md border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                className="w-full h-12 rounded-md border border-input bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-primary"
                                 value={selectedSubject}
                                 onChange={(e) => setSelectedSubject(e.target.value)}
                             >
@@ -192,7 +192,7 @@ export function SubjectsManager({ isReadOnly = false, onSubjectsChange }: Subjec
                         <div className="space-y-1">
                             <Label className="text-sm">المنهج</Label>
                             <select
-                                className="w-full h-10 rounded-md border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                className="w-full h-12 rounded-md border border-input bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-primary"
                                 value={selectedCurriculum}
                                 onChange={(e) => setSelectedCurriculum(e.target.value)}
                             >
@@ -252,7 +252,7 @@ export function SubjectsManager({ isReadOnly = false, onSubjectsChange }: Subjec
                                                         key={grade.id}
                                                         onClick={() => toggleGrade(grade.id)}
                                                         className={cn(
-                                                            "cursor-pointer text-xs border rounded px-2 py-1.5 transition-all flex items-center justify-between",
+                                                            "cursor-pointer text-sm border rounded-lg px-3 py-2 min-h-[40px] transition-all flex items-center justify-between",
                                                             isSelected
                                                                 ? "bg-primary/10 border-primary text-primary font-medium"
                                                                 : "bg-white border-gray-200 hover:border-gray-300 text-gray-600"
