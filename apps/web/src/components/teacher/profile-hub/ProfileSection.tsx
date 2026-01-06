@@ -67,7 +67,7 @@ export function ProfileSection({
             )}
         >
             {/* Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="bg-gray-50 px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-primary flex items-center gap-2">
                     {isLocked && <Lock className="w-4 h-4 text-yellow-500" />}
                     {title}
@@ -88,7 +88,7 @@ export function ProfileSection({
             </div>
 
             {/* Content */}
-            <div className="p-6">
+            <div className="p-4 md:p-6">
                 {isLocked ? (
                     <div className="text-center py-8 space-y-4">
                         <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">

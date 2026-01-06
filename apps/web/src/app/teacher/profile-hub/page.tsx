@@ -155,13 +155,13 @@ export default function ProfileHubPage() {
 
     return (
         <TeacherApprovalGuard>
-            <div className="min-h-screen bg-background font-tajawal rtl p-8">
-                <div className="max-w-6xl mx-auto space-y-8">
+            <div className="min-h-screen bg-background font-tajawal rtl p-4 md:p-8">
+                <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
                     {/* Header */}
-                    <header className="mb-8 flex items-start justify-between">
+                    <header className="mb-6 flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-primary mb-2">ملفي الشخصي</h1>
-                            <p className="text-text-subtle">أكمل بياناتك لتظهر بأفضل صورة للطلاب وأولياء الأمور</p>
+                            <h1 className="text-2xl md:text-3xl font-bold text-primary mb-2">ملفي الشخصي</h1>
+                            <p className="text-sm md:text-base text-text-subtle">أكمل بياناتك لتظهر بأفضل صورة للطلاب وأولياء الأمور</p>
                         </div>
                         {/* Only show preview when profile is at least 35% complete (profile basics done) */}
                         {percentage >= 35 ? (
