@@ -58,5 +58,9 @@ EXPOSE 3001
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# Start command: run migrations and start the server
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/src/main.js"]
+# Copy and make startup script executable
+COPY apps/api/scripts/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Start command: use startup script with retry logic
+CMD ["/app/start.sh"]
