@@ -627,6 +627,7 @@ model teacher_profiles {
   id                             String @id @default(uuid())
   userId                         String                           @unique
   bio                            String?
+  headline                       String?
   averageRating                  Float                            @default(0)
   cancellationPolicy             CancellationPolicy               @default(FLEXIBLE)
   encryptedMeetingLink           String?

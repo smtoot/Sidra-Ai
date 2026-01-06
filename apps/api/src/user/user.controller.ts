@@ -1,7 +1,5 @@
 import {
   Controller,
-  Patch,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -18,10 +16,7 @@ interface AuthRequest {
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
-  @Patch('me/tour-completed')
-  async markTourCompleted(@Req() req: AuthRequest) {
-    return this.userService.markTourCompleted(req.user.userId);
-  }
+
 }
