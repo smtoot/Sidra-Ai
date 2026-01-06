@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CurriculumService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findAll() {
     return this.prisma.curricula.findMany({
@@ -50,6 +50,18 @@ export class CurriculumService {
       throw new NotFoundException(`Curriculum with ID ${id} not found`);
     }
 
-    return curricula;
+    // Transform to match frontend interface expectations
+    return {
+      id: curricula.id,
+      code: curricula.code,
+      nameAr: curricula.nameAr,
+      nameEn: curricula.nameEn,
+      stages: curricula.educational_stages.map(stage => ({
+        id: stage.id,
+        nameAr: stage.nameAr,
+        nameEn: stage.nameEn,
+        grades: stage.grade_levels,
+      })),
+    };
   }
 }
