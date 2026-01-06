@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { adminApi } from '@/lib/api/admin';
 import { walletApi } from '@/lib/api/wallet';
+import { getAdminUserTickets } from '@/lib/api/support-ticket';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
     ArrowLeft, User, Mail, Phone, Calendar, Shield, Wallet,
     TrendingUp, TrendingDown, Lock, CheckCircle, XCircle, Clock,
-    BookOpen, GraduationCap, Briefcase, Edit2, Save, X
+    BookOpen, GraduationCap, Briefcase, Edit2, Save, X, LifeBuoy
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -30,9 +31,11 @@ export default function AdminUserDetailPage() {
     const [user, setUser] = useState<any>(null);
     const [wallet, setWallet] = useState<any>(null);
     const [bookings, setBookings] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'details' | 'wallet' | 'bookings'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'wallet' | 'bookings' | 'tickets'>('details');
     const [isLoading, setIsLoading] = useState(true);
     const [bookingsLoading, setBookingsLoading] = useState(false);
+    const [tickets, setTickets] = useState<any[]>([]);
+    const [ticketsLoading, setTicketsLoading] = useState(false);
 
     // Edit State
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -48,6 +51,25 @@ export default function AdminUserDetailPage() {
             loadBookings();
         }
     }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === 'tickets' && tickets.length === 0) {
+            loadTickets();
+        }
+    }, [activeTab]);
+
+    const loadTickets = async () => {
+        setTicketsLoading(true);
+        try {
+            const data = await getAdminUserTickets(userId);
+            setTickets(data);
+        } catch (error) {
+            console.error('Error loading tickets:', error);
+            toast.error('فشل تحميل تذاكر الدعم');
+        } finally {
+            setTicketsLoading(false);
+        }
+    };
 
     const loadBookings = async () => {
         setBookingsLoading(true);
@@ -219,6 +241,15 @@ export default function AdminUserDetailPage() {
                                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                         >
                             الحجوزات والحصص
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('tickets')}
+                            className={`${activeTab === 'tickets'
+                                ? 'border-primary-600 text-primary-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                        >
+                            تذاكر الدعم
                         </button>
                     </nav>
                 </div>
@@ -679,6 +710,95 @@ export default function AdminUserDetailPage() {
                                 )}
                             </Card>
                         </div>
+                    )}
+
+                    {activeTab === 'tickets' && (
+                        <Card padding="none">
+                            <CardHeader className="px-6 py-4 border-b border-gray-200">
+                                <div className="flex justify-between items-center">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <LifeBuoy className="w-5 h-5" />
+                                        تذاكر الدعم الفني
+                                    </CardTitle>
+                                    <span className="text-sm text-gray-500">{tickets.length} تذكرة</span>
+                                </div>
+                            </CardHeader>
+                            {ticketsLoading ? (
+                                <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
+                                    <Clock className="w-5 h-5 animate-spin" />
+                                    جاري التحميل...
+                                </div>
+                            ) : tickets.length === 0 ? (
+                                <div className="py-12 text-center text-gray-500">
+                                    <LifeBuoy className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p>لا توجد تذاكر دعم</p>
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow hover={false}>
+                                            <TableHead>المعرف</TableHead>
+                                            <TableHead>العنوان</TableHead>
+                                            <TableHead>التصنيف</TableHead>
+                                            <TableHead>الأولوية</TableHead>
+                                            <TableHead>الحالة</TableHead>
+                                            <TableHead>التاريخ</TableHead>
+                                            <TableHead>الإجراء</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {tickets.map(ticket => (
+                                            <TableRow key={ticket.id}>
+                                                <TableCell className="font-mono text-xs text-gray-500">
+                                                    {ticket.readableId || ticket.id.slice(0, 8)}
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    {ticket.subject}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{ticket.category}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge
+                                                        variant={
+                                                            ticket.priority === 'CRITICAL' ? 'error' :
+                                                                ticket.priority === 'HIGH' ? 'warning' :
+                                                                    'info'
+                                                        }
+                                                        showDot
+                                                    >
+                                                        {ticket.priority}
+                                                    </StatusBadge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge
+                                                        variant={
+                                                            ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? 'success' :
+                                                                ticket.status === 'OPEN' ? 'warning' :
+                                                                    'info'
+                                                        }
+                                                    >
+                                                        {ticket.status}
+                                                    </StatusBadge>
+                                                </TableCell>
+                                                <TableCell className="text-sm text-gray-600">
+                                                    <div>{format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: ar })}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => router.push(`/admin/support-tickets/${ticket.id}`)}
+                                                    >
+                                                        عرض
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </Card>
                     )}
                 </div>
 

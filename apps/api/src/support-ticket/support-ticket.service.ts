@@ -29,7 +29,7 @@ export class SupportTicketService {
     private prisma: PrismaService,
     private readableIdService: ReadableIdService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   /**
    * Create a new support ticket
@@ -212,12 +212,12 @@ export class SupportTicketService {
       where: isAdmin
         ? {} // Admins can see all tickets
         : {
-            OR: [
-              { createdByUserId: userId },
-              { assignedToId: userId },
-              { ticket_access_controls: { some: { userId, canView: true } } },
-            ],
-          },
+          OR: [
+            { createdByUserId: userId },
+            { assignedToId: userId },
+            { ticket_access_controls: { some: { userId, canView: true } } },
+          ],
+        },
       include: {
         users_support_tickets_createdByUserIdTousers: {
           select: {
@@ -241,6 +241,38 @@ export class SupportTicketService {
         { priority: 'desc' },
         { lastActivityAt: 'desc' },
       ],
+    });
+
+    return tickets.map((ticket) => this.mapToDto(ticket));
+  }
+
+  /**
+   * Find tickets specifically involving a user (Created by) - for Admin View
+   */
+  async findTicketsByUserId(targetUserId: string): Promise<SupportTicketDto[]> {
+    const tickets = await this.prisma.support_tickets.findMany({
+      where: {
+        createdByUserId: targetUserId,
+      },
+      include: {
+        users_support_tickets_createdByUserIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            role: true,
+          },
+        },
+        users_support_tickets_assignedToIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
     return tickets.map((ticket) => this.mapToDto(ticket));
@@ -348,12 +380,12 @@ export class SupportTicketService {
         resolutionNote: dto.resolutionNote,
         resolvedAt:
           newStatus === TicketStatus.RESOLVED &&
-          oldStatus !== TicketStatus.RESOLVED
+            oldStatus !== TicketStatus.RESOLVED
             ? new Date()
             : ticket.resolvedAt,
         resolvedByUserId:
           newStatus === TicketStatus.RESOLVED &&
-          oldStatus !== TicketStatus.RESOLVED
+            oldStatus !== TicketStatus.RESOLVED
             ? userId
             : ticket.resolvedByUserId,
         closedAt:
