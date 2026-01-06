@@ -32,8 +32,24 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
   const currentTriggerRef = useRef<TourTriggerSource>('manual');
   const tourCompletedRef = useRef(false);
 
-  // Cleanup driver instance
+  // Cleanup driver instance and all DOM artifacts
   const destroyDriver = useCallback(() => {
+    // Remove all highlight classes
+    document.querySelectorAll('.driver-active-element').forEach(el => {
+      el.classList.remove('driver-active-element');
+    });
+    document.querySelectorAll('.sidra-tour-highlight').forEach(el => {
+      el.classList.remove('sidra-tour-highlight');
+    });
+
+    // Remove any leftover driver.js overlay
+    document.querySelectorAll('.driver-overlay').forEach(el => {
+      el.remove();
+    });
+    document.querySelectorAll('.driver-popover').forEach(el => {
+      el.remove();
+    });
+
     if (driverRef.current) {
       driverRef.current.destroy();
       driverRef.current = null;
@@ -76,6 +92,16 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
     router.push(finalDestination);
   }, [user?.role, user?.id, destroyDriver, router]);
 
+  // Helper to clean up all highlight classes from the DOM
+  const cleanupHighlights = useCallback(() => {
+    document.querySelectorAll('.driver-active-element').forEach(el => {
+      el.classList.remove('driver-active-element');
+    });
+    document.querySelectorAll('.sidra-tour-highlight').forEach(el => {
+      el.classList.remove('sidra-tour-highlight');
+    });
+  }, []);
+
   // Initialize driver with role-specific final CTA handler
   const initializeDriver = useCallback((role: string, isMobile: boolean) => {
     // Get steps with completion handler
@@ -95,6 +121,9 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
       prevBtnText: 'السابق',
       doneBtnText: 'إنهاء الجولة',
       onHighlightStarted: (element, step, options) => {
+        // Clean up previous highlights before highlighting new element
+        cleanupHighlights();
+
         // Track step viewed
         const stepIndex = options.state.activeIndex ?? 0;
         trackEvent(TOUR_EVENTS.STEP_VIEWED, {
@@ -162,7 +191,14 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
         setTimeout(repositionPopover, 50);
         setTimeout(repositionPopover, 150);
       },
-      onDestroyStarted: () => {
+      onDeselected: (element) => {
+        // Remove highlight from deselected element
+        if (element) {
+          element.classList.remove('driver-active-element');
+          element.classList.remove('sidra-tour-highlight');
+        }
+      },
+      onDestroyStarted: (element, step, options) => {
         // User closed tour before completion (X button or overlay click)
         if (!tourCompletedRef.current) {
           const activeIndex = driverRef.current?.getActiveIndex() ?? 0;
@@ -173,13 +209,25 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
             totalSteps: stepsRef.current.length
           });
         }
+
+        // Clean up all highlights
+        cleanupHighlights();
+
+        // Allow driver.js to proceed with destruction
+        if (driverRef.current && !options.state.activeElement) {
+          driverRef.current.destroy();
+        }
+      },
+      onDestroyed: () => {
+        // Final cleanup after driver is destroyed
+        cleanupHighlights();
         setIsActive(false);
       }
     });
 
     driverRef.current = d;
     return d;
-  }, [user?.role, handleTourCompletion]);
+  }, [user?.role, handleTourCompletion, cleanupHighlights]);
 
   // Ensure sidebar visibility before tour starts
   const ensureSidebarVisibility = useCallback(() => {
