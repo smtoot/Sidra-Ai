@@ -21,11 +21,11 @@ const MEETING_LINK_REGEX = /^https:\/\/(meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-
 export class UpdateTeacherProfileDto {
     @IsOptional()
     @IsString()
-    @IsOptional()
-    @IsString()
-    @IsOptional()
-    @IsString()
     displayName?: string;
+
+    @IsOptional()
+    @IsString()
+    headline?: string;
 
     @IsOptional()
     @IsString()

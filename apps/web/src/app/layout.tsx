@@ -8,6 +8,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { PostHogProvider } from "@/providers/PostHogProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ProductTourProvider } from "@/providers/ProductTourProvider";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -51,9 +52,11 @@ export default function RootLayout({
             <QueryProvider>
               <SystemConfigProvider>
                 <AuthProvider>
-                  <DashboardLayout>
-                    {children}
-                  </DashboardLayout>
+                  <ProductTourProvider>
+                    <DashboardLayout>
+                      {children}
+                    </DashboardLayout>
+                  </ProductTourProvider>
                 </AuthProvider>
               </SystemConfigProvider>
             </QueryProvider>

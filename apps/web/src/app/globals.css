@@ -456,10 +456,180 @@ a:hover {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+/* ========================================
+   MOBILE TOUCH TARGETS
+   ======================================== */
+/* Ensure minimum touch targets on mobile devices */
+@media (max-width: 768px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent iOS zoom on input focus (requires 16px font minimum) */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Selected date should have white dot instead of green */
 /* Selected date should have white dot instead of green */
 .booking-calendar .rdp-day_selected.has-availability button::after,
 .booking-calendar .rdp-day_selected .rdp-day_button::after,
 .booking-calendar .rdp-selected .rdp-day_button::after {
   background-color: white !important;
+}
+
+/* ========================================
+   PRODUCT TOUR (Driver.js) RTL STYLES
+   ======================================== */
+
+/* Main popover container */
+.sidra-tour-popover {
+  direction: rtl;
+  font-family: var(--font-sans);
+  max-width: 340px;
+}
+
+/* Popover title */
+.sidra-tour-popover .driver-popover-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-500);
+  text-align: right;
+  margin-bottom: var(--spacing-2);
+}
+
+/* Popover description */
+.sidra-tour-popover .driver-popover-description {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-subtle);
+  text-align: right;
+}
+
+/* Button container - reverse order for RTL */
+.sidra-tour-popover .driver-popover-footer {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-4);
+}
+
+/* Primary button (Next/Done) */
+.sidra-tour-popover .driver-popover-next-btn,
+.sidra-tour-popover .driver-popover-done-btn {
+  background-color: var(--color-primary-500);
+  color: white;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.sidra-tour-popover .driver-popover-next-btn:hover,
+.sidra-tour-popover .driver-popover-done-btn:hover {
+  background-color: var(--color-primary-600);
+}
+
+/* Secondary button (Previous) */
+.sidra-tour-popover .driver-popover-prev-btn {
+  background-color: transparent;
+  color: var(--color-text-subtle);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-gray-300);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidra-tour-popover .driver-popover-prev-btn:hover {
+  background-color: var(--color-gray-100);
+  border-color: var(--color-gray-400);
+}
+
+/* Close button */
+.sidra-tour-popover .driver-popover-close-btn {
+  position: absolute;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  right: auto;
+  color: var(--color-gray-400);
+  transition: color 0.2s ease;
+}
+
+.sidra-tour-popover .driver-popover-close-btn:hover {
+  color: var(--color-gray-600);
+}
+
+/* Progress indicator */
+.sidra-tour-popover .driver-popover-progress-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-light);
+  direction: ltr;
+}
+
+/* Popover arrow adjustments for RTL */
+.sidra-tour-popover .driver-popover-arrow {
+  border-color: white;
+}
+
+/* Fix Driver.js positioning in RTL flex layouts */
+.driver-active-element {
+  position: relative !important;
+  outline: 2px solid var(--color-primary-500) !important;
+  outline-offset: 2px !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Force popover positioning - Driver.js inline styles need strong overrides */
+html[dir="rtl"] .driver-popover.sidra-positioned {
+  position: fixed !important;
+  right: auto !important;
+  transform: none !important;
+  z-index: 1000000001 !important;
+}
+
+/* Hide popover arrow when we're manually positioning */
+html[dir="rtl"] .driver-popover.sidra-positioned .driver-popover-arrow {
+  display: none !important;
+}
+
+/* Start popover hidden to prevent flicker - will be shown by JS after positioning */
+html[dir="rtl"] .driver-popover {
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+html[dir="rtl"] .driver-popover.sidra-visible {
+  opacity: 1 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+/* Ensure overlay doesn't interfere */
+.driver-overlay {
+  z-index: 1000000000 !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .sidra-tour-popover {
+    max-width: 300px;
+  }
+
+  .sidra-tour-popover .driver-popover-title {
+    font-size: var(--font-size-base);
+  }
+
+  .sidra-tour-popover .driver-popover-description {
+    font-size: var(--font-size-xs);
+  }
 }

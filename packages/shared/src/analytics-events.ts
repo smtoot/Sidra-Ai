@@ -59,6 +59,15 @@ export const SUPPORT_EVENTS = {
     TICKET_RESOLVED: 'support_ticket_resolved',
 } as const;
 
+// Product tour events
+export const TOUR_EVENTS = {
+    STARTED: 'tour_started',
+    STEP_VIEWED: 'tour_step_viewed',
+    COMPLETED: 'tour_completed',
+    CLOSED: 'tour_closed',
+    CTA_CLICKED: 'tour_cta_clicked',
+} as const;
+
 // Error events (these trigger session replay)
 export const ERROR_EVENTS = {
     BOOKING_ERROR: 'booking_error',
@@ -74,6 +83,7 @@ export const ALLOWED_EVENTS: Set<string> = new Set([
     ...Object.values(PAYMENT_EVENTS),
     ...Object.values(SESSION_EVENTS),
     ...Object.values(SUPPORT_EVENTS),
+    ...Object.values(TOUR_EVENTS),
     ...Object.values(ERROR_EVENTS),
 ]);
 
@@ -101,6 +111,7 @@ export type AnalyticsEvent =
     | (typeof PAYMENT_EVENTS)[keyof typeof PAYMENT_EVENTS]
     | (typeof SESSION_EVENTS)[keyof typeof SESSION_EVENTS]
     | (typeof SUPPORT_EVENTS)[keyof typeof SUPPORT_EVENTS]
+    | (typeof TOUR_EVENTS)[keyof typeof TOUR_EVENTS]
     | (typeof ERROR_EVENTS)[keyof typeof ERROR_EVENTS];
 
 // Event property types for type-safe tracking
