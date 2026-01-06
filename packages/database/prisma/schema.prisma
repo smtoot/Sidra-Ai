@@ -879,6 +879,8 @@ model users {
   firstName                                                            String?
   lastName                                                             String?
   permissionOverrides                                                  Json?
+  hasCompletedTour                                                     Boolean                  @default(false)
+  tourCompletedAt                                                      DateTime?
   audit_logs                                                           audit_logs[]
   bookings_bookings_bookedByUserIdTousers                              bookings[]               @relation("bookings_bookedByUserIdTousers")
   bookings_bookings_studentUserIdTousers                               bookings[]               @relation("bookings_studentUserIdTousers")
