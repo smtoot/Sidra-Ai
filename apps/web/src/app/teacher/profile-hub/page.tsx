@@ -155,8 +155,8 @@ export default function ProfileHubPage() {
 
     return (
         <TeacherApprovalGuard>
-            <div className="min-h-screen bg-background font-tajawal rtl p-4 md:p-8">
-                <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+            <div className="min-h-screen bg-background font-tajawal rtl p-4 md:p-8 overflow-x-hidden">
+                <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 w-full">
                     {/* Header */}
                     <header className="mb-6 flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div>
@@ -199,7 +199,7 @@ export default function ProfileHubPage() {
                     )}
 
                     {/* Main Layout */}
-                    <div className="flex gap-6 relative">
+                    <div className="flex gap-4 md:gap-6 relative">
                         {/* Responsive Sidebar - Hide percentage before approval */}
                         <ResponsiveSidebar
                             percentage={isApproved ? percentage : 0}
@@ -210,7 +210,7 @@ export default function ProfileHubPage() {
                         />
 
                         {/* Content Area */}
-                        <div className="flex-1 space-y-6 pb-24 lg:pb-0">
+                        <div className="flex-1 min-w-0 space-y-6 pb-24 lg:pb-0">
                             {/* Profile Basics */}
                             {activeSection === 'profile' && (
                                 <ProfileSection

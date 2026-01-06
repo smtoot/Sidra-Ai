@@ -188,9 +188,9 @@ export function PersonalInfoSection({
                             </span>
                         )}
                     </Label>
-                    <div className="flex items-center gap-2" dir="ltr">
+                    <div className="flex flex-col md:flex-row md:items-center gap-2 overflow-hidden" dir="ltr">
                         <span className={cn(
-                            "text-sm px-3 py-2 rounded-lg border",
+                            "text-sm px-3 py-2 rounded-lg border whitespace-nowrap",
                             isSlugLocked ? "bg-gray-100 text-gray-400 border-gray-200" : "bg-gray-50 text-gray-500 border-gray-200"
                         )}>
                             sidra.sd/teachers/
@@ -203,7 +203,7 @@ export function PersonalInfoSection({
                             }}
                             placeholder="my-name"
                             className={cn(
-                                "text-left flex-1 font-mono text-sm shadow-sm",
+                                "text-left flex-1 min-w-0 font-mono text-sm shadow-sm",
                                 isSlugLocked && "bg-gray-50 text-gray-500"
                             )}
                             disabled={isReadOnly || isSlugLocked}
