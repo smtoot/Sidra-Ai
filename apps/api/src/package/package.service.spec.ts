@@ -1,3 +1,6 @@
+// Set env for encryption util before imports
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { PackageService } from './package.service';
 import { PrismaService } from '../prisma/prisma.service';

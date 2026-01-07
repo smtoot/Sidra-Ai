@@ -8,7 +8,7 @@ describe('DemoService', () => {
   let prisma: PrismaService;
 
   const mockPrismaBase = {
-    teacherDemoSettings: {
+    teacher_demo_settings: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
     },
