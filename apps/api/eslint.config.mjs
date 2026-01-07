@@ -39,6 +39,7 @@ export default tseslint.config(
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       'no-case-declarations': 'off',
+      '@typescript-eslint/unbound-method': 'off',
       '@typescript-eslint/no-unused-vars': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
