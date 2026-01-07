@@ -12,11 +12,36 @@ import {
 } from '@nestjs/common';
 import { BOOKING_POLICY } from '../src/booking/booking-policy.constants';
 
+// Define mock types to avoid 'any'
+type MockPrismaType = {
+  booking: {
+    findUnique: jest.Mock;
+    updateMany: jest.Mock;
+  };
+  rescheduleRequest: {
+    create: jest.Mock;
+    findUnique: jest.Mock;
+    update: jest.Mock;
+  };
+  auditLog: { create: jest.Mock };
+  teacherWeeklyAvailability: { findMany: jest.Mock };
+  teacherProfile: { findUnique: jest.Mock };
+  teacherAvailabilityException: {
+    findMany: jest.Mock;
+  };
+  $transaction: jest.Mock;
+  wallet?: unknown;
+  transaction?: unknown;
+};
+
 describe('Package Reschedule Integration Tests', () => {
   let bookingService: BookingService;
-  let mockPrisma: any;
-  let mockWallet: any;
-  let mockNotification: any;
+  let mockPrisma: MockPrismaType;
+  let mockWallet: Record<string, jest.Mock>;
+  let mockNotification: {
+    send: jest.Mock;
+    notifyTeacherPaymentReleased: jest.Mock;
+  };
 
   // Test data
   const now = Date.now();
@@ -54,7 +79,9 @@ describe('Package Reschedule Integration Tests', () => {
       teacherAvailabilityException: {
         findMany: jest.fn().mockResolvedValue([]),
       },
-      $transaction: jest.fn().mockImplementation((fn) => fn(mockPrisma)),
+      $transaction: jest.fn().mockImplementation((fn) =>
+        fn(mockPrisma as unknown as PrismaService),
+      ),
     };
 
     mockWallet = {};
@@ -66,7 +93,10 @@ describe('Package Reschedule Integration Tests', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BookingService,
-        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: PrismaService,
+          useValue: mockPrisma as unknown as PrismaService,
+        },
         { provide: WalletService, useValue: mockWallet },
         { provide: NotificationService, useValue: mockNotification },
         { provide: PackageService, useValue: {} },
@@ -78,7 +108,7 @@ describe('Package Reschedule Integration Tests', () => {
 
     // Mock validateSlotAvailability to return true by default
     jest
-      .spyOn(bookingService, 'validateSlotAvailability')
+      .spyOn(bookingService as any, 'validateSlotAvailability')
       .mockResolvedValue(true);
   });
 
@@ -181,7 +211,7 @@ describe('Package Reschedule Integration Tests', () => {
     it('should reject when teacher is not available', async () => {
       mockPrisma.booking.findUnique.mockResolvedValue(mockPackageBooking);
       jest
-        .spyOn(bookingService, 'validateSlotAvailability')
+        .spyOn(bookingService as any, 'validateSlotAvailability')
         .mockResolvedValue(false);
 
       await expect(
