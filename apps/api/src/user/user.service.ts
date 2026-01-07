@@ -61,4 +61,17 @@ export class UserService {
       },
     });
   }
+
+  async markTourCompleted(userId: string) {
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.prisma.users.update({
+      where: { id: userId },
+      data: {
+        hasCompletedTour: true,
+        tourCompletedAt: new Date(),
+      },
+    });
+  }
 }
