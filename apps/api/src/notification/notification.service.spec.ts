@@ -29,7 +29,7 @@ describe('NotificationService', () => {
               count: jest.fn(),
               updateMany: jest.fn(),
             },
-            emailOutbox: {
+            email_outbox: {
               create: jest.fn(),
             },
           },

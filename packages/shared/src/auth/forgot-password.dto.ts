@@ -1,7 +1,7 @@
-import { IsEmail, IsNotEmpty } from 'class-validator';
+import { Matches, IsNotEmpty } from 'class-validator';
 
 export class ForgotPasswordDto {
-    @IsEmail()
+    @Matches(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, { message: 'البريد الإلكتروني غير صالح' })
     @IsNotEmpty({ message: 'البريد الإلكتروني مطلوب' })
     email!: string;
 }
