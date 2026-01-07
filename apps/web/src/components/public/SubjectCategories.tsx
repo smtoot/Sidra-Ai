@@ -108,6 +108,7 @@ export function SubjectCategories() {
                     {displayedSubjects.map((subject, index) => {
                         const Icon = SUBJECT_ICONS[subject.nameEn?.toLowerCase()] || SUBJECT_ICONS.default;
                         const colors = SUBJECT_COLORS[index % SUBJECT_COLORS.length];
+                        // eslint-disable-next-line react-hooks/purity
                         const teacherCount = MOCK_TEACHER_COUNTS[subject.nameEn?.toLowerCase()] || Math.floor(Math.random() * 30) + 10;
 
                         return (
