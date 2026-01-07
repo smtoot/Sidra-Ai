@@ -42,10 +42,7 @@ export function NotificationBell() {
     const notifications = notificationsData?.items || [];
     const unreadCount = unreadData?.count || 0;
 
-    // Don't render notification bell if user is not authenticated
-    if (!user) {
-        return null;
-    }
+
 
     // Handle dropdown toggle
     const handleToggle = () => {
@@ -66,6 +63,11 @@ export function NotificationBell() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Don't render notification bell if user is not authenticated
+    if (!user) {
+        return null;
+    }
 
     // Handle notification click
     const handleNotificationClick = async (notification: Notification) => {
