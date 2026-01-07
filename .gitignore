@@ -1,5 +1,4 @@
 node_modules/
-.env
 .next/
 dist/
 *.log
@@ -7,3 +6,18 @@ uploads/
 
 # Turbo cache
 .turbo/
+
+# Environment files - NEVER commit secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+apps/*/.env
+packages/*/.env
+
+# Database backups - should be stored in secure cloud storage
+backups/
+*.sql
+*.sql.gz

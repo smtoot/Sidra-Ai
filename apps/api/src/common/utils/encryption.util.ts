@@ -6,26 +6,16 @@ const ivLength = 16;
 const algorithm = 'aes-256-cbc';
 const logger = new Logger('EncryptionUtil');
 
-// SECURITY: ENCRYPTION_KEY must be provided via environment variable in production
-// Generate using: openssl rand -base64 32 | tr -d '\n'
+// SECURITY: ENCRYPTION_KEY must be provided via environment variable
+// Generate using: openssl rand -base64 32 | tr -d '\n' | cut -c1-32
 // Must be exactly 32 characters for AES-256
 function getEncryptionKey(): string {
   const key = process.env.ENCRYPTION_KEY;
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  // Development/staging fallback (ONLY for non-production)
-  const fallbackKey = 'vOVH6sdmpNWjRRIqCc7rdxs01lwHzfr3';
 
   if (!key) {
-    if (isProduction) {
-      throw new Error(
-        'ENCRYPTION_KEY environment variable is required in production. Generate with: openssl rand -base64 32',
-      );
-    }
-    logger.warn(
-      '⚠️  ENCRYPTION_KEY not set, using development fallback. Set ENCRYPTION_KEY in production!',
+    throw new Error(
+      'ENCRYPTION_KEY environment variable is required. Generate with: openssl rand -base64 32 | tr -d \'\\n\' | cut -c1-32',
     );
-    return fallbackKey;
   }
 
   if (key.length !== 32) {

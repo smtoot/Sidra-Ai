@@ -105,7 +105,25 @@ export function ProfileSection({
                     children
                 )}
             </div>
-        </div>
+
+            {/* Footer with Save Action (Mobile Convenience) */}
+            {
+                onSave && !isLocked && (
+                    <div className="bg-gray-50 px-4 md:px-6 py-3 border-t border-gray-100 flex items-center justify-end md:hidden">
+                        <Button
+                            onClick={onSave}
+                            disabled={isSaving || showSaved}
+                            className={cn(
+                                "w-full gap-2 transition-all duration-200",
+                                showSaved && "bg-green-500 hover:bg-green-500"
+                            )}
+                        >
+                            {getButtonContent()}
+                        </Button>
+                    </div>
+                )
+            }
+        </div >
     );
 }
 

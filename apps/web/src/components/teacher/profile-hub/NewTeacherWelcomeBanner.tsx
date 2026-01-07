@@ -78,64 +78,77 @@ export function NewTeacherWelcomeBanner({
     return (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden w-full">
             {/* Main Banner - Compact */}
-            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="px-3 py-3 md:px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 {/* Left: Icon + Message */}
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center flex-shrink-0">
-                        <Sparkles className="w-5 h-5 text-primary" />
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                     </div>
                     <div className="min-w-0">
-                        <p className="font-bold text-gray-900 truncate">
+                        <p className="font-bold text-gray-900 truncate text-sm md:text-base">
                             🎉 مبروك {displayName}!
                         </p>
-                        <p className="text-sm text-gray-500 truncate">
+                        <p className="text-xs md:text-sm text-gray-500 truncate hidden sm:block">
                             تم قبول طلبك - أكمل الخطوات المتبقية للبدء
+                        </p>
+                        <p className="text-xs text-gray-500 truncate sm:hidden">
+                            أكمل بياناتك المتبقية للبدء
                         </p>
                     </div>
                 </div>
 
                 {/* Right: Progress + Actions */}
-                <div className="flex items-center justify-end gap-3">
-                    {/* Progress Pills */}
-                    <div className="hidden sm:flex items-center gap-1">
-                        {nextSteps.map((step) => (
-                            <div
-                                key={step.id}
-                                className={cn(
-                                    "w-2 h-2 rounded-full transition-colors",
-                                    step.isComplete ? "bg-green-500" : "bg-gray-200"
-                                )}
-                                title={step.title}
-                            />
-                        ))}
-                    </div>
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-1 sm:mt-0">
+                    {/* Compact Progress Text for Mobile */}
+                    <span className="text-xs font-medium text-primary sm:hidden">
+                        {completedCount}/{nextSteps.length} مكتمل
+                    </span>
 
-                    {/* Expand/Collapse Button */}
-                    {!allComplete && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsExpanded(!isExpanded)}
-                            className="gap-1 text-primary border-primary/30 hover:bg-primary/5"
+                    <div className="flex items-center gap-3">
+                        {/* Progress Pills (Desktop) */}
+                        <div className="hidden sm:flex items-center gap-1">
+                            {nextSteps.map((step) => (
+                                <div
+                                    key={step.id}
+                                    className={cn(
+                                        "w-2 h-2 rounded-full transition-colors",
+                                        step.isComplete ? "bg-green-500" : "bg-gray-200"
+                                    )}
+                                    title={step.title}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Expand/Collapse Button */}
+                        {!allComplete && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="gap-1 text-primary border-primary/30 hover:bg-primary/5 h-8 text-xs md:text-sm"
+                            >
+                                <span className="hidden sm:inline">
+                                    {completedCount}/{nextSteps.length} مكتمل
+                                </span>
+                                <span className="sm:hidden">
+                                    {isExpanded ? 'إخفاء المهام' : 'عرض المهام'}
+                                </span>
+                                <ChevronLeft className={cn(
+                                    "w-3 h-3 md:w-4 md:h-4 transition-transform",
+                                    isExpanded && "rotate-90"
+                                )} />
+                            </Button>
+                        )}
+
+                        {/* Dismiss Button */}
+                        <button
+                            onClick={handleDismiss}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="إغلاق"
                         >
-                            <span className="hidden sm:inline">
-                                {completedCount}/{nextSteps.length} مكتمل
-                            </span>
-                            <ChevronLeft className={cn(
-                                "w-4 h-4 transition-transform",
-                                isExpanded && "rotate-90"
-                            )} />
-                        </Button>
-                    )}
-
-                    {/* Dismiss Button */}
-                    <button
-                        onClick={handleDismiss}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        aria-label="إغلاق"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
