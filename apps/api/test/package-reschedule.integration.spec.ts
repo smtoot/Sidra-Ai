@@ -79,9 +79,9 @@ describe('Package Reschedule Integration Tests', () => {
       teacherAvailabilityException: {
         findMany: jest.fn().mockResolvedValue([]),
       },
-      $transaction: jest.fn().mockImplementation((fn) =>
-        fn(mockPrisma as unknown as PrismaService),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation((fn) => fn(mockPrisma as unknown as PrismaService)),
     };
 
     mockWallet = {};

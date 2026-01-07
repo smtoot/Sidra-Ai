@@ -28,7 +28,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) { }
+  ) {}
 
   async getDashboardStats() {
     const [
@@ -173,8 +173,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-          previousCompletedBookings) *
-        100
+            previousCompletedBookings) *
+          100
         : completedBookingsCount > 0
           ? 100
           : 0;
