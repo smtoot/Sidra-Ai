@@ -270,7 +270,10 @@ describe('DemoService', () => {
       expect(mockPrismaBase.teacher_demo_settings.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { teacherId: 'teacher-1' },
-          create: expect.objectContaining({ teacherId: 'teacher-1', demoEnabled: true }),
+          create: expect.objectContaining({
+            teacherId: 'teacher-1',
+            demoEnabled: true,
+          }),
           update: { demoEnabled: true },
         }),
       );

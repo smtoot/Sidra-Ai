@@ -143,7 +143,9 @@ describe('PackageService', () => {
   // =========================================================
   describe('getActiveTiers', () => {
     it('should return only active tiers ordered by displayOrder', async () => {
-      mockPrismaBase.package_tiers.findMany.mockResolvedValue([mockPackageTier]);
+      mockPrismaBase.package_tiers.findMany.mockResolvedValue([
+        mockPackageTier,
+      ]);
 
       const result = await service.getActiveTiers();
 
@@ -161,7 +163,9 @@ describe('PackageService', () => {
   describe('purchasePackage', () => {
     beforeEach(() => {
       mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
-      mockPrismaBase.package_tiers.findUnique.mockResolvedValue(mockPackageTier);
+      mockPrismaBase.package_tiers.findUnique.mockResolvedValue(
+        mockPackageTier,
+      );
       mockPrismaBase.teacher_subjects.findFirst.mockResolvedValue(
         mockTeacherSubject,
       );
@@ -426,7 +430,9 @@ describe('PackageService', () => {
         id: 'redemption-1',
         status: 'RESERVED',
       });
-      mockPrismaBase.student_packages.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaBase.student_packages.updateMany.mockResolvedValue({
+        count: 1,
+      });
     });
 
     it('should create a RESERVED redemption', async () => {
