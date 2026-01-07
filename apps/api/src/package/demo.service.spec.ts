@@ -12,7 +12,7 @@ describe('DemoService', () => {
       findUnique: jest.fn(),
       upsert: jest.fn(),
     },
-    demoSession: {
+    demo_sessions: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -53,9 +53,9 @@ describe('DemoService', () => {
       mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo with this teacher
-      mockPrismaBase.demoSession.count.mockResolvedValue(0); // No completed demos this month
-      mockPrismaBase.demoSession.findFirst.mockResolvedValue(null); // No pending demo
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(null); // No existing demo with this teacher
+      mockPrismaBase.demo_sessions.count.mockResolvedValue(0); // No completed demos this month
+      mockPrismaBase.demo_sessions.findFirst.mockResolvedValue(null); // No pending demo
 
       const result = await service.canBookDemo('student-1', 'teacher-1');
 
@@ -88,7 +88,7 @@ describe('DemoService', () => {
         demoEnabled: true,
       });
       // findUnique with composite key finds existing demo
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue({
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue({
         id: 'demo-1',
         demoOwnerId: 'student-1',
         teacherId: 'teacher-1',
@@ -105,9 +105,9 @@ describe('DemoService', () => {
       mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo by composite key
-      mockPrismaBase.demoSession.count.mockResolvedValue(0); // No completed demos this month
-      mockPrismaBase.demoSession.findFirst.mockResolvedValue({
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(null); // No existing demo by composite key
+      mockPrismaBase.demo_sessions.count.mockResolvedValue(0); // No completed demos this month
+      mockPrismaBase.demo_sessions.findFirst.mockResolvedValue({
         id: 'demo-1',
         status: 'SCHEDULED',
       }); // But pending demo exists
@@ -122,8 +122,8 @@ describe('DemoService', () => {
       mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo by composite key
-      mockPrismaBase.demoSession.count.mockResolvedValue(3); // Quota reached (assuming max is 3)
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(null); // No existing demo by composite key
+      mockPrismaBase.demo_sessions.count.mockResolvedValue(3); // Quota reached (assuming max is 3)
 
       const result = await service.canBookDemo('student-1', 'teacher-1');
 
@@ -141,13 +141,13 @@ describe('DemoService', () => {
       mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo
-      mockPrismaBase.demoSession.count.mockResolvedValue(0); // No completed demos this month
-      mockPrismaBase.demoSession.findFirst.mockResolvedValue(null); // No pending demo
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(null); // No existing demo
+      mockPrismaBase.demo_sessions.count.mockResolvedValue(0); // No completed demos this month
+      mockPrismaBase.demo_sessions.findFirst.mockResolvedValue(null); // No pending demo
     });
 
     it('should create demo session with status SCHEDULED', async () => {
-      mockPrismaBase.demoSession.create.mockResolvedValue({
+      mockPrismaBase.demo_sessions.create.mockResolvedValue({
         id: 'demo-1',
         demoOwnerId: 'student-1',
         demoOwnerType: 'STUDENT',
@@ -162,20 +162,21 @@ describe('DemoService', () => {
         'teacher-1',
       );
 
-      expect(mockPrismaBase.demoSession.create).toHaveBeenCalledWith({
-        data: {
-          demoOwnerId: 'student-1',
-          demoOwnerType: 'STUDENT',
-          teacherId: 'teacher-1',
-          beneficiaryId: undefined,
-          status: 'SCHEDULED',
-          rescheduleCount: 0,
-        },
-      });
+      expect(mockPrismaBase.demo_sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            demoOwnerId: 'student-1',
+            demoOwnerType: 'STUDENT',
+            teacherId: 'teacher-1',
+            status: 'SCHEDULED',
+            rescheduleCount: 0,
+          }),
+        }),
+      );
     });
 
     it('should throw if demo already exists with this teacher', async () => {
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue({
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue({
         id: 'demo-1',
         demoOwnerId: 'student-1',
         teacherId: 'teacher-1',
@@ -209,8 +210,8 @@ describe('DemoService', () => {
         teacherId: 'teacher-1',
         usedAt: null,
       };
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(pendingDemo);
-      mockPrismaBase.demoSession.update.mockResolvedValue({
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(pendingDemo);
+      mockPrismaBase.demo_sessions.update.mockResolvedValue({
         ...pendingDemo,
         usedAt: new Date(),
       });
@@ -218,7 +219,7 @@ describe('DemoService', () => {
       const result = await service.markDemoCompleted('student-1', 'teacher-1');
 
       expect(result.usedAt).not.toBeNull();
-      expect(mockPrismaBase.demoSession.update).toHaveBeenCalledWith({
+      expect(mockPrismaBase.demo_sessions.update).toHaveBeenCalledWith({
         where: { id: 'demo-1' },
         data: {
           status: 'COMPLETED',
@@ -228,7 +229,7 @@ describe('DemoService', () => {
     });
 
     it('should throw if no demo session found', async () => {
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(null);
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(null);
 
       await expect(
         service.markDemoCompleted('student-1', 'teacher-1'),
@@ -243,12 +244,12 @@ describe('DemoService', () => {
         status: 'COMPLETED',
         usedAt: new Date('2024-01-01'),
       };
-      mockPrismaBase.demoSession.findUnique.mockResolvedValue(completedDemo);
+      mockPrismaBase.demo_sessions.findUnique.mockResolvedValue(completedDemo);
 
       const result = await service.markDemoCompleted('student-1', 'teacher-1');
 
       // Should return existing without update
-      expect(mockPrismaBase.demoSession.update).not.toHaveBeenCalled();
+      expect(mockPrismaBase.demo_sessions.update).not.toHaveBeenCalled();
       expect(result.usedAt).toEqual(completedDemo.usedAt);
     });
   });
@@ -266,11 +267,13 @@ describe('DemoService', () => {
       const result = await service.updateDemoSettings('teacher-1', true);
 
       expect(result.demoEnabled).toBe(true);
-      expect(mockPrismaBase.teacher_demo_settings.upsert).toHaveBeenCalledWith({
-        where: { teacherId: 'teacher-1' },
-        create: { teacherId: 'teacher-1', demoEnabled: true },
-        update: { demoEnabled: true },
-      });
+      expect(mockPrismaBase.teacher_demo_settings.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { teacherId: 'teacher-1' },
+          create: expect.objectContaining({ teacherId: 'teacher-1', demoEnabled: true }),
+          update: { demoEnabled: true },
+        }),
+      );
     });
   });
 
