@@ -1,8 +1,8 @@
-name: Daily Postgres Backup
+name: Daily Postgres Backup (Cloudflare R2)
 
 on:
   schedule:
-    - cron: "0 2 * * *" # Daily at 02:00 UTC
+    - cron: "0 2 * * *" # Every day at 02:00 UTC
   workflow_dispatch:
 
 env:
@@ -22,7 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
-      - name: Create compressed backup
+      - name: Create compressed database backup
         run: |
           BACKUP_FILE="sidra_backup_$(date +%Y-%m-%d_%H%M%S).sql.gz"
           echo "Creating backup: $BACKUP_FILE"
@@ -58,7 +58,7 @@ jobs:
 
           # Upload to R2
           rclone copy "${{ env.BACKUP_FILE }}" "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/"
-          echo "✅ Backup uploaded to R2: database-backups/${{ env.BACKUP_FILE }}"
+          echo "Backup uploaded to R2: database-backups/${{ env.BACKUP_FILE }}"
 
       - name: Cleanup old backups from R2
         run: |
@@ -81,9 +81,9 @@ jobs:
       - name: Verify backup exists in R2
         run: |
           if rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/${{ env.BACKUP_FILE }}" | grep -q "${{ env.BACKUP_FILE }}"; then
-            echo "✅ Backup verified in R2"
+            echo "Backup verified in R2"
           else
-            echo "❌ Backup verification failed!"
+            echo "Backup verification failed!"
             exit 1
           fi
 
@@ -91,4 +91,3 @@ jobs:
         if: failure()
         run: |
           echo "::error::Database backup failed! Check the workflow logs for details."
-          # Add Slack/Discord/email notification here if needed
