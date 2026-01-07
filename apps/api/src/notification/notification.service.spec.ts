@@ -23,7 +23,7 @@ describe('NotificationService', () => {
         {
           provide: PrismaService,
           useValue: {
-            notification: {
+            notifications: {
               create: jest.fn(),
               findMany: jest.fn(),
               count: jest.fn(),
