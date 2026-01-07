@@ -198,7 +198,7 @@ function getStudentSteps(isMobile: boolean, onComplete: CompletionHandler): Driv
         title: 'يلّا نبدأ! 🚀',
         description: 'خلّينا نلاقي لك المعلم المناسب!',
         onNextClick: () => {
-          onComplete('/student/teachers');
+          onComplete('/search');
         }
       }
     }
