@@ -18,16 +18,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wget ca-certificates gzip unzip curl
 
-          # Add PostgreSQL official repo
+          # PostgreSQL official repo
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
-          # Install AWS CLI v2 (used only as S3-compatible client for R2)
+          # AWS CLI v2 (used only as S3-compatible client for Cloudflare R2)
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q awscliv2.zip
-          sudo ./aws/install
+          sudo ./aws/install --update
 
       - name: Create compressed database backup
         run: |
