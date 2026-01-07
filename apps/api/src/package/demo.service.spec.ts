@@ -50,7 +50,7 @@ describe('DemoService', () => {
   // =========================================================
   describe('canBookDemo', () => {
     it('should return allowed:true if teacher enabled and no prior demo', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
       mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo with this teacher
@@ -64,7 +64,7 @@ describe('DemoService', () => {
     });
 
     it('should return DEMO_DISABLED if teacher has demos disabled', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: false,
       });
 
@@ -75,7 +75,7 @@ describe('DemoService', () => {
     });
 
     it('should return DEMO_DISABLED if teacher has no demo settings', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue(null);
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue(null);
 
       const result = await service.canBookDemo('student-1', 'teacher-1');
 
@@ -84,7 +84,7 @@ describe('DemoService', () => {
     });
 
     it('should return TEACHER_ALREADY_USED if demo record exists with this teacher', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
       // findUnique with composite key finds existing demo
@@ -102,7 +102,7 @@ describe('DemoService', () => {
     });
 
     it('should return PENDING_EXISTS if pending demo session exists', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
       mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo by composite key
@@ -119,7 +119,7 @@ describe('DemoService', () => {
     });
 
     it('should return QUOTA_EXCEEDED if monthly quota reached', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
       mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo by composite key
@@ -138,7 +138,7 @@ describe('DemoService', () => {
   describe('createDemoRecord', () => {
     beforeEach(() => {
       // Setup mocks for successful canBookDemo
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
       mockPrismaBase.demoSession.findUnique.mockResolvedValue(null); // No existing demo
@@ -188,7 +188,7 @@ describe('DemoService', () => {
     });
 
     it('should throw if teacher has demos disabled', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: false,
       });
 
@@ -258,7 +258,7 @@ describe('DemoService', () => {
   // =========================================================
   describe('updateDemoSettings', () => {
     it('should upsert teacher demo settings', async () => {
-      mockPrismaBase.teacherDemoSettings.upsert.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.upsert.mockResolvedValue({
         teacherId: 'teacher-1',
         demoEnabled: true,
       });
@@ -266,7 +266,7 @@ describe('DemoService', () => {
       const result = await service.updateDemoSettings('teacher-1', true);
 
       expect(result.demoEnabled).toBe(true);
-      expect(mockPrismaBase.teacherDemoSettings.upsert).toHaveBeenCalledWith({
+      expect(mockPrismaBase.teacher_demo_settings.upsert).toHaveBeenCalledWith({
         where: { teacherId: 'teacher-1' },
         create: { teacherId: 'teacher-1', demoEnabled: true },
         update: { demoEnabled: true },
@@ -279,7 +279,7 @@ describe('DemoService', () => {
   // =========================================================
   describe('getDemoSettings', () => {
     it('should return demo settings if exists', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
 
@@ -289,7 +289,7 @@ describe('DemoService', () => {
     });
 
     it('should return null if no settings exist', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue(null);
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue(null);
 
       const result = await service.getDemoSettings('teacher-1');
 
@@ -302,7 +302,7 @@ describe('DemoService', () => {
   // =========================================================
   describe('isTeacherDemoEnabled', () => {
     it('should return true if demo enabled', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: true,
       });
 
@@ -312,7 +312,7 @@ describe('DemoService', () => {
     });
 
     it('should return false if demo disabled', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue({
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue({
         demoEnabled: false,
       });
 
@@ -322,7 +322,7 @@ describe('DemoService', () => {
     });
 
     it('should return false if no settings exist', async () => {
-      mockPrismaBase.teacherDemoSettings.findUnique.mockResolvedValue(null);
+      mockPrismaBase.teacher_demo_settings.findUnique.mockResolvedValue(null);
 
       const result = await service.isTeacherDemoEnabled('teacher-1');
 

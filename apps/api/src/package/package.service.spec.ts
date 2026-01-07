@@ -103,7 +103,7 @@ describe('PackageService', () => {
     system_settings: {
       findFirst: jest.fn(),
     },
-    teacherDemoSettings: {
+    teacher_demo_settings: {
       findUnique: jest.fn(),
     },
     teacherPackageTierSetting: {
