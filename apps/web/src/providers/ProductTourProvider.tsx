@@ -281,6 +281,7 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
     setIsActive(true);
     d.setSteps(stepsRef.current);
     d.drive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, isActive, ensureSidebarVisibility, initializeDriver]);
 
   // Listen for manual tour start from Help menu
