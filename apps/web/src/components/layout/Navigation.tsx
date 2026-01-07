@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X } from 'lucide-react';
+import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -226,6 +226,12 @@ export function Navigation({ userRole, userName }: NavigationProps) {
         router.push('/login');
     };
 
+    const handleRestartTour = () => {
+        setMobileMenuOpen(false);
+        // Dispatch event to trigger the product tour
+        window.dispatchEvent(new CustomEvent('start-product-tour'));
+    };
+
     const toggleGroup = (label: string) => {
         if (expandedGroups.includes(label)) {
             setExpandedGroups(expandedGroups.filter(g => g !== label));
@@ -408,11 +414,27 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                 })}
             </nav>
 
-            {/* Logout */}
+            {/* Footer Actions */}
             <div className={cn(
-                "p-4 border-t border-gray-200",
+                "p-4 border-t border-gray-200 space-y-2",
                 isCollapsed && !isMobile && "p-2"
             )}>
+                {/* Restart Tour - Only for non-admin users */}
+                {['PARENT', 'TEACHER', 'STUDENT'].includes(userRole) && (
+                    <Button
+                        variant="ghost"
+                        onClick={handleRestartTour}
+                        title={isCollapsed && !isMobile ? "إعادة الجولة التعريفية" : undefined}
+                        className={cn(
+                            "w-full justify-start gap-3 text-primary hover:bg-primary/10",
+                            isCollapsed && !isMobile && "justify-center px-2"
+                        )}
+                    >
+                        <RotateCcw className="w-5 h-5 flex-shrink-0" />
+                        {(!isCollapsed || isMobile) && <span>إعادة الجولة التعريفية</span>}
+                    </Button>
+                )}
+                {/* Logout */}
                 <Button
                     variant="ghost"
                     onClick={handleLogout}

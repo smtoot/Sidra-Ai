@@ -198,7 +198,7 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
           element.classList.remove('sidra-tour-highlight');
         }
       },
-      onDestroyStarted: (element, step, options) => {
+      onDestroyStarted: () => {
         // User closed tour before completion (X button or overlay click)
         if (!tourCompletedRef.current) {
           const activeIndex = driverRef.current?.getActiveIndex() ?? 0;
@@ -210,13 +210,8 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
           });
         }
 
-        // Clean up all highlights
+        // Clean up all highlights immediately
         cleanupHighlights();
-
-        // Allow driver.js to proceed with destruction
-        if (driverRef.current && !options.state.activeElement) {
-          driverRef.current.destroy();
-        }
       },
       onDestroyed: () => {
         // Final cleanup after driver is destroyed
