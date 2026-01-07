@@ -67,7 +67,7 @@ export function TeachingApproachSection({
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 w-full overflow-hidden">
             {/* Teaching Style Text */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export function TeachingApproachSection({
                                     onClick={() => handleTagToggle(tag.id)}
                                     disabled={isReadOnly || (!isSelected && selectedTags.length >= 4)}
                                     className={cn(
-                                        "relative flex items-center justify-between px-4 py-3 rounded-xl border transition-all text-right",
+                                        "relative flex items-center justify-between px-4 py-3 min-h-[48px] rounded-xl border transition-all text-right",
                                         isSelected
                                             ? "border-primary bg-primary/5 text-primary shadow-sm"
                                             : "border-gray-200 bg-white hover:border-gray-300 text-gray-600",

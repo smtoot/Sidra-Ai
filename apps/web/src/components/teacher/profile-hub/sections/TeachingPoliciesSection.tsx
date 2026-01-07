@@ -11,7 +11,7 @@ interface TeachingPoliciesSectionProps {
 
 export function TeachingPoliciesSection({ isReadOnly = false }: TeachingPoliciesSectionProps) {
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             <DemoSettings isReadOnly={isReadOnly} />
             <PackageSettings isReadOnly={isReadOnly} />
             <TimezoneSettings isReadOnly={isReadOnly} />

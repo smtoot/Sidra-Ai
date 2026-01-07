@@ -627,6 +627,7 @@ model teacher_profiles {
   id                             String @id @default(uuid())
   userId                         String                           @unique
   bio                            String?
+  headline                       String?
   averageRating                  Float                            @default(0)
   cancellationPolicy             CancellationPolicy               @default(FLEXIBLE)
   encryptedMeetingLink           String?
@@ -879,6 +880,8 @@ model users {
   firstName                                                            String?
   lastName                                                             String?
   permissionOverrides                                                  Json?
+  hasCompletedTour                                                     Boolean                  @default(false)
+  tourCompletedAt                                                      DateTime?
   audit_logs                                                           audit_logs[]
   bookings_bookings_bookedByUserIdTousers                              bookings[]               @relation("bookings_bookedByUserIdTousers")
   bookings_bookings_studentUserIdTousers                               bookings[]               @relation("bookings_studentUserIdTousers")

@@ -216,7 +216,15 @@ export function SubjectsStep() {
                         <div className="py-2 text-center text-sm text-gray-500">جاري تحميل المراحل...</div>
                     )}
 
-                    {hierarchy && (
+                    {!loadingHierarchy && selectedCurriculum && (!hierarchy?.stages || hierarchy.stages.length === 0) && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <p className="text-sm text-amber-800 text-center">
+                                ⚠️ لا توجد مراحل دراسية متاحة لهذا المنهج حالياً. الرجاء اختيار منهج آخر أو التواصل مع الدعم.
+                            </p>
+                        </div>
+                    )}
+
+                    {hierarchy?.stages && hierarchy.stages.length > 0 && (
                         <div className="space-y-3 border rounded-lg p-3 bg-white">
                             <Label className="block text-sm font-bold text-gray-700">تحديد الصفوف (مطلوب)</Label>
 
@@ -298,6 +306,7 @@ export function SubjectsStep() {
                             onClick={handleAddSubject}
                             disabled={loading || selectedGrades.length === 0}
                             className="gap-2"
+                            title={selectedGrades.length === 0 ? "الرجاء تحديد صف دراسي واحد على الأقل" : ""}
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                             إضافة المادة

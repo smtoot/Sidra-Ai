@@ -15,6 +15,8 @@ import { normalizeMoney } from '../utils/money';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
+import { TeacherProfileMapper } from '../teacher/teacher-profile.mapper';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -278,9 +280,9 @@ export class AdminService {
    * Get all disputes with optional status filter
    */
   async getDisputes(status?: string) {
-    const where: any = {};
+    const where: Prisma.disputesWhereInput = {};
     if (status && status !== 'ALL') {
-      where.status = status;
+      where.status = status as any;
     }
 
     return this.prisma.disputes.findMany({
@@ -693,15 +695,25 @@ export class AdminService {
       where.applicationStatus = status;
     }
 
-    return this.prisma.teacher_profiles.findMany({
+    const applications = await this.prisma.teacher_profiles.findMany({
       where,
       include: {
         users: {
           select: { id: true, email: true, phoneNumber: true, createdAt: true },
         },
         documents: true,
+        // Also include subjects for the list view if needed (optional but good for preview)
+        teacher_subjects: { include: { subjects: true, curricula: true } },
       },
       orderBy: { submittedAt: 'desc' },
+    });
+
+    return applications.map((app) => {
+      const mapped = TeacherProfileMapper.mapProfile(app);
+      return {
+        ...mapped,
+        user: app.users,
+      };
     });
   }
 
@@ -725,7 +737,12 @@ export class AdminService {
       throw new NotFoundException('Teacher application not found');
     }
 
-    return profile;
+    const mappedProfile = TeacherProfileMapper.mapProfile(profile);
+
+    return {
+      ...mappedProfile,
+      user: profile.users,
+    };
   }
 
   /**

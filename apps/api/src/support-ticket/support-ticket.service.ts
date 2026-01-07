@@ -247,6 +247,38 @@ export class SupportTicketService {
   }
 
   /**
+   * Find tickets specifically involving a user (Created by) - for Admin View
+   */
+  async findTicketsByUserId(targetUserId: string): Promise<SupportTicketDto[]> {
+    const tickets = await this.prisma.support_tickets.findMany({
+      where: {
+        createdByUserId: targetUserId,
+      },
+      include: {
+        users_support_tickets_createdByUserIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            role: true,
+          },
+        },
+        users_support_tickets_assignedToIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return tickets.map((ticket) => this.mapToDto(ticket));
+  }
+
+  /**
    * Find one ticket by ID
    */
   async findOne(

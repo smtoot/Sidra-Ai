@@ -67,7 +67,7 @@ export function BankInfoSection({ isReadOnly = false }: BankInfoSectionProps) {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             {/* Header with status */}
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">

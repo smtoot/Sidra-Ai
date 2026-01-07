@@ -23,13 +23,13 @@ describe('NotificationService', () => {
         {
           provide: PrismaService,
           useValue: {
-            notification: {
+            notifications: {
               create: jest.fn(),
               findMany: jest.fn(),
               count: jest.fn(),
               updateMany: jest.fn(),
             },
-            emailOutbox: {
+            email_outbox: {
               create: jest.fn(),
             },
           },

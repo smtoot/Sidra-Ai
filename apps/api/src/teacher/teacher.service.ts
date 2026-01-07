@@ -18,6 +18,8 @@ import { WalletService } from '../wallet/wallet.service';
 import { SystemSettingsService } from '../admin/system-settings.service';
 import { NotificationService } from '../notification/notification.service';
 import { formatInTimezone } from '../common/utils/timezone.util';
+import { TeacherProfileMapper } from './teacher-profile.mapper';
+import { BookingMapper } from '../booking/booking.mapper';
 
 @Injectable()
 export class TeacherService {
@@ -34,7 +36,17 @@ export class TeacherService {
     const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       include: {
-        teacher_subjects: { include: { subjects: true, curricula: true } },
+        teacher_subjects: {
+          include: {
+            subjects: true,
+            curricula: true,
+            teacher_subject_grades: {
+              include: {
+                grade_levels: true,
+              },
+            },
+          },
+        },
         availability: true,
         documents: true,
         teacher_qualifications: true, // Include qualifications
@@ -71,8 +83,11 @@ export class TeacherService {
       }
     }
 
+    // Transform snake_case to camelCase
+    const transformedProfile = TeacherProfileMapper.mapProfile(profile);
+
     return {
-      ...profile,
+      ...transformedProfile,
       meetingLink: decryptedMeetingLink,
       users: profile.users,
       user: profile.users, // Map users -> user
@@ -167,6 +182,7 @@ export class TeacherService {
         where: { userId },
         data: {
           displayName: dto.displayName,
+          headline: dto.headline,
           slug: dto.slug, // Update slug
           fullName: dto.fullName,
           bio: dto.bio,
@@ -331,10 +347,12 @@ export class TeacherService {
 
     if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.prisma.teacher_qualifications.findMany({
+    const qualifications = await this.prisma.teacher_qualifications.findMany({
       where: { teacherId: profile.id },
       orderBy: { createdAt: 'desc' },
     });
+
+    return TeacherProfileMapper.mapQualifications(qualifications);
   }
 
   /**
@@ -812,36 +830,20 @@ export class TeacherService {
       }),
     ]);
 
-    // Format the session to return a unified "studentName"
-    let formattedSession = null;
-    if (upcomingSession) {
-      // Use child name or student's firstName (never email)
-      const studentName =
-        upcomingSession.beneficiaryType === 'CHILD'
-          ? upcomingSession.children?.name
-          : (upcomingSession.users_bookings_studentUserIdTousers as any)
-              ?.firstName || 'طالب';
+    // Format the session using BookingMapper
+    const formattedSession = BookingMapper.mapBooking(upcomingSession);
 
-      formattedSession = {
-        ...upcomingSession,
-        studentName: studentName || 'طالب',
+    // Format recent sessions using BookingMapper
+    // We extend the mapped booking with dashboard-specific calculated fields
+    const formattedRecentSessions = recentSessions.map((session) => {
+      const mapped = BookingMapper.mapBooking(session);
+      return {
+        ...mapped,
+        subjectName: mapped.subject?.nameAr || 'مادة',
+        earnings: Number(session.price) * (1 - Number(session.commissionRate)),
+        rating: mapped.rating?.score || null,
       };
-    }
-
-    // Format recent sessions (use firstName, never email)
-    const formattedRecentSessions = recentSessions.map((session) => ({
-      id: session.id,
-      studentName:
-        session.beneficiaryType === 'CHILD'
-          ? session.children?.name || 'طالب'
-          : (session.users_bookings_studentUserIdTousers as any)?.firstName ||
-            'طالب',
-      subjectName: session.subjects?.nameAr || 'مادة',
-      startTime: session.startTime,
-      price: session.price,
-      earnings: Number(session.price) * (1 - Number(session.commissionRate)),
-      rating: session.ratings?.score || null,
-    }));
+    });
 
     return {
       profile: {
@@ -931,6 +933,7 @@ export class TeacherService {
     const profile = await this.prisma.teacher_profiles.findUnique({
       where: { userId },
       select: {
+        id: true,
         applicationStatus: true,
         submittedAt: true,
         reviewedAt: true,
@@ -942,7 +945,19 @@ export class TeacherService {
     });
 
     if (!profile) throw new NotFoundException('Profile not found');
-    return profile;
+
+    // Check setup completion
+    const [subjectCount, availabilityCount] = await Promise.all([
+      this.prisma.teacher_subjects.count({ where: { teacherId: profile.id } }),
+      this.prisma.availability.count({ where: { teacherId: profile.id } }),
+    ]);
+
+    return {
+      ...profile,
+      hasSubjects: subjectCount > 0,
+      hasAvailability: availabilityCount > 0,
+      hasCompletedSetup: subjectCount > 0 && availabilityCount > 0,
+    };
   }
 
   /**

@@ -5,46 +5,89 @@ on:
     - cron: "0 2 * * *" # Every day at 02:00 UTC
   workflow_dispatch:
 
+env:
+  BACKUP_RETENTION_DAYS: 30
+
 jobs:
   backup:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install PostgreSQL 17 client + AWS CLI v2
+      - name: Install PostgreSQL 17 client
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget ca-certificates gzip unzip curl
-
-          # PostgreSQL official repo
+          sudo apt-get install -y wget ca-certificates gzip
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
-          # AWS CLI v2 (used only as S3-compatible client for Cloudflare R2)
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -q awscliv2.zip
-          sudo ./aws/install --update
-
       - name: Create compressed database backup
         run: |
-          mkdir -p backups
+          BACKUP_FILE="sidra_backup_$(date +%Y-%m-%d_%H%M%S).sql.gz"
+          echo "Creating backup: $BACKUP_FILE"
           /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" \
-            | gzip > backups/backup_$(date +%Y-%m-%d).sql.gz
+            | gzip > "$BACKUP_FILE"
+
+          # Verify backup is not empty
+          if [ ! -s "$BACKUP_FILE" ]; then
+            echo "Error: Backup file is empty"
+            exit 1
+          fi
+
+          BACKUP_SIZE=$(ls -lh "$BACKUP_FILE" | awk '{print $5}')
+          echo "Backup created successfully: $BACKUP_FILE ($BACKUP_SIZE)"
+          echo "BACKUP_FILE=$BACKUP_FILE" >> $GITHUB_ENV
 
       - name: Upload backup to Cloudflare R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
         run: |
-          aws s3 cp backups/backup_$(date +%Y-%m-%d).sql.gz \
-            s3://${{ secrets.R2_BACKUP_BUCKET }}/backup_$(date +%Y-%m-%d).sql.gz \
-            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+          # Install rclone for R2 uploads (more reliable than aws cli for R2)
+          curl https://rclone.org/install.sh | sudo bash
 
-      - name: Cleanup local backups
+          # Configure rclone for R2
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          secret_access_key = ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          acl = private
+          EOF
+
+          # Upload to R2
+          rclone copy "${{ env.BACKUP_FILE }}" "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/"
+          echo "Backup uploaded to R2: database-backups/${{ env.BACKUP_FILE }}"
+
+      - name: Cleanup old backups from R2
         run: |
-          rm -rf backups
+          # List all backups and delete those older than retention period
+          CUTOFF_DATE=$(date -d "-${{ env.BACKUP_RETENTION_DAYS }} days" +%Y-%m-%d)
+          echo "Removing backups older than: $CUTOFF_DATE"
+
+          rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/" | while read -r FILE_NAME; do
+            # Extract date from filename (format: sidra_backup_YYYY-MM-DD_HHMMSS.sql.gz)
+            FILE_DATE=$(echo "$FILE_NAME" | grep -oP '\d{4}-\d{2}-\d{2}' | head -1)
+            if [[ -n "$FILE_DATE" && "$FILE_DATE" < "$CUTOFF_DATE" ]]; then
+              echo "Deleting old backup: $FILE_NAME"
+              rclone delete "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/$FILE_NAME"
+            fi
+          done
+
+      - name: Cleanup local backup file
+        run: rm -f "${{ env.BACKUP_FILE }}"
+
+      - name: Verify backup exists in R2
+        run: |
+          if rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/${{ env.BACKUP_FILE }}" | grep -q "${{ env.BACKUP_FILE }}"; then
+            echo "Backup verified in R2"
+          else
+            echo "Backup verification failed!"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Database backup failed! Check the workflow logs for details."

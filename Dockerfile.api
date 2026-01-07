@@ -51,12 +51,16 @@ COPY --from=builder /app/packages ./packages
 # Regenerate Prisma client for production (Alpine)
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 
-# Expose port
-EXPOSE 3001
+# Expose port (matches .env and app default)
+EXPOSE 4000
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=4000
 
-# Start command: run migrations and start the server
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/src/main.js"]
+# Copy and make startup script executable
+COPY apps/api/scripts/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Start command: use startup script with retry logic
+CMD ["/app/start.sh"]

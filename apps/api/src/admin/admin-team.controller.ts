@@ -222,7 +222,7 @@ export class AdminTeamController {
       role: user.role,
       effectivePermissions: this.permissionService.getEffectivePermissions({
         role: user.role,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         permissionOverrides: user.permissionOverrides as any,
       }),
     };

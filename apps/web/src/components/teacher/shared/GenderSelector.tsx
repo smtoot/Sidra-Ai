@@ -28,7 +28,7 @@ export function GenderSelector({
             <div className="flex gap-4">
                 <label
                     className={cn(
-                        "flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all",
+                        "flex-1 flex items-center justify-center gap-2 p-4 min-h-[48px] rounded-xl border-2 transition-all",
                         value === Gender.MALE
                             ? "border-primary bg-primary/5 text-primary"
                             : "border-gray-200 hover:border-gray-300",
@@ -48,7 +48,7 @@ export function GenderSelector({
                 </label>
                 <label
                     className={cn(
-                        "flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all",
+                        "flex-1 flex items-center justify-center gap-2 p-4 min-h-[48px] rounded-xl border-2 transition-all",
                         value === Gender.FEMALE
                             ? "border-primary bg-primary/5 text-primary"
                             : "border-gray-200 hover:border-gray-300",

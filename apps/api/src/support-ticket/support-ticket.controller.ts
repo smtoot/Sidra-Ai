@@ -11,8 +11,6 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/permissions.guard';
-import { RequirePermissions } from '../auth/permissions.decorator';
 import { TicketAccessGuard } from './guards/ticket-access.guard';
 import { SupportTicketService } from './support-ticket.service';
 import { TicketMessageService } from './ticket-message.service';

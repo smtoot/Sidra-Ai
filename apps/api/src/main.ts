@@ -36,15 +36,19 @@ async function bootstrap() {
     }),
   );
 
-  // SECURITY: Restrict CORS to allowed origins only
-  // Default includes common Next.js dev ports (3000, 3001, 3002)
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'https://sidra-staging.up.railway.app',
-    ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
-  ];
+  // SECURITY: Restrict CORS to allowed origins from environment variable only
+  // Set ALLOWED_ORIGINS in .env (comma-separated, no spaces)
+  // Example: ALLOWED_ORIGINS=https://app.sidra-ai.com,https://admin.sidra-ai.com
+  const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;
+  if (!allowedOriginsEnv) {
+    throw new Error(
+      'ALLOWED_ORIGINS environment variable is required. Set comma-separated allowed origins.',
+    );
+  }
+  const allowedOrigins = allowedOriginsEnv
+    .split(',')
+    .map((origin) => origin.trim());
+
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, Postman, server-to-server)
@@ -68,5 +72,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 4000);
 }
-// Trigger redeploy for CORS fix - 2025-12-30
 bootstrap();

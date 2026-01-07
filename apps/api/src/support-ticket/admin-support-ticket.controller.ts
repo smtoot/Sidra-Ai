@@ -43,6 +43,17 @@ export class AdminSupportTicketController {
   }
 
   /**
+   * Get all tickets for a specific user
+   */
+  @Get('users/:userId')
+  @RequirePermissions(PERMISSIONS.TICKETS_VIEW)
+  async findByUser(
+    @Param('userId') userId: string,
+  ): Promise<SupportTicketDto[]> {
+    return this.ticketService.findTicketsByUserId(userId);
+  }
+
+  /**
    * Get a specific ticket
    */
   @Get(':ticketId')

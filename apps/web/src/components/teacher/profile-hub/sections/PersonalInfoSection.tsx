@@ -109,7 +109,7 @@ export function PersonalInfoSection({
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full overflow-hidden">
             {/* Name Section Header */}
             <div className="pb-2 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-500 flex items-center gap-2">
@@ -188,9 +188,9 @@ export function PersonalInfoSection({
                             </span>
                         )}
                     </Label>
-                    <div className="flex items-center gap-2" dir="ltr">
+                    <div className="flex flex-col md:flex-row md:items-center gap-2 overflow-hidden" dir="ltr">
                         <span className={cn(
-                            "text-sm px-3 py-2 rounded-lg border",
+                            "text-sm px-3 py-2 rounded-lg border whitespace-nowrap",
                             isSlugLocked ? "bg-gray-100 text-gray-400 border-gray-200" : "bg-gray-50 text-gray-500 border-gray-200"
                         )}>
                             sidra.sd/teachers/
@@ -203,7 +203,7 @@ export function PersonalInfoSection({
                             }}
                             placeholder="my-name"
                             className={cn(
-                                "text-left flex-1 font-mono text-sm shadow-sm",
+                                "text-left flex-1 min-w-0 font-mono text-sm shadow-sm",
                                 isSlugLocked && "bg-gray-50 text-gray-500"
                             )}
                             disabled={isReadOnly || isSlugLocked}
@@ -227,7 +227,7 @@ export function PersonalInfoSection({
             </div>
 
             {/* Contact Section Header */}
-            <div className="pb-2 border-b border-gray-100 mt-8">
+            <div className="pb-2 border-b border-gray-100 mt-6 md:mt-8">
                 <h3 className="text-sm font-semibold text-gray-500 flex items-center gap-2">
                     <Phone className="w-4 h-4" />
                     التواصل
@@ -285,7 +285,7 @@ export function PersonalInfoSection({
             </div>
 
             {/* Location Section Header */}
-            <div className="pb-2 border-b border-gray-100 mt-8">
+            <div className="pb-2 border-b border-gray-100 mt-6 md:mt-8">
                 <h3 className="text-sm font-semibold text-gray-500 flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     الموقع
@@ -307,7 +307,7 @@ export function PersonalInfoSection({
                             onChange={(e) => handleCountryChange(e.target.value)}
                             disabled={isReadOnly}
                             dir="rtl"
-                            className="w-full text-right px-3 py-2 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full h-12 text-base text-right px-3 py-2.5 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <option value="" disabled>اختر الدولة</option>
                             {PRIORITY_COUNTRIES.map((c) => (

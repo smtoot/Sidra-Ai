@@ -29,7 +29,7 @@ export class PermissionsGuard implements CanActivate {
     private reflector: Reflector,
     private prisma: PrismaService,
     private permissionService: PermissionService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required permissions from decorator
@@ -54,7 +54,7 @@ export class PermissionsGuard implements CanActivate {
     if (!user || !user.userId) {
       this.logger.warn(
         `PermissionsGuard: Auth failed - No user in request. ` +
-        `Route: ${method} ${routePath}`,
+          `Route: ${method} ${routePath}`,
       );
       throw new ForbiddenException('Authentication required');
     }
@@ -73,7 +73,7 @@ export class PermissionsGuard implements CanActivate {
     if (!fullUser) {
       this.logger.warn(
         `PermissionsGuard: User not found in DB. ` +
-        `UserId: ${user.userId}, Route: ${method} ${routePath}`,
+          `UserId: ${user.userId}, Route: ${method} ${routePath}`,
       );
       throw new ForbiddenException('User not found');
     }
@@ -81,7 +81,7 @@ export class PermissionsGuard implements CanActivate {
     if (!fullUser.isActive) {
       this.logger.warn(
         `PermissionsGuard: Account deactivated. ` +
-        `UserId: ${fullUser.id}, Role: ${fullUser.role}, Route: ${method} ${routePath}`,
+          `UserId: ${fullUser.id}, Role: ${fullUser.role}, Route: ${method} ${routePath}`,
       );
       throw new ForbiddenException('Account is deactivated');
     }
@@ -89,7 +89,7 @@ export class PermissionsGuard implements CanActivate {
     // Log permission check attempt (debug level for staging diagnostics)
     this.logger.debug(
       `PermissionsGuard: Checking permissions for User ${fullUser.id} (${fullUser.role}). ` +
-      `Required: [${requiredPermissions.join(', ')}]. Route: ${method} ${routePath}`,
+        `Required: [${requiredPermissions.join(', ')}]. Route: ${method} ${routePath}`,
     );
 
     // Check if user has ALL required permissions
@@ -109,17 +109,17 @@ export class PermissionsGuard implements CanActivate {
 
       this.logger.warn(
         `PermissionsGuard DENIED: User ${fullUser.id} (role=${fullUser.role}) ` +
-        `tried to access ${method} ${routePath}. ` +
-        `Required: [${requiredPermissions.join(', ')}]. ` +
-        `User's effective permissions: [${effective.join(', ')}]. ` +
-        `PermissionOverrides: ${JSON.stringify(fullUser.permissionOverrides)}`,
+          `tried to access ${method} ${routePath}. ` +
+          `Required: [${requiredPermissions.join(', ')}]. ` +
+          `User's effective permissions: [${effective.join(', ')}]. ` +
+          `PermissionOverrides: ${JSON.stringify(fullUser.permissionOverrides)}`,
       );
       throw new ForbiddenException('Insufficient permissions');
     }
 
     this.logger.debug(
       `PermissionsGuard ALLOWED: User ${fullUser.id} (${fullUser.role}) ` +
-      `accessing ${method} ${routePath}`,
+        `accessing ${method} ${routePath}`,
     );
 
     return true;

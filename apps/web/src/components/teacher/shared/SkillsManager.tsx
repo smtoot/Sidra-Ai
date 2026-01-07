@@ -340,7 +340,7 @@ export function SkillsManager({
                                         : undefined,
                                 }))
                             }
-                            className="w-full h-11 px-3 rounded-lg border border-gray-300 bg-white"
+                            className="w-full h-12 px-3 text-base rounded-lg border border-gray-300 bg-white"
                             disabled={saving}
                         >
                             <option value="">اختر التصنيف</option>
@@ -363,7 +363,7 @@ export function SkillsManager({
                                     proficiency: e.target.value as SkillProficiency,
                                 }))
                             }
-                            className="w-full h-11 px-3 rounded-lg border border-gray-300 bg-white"
+                            className="w-full h-12 px-3 text-base rounded-lg border border-gray-300 bg-white"
                             disabled={saving}
                         >
                             {Object.entries(PROFICIENCY_LABELS).map(([key, label]) => (

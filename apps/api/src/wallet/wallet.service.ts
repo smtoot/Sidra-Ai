@@ -223,7 +223,7 @@ export class WalletService {
   }
 
   async getAdminUserWallet(userId: string) {
-    const wallet = await this.prisma.wallets.findUnique({
+    let wallet = await this.prisma.wallets.findUnique({
       where: { userId },
       include: {
         transactions: {
@@ -233,7 +233,24 @@ export class WalletService {
       },
     });
 
-    if (!wallet) throw new NotFoundException('User wallet not found');
+    if (!wallet) {
+      // Lazy create wallet if it doesn't exist (same as getBalance)
+      const readableId = await this.readableIdService.generate('WALLET');
+      wallet = await this.prisma.wallets.create({
+        data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
+          userId,
+          readableId,
+        },
+        include: {
+          transactions: {
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          },
+        },
+      });
+    }
 
     return wallet;
   }

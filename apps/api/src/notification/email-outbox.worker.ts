@@ -18,7 +18,7 @@ export class EmailOutboxWorker {
   private readonly logger = new Logger(EmailOutboxWorker.name);
   private isProcessing = false;
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Process pending emails every 30 seconds.
@@ -167,7 +167,10 @@ export class EmailOutboxWorker {
 
       // Resend doesn't use template IDs like SendGrid
       // Instead, we'll render React Email templates with the payload data
-      const htmlContent = await this.renderEmailTemplate(email.templateId, email.payload);
+      const htmlContent = await this.renderEmailTemplate(
+        email.templateId,
+        email.payload,
+      );
 
       const data = await resend.emails.send({
         from: fromEmail,
@@ -205,7 +208,8 @@ export class EmailOutboxWorker {
             studentName: payload.studentName || 'الطالب',
             teacherName: payload.teacherName || 'المعلم',
             subjectName: payload.subjectName || 'المادة',
-            sessionDate: payload.sessionDate || new Date().toLocaleDateString('ar'),
+            sessionDate:
+              payload.sessionDate || new Date().toLocaleDateString('ar'),
             sessionTime: payload.sessionTime || 'وقت الحصة',
             meetingLink: payload.meetingLink,
             bookingId: payload.bookingId || '',
@@ -217,12 +221,16 @@ export class EmailOutboxWorker {
         case 'wallet_topup':
           const { PaymentReceipt } = require('../emails');
           emailComponent = React.createElement(PaymentReceipt, {
-            recipientName: payload.recipientName || payload.userName || 'المستخدم',
+            recipientName:
+              payload.recipientName || payload.userName || 'المستخدم',
             transactionId: payload.transactionId || payload.readableId || 'N/A',
             amount: parseFloat(payload.amount || 0),
             type: payload.type || 'WALLET_TOPUP',
-            description: payload.description || payload.message || 'معاملة مالية',
-            currentBalance: parseFloat(payload.currentBalance || payload.balance || 0),
+            description:
+              payload.description || payload.message || 'معاملة مالية',
+            currentBalance: parseFloat(
+              payload.currentBalance || payload.balance || 0,
+            ),
             date: payload.date || new Date().toLocaleString('ar'),
           });
           break;
@@ -246,7 +254,8 @@ export class EmailOutboxWorker {
           // Use generic notification for all other cases
           const { GenericNotification } = require('../emails');
           emailComponent = React.createElement(GenericNotification, {
-            recipientName: payload.recipientName || payload.userName || 'المستخدم',
+            recipientName:
+              payload.recipientName || payload.userName || 'المستخدم',
             title: payload.title || 'إشعار من سدرة',
             message: payload.message || '',
             actionUrl: payload.link || payload.actionUrl,
@@ -258,7 +267,10 @@ export class EmailOutboxWorker {
       // Render to HTML
       return render(emailComponent);
     } catch (error) {
-      this.logger.error(`Failed to render email template: ${templateId}`, error);
+      this.logger.error(
+        `Failed to render email template: ${templateId}`,
+        error,
+      );
       // Fallback to basic HTML
       return this.buildBasicEmailHtml(templateId, payload);
     }
@@ -270,9 +282,16 @@ export class EmailOutboxWorker {
   private getNotificationType(
     templateId: string,
   ): 'info' | 'success' | 'warning' | 'error' {
-    if (templateId.includes('success') || templateId.includes('approved')) return 'success';
-    if (templateId.includes('warning') || templateId.includes('reminder')) return 'warning';
-    if (templateId.includes('error') || templateId.includes('failed') || templateId.includes('rejected')) return 'error';
+    if (templateId.includes('success') || templateId.includes('approved'))
+      return 'success';
+    if (templateId.includes('warning') || templateId.includes('reminder'))
+      return 'warning';
+    if (
+      templateId.includes('error') ||
+      templateId.includes('failed') ||
+      templateId.includes('rejected')
+    )
+      return 'error';
     return 'info';
   }
 

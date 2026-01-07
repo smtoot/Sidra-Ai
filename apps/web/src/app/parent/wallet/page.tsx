@@ -170,7 +170,7 @@ export default function ParentWalletPage() {
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {/* Pending Deposits Alert */}
                             {pendingDepositsCount > 0 && (
                                 <Card className="border-warning-200 bg-gradient-to-br from-warning-50 to-orange-50 border-r-4 border-r-warning-500">
@@ -224,9 +224,9 @@ export default function ParentWalletPage() {
                                                 <div className={cn(
                                                     "w-10 h-10 rounded-full flex items-center justify-center",
                                                     tx.type === 'DEPOSIT' ? "bg-success-100" :
-                                                    tx.type === 'REFUND' ? "bg-blue-100" :
-                                                    tx.type === 'PACKAGE_PURCHASE' ? "bg-purple-100" :
-                                                    "bg-orange-100"
+                                                        tx.type === 'REFUND' ? "bg-blue-100" :
+                                                            tx.type === 'PACKAGE_PURCHASE' ? "bg-purple-100" :
+                                                                "bg-orange-100"
                                                 )}>
                                                     {getTransactionIcon(tx.type)}
                                                 </div>

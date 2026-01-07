@@ -1,3 +1,6 @@
+// Set env for encryption util before imports
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { PackageService } from './package.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -59,7 +62,7 @@ describe('PackageService', () => {
   let prisma: PrismaService;
 
   const mockPrismaBase = {
-    packageTier: {
+    package_tiers: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
@@ -69,30 +72,33 @@ describe('PackageService', () => {
     teacher_subjects: {
       findFirst: jest.fn(),
     },
-    studentPackage: {
+    student_packages: {
       create: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    packageRedemption: {
+    package_redemptions: {
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    packageTransaction: {
+    package_transactions: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
     },
-    wallet: {
+    subjects: {
+      findUnique: jest.fn(),
+    },
+    wallets: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
     },
-    transaction: {
+    transactions: {
       // P1 FIX: Add wallet Transaction mock
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -100,10 +106,10 @@ describe('PackageService', () => {
     system_settings: {
       findFirst: jest.fn(),
     },
-    teacherDemoSettings: {
+    teacher_demo_settings: {
       findUnique: jest.fn(),
     },
-    teacherPackageTierSetting: {
+    teacher_package_tier_settings: {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -137,12 +143,14 @@ describe('PackageService', () => {
   // =========================================================
   describe('getActiveTiers', () => {
     it('should return only active tiers ordered by displayOrder', async () => {
-      mockPrismaBase.packageTier.findMany.mockResolvedValue([mockPackageTier]);
+      mockPrismaBase.package_tiers.findMany.mockResolvedValue([
+        mockPackageTier,
+      ]);
 
       const result = await service.getActiveTiers();
 
       expect(result).toEqual([mockPackageTier]);
-      expect(mockPrismaBase.packageTier.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaBase.package_tiers.findMany).toHaveBeenCalledWith({
         where: { isActive: true },
         orderBy: { displayOrder: 'asc' },
       });
@@ -154,25 +162,27 @@ describe('PackageService', () => {
   // =========================================================
   describe('purchasePackage', () => {
     beforeEach(() => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
-      mockPrismaBase.packageTier.findUnique.mockResolvedValue(mockPackageTier);
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_tiers.findUnique.mockResolvedValue(
+        mockPackageTier,
+      );
       mockPrismaBase.teacher_subjects.findFirst.mockResolvedValue(
         mockTeacherSubject,
       );
       mockPrismaBase.system_settings.findFirst.mockResolvedValue({
         packagesEnabled: true,
       });
-      mockPrismaBase.wallet.findUnique.mockResolvedValue({
+      mockPrismaBase.wallets.findUnique.mockResolvedValue({
         balance: new Decimal(1000),
       });
-      mockPrismaBase.wallet.update.mockResolvedValue({});
-      mockPrismaBase.studentPackage.create.mockResolvedValue(
+      mockPrismaBase.wallets.update.mockResolvedValue({});
+      mockPrismaBase.student_packages.create.mockResolvedValue(
         mockStudentPackage,
       );
-      mockPrismaBase.packageTransaction.create.mockResolvedValue({
+      mockPrismaBase.package_transactions.create.mockResolvedValue({
         id: 'tx-1',
       });
-      mockPrismaBase.transaction.create.mockResolvedValue({
+      mockPrismaBase.transactions.create.mockResolvedValue({
         id: 'wallet-tx-1',
       });
     });
@@ -188,16 +198,16 @@ describe('PackageService', () => {
       );
 
       expect(result).toEqual(mockStudentPackage);
-      expect(mockPrismaBase.wallet.update).toHaveBeenCalled();
-      expect(mockPrismaBase.studentPackage.create).toHaveBeenCalled();
-      expect(mockPrismaBase.packageTransaction.create).toHaveBeenCalled();
+      expect(mockPrismaBase.wallets.update).toHaveBeenCalled();
+      expect(mockPrismaBase.student_packages.create).toHaveBeenCalled();
+      expect(mockPrismaBase.package_transactions.create).toHaveBeenCalled();
     });
 
     it('should return existing package for duplicate idempotency key', async () => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue({
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue({
         packageId: 'package-1',
       });
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue(
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue(
         mockStudentPackage,
       );
 
@@ -211,12 +221,12 @@ describe('PackageService', () => {
       );
 
       expect(result).toEqual(mockStudentPackage);
-      expect(mockPrismaBase.wallet.update).not.toHaveBeenCalled();
+      expect(mockPrismaBase.wallets.update).not.toHaveBeenCalled();
     });
 
     it('should throw if tier not found', async () => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
-      mockPrismaBase.packageTier.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_tiers.findUnique.mockResolvedValue(null);
 
       await expect(
         service.purchasePackage(
@@ -246,7 +256,7 @@ describe('PackageService', () => {
     });
 
     it('should throw if insufficient balance', async () => {
-      mockPrismaBase.wallet.findUnique.mockResolvedValue({
+      mockPrismaBase.wallets.findUnique.mockResolvedValue({
         balance: new Decimal(10),
       });
 
@@ -276,39 +286,39 @@ describe('PackageService', () => {
     };
 
     beforeEach(() => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
-      mockPrismaBase.packageRedemption.findUnique.mockResolvedValue(
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_redemptions.findUnique.mockResolvedValue(
         mockRedemption,
       );
-      mockPrismaBase.wallet.update.mockResolvedValue({});
-      mockPrismaBase.studentPackage.update.mockResolvedValue({});
-      mockPrismaBase.packageRedemption.update.mockResolvedValue({});
-      mockPrismaBase.packageTransaction.create.mockResolvedValue({});
+      mockPrismaBase.wallets.update.mockResolvedValue({});
+      mockPrismaBase.student_packages.update.mockResolvedValue({});
+      mockPrismaBase.package_redemptions.update.mockResolvedValue({});
+      mockPrismaBase.package_transactions.create.mockResolvedValue({});
     });
 
     it('should release session and credit teacher wallet', async () => {
       await service.releaseSession('booking-1', 'release-key-1');
 
-      expect(mockPrismaBase.wallet.update).toHaveBeenCalled();
-      expect(mockPrismaBase.studentPackage.update).toHaveBeenCalled();
-      expect(mockPrismaBase.packageRedemption.update).toHaveBeenCalled();
+      expect(mockPrismaBase.wallets.update).toHaveBeenCalled();
+      expect(mockPrismaBase.student_packages.update).toHaveBeenCalled();
+      expect(mockPrismaBase.package_redemptions.update).toHaveBeenCalled();
     });
 
     it('should skip if already released (idempotency)', async () => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue({
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue({
         id: 'existing-tx',
       });
 
       await service.releaseSession('booking-1', 'release-key-1');
 
       expect(
-        mockPrismaBase.packageRedemption.findUnique,
+        mockPrismaBase.package_redemptions.findUnique,
       ).not.toHaveBeenCalled();
     });
 
     it('should throw if redemption not found', async () => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
-      mockPrismaBase.packageRedemption.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_redemptions.findUnique.mockResolvedValue(null);
 
       await expect(
         service.releaseSession('booking-1', 'release-key-1'),
@@ -316,7 +326,7 @@ describe('PackageService', () => {
     });
 
     it('should throw if redemption already released', async () => {
-      mockPrismaBase.packageRedemption.findUnique.mockResolvedValue({
+      mockPrismaBase.package_redemptions.findUnique.mockResolvedValue({
         ...mockRedemption,
         status: 'RELEASED',
       });
@@ -332,14 +342,14 @@ describe('PackageService', () => {
         sessionsUsed: 5, // This is session 5 of 5
         escrowRemaining: new Decimal(90),
       };
-      mockPrismaBase.packageRedemption.findUnique.mockResolvedValue({
+      mockPrismaBase.package_redemptions.findUnique.mockResolvedValue({
         ...mockRedemption,
         package: lastSessionPackage,
       });
 
       await service.releaseSession('booking-1', 'release-key-1');
 
-      expect(mockPrismaBase.studentPackage.update).toHaveBeenCalledWith(
+      expect(mockPrismaBase.student_packages.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: 'COMPLETED',
@@ -354,20 +364,20 @@ describe('PackageService', () => {
   // =========================================================
   describe('cancelPackage', () => {
     beforeEach(() => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue(
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue(
         mockStudentPackage,
       );
-      mockPrismaBase.packageRedemption.updateMany.mockResolvedValue({});
-      mockPrismaBase.wallet.update.mockResolvedValue({});
-      mockPrismaBase.studentPackage.update.mockResolvedValue({});
-      mockPrismaBase.packageTransaction.create.mockResolvedValue({});
+      mockPrismaBase.package_redemptions.updateMany.mockResolvedValue({});
+      mockPrismaBase.wallets.update.mockResolvedValue({});
+      mockPrismaBase.student_packages.update.mockResolvedValue({});
+      mockPrismaBase.package_transactions.create.mockResolvedValue({});
     });
 
     it('should refund remaining escrow to payer', async () => {
       await service.cancelPackage('package-1', 'STUDENT', 'cancel-key-1');
 
-      expect(mockPrismaBase.wallet.update).toHaveBeenCalledWith(
+      expect(mockPrismaBase.wallets.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: 'payer-1' },
           data: expect.objectContaining({
@@ -378,18 +388,18 @@ describe('PackageService', () => {
     });
 
     it('should skip if already cancelled (idempotency)', async () => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue({
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue({
         type: 'REFUND',
       });
 
       await service.cancelPackage('package-1', 'STUDENT', 'cancel-key-1');
 
-      expect(mockPrismaBase.studentPackage.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaBase.student_packages.findUnique).not.toHaveBeenCalled();
     });
 
     it('should throw if package not found', async () => {
-      mockPrismaBase.packageTransaction.findUnique.mockResolvedValue(null);
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue(null);
+      mockPrismaBase.package_transactions.findUnique.mockResolvedValue(null);
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue(null);
 
       await expect(
         service.cancelPackage('package-1', 'STUDENT', 'cancel-key-1'),
@@ -397,7 +407,7 @@ describe('PackageService', () => {
     });
 
     it('should throw if package not active', async () => {
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue({
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue({
         ...mockStudentPackage,
         status: 'COMPLETED',
       });
@@ -413,31 +423,35 @@ describe('PackageService', () => {
   // =========================================================
   describe('createRedemption', () => {
     beforeEach(() => {
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue(
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue(
         mockStudentPackage,
       );
-      mockPrismaBase.packageRedemption.create.mockResolvedValue({
+      mockPrismaBase.package_redemptions.create.mockResolvedValue({
         id: 'redemption-1',
         status: 'RESERVED',
       });
-      mockPrismaBase.studentPackage.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaBase.student_packages.updateMany.mockResolvedValue({
+        count: 1,
+      });
     });
 
     it('should create a RESERVED redemption', async () => {
       const result = await service.createRedemption('package-1', 'booking-1');
 
       expect(result.status).toBe('RESERVED');
-      expect(mockPrismaBase.packageRedemption.create).toHaveBeenCalledWith({
-        data: {
-          packageId: 'package-1',
-          bookingId: 'booking-1',
-          status: 'RESERVED',
-        },
-      });
+      expect(mockPrismaBase.package_redemptions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            packageId: 'package-1',
+            bookingId: 'booking-1',
+            status: 'RESERVED',
+          }),
+        }),
+      );
     });
 
     it('should throw if package not active', async () => {
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue({
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue({
         ...mockStudentPackage,
         status: 'EXPIRED',
       });
@@ -448,7 +462,7 @@ describe('PackageService', () => {
     });
 
     it('should throw if no sessions remaining', async () => {
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue({
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue({
         ...mockStudentPackage,
         sessionsUsed: 5, // All 5 used
       });
@@ -459,7 +473,7 @@ describe('PackageService', () => {
     });
 
     it('should throw if package expired', async () => {
-      mockPrismaBase.studentPackage.findUnique.mockResolvedValue({
+      mockPrismaBase.student_packages.findUnique.mockResolvedValue({
         ...mockStudentPackage,
         expiresAt: new Date('2020-01-01'),
       });

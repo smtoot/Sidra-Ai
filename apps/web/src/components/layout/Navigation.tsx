@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X } from 'lucide-react';
+import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,8 @@ interface NavItem {
     label: string;
     href: string;
     icon: any;
-    count?: number; // New badge property
+    count?: number; // Badge count
+    tourId?: string; // Product tour target ID
 }
 
 interface NavGroup {
@@ -29,36 +30,36 @@ interface NavigationProps {
 
 const menuItems: Record<string, (NavItem | NavGroup)[]> = {
     PARENT: [
-        { label: 'لوحة التحكم', href: '/parent', icon: Home },
-        { label: 'البحث عن معلمين', href: '/search', icon: Search },
-        { label: 'حجوزاتي', href: '/parent/bookings', icon: Calendar },
+        { label: 'لوحة التحكم', href: '/parent', icon: Home, tourId: 'nav-dashboard' },
+        { label: 'البحث عن معلمين', href: '/search', icon: Search, tourId: 'nav-book-teacher' },
+        { label: 'حجوزاتي', href: '/parent/bookings', icon: Calendar, tourId: 'nav-lessons' },
         { label: 'باقات الدروس', href: '/parent/packages', icon: Package },
-        { label: 'أبنائي', href: '/parent/children', icon: Users },
-        { label: 'المحفظة', href: '/parent/wallet', icon: Wallet },
-        { label: 'الدعم الفني', href: '/support', icon: Headphones },
-        { label: 'الملف الشخصي', href: '/parent/profile', icon: User },
+        { label: 'أبنائي', href: '/parent/children', icon: Users, tourId: 'nav-children' },
+        { label: 'المحفظة', href: '/parent/wallet', icon: Wallet, tourId: 'nav-wallet' },
+        { label: 'الدعم الفني', href: '/support', icon: Headphones, tourId: 'nav-help' },
+        { label: 'الملف الشخصي', href: '/parent/profile', icon: User, tourId: 'nav-profile' },
         { label: 'الإعدادات', href: '/parent/settings', icon: Settings },
     ],
     TEACHER: [
-        { label: 'الرئيسية', href: '/teacher', icon: Home },
-        { label: 'ملفي الشخصي', href: '/teacher/profile-hub', icon: User },
+        { label: 'الرئيسية', href: '/teacher', icon: Home, tourId: 'nav-dashboard' },
+        { label: 'ملفي الشخصي', href: '/teacher/profile-hub', icon: User, tourId: 'nav-profile' },
         { label: 'طلبات التدريس', href: '/teacher/requests', icon: FileText },
-        { label: 'حصصي', href: '/teacher/sessions', icon: Calendar },
+        { label: 'حصصي', href: '/teacher/sessions', icon: Calendar, tourId: 'nav-lessons' },
         { label: 'باقات الدروس', href: '/teacher/packages', icon: Package },
-        { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign },
-        { label: 'المواعيد', href: '/teacher/availability', icon: Clock },
-        { label: 'الدعم الفني', href: '/support', icon: Headphones },
+        { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign, tourId: 'nav-wallet' },
+        { label: 'المواعيد', href: '/teacher/availability', icon: Clock, tourId: 'nav-availability' },
+        { label: 'الدعم الفني', href: '/support', icon: Headphones, tourId: 'nav-help' },
         { label: 'الإعدادات', href: '/teacher/settings', icon: Settings },
     ],
     STUDENT: [
-        { label: 'لوحة التحكم', href: '/student', icon: Home },
-        { label: 'البحث عن معلمين', href: '/search', icon: Search },
-        { label: 'حجوزاتي', href: '/student/bookings', icon: Calendar },
+        { label: 'لوحة التحكم', href: '/student', icon: Home, tourId: 'nav-dashboard' },
+        { label: 'البحث عن معلمين', href: '/search', icon: Search, tourId: 'nav-book-teacher' },
+        { label: 'حجوزاتي', href: '/student/bookings', icon: Calendar, tourId: 'nav-lessons' },
         { label: 'باقات الدروس', href: '/student/packages', icon: Package },
-        { label: 'المحفظة', href: '/student/wallet', icon: Wallet },
+        { label: 'المحفظة', href: '/student/wallet', icon: Wallet, tourId: 'nav-wallet' },
         { label: 'المعلمين المفضلين', href: '/student/favorites', icon: Heart },
-        { label: 'الدعم الفني', href: '/support', icon: Headphones },
-        { label: 'الملف الشخصي', href: '/student/profile', icon: User },
+        { label: 'الدعم الفني', href: '/support', icon: Headphones, tourId: 'nav-help' },
+        { label: 'الملف الشخصي', href: '/student/profile', icon: User, tourId: 'nav-profile' },
         { label: 'الإعدادات', href: '/student/settings', icon: Settings },
     ],
     ADMIN: [
@@ -225,6 +226,12 @@ export function Navigation({ userRole, userName }: NavigationProps) {
         router.push('/login');
     };
 
+    const handleRestartTour = () => {
+        setMobileMenuOpen(false);
+        // Dispatch event to trigger the product tour
+        window.dispatchEvent(new CustomEvent('start-product-tour'));
+    };
+
     const toggleGroup = (label: string) => {
         if (expandedGroups.includes(label)) {
             setExpandedGroups(expandedGroups.filter(g => g !== label));
@@ -369,6 +376,7 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                                 key={item.href}
                                 onClick={() => handleNavClick(item.href)}
                                 title={isCollapsed && !isMobile ? item.label : undefined}
+                                data-tour={item.tourId}
                                 className={cn(
                                     "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-right relative",
                                     isActive
@@ -406,11 +414,27 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                 })}
             </nav>
 
-            {/* Logout */}
+            {/* Footer Actions */}
             <div className={cn(
-                "p-4 border-t border-gray-200",
+                "p-4 border-t border-gray-200 space-y-2",
                 isCollapsed && !isMobile && "p-2"
             )}>
+                {/* Restart Tour - Only for non-admin users */}
+                {['PARENT', 'TEACHER', 'STUDENT'].includes(userRole) && (
+                    <Button
+                        variant="ghost"
+                        onClick={handleRestartTour}
+                        title={isCollapsed && !isMobile ? "إعادة الجولة التعريفية" : undefined}
+                        className={cn(
+                            "w-full justify-start gap-3 text-primary hover:bg-primary/10",
+                            isCollapsed && !isMobile && "justify-center px-2"
+                        )}
+                    >
+                        <RotateCcw className="w-5 h-5 flex-shrink-0" />
+                        {(!isCollapsed || isMobile) && <span>إعادة الجولة التعريفية</span>}
+                    </Button>
+                )}
+                {/* Logout */}
                 <Button
                     variant="ghost"
                     onClick={handleLogout}

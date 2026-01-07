@@ -105,7 +105,7 @@ export function MobileBottomSheet({
                 {/* Peek State (Collapsed) */}
                 <div
                     className={cn(
-                        "flex items-center justify-between px-4 pb-3 transition-opacity",
+                        "flex items-center justify-between px-4 pb-3 transition-opacity bg-gray-900 border-t border-gray-800",
                         isExpanded ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
                     )}
                     onClick={() => setIsExpanded(true)}
@@ -115,7 +115,7 @@ export function MobileBottomSheet({
                         {showPercentage && (
                             <div className="relative w-10 h-10">
                                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="42" stroke="#e5e7eb" strokeWidth="12" fill="none" />
+                                    <circle cx="50" cy="50" r="42" stroke="#374151" strokeWidth="12" fill="none" />
                                     <circle
                                         cx="50" cy="50" r="42"
                                         stroke="#10b981"
@@ -125,14 +125,14 @@ export function MobileBottomSheet({
                                         strokeDasharray={`${percentage * 2.64} 264`}
                                     />
                                 </svg>
-                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
+                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
                                     {percentage}%
                                 </span>
                             </div>
                         )}
                         <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">{activeItem?.nameAr || 'ملفي'}</p>
-                            <p className="text-xs text-gray-500">اسحب للأعلى للتنقل</p>
+                            <p className="text-sm font-medium text-white">{activeItem?.nameAr || 'ملفي'}</p>
+                            <p className="text-xs text-gray-400">اسحب للأعلى للتنقل</p>
                         </div>
                     </div>
                     <ChevronUp className="w-5 h-5 text-gray-400" />

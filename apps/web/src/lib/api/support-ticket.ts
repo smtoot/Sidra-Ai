@@ -174,6 +174,14 @@ export async function getAdminSupportTickets(): Promise<SupportTicket[]> {
 }
 
 /**
+ * Get all tickets for a specific user (admin view)
+ */
+export async function getAdminUserTickets(userId: string): Promise<SupportTicket[]> {
+  const response = await api.get(`/admin/support-tickets/users/${userId}`);
+  return response.data;
+}
+
+/**
  * Get a specific ticket (admin view)
  */
 export async function getAdminSupportTicket(ticketId: string): Promise<SupportTicketDetail> {
