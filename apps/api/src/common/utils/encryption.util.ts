@@ -14,7 +14,7 @@ function getEncryptionKey(): string {
 
   if (!key) {
     throw new Error(
-      'ENCRYPTION_KEY environment variable is required. Generate with: openssl rand -base64 32 | tr -d \'\\n\' | cut -c1-32',
+      "ENCRYPTION_KEY environment variable is required. Generate with: openssl rand -base64 32 | tr -d '\\n' | cut -c1-32",
     );
   }
 

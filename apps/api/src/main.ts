@@ -45,7 +45,9 @@ async function bootstrap() {
       'ALLOWED_ORIGINS environment variable is required. Set comma-separated allowed origins.',
     );
   }
-  const allowedOrigins = allowedOriginsEnv.split(',').map((origin) => origin.trim());
+  const allowedOrigins = allowedOriginsEnv
+    .split(',')
+    .map((origin) => origin.trim());
 
   app.enableCors({
     origin: (origin, callback) => {

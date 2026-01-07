@@ -16,6 +16,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
 import { TeacherProfileMapper } from '../teacher/teacher-profile.mapper';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -27,7 +28,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) {}
+  ) { }
 
   async getDashboardStats() {
     const [
@@ -172,8 +173,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-            previousCompletedBookings) *
-          100
+          previousCompletedBookings) *
+        100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -279,7 +280,7 @@ export class AdminService {
    * Get all disputes with optional status filter
    */
   async getDisputes(status?: string) {
-    const where: any = {};
+    const where: Prisma.DisputesWhereInput = {};
     if (status && status !== 'ALL') {
       where.status = status;
     }
