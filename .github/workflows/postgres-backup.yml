@@ -1,4 +1,4 @@
-name: Daily Postgres Backup
+name: Daily Postgres Backup (R2)
 
 on:
   schedule:
@@ -13,10 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL 17 client
+      - name: Install PostgreSQL 17 client + AWS CLI
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget ca-certificates gzip
+          sudo apt-get install -y wget ca-certificates gzip awscli
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
@@ -28,14 +28,16 @@ jobs:
           /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" \
             | gzip > backups/backup_$(date +%Y-%m-%d).sql.gz
 
-      - name: Cleanup old backups (keep last 7 days)
+      - name: Upload backup to Cloudflare R2 (S3-compatible)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
-          find backups -type f -name "backup_*.sql.gz" -mtime +7 -delete
+          aws s3 cp backups/backup_$(date +%Y-%m-%d).sql.gz \
+            s3://${{ secrets.R2_BACKUP_BUCKET }}/backup_$(date +%Y-%m-%d).sql.gz \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
-      - name: Commit and push backup
+      - name: Cleanup local
         run: |
-          git config user.name "backup-bot"
-          git config user.email "backup@github.com"
-          git add backups
-          git commit -m "Daily DB backup $(date +%Y-%m-%d)" || echo "No changes to commit"
-          git push
+          rm -rf backups
