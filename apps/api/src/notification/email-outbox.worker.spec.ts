@@ -21,7 +21,7 @@ describe('EmailOutboxWorker', () => {
         {
           provide: PrismaService,
           useValue: {
-            emailOutbox: {
+            email_outbox: {
               findMany: jest.fn(),
               updateMany: jest.fn(),
               update: jest.fn(),
