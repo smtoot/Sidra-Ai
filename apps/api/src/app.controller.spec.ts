@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma/prisma.service';
@@ -16,7 +17,22 @@ describe('AppController', () => {
         {
           provide: PrismaService,
           useValue: {
-            // Mock PrismaService methods as needed
+            $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+            email_outbox: {
+              count: jest.fn().mockResolvedValue(0),
+            },
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              const config: Record<string, string> = {
+                RESEND_API_KEY: 'test-key',
+                R2_ACCESS_KEY_ID: 'test-r2-key',
+              };
+              return config[key];
+            }),
           },
         },
         {
