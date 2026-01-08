@@ -21,75 +21,77 @@ export function Footer() {
     const currentYear = new Date().getFullYear();
 
     return (
-        <footer className="bg-gray-900 text-white">
-            <div className="container mx-auto px-4 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <footer className="bg-[#0F172A] text-white">
+            <div className="container mx-auto px-4 py-16">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
                     {/* Brand & About */}
-                    <div className="lg:col-span-2 space-y-4">
-                        <Link href="/" className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-600 rounded-xl flex items-center justify-center">
-                                <GraduationCap className="w-6 h-6 text-white" />
+                    <div className="lg:col-span-2 space-y-6">
+                        <Link href="/" className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary-600 rounded-xl flex items-center justify-center">
+                                <GraduationCap className="w-7 h-7 text-white" />
                             </div>
-                            <span className="text-xl font-bold">سدرة</span>
+                            <span className="text-2xl font-bold tracking-tight !text-white">سدرة</span>
                         </Link>
 
-                        <p className="text-gray-400 leading-relaxed max-w-md">
-                            سدرة منصة سودانية للدروس الخصوصية الأونلاين،
-                            بنربط الطلاب بأفضل المعلمين السودانيين في حصص فردية مخصصة وآمنة.
+                        <p className="!text-gray-200 leading-loose text-lg max-w-lg font-medium">
+                            سدرة منصة سودانية للدروس الخصوصية أونلاين، تربط الطلاب بأفضل المعلمين السودانيين في حصص فردية مخصصة وآمنة.
                         </p>
 
                         {/* Contact */}
-                        <div className="space-y-2 pt-4">
+                        <div className="space-y-3 pt-6">
                             <a
                                 href="mailto:support@sidra.sd"
-                                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                                className="flex items-center gap-3 text-gray-200 hover:text-white transition-colors group"
                             >
-                                <Mail className="w-4 h-4" />
-                                <span>support@sidra.sd</span>
+                                <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center group-hover:bg-primary transition-colors">
+                                    <Mail className="w-4 h-4" />
+                                </div>
+                                <span className="text-lg">support@sidra.sd</span>
                             </a>
                         </div>
 
                         {/* Social Links */}
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex gap-3 pt-4">
                             <a
                                 href="https://facebook.com/sidra"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-10 h-10 bg-gray-800 hover:bg-primary rounded-lg flex items-center justify-center transition-colors"
+                                className="w-12 h-12 bg-gray-800/50 hover:bg-primary rounded-xl flex items-center justify-center transition-all hover:-translate-y-1"
                                 aria-label="فيسبوك"
                             >
-                                <Facebook className="w-5 h-5" />
+                                <Facebook className="w-6 h-6" />
                             </a>
                             <a
                                 href="https://instagram.com/sidra"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-10 h-10 bg-gray-800 hover:bg-primary rounded-lg flex items-center justify-center transition-colors"
+                                className="w-12 h-12 bg-gray-800/50 hover:bg-primary rounded-xl flex items-center justify-center transition-all hover:-translate-y-1"
                                 aria-label="انستغرام"
                             >
-                                <Instagram className="w-5 h-5" />
+                                <Instagram className="w-6 h-6" />
                             </a>
                             <a
                                 href="https://wa.me/249123456789"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-10 h-10 bg-gray-800 hover:bg-green-600 rounded-lg flex items-center justify-center transition-colors"
+                                className="w-12 h-12 bg-gray-800/50 hover:bg-green-600 rounded-xl flex items-center justify-center transition-all hover:-translate-y-1"
                                 aria-label="واتساب"
                             >
-                                <Phone className="w-5 h-5" />
+                                <Phone className="w-6 h-6" />
                             </a>
                         </div>
                     </div>
 
                     {/* Main Links */}
-                    <div>
-                        <h4 className="font-bold mb-4 text-lg">روابط سريعة</h4>
-                        <ul className="space-y-3">
+                    {/* Main Links */}
+                    <div className="pt-2">
+                        <h4 className="font-bold mb-6 text-xl !text-white">روابط سريعة</h4>
+                        <ul className="space-y-4">
                             {FOOTER_LINKS.main.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-gray-400 hover:text-white transition-colors text-sm"
+                                        className="!text-gray-300 hover:text-white hover:underline transition-all text-base inline-block"
                                     >
                                         {link.label}
                                     </Link>
@@ -99,14 +101,14 @@ export function Footer() {
                     </div>
 
                     {/* Legal Links */}
-                    <div>
-                        <h4 className="font-bold mb-4 text-lg">قانوني</h4>
-                        <ul className="space-y-3">
+                    <div className="pt-2">
+                        <h4 className="font-bold mb-6 text-xl !text-white">قانوني</h4>
+                        <ul className="space-y-4">
                             {FOOTER_LINKS.legal.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-gray-400 hover:text-white transition-colors text-sm"
+                                        className="!text-gray-300 hover:text-white hover:underline transition-all text-base inline-block"
                                     >
                                         {link.label}
                                     </Link>
@@ -118,9 +120,9 @@ export function Footer() {
             </div>
 
             {/* Bottom Bar */}
-            <div className="border-t border-gray-800">
-                <div className="container mx-auto px-4 py-6">
-                    <p className="text-gray-500 text-sm text-center">
+            <div className="border-t border-slate-800/50 bg-[#020617]">
+                <div className="container mx-auto px-4 py-8">
+                    <p className="text-slate-400 text-sm text-center font-medium">
                         © {currentYear} سدرة. جميع الحقوق محفوظة.
                     </p>
                 </div>

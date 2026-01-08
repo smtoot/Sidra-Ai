@@ -41,8 +41,19 @@ export const adminApi = {
         return response.data;
     },
 
+    resetPassword: async (id: string) => {
+        const response = await api.patch(`/admin/users/${id}/reset-password`);
+        return response.data;
+    },
+
     hardDeleteUser: async (id: string) => {
         const response = await api.delete(`/admin/users/${id}/permanent`);
+        return response.data;
+    },
+
+    // Wallet Management
+    adjustWalletBalance: async (userId: string, data: { amount: number; reason: string; type: 'CREDIT' | 'DEBIT' }) => {
+        const response = await api.post(`/admin/wallets/${userId}/adjust`, data);
         return response.data;
     },
 

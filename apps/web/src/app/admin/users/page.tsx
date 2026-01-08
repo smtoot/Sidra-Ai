@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Ban, CheckCircle, User as UserIcon, Shield, Loader2, XCircle } from 'lucide-react';
+import { Search, Ban, CheckCircle, User as UserIcon, Shield, Loader2, XCircle, CheckSquare, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -17,6 +17,8 @@ export default function AdminUsersPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
     const loadData = async (query?: string) => {
         setLoading(true);
@@ -77,6 +79,85 @@ export default function AdminUsersPage() {
         }
     };
 
+    // Bulk selection handlers
+    const toggleSelectAll = () => {
+        if (selectedIds.size === users.filter(u => u.role !== 'ADMIN').length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(users.filter(u => u.role !== 'ADMIN').map(u => u.id)));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const handleBulkBan = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`هل أنت متأكد من حظر ${selectedIds.size} مستخدم؟`)) return;
+
+        setIsBulkProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            const user = users.find(u => u.id === id);
+            if (user?.isActive) {
+                try {
+                    await adminApi.toggleBan(id);
+                    successCount++;
+                } catch {
+                    failCount++;
+                }
+            }
+        }
+
+        setUsers(prev => prev.map(u =>
+            selectedIds.has(u.id) ? { ...u, isActive: false } : u
+        ));
+        setSelectedIds(new Set());
+        setIsBulkProcessing(false);
+
+        if (successCount > 0) toast.success(`تم حظر ${successCount} مستخدم`);
+        if (failCount > 0) toast.error(`فشل حظر ${failCount} مستخدم`);
+    };
+
+    const handleBulkUnban = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`هل أنت متأكد من إلغاء حظر ${selectedIds.size} مستخدم؟`)) return;
+
+        setIsBulkProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            const user = users.find(u => u.id === id);
+            if (!user?.isActive) {
+                try {
+                    await adminApi.toggleBan(id);
+                    successCount++;
+                } catch {
+                    failCount++;
+                }
+            }
+        }
+
+        setUsers(prev => prev.map(u =>
+            selectedIds.has(u.id) ? { ...u, isActive: true } : u
+        ));
+        setSelectedIds(new Set());
+        setIsBulkProcessing(false);
+
+        if (successCount > 0) toast.success(`تم إلغاء حظر ${successCount} مستخدم`);
+        if (failCount > 0) toast.error(`فشل إلغاء حظر ${failCount} مستخدم`);
+    };
+
     const getRoleBadgeVariant = (role: string): 'success' | 'warning' | 'error' | 'info' => {
         if (role === 'ADMIN') return 'error';
         if (role === 'TEACHER') return 'info';
@@ -119,6 +200,45 @@ export default function AdminUsersPage() {
                     </form>
                 </Card>
 
+                {/* Bulk Actions Bar */}
+                {selectedIds.size > 0 && (
+                    <Card padding="md" className="bg-primary-50 border-primary-200">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-primary-700">
+                                تم تحديد {selectedIds.size} مستخدم
+                            </span>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={handleBulkBan}
+                                    disabled={isBulkProcessing}
+                                >
+                                    {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <Ban className="w-4 h-4 ml-2" />}
+                                    حظر المحددين
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={handleBulkUnban}
+                                    disabled={isBulkProcessing}
+                                >
+                                    {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <CheckCircle className="w-4 h-4 ml-2" />}
+                                    إلغاء حظر المحددين
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setSelectedIds(new Set())}
+                                    disabled={isBulkProcessing}
+                                >
+                                    إلغاء التحديد
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+                )}
+
                 {/* Users Table */}
                 <Card padding="none">
                     {loading ? (
@@ -135,6 +255,19 @@ export default function AdminUsersPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow hover={false}>
+                                    <TableHead className="w-10">
+                                        <button
+                                            onClick={toggleSelectAll}
+                                            className="p-1 hover:bg-gray-100 rounded"
+                                            title="تحديد الكل"
+                                        >
+                                            {selectedIds.size === users.filter(u => u.role !== 'ADMIN').length && users.length > 0 ? (
+                                                <CheckSquare className="w-5 h-5 text-primary-600" />
+                                            ) : (
+                                                <Square className="w-5 h-5 text-gray-400" />
+                                            )}
+                                        </button>
+                                    </TableHead>
                                     <TableHead>المستخدم</TableHead>
                                     <TableHead>الدور</TableHead>
                                     <TableHead>رقم الهاتف</TableHead>
@@ -146,6 +279,22 @@ export default function AdminUsersPage() {
                             <TableBody>
                                 {users.map(user => (
                                     <TableRow key={user.id}>
+                                        <TableCell>
+                                            {user.role !== 'ADMIN' ? (
+                                                <button
+                                                    onClick={() => toggleSelect(user.id)}
+                                                    className="p-1 hover:bg-gray-100 rounded"
+                                                >
+                                                    {selectedIds.has(user.id) ? (
+                                                        <CheckSquare className="w-5 h-5 text-primary-600" />
+                                                    ) : (
+                                                        <Square className="w-5 h-5 text-gray-400" />
+                                                    )}
+                                                </button>
+                                            ) : (
+                                                <Shield className="w-5 h-5 text-gray-300" title="لا يمكن تحديد المدير" />
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-3">
                                                 <Avatar

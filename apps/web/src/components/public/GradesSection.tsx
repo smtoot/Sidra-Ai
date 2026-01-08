@@ -2,29 +2,32 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-const GRADES = [
+
+const CURRICULA = [
     {
-        title: 'المرحلة الابتدائية',
-        description: 'من الصف الأول إلى الصف السادس',
-        icon: '📚',
-        color: 'from-blue-500 to-blue-600',
-        lightColor: 'bg-blue-50',
+        title: 'المنهج السوداني',
+        flag: '🇸🇩',
+        stages: [
+            'ابتدائي: الصف الأول – الصف السادس',
+            'متوسط: الأول متوسط – الثالث متوسط',
+            'ثانوي: الأول ثانوي – الثالث ثانوي',
+        ],
+        ctaText: 'استكشف معلمي المنهج السوداني',
+        link: '/search?curriculum=sudanese'
     },
     {
-        title: 'المرحلة المتوسطة',
-        description: 'من الصف السابع إلى الصف التاسع',
-        icon: '📖',
-        color: 'from-green-500 to-green-600',
-        lightColor: 'bg-green-50',
-    },
-    {
-        title: 'المرحلة الثانوية',
-        description: 'من الصف الأول إلى الصف الثالث الثانوي',
-        icon: '🎓',
-        color: 'from-purple-500 to-purple-600',
-        lightColor: 'bg-purple-50',
+        title: 'المنهج البريطاني',
+        flag: '🇬🇧',
+        stages: [
+            'Primary (ابتدائي)',
+            'Secondary (ثانوي)',
+            'IGCSE',
+        ],
+        ctaText: 'استكشف معلمي المنهج البريطاني',
+        link: '/search?curriculum=british'
     },
 ];
 
@@ -50,52 +53,56 @@ export function GradesSection() {
     }, []);
 
     return (
-        <section ref={sectionRef} className="py-20 bg-white">
+        <section ref={sectionRef} className="py-24 bg-white">
             <div className="container mx-auto px-4">
                 {/* Header */}
                 <div className={cn(
-                    "text-center mb-12 transition-all duration-700",
+                    "text-center mb-16 transition-all duration-700",
                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 )}>
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                        المراحل الدراسية التي نغطيها
+                    <h2 className="text-3xl md:text-4xl font-extrabold text-[#003366] mb-4">
+                        الأنظمة التعليمية التي نغطيها
                     </h2>
+                    <p className="text-xl text-gray-600 font-medium max-w-2xl mx-auto">
+                        نغطي المنهج السوداني والمنهج البريطاني بما يناسب كل مرحلة دراسية
+                    </p>
                 </div>
 
-                {/* Grades Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-                    {GRADES.map((grade, index) => (
-                        <Link
+                {/* Curricula Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    {CURRICULA.map((item, index) => (
+                        <div
                             key={index}
-                            href={`/search?grade=${encodeURIComponent(grade.title)}`}
                             className={cn(
-                                "group transition-all duration-500",
+                                "rounded-2xl p-10 bg-[#FAF9F6] border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col items-center text-center",
                                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                             )}
                             style={{ transitionDelay: `${index * 150}ms` }}
                         >
-                            <div className={cn(
-                                "rounded-2xl p-8 text-center transition-all duration-300",
-                                "border-2 border-transparent hover:border-primary/20",
-                                "hover:shadow-lg group-hover:-translate-y-1",
-                                grade.lightColor
-                            )}>
-                                {/* Icon */}
-                                <div className="text-5xl mb-4">
-                                    {grade.icon}
-                                </div>
-
-                                {/* Title */}
-                                <h3 className="font-bold text-xl text-gray-900 mb-2 group-hover:text-primary transition-colors">
-                                    {grade.title}
+                            {/* Flag & Title */}
+                            <div className="mb-8">
+                                <div className="text-6xl mb-4 filter drop-shadow-sm">{item.flag}</div>
+                                <h3 className="font-bold text-2xl text-[#003366]">
+                                    {item.title}
                                 </h3>
-
-                                {/* Description */}
-                                <p className="text-gray-500 text-sm">
-                                    {grade.description}
-                                </p>
                             </div>
-                        </Link>
+
+                            {/* Stages List */}
+                            <div className="space-y-4 mb-10 w-full">
+                                {item.stages.map((stage, i) => (
+                                    <div key={i} className="bg-white py-3 px-4 rounded-xl border border-gray-100 text-gray-700 font-medium text-lg shadow-sm">
+                                        {stage}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* CTA */}
+                            <Link href={item.link} className="w-full mt-auto">
+                                <Button className="w-full bg-[#D4A056] hover:bg-[#b88b4a] text-white font-bold py-6 text-lg rounded-xl shadow-md transition-all">
+                                    {item.ctaText}
+                                </Button>
+                            </Link>
+                        </div>
                     ))}
                 </div>
             </div>

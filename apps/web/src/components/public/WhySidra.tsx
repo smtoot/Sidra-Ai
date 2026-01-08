@@ -12,37 +12,49 @@ import {
     Gift,
     Shield,
     CreditCard,
-    CheckCircle
+    LineChart
 } from 'lucide-react';
 
 const FEATURES = [
     {
-        icon: GraduationCap,
-        text: 'معلمين سودانيين مؤهلين وخبرة في تبسيط الشرح',
-    },
-    {
         icon: Users,
-        text: 'حصص فردية 100% (واحد لواحد)',
+        title: 'حصص فردية 100%',
+        description: 'دروس أونلاين (واحد لواحد) تركز على مستوى ابنك واحتياجاته التعليمية.',
     },
     {
-        icon: BookOpen,
-        text: 'تدريس حسب المنهج السوداني أو البريطاني',
+        icon: GraduationCap,
+        title: 'معلمون سودانيون مؤهلون',
+        description: 'نخبة من المعلمين ذوي خبرة حقيقية في تبسيط الشرح ومتابعة الطلاب.',
     },
     {
         icon: Eye,
-        text: 'اختيار المعلم بكل شفافية من خلال الملف الشخصي',
+        title: 'اختيار المعلم بثقة',
+        description: 'اطّلع على الملف الشخصي، الخبرات، والتقييمات قبل اتخاذ القرار.',
     },
     {
-        icon: Gift,
-        text: 'حصة تجريبية مجانية (حسب إتاحة المعلم)',
+        icon: BookOpen,
+        title: 'تدريس حسب المنهج',
+        description: 'تعليم مخصص وفق المنهج السوداني أو البريطاني حسب احتياج الطالب.',
     },
     {
         icon: Shield,
-        text: 'خصوصية وأمان من بيتكم',
+        title: 'خصوصية وأمان',
+        description: 'بيئة تعليمية آمنة تحافظ على خصوصية الطالب وراحة ولي الأمر.',
+    },
+    {
+        icon: Gift,
+        title: 'حصة تجريبية',
+        description: 'إمكانية تجربة المعلم قبل الاستمرار، حسب إتاحة المعلم.',
+    },
+    {
+        icon: LineChart,
+        title: 'متابعة مستمرة',
+        description: 'متابعة تقدم الطالب والتواصل المستمر لضمان أفضل نتائج تعليمية.',
     },
     {
         icon: CreditCard,
-        text: 'الدفع عبر التحويل البنكي (بنك الخرطوم – بنكك) مع إضافة فوري وكاشي قريبًا',
+        title: 'دفع مرن وسهل',
+        description: 'خيارات دفع مريحة تناسب أولياء الأمور مع إضافة فورية للرصيد.',
     },
 ];
 
@@ -89,17 +101,22 @@ export function WhySidra() {
                             <div
                                 key={index}
                                 className={cn(
-                                    "flex items-start gap-4 bg-white rounded-xl p-5 shadow-sm transition-all duration-500",
+                                    "flex items-start gap-4 bg-white rounded-xl p-6 shadow-sm transition-all duration-500 hover:shadow-md",
                                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                                 )}
                                 style={{ transitionDelay: `${index * 100}ms` }}
                             >
-                                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Icon className="w-5 h-5 text-primary" />
+                                <div className="w-12 h-12 bg-[#F0F7FF] rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#003366] transition-colors duration-300">
+                                    <Icon className="w-6 h-6 text-[#003366] group-hover:text-white transition-colors duration-300" />
                                 </div>
-                                <p className="text-gray-700 leading-relaxed pt-2">
-                                    {feature.text}
-                                </p>
+                                <div className="space-y-1">
+                                    <h3 className="text-gray-900 font-bold text-lg">
+                                        {feature.title}
+                                    </h3>
+                                    <p className="text-gray-600 text-sm leading-relaxed font-medium">
+                                        {feature.description}
+                                    </p>
+                                </div>
                             </div>
                         );
                     })}

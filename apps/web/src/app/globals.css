@@ -268,10 +268,30 @@
    ======================================== */
 
 /* Prevent horizontal scrolling on mobile */
-html,
+html {
+  overflow-x: hidden;
+  width: 100%;
+  /* Always show scrollbar track to reserve space */
+  overflow-y: scroll !important;
+}
+
 body {
   overflow-x: hidden;
-  max-width: 100vw;
+  width: 100% !important;
+
+  /* Kill all padding/margin shifts from libraries */
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+
+  /* Override Radix/others trying to hide overflow */
+  overflow-y: visible !important;
+
+  position: relative !important;
+  pointer-events: auto !important;
 }
 
 body {

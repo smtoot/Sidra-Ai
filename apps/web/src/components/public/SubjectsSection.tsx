@@ -3,18 +3,19 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Calculator, BookText, Globe, FlaskConical, Atom, Brain, BookOpen, BookOpenCheck } from 'lucide-react';
+import { Calculator, BookText, Globe, FlaskConical, Atom, Brain, BookOpen, BookOpenCheck, LayoutGrid } from 'lucide-react';
 
 const SUBJECTS = [
-    { name: 'رياضيات', icon: Calculator, color: 'bg-blue-50 text-blue-600' },
-    { name: 'علوم', icon: FlaskConical, color: 'bg-green-50 text-green-600' },
-    { name: 'فيزياء', icon: Atom, color: 'bg-purple-50 text-purple-600' },
-    { name: 'كيمياء', icon: FlaskConical, color: 'bg-orange-50 text-orange-600' },
-    { name: 'أحياء', icon: Brain, color: 'bg-pink-50 text-pink-600' },
-    { name: 'إنجليزي', icon: Globe, color: 'bg-cyan-50 text-cyan-600' },
-    { name: 'عربي', icon: BookText, color: 'bg-amber-50 text-amber-600' },
-    { name: 'قرآن', icon: BookOpenCheck, color: 'bg-emerald-50 text-emerald-600' },
-    { name: 'تربية إسلامية', icon: BookOpen, color: 'bg-teal-50 text-teal-600' },
+    { name: 'رياضيات', icon: Calculator },
+    { name: 'علوم', icon: FlaskConical },
+    { name: 'فيزياء', icon: Atom },
+    { name: 'كيمياء', icon: FlaskConical },
+    { name: 'أحياء', icon: Brain },
+    { name: 'إنجليزي', icon: Globe },
+    { name: 'عربي', icon: BookText },
+    { name: 'قرآن', icon: BookOpenCheck },
+    { name: 'تربية إسلامية', icon: BookOpen },
+    { name: 'عرض جميع المواد', icon: LayoutGrid, isAction: true },
 ];
 
 export function SubjectsSection() {
@@ -55,28 +56,36 @@ export function SubjectsSection() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-5xl mx-auto">
                     {SUBJECTS.map((subject, index) => {
                         const Icon = subject.icon;
+                        const isAction = (subject as any).isAction;
 
                         return (
                             <Link
                                 key={subject.name}
-                                href={`/search?subject=${encodeURIComponent(subject.name)}`}
+                                href={isAction ? '/search' : `/search?subject=${encodeURIComponent(subject.name)}`}
                                 className={cn(
                                     "group transition-all duration-500",
                                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                                 )}
                                 style={{ transitionDelay: `${index * 50}ms` }}
                             >
-                                <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-lg transition-all duration-300 group-hover:-translate-y-1">
+                                <div className={cn(
+                                    "bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-lg transition-all duration-300 group-hover:-translate-y-1 h-full flex flex-col items-center justify-center",
+                                    isAction && "bg-gray-50 border-2 border-dashed border-gray-200"
+                                )}>
                                     {/* Icon */}
                                     <div className={cn(
                                         "w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center transition-transform duration-300 group-hover:scale-110",
-                                        subject.color
+                                        "bg-[#F0F7FF] text-[#003366] group-hover:bg-[#003366] group-hover:text-white",
+                                        isAction && "bg-[#FFF9F0] text-[#D4A056] group-hover:bg-[#D4A056]"
                                     )}>
                                         <Icon className="w-7 h-7" />
                                     </div>
 
                                     {/* Name */}
-                                    <h3 className="font-semibold text-gray-900 group-hover:text-primary transition-colors">
+                                    <h3 className={cn(
+                                        "font-semibold text-gray-900 group-hover:text-primary transition-colors",
+                                        isAction && "text-[#D4A056]"
+                                    )}>
                                         {subject.name}
                                     </h3>
                                 </div>

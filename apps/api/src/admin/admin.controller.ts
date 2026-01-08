@@ -365,4 +365,22 @@ export class AdminController {
   ) {
     return this.ledgerAuditService.resolveAudit(id, req.user.userId, body.note);
   }
+
+  // =================== WALLET MANAGEMENT ===================
+
+  @Post('wallets/:userId/adjust')
+  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  adjustWalletBalance(
+    @Req() req: AuthRequest,
+    @Param('userId') userId: string,
+    @Body() body: { amount: number; reason: string; type: 'CREDIT' | 'DEBIT' },
+  ) {
+    return this.adminService.adjustWalletBalance(
+      req.user.userId,
+      userId,
+      body.amount,
+      body.reason,
+      body.type,
+    );
+  }
 }
