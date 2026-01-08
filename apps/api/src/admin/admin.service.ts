@@ -1256,15 +1256,17 @@ export class AdminService {
           balance: 0,
           pendingBalance: 0,
           currency: 'SDG',
+          updatedAt: new Date(),
         },
       });
     }
 
     const normalizedAmount = normalizeMoney(amount);
-    const balanceChange = type === 'CREDIT' ? normalizedAmount : -normalizedAmount;
+    const balanceChange =
+      type === 'CREDIT' ? normalizedAmount : -normalizedAmount;
 
     // Check for negative balance on debit
-    if (type === 'DEBIT' && wallet.balance < normalizedAmount) {
+    if (type === 'DEBIT' && wallet.balance.toNumber() < normalizedAmount) {
       throw new BadRequestException(
         `Insufficient balance. Current: ${wallet.balance}, Requested debit: ${normalizedAmount}`,
       );
@@ -1286,7 +1288,7 @@ export class AdminService {
           id: crypto.randomUUID(),
           walletId: wallet.id,
           amount: normalizedAmount,
-          type: type === 'CREDIT' ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT',
+          type: type === 'CREDIT' ? 'DEPOSIT' : 'WITHDRAWAL', // Mapping to closest valid enum types
           status: 'APPROVED',
           adminNote: `[Admin Adjustment] ${reason}`,
           updatedAt: new Date(),
@@ -1297,10 +1299,10 @@ export class AdminService {
       await tx.audit_logs.create({
         data: {
           id: crypto.randomUUID(),
-          action: 'WALLET_UPDATE',
+          action: 'SETTINGS_UPDATE', // Using SETTINGS_UPDATE as generic admin action until schema update
           actorId: adminUserId,
           targetId: userId,
-          metadata: {
+          payload: {
             type,
             amount: normalizedAmount,
             reason,

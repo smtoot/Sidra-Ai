@@ -292,7 +292,9 @@ export default function AdminUsersPage() {
                                                     )}
                                                 </button>
                                             ) : (
-                                                <Shield className="w-5 h-5 text-gray-300" title="لا يمكن تحديد المدير" />
+                                                <span title="لا يمكن تحديد المدير">
+                                                    <Shield className="w-5 h-5 text-gray-300" />
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell>
