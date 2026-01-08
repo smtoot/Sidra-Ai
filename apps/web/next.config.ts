@@ -1,14 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
     remotePatterns: [
+      // Cloudflare R2 public buckets (*.r2.dev)
       {
         protocol: 'https',
-        hostname: '**', // Allow all for now (safest for unknown R2 domains), or restrict if R2_PUBLIC_URL is fixed. 
-        // ideally we parse process.env.R2_PUBLIC_URL but for audit fix, permissive is safer to avoid breakage.
+        hostname: '*.r2.dev',
       },
+      // Custom domain if configured via R2_PUBLIC_URL
+      ...(process.env.R2_PUBLIC_URL ? [{
+        protocol: 'https' as const,
+        hostname: new URL(process.env.R2_PUBLIC_URL).hostname,
+      }] : []),
     ],
   },
 };
