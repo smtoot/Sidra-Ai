@@ -28,6 +28,7 @@ export class EscrowSchedulerService {
 
     try {
       // Find bookings ready for auto-release (dispute window expired, no dispute)
+      // STABILITY FIX: Added take limit to prevent memory issues with large result sets
       const bookingsToRelease = await this.prisma.bookings.findMany({
         where: {
           status: 'PENDING_CONFIRMATION',
@@ -39,6 +40,8 @@ export class EscrowSchedulerService {
           users_bookings_bookedByUserIdTousers: true,
           package_redemptions: true, // FIX P1: Needed to detect package bookings
         },
+        take: 50, // Process in batches to avoid memory/timeout issues
+        orderBy: { disputeWindowClosesAt: 'asc' }, // Process oldest first
       });
 
       if (bookingsToRelease.length === 0) {
@@ -425,17 +428,17 @@ export class EscrowSchedulerService {
 
     try {
       // Find ACTIVE packages where sessionsUsed >= sessionCount
-      // Use raw query for efficient comparison without loading all packages
-      const activePackages = await this.prisma.student_packages.findMany({
-        where: {
-          status: 'ACTIVE',
-        },
-      });
-
-      // Filter in application code since Prisma doesn't support field comparison
-      const packagesToDepleted = activePackages.filter(
-        (pkg) => pkg.sessionsUsed >= pkg.sessionCount,
-      );
+      // STABILITY FIX: Use raw query for efficient field comparison without loading all packages
+      // This prevents memory issues when there are many active packages
+      const packagesToDepleted = await this.prisma.$queryRaw<
+        Array<{ id: string; sessionsUsed: number; sessionCount: number; payerId: string }>
+      >`
+        SELECT id, "sessionsUsed", "sessionCount", "payerId"
+        FROM student_packages
+        WHERE status = 'ACTIVE'
+          AND "sessionsUsed" >= "sessionCount"
+        LIMIT 50
+      `;
 
       if (packagesToDepleted.length === 0) {
         this.logger.log('✓ No packages to sync');

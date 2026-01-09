@@ -446,12 +446,14 @@ export class WalletService {
           }
 
           // Find all bookings in WAITING_FOR_PAYMENT status for this user
+          // STABILITY FIX: Added limit to prevent transaction timeout with many pending bookings
           const pendingBookings = await tx.bookings.findMany({
             where: {
               bookedByUserId: userId,
               status: 'WAITING_FOR_PAYMENT',
             },
             orderBy: { createdAt: 'asc' }, // Process oldest first
+            take: 10, // Limit to 10 bookings per deposit to prevent transaction timeout
           });
 
           this.logger.log(
