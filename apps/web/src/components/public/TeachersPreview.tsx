@@ -7,6 +7,37 @@ import { useQuery } from '@tanstack/react-query';
 import { searchApi, SearchResult } from '@/lib/api/search';
 import { SearchSortBy } from '@sidra/shared';
 
+// Fallback placeholder teachers when no real teachers exist
+const PLACEHOLDER_TEACHERS = [
+    {
+        id: 'placeholder-1',
+        name: 'أ. محمد أحمد',
+        subject: 'الرياضيات',
+        curriculum: 'المنهج السوداني',
+        rating: 4.9,
+        reviews: 120,
+        bio: 'خبرة 10 سنوات في تدريس الرياضيات',
+    },
+    {
+        id: 'placeholder-2',
+        name: 'أ. سارة حسن',
+        subject: 'اللغة الإنجليزية',
+        curriculum: 'المنهج السوداني',
+        rating: 4.8,
+        reviews: 85,
+        bio: 'متخصصة في التأسيس والمحادثة',
+    },
+    {
+        id: 'placeholder-3',
+        name: 'أ. عمر الخضر',
+        subject: 'الفيزياء',
+        curriculum: 'المنهج السوداني',
+        rating: 5.0,
+        reviews: 95,
+        bio: 'تبسيط الفيزياء للشهادة السودانية',
+    },
+];
+
 // Group search results by teacher to get unique teachers
 function getUniqueTeachers(results: SearchResult[]): SearchResult[] {
     const teacherMap = new Map<string, SearchResult>();
@@ -130,10 +161,60 @@ export function TeachersPreview() {
                             );
                         })
                     ) : (
-                        // Empty state
-                        <div className="col-span-3 text-center py-12 text-gray-500">
-                            لا يوجد معلمين متاحين حالياً
-                        </div>
+                        // Fallback to placeholder teachers when no real teachers exist
+                        PLACEHOLDER_TEACHERS.map((teacher) => (
+                            <div
+                                key={teacher.id}
+                                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col items-center p-8"
+                            >
+                                {/* Avatar */}
+                                <div className="w-24 h-24 rounded-full bg-gray-100 mb-5 overflow-hidden border-4 border-white shadow-md">
+                                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
+                                        <span className="text-2xl font-bold text-[#003366]">
+                                            {teacher.name.charAt(2)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Name */}
+                                <h3 className="font-bold text-xl text-[#003366] mb-2">
+                                    {teacher.name}
+                                </h3>
+
+                                {/* Subject */}
+                                <div className="mb-4">
+                                    <span className="inline-block bg-[#F0F7FF] text-[#003366] font-bold px-4 py-1.5 rounded-full text-sm">
+                                        {teacher.subject}
+                                    </span>
+                                </div>
+
+                                {/* Curriculum */}
+                                <div className="flex flex-col items-center gap-2 mb-5 w-full">
+                                    <span className="text-xs text-gray-500 font-bold">المنهج</span>
+                                    <div className="flex flex-wrap justify-center gap-2">
+                                        <span className="bg-white border border-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                                            {teacher.curriculum}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Rating */}
+                                <div className="flex items-center gap-1.5 mb-5 opacity-90">
+                                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                    <span className="font-bold text-gray-900 text-sm">
+                                        {teacher.rating.toFixed(1)}
+                                    </span>
+                                    <span className="text-gray-400 text-xs">
+                                        ({teacher.reviews} تقييم)
+                                    </span>
+                                </div>
+
+                                {/* Bio */}
+                                <p className="text-gray-500 text-sm font-medium leading-relaxed border-t border-gray-50 pt-4 w-full text-center line-clamp-2">
+                                    {teacher.bio}
+                                </p>
+                            </div>
+                        ))
                     )}
                 </div>
 
