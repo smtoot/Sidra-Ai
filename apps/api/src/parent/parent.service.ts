@@ -1,13 +1,20 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import {
+  UpdateParentProfileDto,
+  CreateChildDto,
+  UpdateChildDto,
+} from './dto';
 
 @Injectable()
 export class ParentService {
+  private readonly logger = new Logger(ParentService.name);
+
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
@@ -132,8 +139,9 @@ export class ParentService {
         ]);
       stats = { upcomingCount, completedCount };
       recentBookings = upcomingClasses;
-    } catch {
-      // Don't crash the whole details view if stats fail - silently use defaults
+    } catch (error) {
+      // Don't crash the whole details view if stats fail - use defaults but log the error
+      this.logger.warn(`Failed to fetch stats for child ${childId}`, error);
     }
 
     return {
@@ -143,15 +151,7 @@ export class ParentService {
     };
   }
 
-  async addChild(
-    userId: string,
-    data: {
-      name: string;
-      gradeLevel: string;
-      schoolName?: string;
-      curriculumId?: string;
-    },
-  ) {
+  async addChild(userId: string, data: CreateChildDto) {
     const parentProfile = await this.prisma.parent_profiles.findUnique({
       where: { userId },
     });
@@ -171,16 +171,7 @@ export class ParentService {
     });
   }
 
-  async updateChild(
-    userId: string,
-    childId: string,
-    data: {
-      name?: string;
-      gradeLevel?: string;
-      schoolName?: string;
-      curriculumId?: string;
-    },
-  ) {
+  async updateChild(userId: string, childId: string, data: UpdateChildDto) {
     // Verify ownership
     const child = await this.prisma.children.findFirst({
       where: {
@@ -251,16 +242,7 @@ export class ParentService {
     };
   }
 
-  async updateProfile(
-    userId: string,
-    data: {
-      whatsappNumber?: string;
-      city?: string;
-      country?: string;
-      firstName?: string;
-      lastName?: string;
-    },
-  ) {
+  async updateProfile(userId: string, data: UpdateParentProfileDto) {
     // Update user fields (firstName, lastName)
     if (data.firstName !== undefined || data.lastName !== undefined) {
       await this.prisma.users.update({

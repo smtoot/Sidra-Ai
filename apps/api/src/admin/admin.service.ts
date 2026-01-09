@@ -1220,6 +1220,122 @@ export class AdminService {
     };
   }
 
+  /**
+   * Admin wallet balance adjustment
+   * Used for error correction, refunds, or manual credits
+   * Creates audit trail and transaction record
+   */
+  async adjustWalletBalance(
+    adminUserId: string,
+    userId: string,
+    amount: number,
+    reason: string,
+    type: 'CREDIT' | 'DEBIT',
+  ) {
+    // Validate amount
+    if (amount <= 0) {
+      throw new BadRequestException('Amount must be positive');
+    }
+    if (!reason || reason.trim().length < 10) {
+      throw new BadRequestException(
+        'Reason must be at least 10 characters for audit trail',
+      );
+    }
+
+    // Get or create wallet
+    let wallet = await this.prisma.wallets.findFirst({
+      where: { userId },
+    });
+
+    if (!wallet) {
+      // Create wallet if it doesn't exist
+      wallet = await this.prisma.wallets.create({
+        data: {
+          id: crypto.randomUUID(),
+          userId,
+          balance: 0,
+          pendingBalance: 0,
+          currency: 'SDG',
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    const normalizedAmount = normalizeMoney(amount);
+    const balanceChange =
+      type === 'CREDIT' ? normalizedAmount : -normalizedAmount;
+
+    // Check for negative balance on debit
+    if (type === 'DEBIT' && wallet.balance.toNumber() < normalizedAmount) {
+      throw new BadRequestException(
+        `Insufficient balance. Current: ${wallet.balance}, Requested debit: ${normalizedAmount}`,
+      );
+    }
+
+    // Perform adjustment in transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update wallet balance
+      const updatedWallet = await tx.wallets.update({
+        where: { id: wallet.id },
+        data: {
+          balance: { increment: balanceChange },
+        },
+      });
+
+      // Create transaction record
+      const transaction = await tx.transactions.create({
+        data: {
+          id: crypto.randomUUID(),
+          walletId: wallet.id,
+          amount: normalizedAmount,
+          type: type === 'CREDIT' ? 'DEPOSIT' : 'WITHDRAWAL', // Mapping to closest valid enum types
+          status: 'APPROVED',
+          adminNote: `[Admin Adjustment] ${reason}`,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create audit log
+      await tx.audit_logs.create({
+        data: {
+          id: crypto.randomUUID(),
+          action: 'SETTINGS_UPDATE', // Using SETTINGS_UPDATE as generic admin action until schema update
+          actorId: adminUserId,
+          targetId: userId,
+          payload: {
+            type,
+            amount: normalizedAmount,
+            reason,
+            previousBalance: wallet.balance,
+            newBalance: updatedWallet.balance,
+            transactionId: transaction.id,
+          },
+        },
+      });
+
+      return { wallet: updatedWallet, transaction };
+    });
+
+    this.logger.log(
+      `💰 ADMIN_ADJUSTMENT | adminId=${adminUserId} | userId=${userId} | type=${type} | amount=${normalizedAmount} | reason=${reason}`,
+    );
+
+    return {
+      success: true,
+      wallet: {
+        id: result.wallet.id,
+        balance: result.wallet.balance,
+        pendingBalance: result.wallet.pendingBalance,
+      },
+      transaction: {
+        id: result.transaction.id,
+        amount: result.transaction.amount,
+        type: result.transaction.type,
+      },
+      message: `Successfully ${type === 'CREDIT' ? 'credited' : 'debited'} ${normalizedAmount} SDG`,
+    };
+  }
+
   // --- Phase 3: Teacher Payouts ---
   async processWithdrawal(
     transactionId: string,

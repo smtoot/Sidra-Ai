@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { RegisterDto, LoginDto } from '@sidra/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
@@ -18,6 +19,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private notificationService: NotificationService,
   ) {}
 
   /**
@@ -297,11 +299,24 @@ export class AuthService {
       },
     });
 
-    // TODO: PRODUCTION - Integrate with SendGrid/Resend to send real email
-    // This is currently a mock for development. Replace this logger with email service call.
-    this.logger.log(
-      `[MOCK EMAIL] Password Reset Link: http://localhost:3000/reset-password?token=${token}`,
-    );
+    // Send password reset email via notification service (async outbox)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    await this.notificationService.enqueueEmail({
+      to: email,
+      subject: 'إعادة تعيين كلمة المرور - Password Reset',
+      templateId: 'password-reset',
+      payload: {
+        recipientName: user.firstName || 'المستخدم',
+        title: 'إعادة تعيين كلمة المرور',
+        message: `لقد طلبت إعادة تعيين كلمة المرور. اضغط على الرابط أدناه لإعادة تعيين كلمة المرور الخاصة بك. هذا الرابط صالح لمدة ساعة واحدة فقط.\n\nYou requested a password reset. Click the link below to reset your password. This link is valid for 1 hour only.`,
+        actionUrl: resetLink,
+        actionLabel: 'إعادة تعيين كلمة المرور',
+      },
+    });
+
+    this.logger.log(`Password reset email enqueued for: ${email}`);
 
     return {
       message: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني',

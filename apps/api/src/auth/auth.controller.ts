@@ -93,7 +93,7 @@ export class AuthController {
 
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('register')
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute - prevents mass account creation
   async register(
     @Body() createAuthDto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -111,7 +111,7 @@ export class AuthController {
 
   @Public() // SECURITY: Public endpoint - no JWT required
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute - prevents credential stuffing
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -195,14 +195,14 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: 2, ttl: 300000 } }) // 2 attempts per 5 minutes - prevents email enumeration
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
 
   @Public()
   @Post('reset-password')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute - token is single-use anyway
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }

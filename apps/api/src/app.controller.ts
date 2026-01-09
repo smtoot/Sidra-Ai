@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './auth/public.decorator';
 import { SystemSettingsService } from './admin/system-settings.service';
@@ -17,10 +17,19 @@ export class AppController {
   }
 
   // SECURITY: Public health check endpoint for monitoring/load balancers
+  // STABILITY FIX: Returns proper HTTP status codes for Railway health checks
   @Public()
   @Get('health')
   async healthCheck() {
-    return this.appService.healthCheck();
+    const health = await this.appService.healthCheck();
+
+    // Return 503 Service Unavailable if database is down
+    // This allows Railway to restart the container or route traffic elsewhere
+    if (health.status === 'error') {
+      throw new HttpException(health, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    return health;
   }
 
   // NEW: Public configuration endpoint for feature flags

@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
-import { Calendar, Clock, User, AlertTriangle, CheckCircle, XCircle, Eye, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, AlertTriangle, CheckCircle, XCircle, Eye, Loader2, CheckSquare, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -50,6 +50,8 @@ export default function AdminDisputesPage() {
     const [resolutionNote, setResolutionNote] = useState('');
     const [splitPercentage, setSplitPercentage] = useState(50);
     const [submitting, setSubmitting] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
     const loadDisputes = async () => {
         setLoading(true);
@@ -111,6 +113,84 @@ export default function AdminDisputesPage() {
         return 'warning';
     };
 
+    // Bulk selection handlers
+    const pendingDisputes = disputes.filter(d => d.status === 'PENDING' || d.status === 'UNDER_REVIEW');
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === pendingDisputes.length && pendingDisputes.length > 0) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(pendingDisputes.map(d => d.id)));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const handleBulkMarkUnderReview = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`هل أنت متأكد من بدء مراجعة ${selectedIds.size} شكوى؟`)) return;
+
+        setIsBulkProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            const dispute = disputes.find(d => d.id === id);
+            if (dispute?.status === 'PENDING') {
+                try {
+                    await adminApi.markDisputeUnderReview(id);
+                    successCount++;
+                } catch {
+                    failCount++;
+                }
+            }
+        }
+
+        setSelectedIds(new Set());
+        setIsBulkProcessing(false);
+        loadDisputes();
+
+        if (successCount > 0) toast.success(`تم بدء مراجعة ${successCount} شكوى`);
+        if (failCount > 0) toast.error(`فشل بدء مراجعة ${failCount} شكوى`);
+    };
+
+    const handleBulkDismiss = async () => {
+        if (selectedIds.size === 0) return;
+        const reason = prompt('أدخل سبب رفض الشكاوى المحددة:');
+        if (!reason || reason.trim().length < 5) {
+            toast.error('يرجى إدخال سبب صالح (5 أحرف على الأقل)');
+            return;
+        }
+
+        setIsBulkProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            try {
+                await adminApi.resolveDispute(id, 'DISMISSED', reason.trim());
+                successCount++;
+            } catch {
+                failCount++;
+            }
+        }
+
+        setSelectedIds(new Set());
+        setIsBulkProcessing(false);
+        loadDisputes();
+
+        if (successCount > 0) toast.success(`تم رفض ${successCount} شكوى`);
+        if (failCount > 0) toast.error(`فشل رفض ${failCount} شكوى`);
+    };
+
     return (
         <div className="min-h-screen bg-background font-sans rtl p-6">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -164,6 +244,64 @@ export default function AdminDisputesPage() {
                     </Card>
                 </div>
 
+                {/* Bulk Actions Bar */}
+                {pendingDisputes.length > 0 && (
+                    <Card padding="md" className={selectedIds.size > 0 ? "bg-primary-50 border-primary-200" : ""}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={toggleSelectAll}
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                    title="تحديد الكل"
+                                >
+                                    {selectedIds.size === pendingDisputes.length ? (
+                                        <CheckSquare className="w-5 h-5 text-primary-600" />
+                                    ) : (
+                                        <Square className="w-5 h-5 text-gray-400" />
+                                    )}
+                                </button>
+                                <span className="text-sm text-gray-600">
+                                    {selectedIds.size > 0 ? (
+                                        <span className="font-medium text-primary-700">تم تحديد {selectedIds.size} شكوى</span>
+                                    ) : (
+                                        `${pendingDisputes.length} شكوى قابلة للتحديد`
+                                    )}
+                                </span>
+                            </div>
+                            {selectedIds.size > 0 && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleBulkMarkUnderReview}
+                                        disabled={isBulkProcessing}
+                                    >
+                                        {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <Eye className="w-4 h-4 ml-2" />}
+                                        بدء المراجعة
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={handleBulkDismiss}
+                                        disabled={isBulkProcessing}
+                                    >
+                                        {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <XCircle className="w-4 h-4 ml-2" />}
+                                        رفض المحددة
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setSelectedIds(new Set())}
+                                        disabled={isBulkProcessing}
+                                    >
+                                        إلغاء التحديد
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                )}
+
                 {/* Disputes List */}
                 {loading ? (
                     <Card padding="md">
@@ -183,12 +321,24 @@ export default function AdminDisputesPage() {
                 ) : (
                     <div className="space-y-4">
                         {disputes.map((dispute) => (
-                            <Card key={dispute.id} padding="md">
+                            <Card key={dispute.id} padding="md" className={selectedIds.has(dispute.id) ? "ring-2 ring-primary-500" : ""}>
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                     <div className="flex-1 space-y-4">
                                         {/* Header */}
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
+                                                {(dispute.status === 'PENDING' || dispute.status === 'UNDER_REVIEW') && (
+                                                    <button
+                                                        onClick={() => toggleSelect(dispute.id)}
+                                                        className="p-1 hover:bg-gray-100 rounded"
+                                                    >
+                                                        {selectedIds.has(dispute.id) ? (
+                                                            <CheckSquare className="w-5 h-5 text-primary-600" />
+                                                        ) : (
+                                                            <Square className="w-5 h-5 text-gray-400" />
+                                                        )}
+                                                    </button>
+                                                )}
                                                 <div className="w-10 h-10 bg-error-50 rounded-full flex items-center justify-center">
                                                     <AlertTriangle className="w-5 h-5 text-error-600" />
                                                 </div>

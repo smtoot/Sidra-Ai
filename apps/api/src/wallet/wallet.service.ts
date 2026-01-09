@@ -446,12 +446,14 @@ export class WalletService {
           }
 
           // Find all bookings in WAITING_FOR_PAYMENT status for this user
+          // STABILITY FIX: Added limit to prevent transaction timeout with many pending bookings
           const pendingBookings = await tx.bookings.findMany({
             where: {
               bookedByUserId: userId,
               status: 'WAITING_FOR_PAYMENT',
             },
             orderBy: { createdAt: 'asc' }, // Process oldest first
+            take: 10, // Limit to 10 bookings per deposit to prevent transaction timeout
           });
 
           this.logger.log(
@@ -696,11 +698,14 @@ export class WalletService {
         },
       });
 
+      // Log payment release with commission details for audit trail
       this.logger.log(
-        `💸 RELEASE | bookingId=${bookingId} | parentTxId=${parentTxRecord.id} | teacherTxId=${teacherTxRecord.id} | amount=${normalizedAmount} | teacherEarnings=${teacherEarnings}`,
+        `💸 RELEASE | bookingId=${bookingId} | parentTxId=${parentTxRecord.id} | teacherTxId=${teacherTxRecord.id} | amount=${normalizedAmount} | teacherEarnings=${teacherEarnings} | platformCommission=${platformCommission}`,
       );
 
-      // TODO: Record platform commission in a separate accounting table (Phase 3)
+      // NOTE: Platform commission is tracked implicitly as: parentPayment - teacherEarnings
+      // The commission amount is logged above for audit purposes
+      // Phase 3: Consider adding explicit platform_revenue table for detailed commission reporting
     };
 
     if (tx) {

@@ -2,15 +2,21 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 
 import { NestExpressApplication } from '@nestjs/platform-express';
+
+const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+
+  // STABILITY: Enable graceful shutdown hooks
+  // This ensures Prisma connections are properly closed on shutdown
+  app.enableShutdownHooks();
 
   // SECURITY FIX: Enable cookie parsing for httpOnly auth tokens
   app.use(cookieParser());
@@ -70,6 +76,39 @@ async function bootstrap() {
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));
 
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port);
+  logger.log(`Application listening on port ${port}`);
+
+  // STABILITY: Handle uncaught exceptions and unhandled rejections
+  // These prevent silent crashes and ensure proper logging
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception:', error);
+    // Give time for logs to flush before exit
+    setTimeout(() => process.exit(1), 1000);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+
+  // STABILITY: Handle termination signals for Railway deployments
+  // Railway sends SIGTERM before killing the container
+  const signals: NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
+  for (const signal of signals) {
+    process.on(signal, () => {
+      logger.log(`Received ${signal}, starting graceful shutdown...`);
+      app
+        .close()
+        .then(() => {
+          logger.log('Application closed gracefully');
+          process.exit(0);
+        })
+        .catch((error) => {
+          logger.error('Error during graceful shutdown:', error);
+          process.exit(1);
+        });
+    });
+  }
 }
 bootstrap();

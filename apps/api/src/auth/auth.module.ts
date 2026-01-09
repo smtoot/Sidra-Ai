@@ -7,12 +7,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { PermissionService } from './permission.service';
 import { PermissionsGuard } from './permissions.guard';
+import { NotificationModule } from '../notification/notification.module';
 
 const logger = new Logger('AuthModule');
 
 @Module({
   imports: [
     PassportModule,
+    NotificationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {

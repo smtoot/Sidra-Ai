@@ -13,8 +13,10 @@ import { Button } from '@/components/ui/button';
 import {
     ArrowLeft, User, Mail, Phone, Calendar, Shield, Wallet,
     TrendingUp, TrendingDown, Lock, CheckCircle, XCircle, Clock,
-    BookOpen, GraduationCap, Briefcase, Edit2, Save, X, LifeBuoy
+    BookOpen, GraduationCap, Briefcase, Edit2, Save, X, LifeBuoy,
+    Key, Ban, UserCheck, Plus, Minus
 } from 'lucide-react';
+import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -41,6 +43,15 @@ export default function AdminUserDetailPage() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editForm, setEditForm] = useState({ email: '', phoneNumber: '', firstName: '', lastName: '' });
     const [isSaving, setIsSaving] = useState(false);
+
+    // Action States
+    const [isResettingPassword, setIsResettingPassword] = useState(false);
+    const [isTogglingBan, setIsTogglingBan] = useState(false);
+
+    // Wallet Adjustment State
+    const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
+    const [adjustmentForm, setAdjustmentForm] = useState({ amount: '', reason: '', type: 'CREDIT' as 'CREDIT' | 'DEBIT' });
+    const [isAdjusting, setIsAdjusting] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -92,13 +103,15 @@ export default function AdminUserDetailPage() {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            // Fetch wallet data
-            const walletData = await walletApi.getUserWallet(userId);
-            setWallet(walletData);
+            // Fetch user and wallet in parallel
+            const [userResult, walletResult] = await Promise.allSettled([
+                adminApi.getUser(userId),
+                walletApi.getUserWallet(userId)
+            ]);
 
-            // Fetch user data
-            try {
-                const userData = await adminApi.getUser(userId);
+            // Handle User Result
+            if (userResult.status === 'fulfilled') {
+                const userData = userResult.value;
                 setUser(userData);
                 setEditForm({
                     email: userData.email || '',
@@ -106,8 +119,17 @@ export default function AdminUserDetailPage() {
                     firstName: userData.firstName || '',
                     lastName: userData.lastName || ''
                 });
-            } catch (userError) {
-                console.error('Error loading user:', userError);
+            } else {
+                console.error('Error loading user:', userResult.reason);
+                toast.error('فشل تحميل بيانات المستخدم');
+            }
+
+            // Handle Wallet Result
+            if (walletResult.status === 'fulfilled') {
+                setWallet(walletResult.value);
+            } else {
+                console.error('Error loading wallet:', walletResult.reason);
+                // Don't show error toast for wallet as it might not exist yet
             }
         } catch (error) {
             console.error('Error loading data', error);
@@ -128,6 +150,72 @@ export default function AdminUserDetailPage() {
             toast.error(error?.response?.data?.message || 'فشل تحديث البيانات');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (!user) return;
+        if (!confirm('هل أنت متأكد من إعادة تعيين كلمة المرور؟ سيتم إرسال كلمة مرور مؤقتة للمستخدم.')) return;
+
+        setIsResettingPassword(true);
+        try {
+            const result = await adminApi.resetPassword(userId);
+            toast.success(`تم إعادة تعيين كلمة المرور. كلمة المرور المؤقتة: ${result.temporaryPassword}`);
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل إعادة تعيين كلمة المرور');
+        } finally {
+            setIsResettingPassword(false);
+        }
+    };
+
+    const handleToggleBan = async () => {
+        if (!user) return;
+        const action = user.isActive ? 'إيقاف' : 'تفعيل';
+        if (!confirm(`هل أنت متأكد من ${action} حساب هذا المستخدم؟`)) return;
+
+        setIsTogglingBan(true);
+        try {
+            const updatedUser = await adminApi.toggleBan(userId);
+            setUser(updatedUser);
+            toast.success(updatedUser.isActive ? 'تم تفعيل الحساب بنجاح' : 'تم إيقاف الحساب بنجاح');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || `فشل ${action} الحساب`);
+        } finally {
+            setIsTogglingBan(false);
+        }
+    };
+
+    const handleWalletAdjustment = async () => {
+        if (!adjustmentForm.amount || !adjustmentForm.reason) {
+            toast.error('يرجى ملء جميع الحقول');
+            return;
+        }
+        const amount = parseFloat(adjustmentForm.amount);
+        if (isNaN(amount) || amount <= 0) {
+            toast.error('المبلغ يجب أن يكون رقم موجب');
+            return;
+        }
+        if (adjustmentForm.reason.length < 10) {
+            toast.error('السبب يجب أن يكون 10 أحرف على الأقل');
+            return;
+        }
+
+        setIsAdjusting(true);
+        try {
+            const result = await adminApi.adjustWalletBalance(userId, {
+                amount,
+                reason: adjustmentForm.reason,
+                type: adjustmentForm.type,
+            });
+            toast.success(result.message);
+            setIsAdjustmentOpen(false);
+            setAdjustmentForm({ amount: '', reason: '', type: 'CREDIT' });
+            // Reload wallet data
+            loadData();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'فشل تعديل الرصيد');
+        } finally {
+            setIsAdjusting(false);
         }
     };
 
@@ -178,6 +266,34 @@ export default function AdminUserDetailPage() {
         return 'neutral' as any;
     };
 
+    const getTeacherStatusLabel = (status: string | undefined): string => {
+        if (!status) return 'تسجيل جديد';
+        const labels: Record<string, string> = {
+            DRAFT: 'مسودة',
+            SUBMITTED: 'قيد المراجعة',
+            CHANGES_REQUESTED: 'تحتاج تعديل',
+            INTERVIEW_REQUIRED: 'تحتاج مقابلة',
+            INTERVIEW_SCHEDULED: 'مقابلة محددة',
+            APPROVED: 'معلم معتمد',
+            REJECTED: 'مرفوض',
+        };
+        return labels[status] || status;
+    };
+
+    const getTeacherStatusVariant = (status: string | undefined): 'success' | 'warning' | 'error' | 'info' | 'neutral' => {
+        if (!status) return 'neutral';
+        const variants: Record<string, 'success' | 'warning' | 'error' | 'info' | 'neutral'> = {
+            DRAFT: 'neutral',
+            SUBMITTED: 'warning',
+            CHANGES_REQUESTED: 'warning',
+            INTERVIEW_REQUIRED: 'info',
+            INTERVIEW_SCHEDULED: 'info',
+            APPROVED: 'success',
+            REJECTED: 'error',
+        };
+        return variants[status] || 'neutral';
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
@@ -186,10 +302,10 @@ export default function AdminUserDetailPage() {
         );
     }
 
-    if (!wallet) {
+    if (!user && !isLoading) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-gray-500">لم يتم العثور على المحفظة</div>
+                <div className="text-gray-500">لم يتم العثور على المستخدم</div>
             </div>
         );
     }
@@ -263,10 +379,41 @@ export default function AdminUserDetailPage() {
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between">
                                         <CardTitle>الملف الشخصي</CardTitle>
-                                        <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="gap-2">
-                                            <Edit2 className="w-4 h-4" />
-                                            تعديل
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleResetPassword}
+                                                disabled={isResettingPassword}
+                                                className="gap-2"
+                                            >
+                                                <Key className="w-4 h-4" />
+                                                {isResettingPassword ? 'جاري...' : 'إعادة تعيين كلمة المرور'}
+                                            </Button>
+                                            <Button
+                                                variant={user.isActive ? "destructive" : "default"}
+                                                size="sm"
+                                                onClick={handleToggleBan}
+                                                disabled={isTogglingBan}
+                                                className="gap-2"
+                                            >
+                                                {user.isActive ? (
+                                                    <>
+                                                        <Ban className="w-4 h-4" />
+                                                        {isTogglingBan ? 'جاري...' : 'إيقاف الحساب'}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserCheck className="w-4 h-4" />
+                                                        {isTogglingBan ? 'جاري...' : 'تفعيل الحساب'}
+                                                    </>
+                                                )}
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="gap-2">
+                                                <Edit2 className="w-4 h-4" />
+                                                تعديل
+                                            </Button>
+                                        </div>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="flex items-start gap-6">
@@ -313,11 +460,20 @@ export default function AdminUserDetailPage() {
                                                 </div>
 
                                                 <div className="flex items-center gap-2">
-                                                    {user.isActive ? (
-                                                        <StatusBadge variant="success">حساب نشط</StatusBadge>
-                                                    ) : (
-                                                        <StatusBadge variant="error">حساب محظور</StatusBadge>
-                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        {!user.isActive && (
+                                                            <StatusBadge variant="error" showDot={true}>حساب موقوف</StatusBadge>
+                                                        )}
+
+                                                        {/* Teacher Application Status */}
+                                                        {user.role === 'TEACHER' && (
+                                                            <StatusBadge
+                                                                variant={getTeacherStatusVariant(user.teacherProfile?.applicationStatus)}
+                                                            >
+                                                                {getTeacherStatusLabel(user.teacherProfile?.applicationStatus)}
+                                                            </StatusBadge>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -437,35 +593,36 @@ export default function AdminUserDetailPage() {
                                     </>
                                 )}
 
-                                {/* Wallet Summary */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Wallet className="w-5 h-5" />
-                                            ملخص المحفظة
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div>
-                                                <div className="text-xs text-gray-500 mb-1">معرف المحفظة</div>
-                                                <div className="font-mono text-sm">{wallet.readableId || wallet.id}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-xs text-gray-500 mb-1">الرصيد المتاح</div>
-                                                <div className="font-bold text-lg font-mono">
-                                                    {Number(wallet.balance || 0).toLocaleString()} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
+                                {wallet && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Wallet className="w-5 h-5" />
+                                                ملخص المحفظة
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div>
+                                                    <div className="text-xs text-gray-500 mb-1">معرف المحفظة</div>
+                                                    <div className="font-mono text-sm">{wallet.readableId || wallet.id}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 mb-1">الرصيد المتاح</div>
+                                                    <div className="font-bold text-lg font-mono">
+                                                        {Number(wallet.balance || 0).toLocaleString()} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 mb-1">الرصيد المحجوز</div>
+                                                    <div className="font-bold text-lg font-mono text-warning-600">
+                                                        {Number(wallet.pendingBalance || 0).toLocaleString()} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <div className="text-xs text-gray-500 mb-1">الرصيد المحجوز</div>
-                                                <div className="font-bold text-lg font-mono text-warning-600">
-                                                    {Number(wallet.pendingBalance || 0).toLocaleString()} <span className="text-sm font-normal">{wallet.currency || 'SDG'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </div>
                         ) : (
                             <Card>
@@ -597,119 +754,136 @@ export default function AdminUserDetailPage() {
                     )}
 
                     {activeTab === 'wallet' && (
-                        <div className="space-y-6">
-                            {/* Balance Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Card hover="lift" padding="md">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="p-3 bg-success-50 rounded-lg">
-                                            <TrendingUp className="w-5 h-5 text-success-600" />
+                        wallet ? (
+                            <div className="space-y-6">
+                                {/* Balance Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <Card hover="lift" padding="md">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-3 bg-success-50 rounded-lg">
+                                                <TrendingUp className="w-5 h-5 text-success-600" />
+                                            </div>
+                                            <span className="text-sm text-gray-600">إجمالي الرصيد</span>
                                         </div>
-                                        <span className="text-sm text-gray-600">إجمالي الرصيد</span>
-                                    </div>
-                                    <div className="text-3xl font-bold font-mono text-gray-900">
-                                        {(Number(wallet.balance || 0) + Number(wallet.pendingBalance || 0)).toLocaleString()}
-                                        <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
-                                    </div>
-                                </Card>
+                                        <div className="text-3xl font-bold font-mono text-gray-900">
+                                            {(Number(wallet.balance || 0) + Number(wallet.pendingBalance || 0)).toLocaleString()}
+                                            <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
+                                        </div>
+                                    </Card>
 
-                                <Card hover="lift" padding="md">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="p-3 bg-warning-50 rounded-lg">
-                                            <Lock className="w-5 h-5 text-warning-600" />
+                                    <Card hover="lift" padding="md">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-3 bg-warning-50 rounded-lg">
+                                                <Lock className="w-5 h-5 text-warning-600" />
+                                            </div>
+                                            <span className="text-sm text-gray-600">الرصيد المحجوز</span>
                                         </div>
-                                        <span className="text-sm text-gray-600">الرصيد المحجوز</span>
-                                    </div>
-                                    <div className="text-3xl font-bold font-mono text-gray-900">
-                                        {Number(wallet.pendingBalance || 0).toLocaleString()}
-                                        <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
-                                    </div>
-                                </Card>
+                                        <div className="text-3xl font-bold font-mono text-gray-900">
+                                            {Number(wallet.pendingBalance || 0).toLocaleString()}
+                                            <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
+                                        </div>
+                                    </Card>
 
-                                <Card hover="lift" padding="md">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="p-3 bg-primary-50 rounded-lg">
-                                            <TrendingDown className="w-5 h-5 text-primary-600" />
+                                    <Card hover="lift" padding="md">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-3 bg-primary-50 rounded-lg">
+                                                <TrendingDown className="w-5 h-5 text-primary-600" />
+                                            </div>
+                                            <span className="text-sm text-gray-600">الرصيد المتاح</span>
                                         </div>
-                                        <span className="text-sm text-gray-600">الرصيد المتاح</span>
-                                    </div>
-                                    <div className="text-3xl font-bold font-mono text-gray-900">
-                                        {Number(wallet.balance || 0).toLocaleString()}
-                                        <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
-                                    </div>
+                                        <div className="text-3xl font-bold font-mono text-gray-900">
+                                            {Number(wallet.balance || 0).toLocaleString()}
+                                            <span className="text-lg text-gray-500 mr-2">{wallet.currency || 'SDG'}</span>
+                                        </div>
+                                    </Card>
+                                </div>
+
+                                {/* Wallet Actions */}
+                                <div className="flex justify-end">
+                                    <Button onClick={() => setIsAdjustmentOpen(true)} className="gap-2">
+                                        <Wallet className="w-4 h-4" />
+                                        تعديل الرصيد
+                                    </Button>
+                                </div>
+
+                                {/* Recent Transactions */}
+                                <Card padding="none">
+                                    <CardHeader className="px-6 py-4 border-b border-gray-200">
+                                        <div className="flex justify-between items-center">
+                                            <CardTitle>نشاط المحفظة الأخير</CardTitle>
+                                            <span className="text-sm text-gray-500">آخر 50 معاملة لهذه المحفظة</span>
+                                        </div>
+                                    </CardHeader>
+
+                                    {wallet.transactions && wallet.transactions.length > 0 ? (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow hover={false}>
+                                                    <TableHead>المعرف</TableHead>
+                                                    <TableHead>الحالة</TableHead>
+                                                    <TableHead>المبلغ</TableHead>
+                                                    <TableHead>النوع</TableHead>
+                                                    <TableHead>التاريخ</TableHead>
+                                                    <TableHead>ملاحظة</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {wallet.transactions.slice(0, 50).map((tx: any) => (
+                                                    <TableRow key={tx.id}>
+                                                        <TableCell className="font-mono text-xs text-gray-500">
+                                                            {tx.readableId || '-'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <StatusBadge variant={getStatusVariant(tx.status)}>
+                                                                {getStatusLabel(tx.status)}
+                                                            </StatusBadge>
+                                                        </TableCell>
+                                                        <TableCell className="font-bold font-mono tabular-nums">
+                                                            <span className={tx.type === 'WITHDRAWAL' || tx.type === 'PAYMENT_LOCK' ? 'text-error-600' : 'text-success-600'}>
+                                                                {tx.amount} {wallet.currency || 'SDG'}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <StatusBadge
+                                                                variant={
+                                                                    tx.type === 'DEPOSIT' ? 'success' :
+                                                                        tx.type === 'WITHDRAWAL' ? 'warning' :
+                                                                            'info'
+                                                                }
+                                                                showDot={false}
+                                                            >
+                                                                {getTransactionTypeLabel(tx.type)}
+                                                            </StatusBadge>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-gray-600">
+                                                            <div>{format(new Date(tx.createdAt), 'dd MMM yyyy', { locale: ar })}</div>
+                                                            <div className="text-xs text-gray-400">
+                                                                {format(new Date(tx.createdAt), 'hh:mm a', { locale: ar })}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-gray-600 max-w-xs truncate">
+                                                            {tx.note || tx.adminNote || '-'}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    ) : (
+                                        <div className="p-12 text-center text-gray-500">
+                                            <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                            <p>لا توجد معاملات</p>
+                                        </div>
+                                    )}
                                 </Card>
                             </div>
-
-                            {/* Recent Transactions */}
-                            <Card padding="none">
-                                <CardHeader className="px-6 py-4 border-b border-gray-200">
-                                    <div className="flex justify-between items-center">
-                                        <CardTitle>نشاط المحفظة الأخير</CardTitle>
-                                        <span className="text-sm text-gray-500">آخر 50 معاملة لهذه المحفظة</span>
-                                    </div>
-                                </CardHeader>
-
-                                {wallet.transactions && wallet.transactions.length > 0 ? (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow hover={false}>
-                                                <TableHead>المعرف</TableHead>
-                                                <TableHead>الحالة</TableHead>
-                                                <TableHead>المبلغ</TableHead>
-                                                <TableHead>النوع</TableHead>
-                                                <TableHead>التاريخ</TableHead>
-                                                <TableHead>ملاحظة</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {wallet.transactions.slice(0, 50).map((tx: any) => (
-                                                <TableRow key={tx.id}>
-                                                    <TableCell className="font-mono text-xs text-gray-500">
-                                                        {tx.readableId || '-'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <StatusBadge variant={getStatusVariant(tx.status)}>
-                                                            {getStatusLabel(tx.status)}
-                                                        </StatusBadge>
-                                                    </TableCell>
-                                                    <TableCell className="font-bold font-mono tabular-nums">
-                                                        <span className={tx.type === 'WITHDRAWAL' || tx.type === 'PAYMENT_LOCK' ? 'text-error-600' : 'text-success-600'}>
-                                                            {tx.amount} {wallet.currency || 'SDG'}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <StatusBadge
-                                                            variant={
-                                                                tx.type === 'DEPOSIT' ? 'success' :
-                                                                    tx.type === 'WITHDRAWAL' ? 'warning' :
-                                                                        'info'
-                                                            }
-                                                            showDot={false}
-                                                        >
-                                                            {getTransactionTypeLabel(tx.type)}
-                                                        </StatusBadge>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-gray-600">
-                                                        <div>{format(new Date(tx.createdAt), 'dd MMM yyyy', { locale: ar })}</div>
-                                                        <div className="text-xs text-gray-400">
-                                                            {format(new Date(tx.createdAt), 'hh:mm a', { locale: ar })}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-gray-600 max-w-xs truncate">
-                                                        {tx.note || tx.adminNote || '-'}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                ) : (
-                                    <div className="p-12 text-center text-gray-500">
-                                        <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                        <p>لا توجد معاملات</p>
-                                    </div>
-                                )}
+                        ) : (
+                            <Card>
+                                <CardContent className="py-12 text-center text-gray-500">
+                                    <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p>لم يتم تفعيل المحفظة لهذا المستخدم بعد</p>
+                                </CardContent>
                             </Card>
-                        </div>
+                        )
                     )}
 
                     {activeTab === 'tickets' && (
@@ -870,7 +1044,95 @@ export default function AdminUserDetailPage() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Wallet Adjustment Dialog */}
+                <Dialog open={isAdjustmentOpen} onOpenChange={setIsAdjustmentOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>تعديل رصيد المحفظة</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="adjustType">نوع العملية</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={adjustmentForm.type === 'CREDIT' ? 'default' : 'outline'}
+                                        className="flex-1 gap-2"
+                                        onClick={() => setAdjustmentForm(prev => ({ ...prev, type: 'CREDIT' }))}
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        إضافة رصيد
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={adjustmentForm.type === 'DEBIT' ? 'destructive' : 'outline'}
+                                        className="flex-1 gap-2"
+                                        onClick={() => setAdjustmentForm(prev => ({ ...prev, type: 'DEBIT' }))}
+                                    >
+                                        <Minus className="w-4 h-4" />
+                                        خصم رصيد
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="adjustAmount">المبلغ (SDG)</Label>
+                                <Input
+                                    id="adjustAmount"
+                                    type="number"
+                                    min="1"
+                                    value={adjustmentForm.amount}
+                                    onChange={(e) => setAdjustmentForm(prev => ({ ...prev, amount: e.target.value }))}
+                                    placeholder="أدخل المبلغ"
+                                    dir="ltr"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="adjustReason">السبب (10 أحرف على الأقل)</Label>
+                                <textarea
+                                    id="adjustReason"
+                                    className="w-full min-h-[100px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    value={adjustmentForm.reason}
+                                    onChange={(e) => setAdjustmentForm(prev => ({ ...prev, reason: e.target.value }))}
+                                    placeholder="أدخل سبب التعديل (مثال: تعويض عن مشكلة تقنية)"
+                                />
+                                <p className="text-xs text-gray-500">
+                                    {adjustmentForm.reason.length}/10 حرف
+                                </p>
+                            </div>
+                        </div>
+                        <DialogFooter className="flex gap-2 justify-end">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsAdjustmentOpen(false);
+                                    setAdjustmentForm({ amount: '', reason: '', type: 'CREDIT' });
+                                }}
+                                disabled={isAdjusting}
+                            >
+                                إلغاء
+                            </Button>
+                            <Button
+                                onClick={handleWalletAdjustment}
+                                disabled={isAdjusting}
+                                variant={adjustmentForm.type === 'DEBIT' ? 'destructive' : 'default'}
+                            >
+                                {isAdjusting ? (
+                                    <>
+                                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                                        جاري التنفيذ...
+                                    </>
+                                ) : (
+                                    <>
+                                        {adjustmentForm.type === 'CREDIT' ? <Plus className="w-4 h-4 mr-2" /> : <Minus className="w-4 h-4 mr-2" />}
+                                        {adjustmentForm.type === 'CREDIT' ? 'إضافة الرصيد' : 'خصم الرصيد'}
+                                    </>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
-        </div>
+        </div >
     );
 }
