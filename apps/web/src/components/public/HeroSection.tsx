@@ -1,33 +1,65 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select-radix';
+import { useCurricula } from '@/hooks/useCurricula';
+import { useSubjects } from '@/hooks/useSubjects';
+import { useQuery } from '@tanstack/react-query';
+import { marketplaceApi } from '@/lib/api/marketplace';
 
 export function HeroSection() {
     const [isVisible, setIsVisible] = useState(false);
     const [searchParams, setSearchParams] = useState({
         curriculum: '',
-        grade: '',
+        stage: '',
         subject: ''
     });
+
+    // Fetch real data from API
+    const { data: curricula = [], isLoading: curriculaLoading } = useCurricula();
+    const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+
+    // Fetch stages based on selected curriculum
+    const { data: curriculumHierarchy } = useQuery({
+        queryKey: ['curriculum-hierarchy', searchParams.curriculum],
+        queryFn: () => marketplaceApi.getCurriculumHierarchy(searchParams.curriculum),
+        enabled: !!searchParams.curriculum,
+        staleTime: 10 * 60 * 1000,
+    });
+
+    // Extract stages from hierarchy
+    const stages = curriculumHierarchy?.stages || [];
 
     useEffect(() => {
         setIsVisible(true);
     }, []);
 
+    // Reset stage when curriculum changes
+    useEffect(() => {
+        setSearchParams(prev => ({ ...prev, stage: '' }));
+    }, [searchParams.curriculum]);
+
     const handleSearch = () => {
         const params = new URLSearchParams();
         if (searchParams.curriculum) params.append('curriculumId', searchParams.curriculum);
-        if (searchParams.grade) params.append('gradeLevelId', searchParams.grade);
+        // For stage, we pass the first grade of the stage as gradeLevelId for better filtering
+        if (searchParams.stage) {
+            const selectedStage = stages.find(s => s.id === searchParams.stage);
+            if (selectedStage?.grades?.[0]?.id) {
+                params.append('gradeLevelId', selectedStage.grades[0].id);
+            }
+        }
         if (searchParams.subject) params.append('subjectId', searchParams.subject);
 
         window.location.href = `/search?${params.toString()}`;
     };
+
+    // Filter to only show active items
+    const activeCurricula = curricula.filter(c => c.isActive);
+    const activeSubjects = subjects.filter(s => s.isActive);
 
     return (
         <section className="relative bg-[#003366] min-h-[650px] flex items-center overflow-hidden dir-rtl">
@@ -68,14 +100,21 @@ export function HeroSection() {
                                         <Select
                                             value={searchParams.curriculum}
                                             onValueChange={(v) => setSearchParams({ ...searchParams, curriculum: v })}
+                                            disabled={curriculaLoading}
                                         >
                                             <SelectTrigger className="w-full text-right h-12 bg-gray-50 border-gray-200 focus:ring-2 focus:ring-[#D4A056]/50 focus:border-[#D4A056] text-gray-900 font-medium rounded-lg transition-all shadow-sm">
-                                                <SelectValue placeholder="اختر المنهج" />
+                                                <SelectValue placeholder={curriculaLoading ? "جاري التحميل..." : "اختر المنهج"} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white border text-gray-900 border-gray-100 shadow-lg p-1">
-                                                <SelectItem value="sudanese" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">سوداني</SelectItem>
-                                                <SelectItem value="british" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">بريطاني</SelectItem>
-                                                <SelectItem value="american" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">أمريكي</SelectItem>
+                                                {activeCurricula.map((curriculum) => (
+                                                    <SelectItem
+                                                        key={curriculum.id}
+                                                        value={curriculum.id}
+                                                        className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer"
+                                                    >
+                                                        {curriculum.nameAr}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -83,16 +122,23 @@ export function HeroSection() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-gray-500 px-1">المرحلة</label>
                                         <Select
-                                            value={searchParams.grade}
-                                            onValueChange={(v) => setSearchParams({ ...searchParams, grade: v })}
+                                            value={searchParams.stage}
+                                            onValueChange={(v) => setSearchParams({ ...searchParams, stage: v })}
+                                            disabled={!searchParams.curriculum || stages.length === 0}
                                         >
                                             <SelectTrigger className="w-full text-right h-12 bg-gray-50 border-gray-200 focus:ring-2 focus:ring-[#D4A056]/50 focus:border-[#D4A056] text-gray-900 font-medium rounded-lg transition-all shadow-sm">
-                                                <SelectValue placeholder="اختر المرحلة" />
+                                                <SelectValue placeholder={!searchParams.curriculum ? "اختر المنهج أولاً" : "اختر المرحلة"} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white border text-gray-900 border-gray-100 shadow-lg p-1">
-                                                <SelectItem value="primary" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">ابتدائي</SelectItem>
-                                                <SelectItem value="middle" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">متوسط</SelectItem>
-                                                <SelectItem value="secondary" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">ثانوي</SelectItem>
+                                                {stages.map((stage) => (
+                                                    <SelectItem
+                                                        key={stage.id}
+                                                        value={stage.id}
+                                                        className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer"
+                                                    >
+                                                        {stage.nameAr}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -102,14 +148,21 @@ export function HeroSection() {
                                         <Select
                                             value={searchParams.subject}
                                             onValueChange={(v) => setSearchParams({ ...searchParams, subject: v })}
+                                            disabled={subjectsLoading}
                                         >
                                             <SelectTrigger className="w-full text-right h-12 bg-gray-50 border-gray-200 focus:ring-2 focus:ring-[#D4A056]/50 focus:border-[#D4A056] text-gray-900 font-medium rounded-lg transition-all shadow-sm">
-                                                <SelectValue placeholder="اختر المادة" />
+                                                <SelectValue placeholder={subjectsLoading ? "جاري التحميل..." : "اختر المادة"} />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white border text-gray-900 border-gray-100 shadow-lg p-1">
-                                                <SelectItem value="math" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">رياضيات</SelectItem>
-                                                <SelectItem value="english" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">إنجليزي</SelectItem>
-                                                <SelectItem value="physics" className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer">فيزياء</SelectItem>
+                                                {activeSubjects.map((subject) => (
+                                                    <SelectItem
+                                                        key={subject.id}
+                                                        value={subject.id}
+                                                        className="focus:bg-gray-50 focus:text-gray-900 cursor-pointer"
+                                                    >
+                                                        {subject.nameAr}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -165,4 +218,3 @@ export function HeroSection() {
         </section>
     );
 }
-

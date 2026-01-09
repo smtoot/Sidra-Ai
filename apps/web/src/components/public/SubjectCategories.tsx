@@ -3,21 +3,57 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSubjects } from '@/hooks/useSubjects';
-import { BookOpen, Calculator, Globe, FlaskConical, BookText, Atom, Brain, Music, Users, ChevronLeft } from 'lucide-react';
+import { BookOpen, Calculator, Globe, FlaskConical, BookText, Atom, Brain, Music, ChevronLeft, GraduationCap, BookOpenCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-// Icon mapping for subjects
+// Icon mapping for subjects (by code and Arabic name)
 const SUBJECT_ICONS: Record<string, React.ElementType> = {
+    // By code
+    'MATH': Calculator,
+    'SCIENCE': FlaskConical,
+    'PHYSICS': Atom,
+    'CHEMISTRY': FlaskConical,
+    'BIOLOGY': Brain,
+    'ENGLISH': Globe,
+    'ARABIC': BookText,
+    'QURAN': BookOpenCheck,
+    'ISLAMIC': BookOpen,
+    'MUSIC': Music,
+    // By English name (lowercase)
     'math': Calculator,
+    'mathematics': Calculator,
     'arabic': BookText,
     'english': Globe,
     'physics': Atom,
     'chemistry': FlaskConical,
     'biology': Brain,
     'music': Music,
-    'default': BookOpen,
+    'science': FlaskConical,
+    'quran': BookOpenCheck,
+    'islamic': BookOpen,
+    // By Arabic name
+    'رياضيات': Calculator,
+    'علوم': FlaskConical,
+    'فيزياء': Atom,
+    'كيمياء': FlaskConical,
+    'أحياء': Brain,
+    'إنجليزي': Globe,
+    'لغة إنجليزية': Globe,
+    'عربي': BookText,
+    'لغة عربية': BookText,
+    'قرآن': BookOpenCheck,
+    'القرآن الكريم': BookOpenCheck,
+    'تربية إسلامية': BookOpen,
+    'default': GraduationCap,
 };
+
+function getSubjectIcon(code: string, nameEn: string | null, nameAr: string): React.ElementType {
+    return SUBJECT_ICONS[code] ||
+           SUBJECT_ICONS[nameEn?.toLowerCase() || ''] ||
+           SUBJECT_ICONS[nameAr] ||
+           SUBJECT_ICONS.default;
+}
 
 // Color mapping for subjects
 const SUBJECT_COLORS = [
@@ -31,22 +67,14 @@ const SUBJECT_COLORS = [
     { bg: 'from-rose-500 to-rose-600', light: 'bg-rose-50', text: 'text-rose-600' },
 ];
 
-// Mock teacher counts - in production, this would come from the API
-const MOCK_TEACHER_COUNTS: Record<string, number> = {
-    'math': 45,
-    'arabic': 32,
-    'english': 28,
-    'physics': 22,
-    'chemistry': 18,
-    'biology': 15,
-    'music': 8,
-};
-
 export function SubjectCategories() {
     const { data: subjects = [], isLoading } = useSubjects();
     const [isVisible, setIsVisible] = useState(false);
     const [showAll, setShowAll] = useState(false);
     const sectionRef = useRef<HTMLElement>(null);
+
+    // Filter to only show active subjects
+    const activeSubjects = subjects.filter(s => s.isActive);
 
     // Intersection observer for entrance animation
     useEffect(() => {
@@ -66,8 +94,8 @@ export function SubjectCategories() {
         return () => observer.disconnect();
     }, []);
 
-    const displayedSubjects = showAll ? subjects : subjects.slice(0, 8);
-    const hasMore = subjects.length > 8;
+    const displayedSubjects = showAll ? activeSubjects : activeSubjects.slice(0, 8);
+    const hasMore = activeSubjects.length > 8;
 
     if (isLoading) {
         return (
@@ -106,10 +134,8 @@ export function SubjectCategories() {
                 {/* Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                     {displayedSubjects.map((subject, index) => {
-                        const Icon = SUBJECT_ICONS[subject.nameEn?.toLowerCase()] || SUBJECT_ICONS.default;
+                        const Icon = getSubjectIcon(subject.code, subject.nameEn, subject.nameAr);
                         const colors = SUBJECT_COLORS[index % SUBJECT_COLORS.length];
-                        // eslint-disable-next-line react-hooks/purity
-                        const teacherCount = MOCK_TEACHER_COUNTS[subject.nameEn?.toLowerCase()] || Math.floor(Math.random() * 30) + 10;
 
                         return (
                             <Link
@@ -137,15 +163,9 @@ export function SubjectCategories() {
                                             <Icon className="w-8 h-8 text-white" />
                                         </div>
 
-                                        <h3 className="font-bold text-gray-900 mb-2 group-hover:text-primary transition-colors">
+                                        <h3 className="font-bold text-gray-900 group-hover:text-primary transition-colors">
                                             {subject.nameAr}
                                         </h3>
-
-                                        {/* Teacher count */}
-                                        <div className="flex items-center justify-center gap-1 text-sm text-gray-500">
-                                            <Users className="w-4 h-4" />
-                                            <span>{teacherCount} معلم</span>
-                                        </div>
                                     </div>
                                 </div>
                             </Link>
@@ -165,7 +185,7 @@ export function SubjectCategories() {
                             onClick={() => setShowAll(!showAll)}
                             className="gap-2"
                         >
-                            {showAll ? 'عرض أقل' : `عرض جميع المواد (${subjects.length})`}
+                            {showAll ? 'عرض أقل' : `عرض جميع المواد (${activeSubjects.length})`}
                             <ChevronLeft className={cn(
                                 "w-4 h-4 transition-transform",
                                 showAll && "rotate-90"
