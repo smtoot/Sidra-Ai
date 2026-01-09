@@ -26,6 +26,7 @@ jobs:
         run: |
           BACKUP_FILE="sidra_backup_$(date +%Y-%m-%d_%H%M%S).sql.gz"
           echo "Creating backup: $BACKUP_FILE"
+
           /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.DATABASE_URL }}?sslmode=require" \
             | gzip > "$BACKUP_FILE"
 
@@ -41,10 +42,10 @@ jobs:
 
       - name: Upload backup to Cloudflare R2
         run: |
-          # Install rclone for R2 uploads (more reliable than aws cli for R2)
+          # Install rclone
           curl https://rclone.org/install.sh | sudo bash
 
-          # Configure rclone for R2
+          # Configure rclone for Cloudflare R2
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf << EOF
           [r2]
@@ -56,22 +57,26 @@ jobs:
           acl = private
           EOF
 
-          # Upload to R2
-          rclone copy "${{ env.BACKUP_FILE }}" "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/"
-          echo "Backup uploaded to R2: database-backups/${{ env.BACKUP_FILE }}"
+          # Upload backup (IMPORTANT: no bucket creation)
+          rclone copy "$BACKUP_FILE" "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/" \
+            --s3-no-create-bucket
+
+          echo "Backup uploaded to R2: database-backups/$BACKUP_FILE"
 
       - name: Cleanup old backups from R2
         run: |
-          # List all backups and delete those older than retention period
           CUTOFF_DATE=$(date -d "-${{ env.BACKUP_RETENTION_DAYS }} days" +%Y-%m-%d)
           echo "Removing backups older than: $CUTOFF_DATE"
 
-          rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/" | while read -r FILE_NAME; do
-            # Extract date from filename (format: sidra_backup_YYYY-MM-DD_HHMMSS.sql.gz)
+          rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/" \
+            --s3-no-create-bucket | while read -r FILE_NAME; do
+
             FILE_DATE=$(echo "$FILE_NAME" | grep -oP '\d{4}-\d{2}-\d{2}' | head -1)
+
             if [[ -n "$FILE_DATE" && "$FILE_DATE" < "$CUTOFF_DATE" ]]; then
               echo "Deleting old backup: $FILE_NAME"
-              rclone delete "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/$FILE_NAME"
+              rclone delete "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/$FILE_NAME" \
+                --s3-no-create-bucket
             fi
           done
 
@@ -80,7 +85,8 @@ jobs:
 
       - name: Verify backup exists in R2
         run: |
-          if rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/${{ env.BACKUP_FILE }}" | grep -q "${{ env.BACKUP_FILE }}"; then
+          if rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/database-backups/" \
+            --s3-no-create-bucket | grep -q "${{ env.BACKUP_FILE }}"; then
             echo "Backup verified in R2"
           else
             echo "Backup verification failed!"

@@ -29,6 +29,7 @@ export class VacationScheduler {
 
     try {
       // Find teachers with expired vacations
+      // STABILITY FIX: Added limit to prevent memory issues with large result sets
       const expiredTeachers = await this.prisma.teacher_profiles.findMany({
         where: {
           isOnVacation: true,
@@ -37,6 +38,7 @@ export class VacationScheduler {
         include: {
           users: { select: { id: true } },
         },
+        take: 50, // Process in batches
       });
 
       if (expiredTeachers.length === 0) {

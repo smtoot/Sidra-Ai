@@ -17,6 +17,7 @@ const MAX_BACKOFF_MINUTES = 60; // 1 hour cap
 export class EmailOutboxWorker {
   private readonly logger = new Logger(EmailOutboxWorker.name);
   private isProcessing = false;
+  private lastProcessingStart = 0;
 
   constructor(private prisma: PrismaService) {}
 
@@ -26,12 +27,24 @@ export class EmailOutboxWorker {
    */
   @Cron(CronExpression.EVERY_30_SECONDS)
   async processOutbox() {
-    // Prevent concurrent runs
+    // STABILITY FIX: Prevent concurrent runs with timeout protection
+    // If processing takes longer than 2 minutes, allow a new run (indicates stuck job)
+    const now = Date.now();
+    const processingTimeout = 2 * 60 * 1000; // 2 minutes
+
     if (this.isProcessing) {
-      return;
+      if (now - this.lastProcessingStart > processingTimeout) {
+        this.logger.warn(
+          'Previous email processing exceeded timeout, allowing new run',
+        );
+        this.isProcessing = false;
+      } else {
+        return;
+      }
     }
 
     this.isProcessing = true;
+    this.lastProcessingStart = now;
 
     try {
       await this.processPendingEmails();
