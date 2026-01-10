@@ -35,6 +35,15 @@ export const BOOKING_EVENTS = {
     CANCELLED: 'booking_cancelled',
     RESCHEDULED: 'booking_rescheduled',
     ERROR: 'booking_error',
+    // Booking flow step events
+    STEP_VIEWED: 'booking_step_viewed',
+    DRAFT_CREATED: 'booking_draft_created',
+    DRAFT_UPDATED: 'booking_draft_updated',
+    DRAFT_RESUMED: 'booking_draft_resumed',
+    AUTH_PROMPT_SHOWN: 'booking_auth_prompt_shown',
+    AUTH_COMPLETED: 'booking_auth_completed',
+    CONTINUE_CLICKED: 'booking_continue_clicked',
+    ABANDONED: 'booking_abandoned',
 } as const;
 
 // Payment events
@@ -142,6 +151,14 @@ export interface EventProperties {
     };
     booking_rescheduled: { rescheduled_by: 'student' | 'parent' | 'teacher' };
     booking_error: { error_code: string };
+    booking_step_viewed: { step: number; step_name: string; teacher_id: string };
+    booking_draft_created: { teacher_id: string };
+    booking_draft_updated: { step: number; teacher_id: string };
+    booking_draft_resumed: { step: number; teacher_id: string };
+    booking_auth_prompt_shown: { step: number; teacher_id: string };
+    booking_auth_completed: { source: 'login' | 'register'; step_returned_to: number; teacher_id: string };
+    booking_continue_clicked: { teacher_id: string };
+    booking_abandoned: { step: number; teacher_id: string };
 
     // Payment events
     payment_failed: { error_code: string };

@@ -34,6 +34,7 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useState } from 'react';
+import { AddToCalendar } from './AddToCalendar';
 
 interface BookingDetailsViewProps {
     booking: Booking;
@@ -338,6 +339,16 @@ export function BookingDetailsView({ booking, userRole, availableActions, onActi
                             <p className="text-xs font-bold text-gray-400 border-t pt-3 w-full">
                                 التالي: حضور الحصة في الموعد
                             </p>
+
+                            <div className="w-full mt-2">
+                                <AddToCalendar
+                                    title={`Sidra Session: ${booking.subject?.nameEn || 'Session'} with ${booking.teacherProfile?.displayName || 'Teacher'}`}
+                                    description={`Join Link: ${booking.meetingLink || 'Check Dashboard'}\n\nNotes: ${booking.bookingNotes || 'None'}`}
+                                    location={booking.meetingLink || 'Sidra Platform'}
+                                    startTime={booking.startTime}
+                                    endTime={booking.endTime}
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

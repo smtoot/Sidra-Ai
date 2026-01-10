@@ -1,15 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
-import {
-  UpdateParentProfileDto,
-  CreateChildDto,
-  UpdateChildDto,
-} from './dto';
+import { UpdateParentProfileDto, CreateChildDto, UpdateChildDto } from './dto';
 
 @Injectable()
 export class ParentService {

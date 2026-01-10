@@ -431,7 +431,12 @@ export class EscrowSchedulerService {
       // STABILITY FIX: Use raw query for efficient field comparison without loading all packages
       // This prevents memory issues when there are many active packages
       const packagesToDepleted = await this.prisma.$queryRaw<
-        Array<{ id: string; sessionsUsed: number; sessionCount: number; payerId: string }>
+        Array<{
+          id: string;
+          sessionsUsed: number;
+          sessionCount: number;
+          payerId: string;
+        }>
       >`
         SELECT id, "sessionsUsed", "sessionCount", "payerId"
         FROM student_packages

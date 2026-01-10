@@ -203,7 +203,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             device_type: getDeviceType(),
         });
 
-        // Role-based redirect
+        // Check for returnUrl (e.g., from booking flow redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnUrl = urlParams.get('returnUrl');
+
+        if (returnUrl) {
+            // Validate returnUrl is a relative path (security: prevent open redirect)
+            if (returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+                // Add openBooking=true to auto-open booking modal on return
+                const separator = returnUrl.includes('?') ? '&' : '?';
+                router.push(`${returnUrl}${separator}openBooking=true`);
+                return;
+            }
+        }
+
+        // Role-based redirect (fallback when no returnUrl)
         if (payload.role === 'PARENT') {
             router.push('/parent');
         } else if (payload.role === 'TEACHER') {
@@ -253,7 +267,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             device_type: getDeviceType(),
         });
 
-        // Role-based redirect
+        // Check for returnUrl (e.g., from booking flow redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnUrl = urlParams.get('returnUrl');
+
+        if (returnUrl) {
+            // Validate returnUrl is a relative path (security: prevent open redirect)
+            if (returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+                // Add openBooking=true to auto-open booking modal on return
+                const separator = returnUrl.includes('?') ? '&' : '?';
+                router.push(`${returnUrl}${separator}openBooking=true`);
+                return;
+            }
+        }
+
+        // Role-based redirect (fallback when no returnUrl)
         if (payload.role === 'PARENT') {
             router.push('/parent');
         } else if (payload.role === 'TEACHER') {

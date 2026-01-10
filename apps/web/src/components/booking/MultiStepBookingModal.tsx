@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { trackEvent } from '@/lib/analytics';
+import { BOOKING_EVENTS } from '@sidra/shared';
 
 // Types and hooks
 import { BOOKING_STEPS } from './types';
@@ -14,10 +16,8 @@ import { useBookingFlow } from './useBookingFlow';
 // Components
 import { ProgressIndicator } from './ProgressIndicator';
 import { LoginCheckpoint } from './LoginCheckpoint';
-import { Button } from '@/components/ui/button'; // Assuming you have a button component, otherwise standard html button works
+import { Button } from '@/components/ui/button';
 import { AlertCircle } from 'lucide-react';
-
-// Steps
 
 // Steps
 import { Step1Subject } from './steps/Step1Subject';
@@ -148,33 +148,69 @@ export function MultiStepBookingModal({
         router.push(`/parent/children/new?returnUrl=${encodeURIComponent(window.location.pathname)}`);
     };
 
-    // Check for pending booking on mount/open
+    // Track if we've already tracked "booking started" for this modal open
+    const hasTrackedOpenRef = useRef(false);
+
+    // Track booking started and initial step view when modal opens
     useEffect(() => {
-        if (isOpen) {
-            // Small delay to ensure userId is loaded if logged in is tricky because fetchUserData is async
-            // But we can check generic "pendingBooking" existence first or rely on checkPendingBooking robustness
-            // Actually checkPendingBooking relies on userId matching if present.
-            // If user is logged in, we wait for userId?
-            // "fetchUserData" runs on mount if isOpen && user.
-            // Let's add a dependency on userId or just run it.
-            // If we run it immediately and userId isn't set yet, it might fail the "userId matches" check if logic requires it.
-            // But if userId is undefined in useBookingFlow, the checkPendingBooking might skip user check?
-            // "if (userId && data.userId !== userId) return false" -> if userId is undefined, it skips?
-            // No, consistency is key.
-            // Let's just run it. If it returns true, great.
+        if (isOpen && !hasTrackedOpenRef.current) {
+            hasTrackedOpenRef.current = true;
+
+            // Track booking started
+            trackEvent(BOOKING_EVENTS.STARTED, { teacher_id: teacherId });
+
+            // Track initial step view
+            trackEvent(BOOKING_EVENTS.STEP_VIEWED, {
+                step: 0,
+                step_name: BOOKING_STEPS[0]?.label || 'Subject',
+                teacher_id: teacherId
+            });
+        }
+
+        // Reset the ref when modal closes
+        if (!isOpen) {
+            hasTrackedOpenRef.current = false;
+        }
+    }, [isOpen, teacherId]);
+
+    // Track if we've already checked for pending booking this modal session
+    const hasCheckedPendingRef = useRef(false);
+
+    // Separate effect for checking pending booking (depends on checkPendingBooking callback)
+    useEffect(() => {
+        if (isOpen && !hasCheckedPendingRef.current) {
+            hasCheckedPendingRef.current = true;
             const hasPending = checkPendingBooking();
             if (hasPending) {
                 setShowResumeDialog(true);
             }
         }
-    }, [isOpen, checkPendingBooking]); // checkPendingBooking depends on userId
+
+        // Reset when modal closes
+        if (!isOpen) {
+            hasCheckedPendingRef.current = false;
+        }
+    }, [isOpen, checkPendingBooking]);
 
     const handleNext = () => {
         const result = goToNextStep();
 
         if (result === 'LOGIN_REQUIRED') {
-            // Show login checkpoint
+            // Track auth prompt shown
+            trackEvent(BOOKING_EVENTS.AUTH_PROMPT_SHOWN, {
+                step: state.currentStep,
+                teacher_id: teacherId
+            });
             return;
+        }
+
+        if (result === true) {
+            // Track step view for the new step
+            trackEvent(BOOKING_EVENTS.STEP_VIEWED, {
+                step: state.currentStep + 1,
+                step_name: BOOKING_STEPS[state.currentStep + 1]?.label || '',
+                teacher_id: teacherId
+            });
         }
 
         if (result === false && state.currentStep === BOOKING_STEPS.length - 1) {
@@ -261,6 +297,9 @@ export function MultiStepBookingModal({
                 toast.success('تم إنشاء الحجز بنجاح! في انتظار موافقة المعلم');
             }
 
+            // Track booking confirmed
+            trackEvent(BOOKING_EVENTS.CONFIRMED, { teacher_id: teacherId });
+
             clearSavedState();
             resetState();
             onClose();
@@ -270,6 +309,12 @@ export function MultiStepBookingModal({
         } catch (error: any) {
             console.error('Failed to create booking:', error);
             console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
+
+            // Track booking error
+            trackEvent(BOOKING_EVENTS.ERROR, {
+                error_code: error.response?.data?.message || 'UNKNOWN_ERROR'
+            });
+
             toast.error(error.response?.data?.message || 'فشل إنشاء الحجز. يرجى المحاولة مرة أخرى');
         } finally {
             setIsSubmitting(false);
@@ -476,8 +521,23 @@ export function MultiStepBookingModal({
                             <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
                                 <button
                                     onClick={() => {
+                                        // Track continue/resume clicked
+                                        trackEvent(BOOKING_EVENTS.CONTINUE_CLICKED, {
+                                            teacher_id: teacherId
+                                        });
                                         resumeBooking();
                                         setShowResumeDialog(false);
+                                        // Track draft resumed with step info after resume
+                                        const saved = localStorage.getItem('pendingBooking');
+                                        if (saved) {
+                                            try {
+                                                const data = JSON.parse(saved);
+                                                trackEvent(BOOKING_EVENTS.DRAFT_RESUMED, {
+                                                    step: data.currentStep || 0,
+                                                    teacher_id: teacherId
+                                                });
+                                            } catch { /* ignore */ }
+                                        }
                                     }}
                                     className="w-full py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
                                 >
@@ -485,6 +545,17 @@ export function MultiStepBookingModal({
                                 </button>
                                 <button
                                     onClick={() => {
+                                        // Track abandoned draft
+                                        const saved = localStorage.getItem('pendingBooking');
+                                        if (saved) {
+                                            try {
+                                                const data = JSON.parse(saved);
+                                                trackEvent(BOOKING_EVENTS.ABANDONED, {
+                                                    step: data.currentStep || 0,
+                                                    teacher_id: teacherId
+                                                });
+                                            } catch { /* ignore */ }
+                                        }
                                         clearSavedState();
                                         setShowResumeDialog(false);
                                     }}

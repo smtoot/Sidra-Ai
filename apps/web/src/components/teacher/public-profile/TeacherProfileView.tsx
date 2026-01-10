@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { TeacherPublicProfile, marketplaceApi } from '@/lib/api/marketplace';
 import { MultiStepBookingModal } from '@/components/booking/MultiStepBookingModal';
 import { Button } from '@/components/ui/button';
@@ -117,6 +117,7 @@ const EmptyState = ({ message, isPreview }: { message: string, isPreview: boolea
 
 export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfileViewProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { packagesEnabled, demosEnabled: globalDemosEnabled } = useSystemConfig();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
@@ -133,6 +134,17 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
     const isPreview = mode === 'preview';
     const isPublic = mode === 'public';
+
+    // Auto-open booking modal when returning from login/register with openBooking=true
+    useEffect(() => {
+        if (isPublic && searchParams.get('openBooking') === 'true') {
+            setIsModalOpen(true);
+            // Clean up URL parameter without triggering a navigation
+            const url = new URL(window.location.href);
+            url.searchParams.delete('openBooking');
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, [isPublic, searchParams]);
 
     // Truncation constants
     const SKILLS_INITIAL_COUNT = 6;

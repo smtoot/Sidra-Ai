@@ -216,8 +216,9 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
             // 1. Teacher matches
             if (data.teacherId !== teacherId) return false;
 
-            // 2. User matches (if logged in)
-            if (userId && data.userId !== userId) return false;
+            // 2. User matches (if logged in) OR draft was created by a guest
+            // Allow logged-in user to resume a guest draft (same teacher)
+            if (userId && data.userId && data.userId !== userId) return false;
 
             // 3. Not expired (30 mins)
             if (Date.now() - data.timestamp > EXPIRY_TIME) {
@@ -226,14 +227,10 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
                 return false;
             }
 
-            // 4. Significant progress made (Step >= 3 generally, or at least Step 2 finished)
-            // User requested: currentStep >= 3, or if we want to be generous:
-            // "only restore if all conditions pass... currentStep >= 3"
-            // But let's allow resuming even earlier if it matches exactly, 
-            // BUT strict requirement was "currentStep >= 3".
-            // Let's stick to the user requirement for the "Prompt" but safely restore otherwise?
-            // Actually user said: "Restore booking state ONLY IF... currentStep >= 3"
-            if ((data.currentStep || 0) < 3) return false;
+            // 4. Any meaningful progress made (at least selected a subject = completed step 0)
+            // Previously required step >= 3 which was too restrictive
+            // Now we restore if user made ANY progress (step >= 1 means they completed step 0)
+            if ((data.currentStep || 0) < 1 && !data.selectedSubject) return false;
 
             return true;
         } catch (err) {
@@ -264,6 +261,8 @@ export function useBookingFlow({ teacherId, teacherName, isGuest, userRole, user
                     recurringWeekday: data.recurringWeekday || '',
                     recurringTime: data.recurringTime || '',
                     suggestedDates: (data.suggestedDates || []).map((d: string) => new Date(d)),
+                    // FIX: Restore selectedChildId so parent doesn't have to re-select
+                    selectedChildId: data.selectedChildId || '',
                     bookingNotes: data.bookingNotes || '',
                     // Don't restore termsAccepted, user should review again
                     termsAccepted: false
