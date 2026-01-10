@@ -139,6 +139,12 @@ export const packageApi = {
         ) || null;
     },
 
+    // Get teacher public settings (demo + packages)
+    getTeacherSettings: async (teacherId: string): Promise<{ demoEnabled: boolean; packagesEnabled: boolean }> => {
+        const response = await api.get(`/packages/settings/teacher/${teacherId}`);
+        return response.data;
+    },
+
     // =====================================================
     // SMART PACK APIs
     // =====================================================

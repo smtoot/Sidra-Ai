@@ -471,7 +471,7 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                         });
 
                                         // Packages
-                                        if (packagesEnabled) {
+                                        if (packagesEnabled && teacher.teacherSettings.packagesEnabled) {
                                             teacher.packageTiers.forEach((tier, index) => {
                                                 const totalPrice = basePrice * tier.sessionCount;
                                                 const discountedPrice = Math.round(totalPrice * (1 - tier.discountPercent / 100));

@@ -51,6 +51,7 @@ export interface TeacherPublicProfile {
     };
     teacherSettings: {
         demoEnabled: boolean;
+        packagesEnabled: boolean;
     };
     packageTiers: Array<{
         id: string;

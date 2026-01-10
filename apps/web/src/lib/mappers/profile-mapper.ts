@@ -48,6 +48,7 @@ export function mapHubStateToPublicProfile(hubProfile: any): TeacherPublicProfil
         },
         teacherSettings: {
             demoEnabled: hubProfile.teacherSettings?.demoEnabled ?? false,
+            packagesEnabled: hubProfile.teacherSettings?.packagesEnabled ?? true,
         },
 
         // NO DUMMY DATA: If packageTiers are not loaded in hubProfile, send empty.

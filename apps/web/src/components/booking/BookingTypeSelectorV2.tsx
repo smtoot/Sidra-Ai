@@ -40,6 +40,8 @@ interface BookingTypeSelectorV2Props {
 // COMPONENT
 // =====================================================
 
+import { useSystemConfig } from '@/context/SystemConfigContext';
+
 export function BookingTypeSelectorV2({
     teacherId,
     subjectId,
@@ -47,8 +49,9 @@ export function BookingTypeSelectorV2({
     onSelect,
     selectedOption
 }: BookingTypeSelectorV2Props) {
+    const { packagesEnabled: globalPackagesEnabled } = useSystemConfig();
     const [loading, setLoading] = useState(true);
-    const [demoEnabled, setDemoEnabled] = useState(false);
+    const [teacherSettings, setTeacherSettings] = useState<{ demoEnabled: boolean, packagesEnabled: boolean }>({ demoEnabled: false, packagesEnabled: true });
     const [demoEligibility, setDemoEligibility] = useState<DemoEligibility | null>(null);
     const [tiers, setTiers] = useState<PackageTier[]>([]);
     const [existingPackage, setExistingPackage] = useState<StudentPackage | null>(null);
@@ -64,8 +67,8 @@ export function BookingTypeSelectorV2({
     const loadOptions = async () => {
         setLoading(true);
         try {
-            const [demoEnabledResult, eligibilityResult, tiersResult, activePackage] = await Promise.all([
-                packageApi.isTeacherDemoEnabled(teacherId).catch(() => false),
+            const [settingsResult, eligibilityResult, tiersResult, activePackage] = await Promise.all([
+                packageApi.getTeacherSettings(teacherId).catch(() => ({ demoEnabled: false, packagesEnabled: true })),
                 // For guests, eligibility check will fail - that's ok, we'll show demo as available
                 // and they'll need to login to actually book
                 packageApi.checkDemoEligibility(teacherId).catch(() => ({ allowed: true, reason: undefined })),
@@ -73,7 +76,7 @@ export function BookingTypeSelectorV2({
                 packageApi.getActivePackageForTeacher(teacherId, subjectId).catch(() => null)
             ]);
 
-            setDemoEnabled(demoEnabledResult);
+            setTeacherSettings(settingsResult);
             setDemoEligibility(eligibilityResult);
             setTiers(tiersResult);
             setExistingPackage(activePackage);
@@ -83,6 +86,9 @@ export function BookingTypeSelectorV2({
             setLoading(false);
         }
     };
+
+    // Filter tiers based on settings
+    const arePackagesEnabled = globalPackagesEnabled && teacherSettings.packagesEnabled;
 
     // Build options
     const recommendedOption: BookingTypeOption | null = (() => {
@@ -104,8 +110,8 @@ export function BookingTypeSelectorV2({
             }
         }
 
-        // Priority 2: Best value package tier (highest discount)
-        if (tiers.length > 0) {
+        // Priority 2: Best value package tier (highest discount) - ONLY IF PACKAGES ENABLED
+        if (arePackagesEnabled && tiers.length > 0) {
             const bestTier = tiers.reduce((best, tier) =>
                 tier.discountPercent > best.discountPercent ? tier : best
             );
@@ -134,7 +140,7 @@ export function BookingTypeSelectorV2({
     const otherOptions: BookingTypeOption[] = [];
 
     // Demo - always show if teacher has enabled demos (regardless of recommended option)
-    if (demoEnabled) {
+    if (teacherSettings.demoEnabled) {
         otherOptions.push({
             type: 'DEMO',
             enabled: demoEligibility?.allowed ?? false,
@@ -154,25 +160,27 @@ export function BookingTypeSelectorV2({
         });
     }
 
-    // Other package tiers (not recommended)
-    tiers.forEach((tier) => {
-        if (recommendedOption?.tierId === tier.id) return; // Skip recommended
+    // Other package tiers (not recommended) - ONLY IF PACKAGES ENABLED
+    if (arePackagesEnabled) {
+        tiers.forEach((tier) => {
+            if (recommendedOption?.tierId === tier.id) return; // Skip recommended
 
-        const totalPrice = basePrice * tier.sessionCount;
-        const discountedTotal = Math.round(totalPrice * (1 - tier.discountPercent / 100));
-        const savings = totalPrice - discountedTotal;
+            const totalPrice = basePrice * tier.sessionCount;
+            const discountedTotal = Math.round(totalPrice * (1 - tier.discountPercent / 100));
+            const savings = totalPrice - discountedTotal;
 
-        otherOptions.push({
-            type: 'PACKAGE',
-            enabled: true,
-            tierId: tier.id,
-            price: discountedTotal,
-            displayPrice: formatCurrency(discountedTotal),
-            sessionCount: tier.sessionCount,
-            savings: `${formatCurrency(savings).replace(' SDG', '')} (${tier.discountPercent}%)`,
-            recurringRatio: tier.recurringRatio
+            otherOptions.push({
+                type: 'PACKAGE',
+                enabled: true,
+                tierId: tier.id,
+                price: discountedTotal,
+                displayPrice: formatCurrency(discountedTotal),
+                sessionCount: tier.sessionCount,
+                savings: `${formatCurrency(savings).replace(' SDG', '')} (${tier.discountPercent}%)`,
+                recurringRatio: tier.recurringRatio
+            });
         });
-    });
+    }
 
     if (loading) {
         return (

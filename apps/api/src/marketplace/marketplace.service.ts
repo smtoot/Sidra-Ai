@@ -31,7 +31,7 @@ import { toZonedTime } from 'date-fns-tz';
 export class MarketplaceService {
   private readonly logger = new Logger(MarketplaceService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get public platform configuration (for frontend booking UI)
@@ -683,6 +683,7 @@ export class MarketplaceService {
         },
         teacherSettings: {
           demoEnabled: teacherDemoSettings?.demoEnabled ?? false,
+          packagesEnabled: teacherDemoSettings?.packagesEnabled ?? true,
         },
         packageTiers: packageTiers.map((t) => ({
           id: t.id,
@@ -753,18 +754,18 @@ export class MarketplaceService {
         vacationEndDate: teacher.vacationEndDate,
         teachingApproach:
           (teacher as any).teachingStyle ||
-          ((teacher as any).teacher_teaching_approach_tags &&
-            (teacher as any).teacher_teaching_approach_tags.length > 0)
+            ((teacher as any).teacher_teaching_approach_tags &&
+              (teacher as any).teacher_teaching_approach_tags.length > 0)
             ? {
-                text: (teacher as any).teachingStyle,
-                tags:
-                  (teacher as any).teacher_teaching_approach_tags?.map(
-                    (tt: any) => ({
-                      id: tt.teaching_approach_tags?.id,
-                      labelAr: tt.teaching_approach_tags?.labelAr,
-                    }),
-                  ) || [],
-              }
+              text: (teacher as any).teachingStyle,
+              tags:
+                (teacher as any).teacher_teaching_approach_tags?.map(
+                  (tt: any) => ({
+                    id: tt.teaching_approach_tags?.id,
+                    labelAr: tt.teaching_approach_tags?.labelAr,
+                  }),
+                ) || [],
+            }
             : null,
       };
     } catch (error) {

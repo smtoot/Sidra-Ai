@@ -76,7 +76,7 @@ export class PackageController {
   constructor(
     private packageService: PackageService,
     private demoService: DemoService,
-  ) {}
+  ) { }
 
   // =====================================================
   // ADMIN: Manage Tiers & Stats
@@ -317,6 +317,16 @@ export class PackageController {
   async isTeacherDemoEnabled(@Param('teacherId') teacherId: string) {
     const enabled = await this.demoService.isTeacherDemoEnabled(teacherId);
     return { demoEnabled: enabled };
+  }
+
+  @Get('settings/teacher/:teacherId')
+  @Public()
+  async getTeacherSettings(@Param('teacherId') teacherId: string) {
+    const settings = await this.demoService.getDemoSettings(teacherId);
+    return {
+      demoEnabled: settings?.demoEnabled ?? false,
+      packagesEnabled: settings?.packagesEnabled ?? true,
+    };
   }
 
   // =====================================================
