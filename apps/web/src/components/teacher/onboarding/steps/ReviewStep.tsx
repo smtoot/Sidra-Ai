@@ -76,8 +76,8 @@ function SectionCard({ title, icon: Icon, stepNumber, onEdit, isComplete, childr
             "bg-white rounded-2xl shadow-sm border p-5",
             isComplete ? "border-gray-100" : "border-amber-200"
         )}>
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3 sm:gap-0">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center",
                         isComplete ? "bg-primary/10" : "bg-amber-50"

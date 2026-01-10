@@ -78,8 +78,8 @@ export function PhotoStep() {
         <div className="space-y-8 font-tajawal">
             {/* Header */}
             <div className="text-center space-y-2">
-                <h1 className="text-2xl md:text-3xl font-bold text-primary">الخطوة 1: صورتك الشخصية</h1>
-                <p className="text-text-subtle">الصورة تساعد الطلاب وأولياء الأمور على التعرف عليك</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-primary">الخطوة 1: المعلومات الأساسية</h1>
+                <p className="text-text-subtle">أكمل معلوماتك الشخصية وملفك التعريفي</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-8">
