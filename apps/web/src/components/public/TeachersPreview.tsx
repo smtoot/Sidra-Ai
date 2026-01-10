@@ -50,6 +50,60 @@ function getUniqueTeachers(results: SearchResult[]): SearchResult[] {
     return Array.from(teacherMap.values());
 }
 
+// Placeholder teacher card component
+function PlaceholderTeacherCard({ teacher }: { teacher: typeof PLACEHOLDER_TEACHERS[0] }) {
+    return (
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col items-center p-8">
+            {/* Avatar */}
+            <div className="w-24 h-24 rounded-full bg-gray-100 mb-5 overflow-hidden border-4 border-white shadow-md">
+                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
+                    <span className="text-2xl font-bold text-[#003366]">
+                        {teacher.name.charAt(2)}
+                    </span>
+                </div>
+            </div>
+
+            {/* Name */}
+            <h3 className="font-bold text-xl text-[#003366] mb-2">
+                {teacher.name}
+            </h3>
+
+            {/* Subject */}
+            <div className="mb-4">
+                <span className="inline-block bg-[#F0F7FF] text-[#003366] font-bold px-4 py-1.5 rounded-full text-sm">
+                    {teacher.subject}
+                </span>
+            </div>
+
+            {/* Curriculum */}
+            <div className="flex flex-col items-center gap-2 mb-5 w-full">
+                <span className="text-xs text-gray-500 font-bold">المنهج</span>
+                <div className="flex flex-wrap justify-center gap-2">
+                    <span className="bg-white border border-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                        {teacher.curriculum}
+                    </span>
+                </div>
+            </div>
+
+            {/* Rating */}
+            <div className="flex items-center gap-1.5 mb-5 opacity-90">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                <span className="font-bold text-gray-900 text-sm">
+                    {teacher.rating.toFixed(1)}
+                </span>
+                <span className="text-gray-400 text-xs">
+                    ({teacher.reviews} تقييم)
+                </span>
+            </div>
+
+            {/* Bio */}
+            <p className="text-gray-500 text-sm font-medium leading-relaxed border-t border-gray-50 pt-4 w-full text-center line-clamp-2">
+                {teacher.bio}
+            </p>
+        </div>
+    );
+}
+
 export function TeachersPreview() {
     // Fetch top-rated approved teachers
     const { data: searchResults = [], isLoading } = useQuery({
@@ -60,6 +114,10 @@ export function TeachersPreview() {
 
     // Get unique teachers (deduplicate by teacher ID) and take top 3
     const featuredTeachers = getUniqueTeachers(searchResults).slice(0, 3);
+
+    // Calculate how many placeholder teachers to show to fill the grid
+    const placeholdersNeeded = Math.max(0, 3 - featuredTeachers.length);
+    const fillPlaceholders = PLACEHOLDER_TEACHERS.slice(0, placeholdersNeeded);
 
     return (
         <section className="py-24 bg-gray-50">
@@ -86,135 +144,88 @@ export function TeachersPreview() {
                                 <div className="h-4 bg-gray-200 rounded w-full" />
                             </div>
                         ))
-                    ) : featuredTeachers.length > 0 ? (
-                        featuredTeachers.map((result) => {
-                            const teacher = result.teacherProfile;
-                            const displayName = teacher.displayName || 'معلم';
-                            const initial = displayName.charAt(0);
-                            const profileLink = teacher.slug
-                                ? `/teachers/${teacher.slug}`
-                                : `/teachers/${teacher.id}`;
+                    ) : (
+                        <>
+                            {/* Real teachers */}
+                            {featuredTeachers.map((result) => {
+                                const teacher = result.teacherProfile;
+                                const displayName = teacher.displayName || 'معلم';
+                                const initial = displayName.charAt(0);
+                                const profileLink = teacher.slug
+                                    ? `/teachers/${teacher.slug}`
+                                    : `/teachers/${teacher.id}`;
 
-                            return (
-                                <Link
-                                    key={teacher.id}
-                                    href={profileLink}
-                                    className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col items-center p-8"
-                                >
-                                    {/* Avatar */}
-                                    <div className="w-24 h-24 rounded-full bg-gray-100 mb-5 overflow-hidden border-4 border-white shadow-md">
-                                        {teacher.profilePhotoUrl ? (
-                                            <img
-                                                src={teacher.profilePhotoUrl}
-                                                alt={displayName}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
-                                                <span className="text-2xl font-bold text-[#003366]">
-                                                    {initial}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
+                                return (
+                                    <Link
+                                        key={teacher.id}
+                                        href={profileLink}
+                                        className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col items-center p-8"
+                                    >
+                                        {/* Avatar */}
+                                        <div className="w-24 h-24 rounded-full bg-gray-100 mb-5 overflow-hidden border-4 border-white shadow-md">
+                                            {teacher.profilePhotoUrl ? (
+                                                <img
+                                                    src={teacher.profilePhotoUrl}
+                                                    alt={displayName}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
+                                                    <span className="text-2xl font-bold text-[#003366]">
+                                                        {initial}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    {/* Name */}
-                                    <h3 className="font-bold text-xl text-[#003366] mb-2">
-                                        {displayName}
-                                    </h3>
+                                        {/* Name */}
+                                        <h3 className="font-bold text-xl text-[#003366] mb-2">
+                                            {displayName}
+                                        </h3>
 
-                                    {/* Subject */}
-                                    <div className="mb-4">
-                                        <span className="inline-block bg-[#F0F7FF] text-[#003366] font-bold px-4 py-1.5 rounded-full text-sm">
-                                            {result.subject.nameAr}
-                                        </span>
-                                    </div>
-
-                                    {/* Curriculum */}
-                                    <div className="flex flex-col items-center gap-2 mb-5 w-full">
-                                        <span className="text-xs text-gray-500 font-bold">المنهج</span>
-                                        <div className="flex flex-wrap justify-center gap-2">
-                                            <span className="bg-white border border-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
-                                                {result.curriculum.nameAr}
+                                        {/* Subject */}
+                                        <div className="mb-4">
+                                            <span className="inline-block bg-[#F0F7FF] text-[#003366] font-bold px-4 py-1.5 rounded-full text-sm">
+                                                {result.subject.nameAr}
                                             </span>
                                         </div>
-                                    </div>
 
-                                    {/* Rating */}
-                                    <div className="flex items-center gap-1.5 mb-5 opacity-90">
-                                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                                        <span className="font-bold text-gray-900 text-sm">
-                                            {teacher.averageRating.toFixed(1)}
-                                        </span>
-                                        <span className="text-gray-400 text-xs">
-                                            ({teacher.totalReviews} تقييم)
-                                        </span>
-                                    </div>
+                                        {/* Curriculum */}
+                                        <div className="flex flex-col items-center gap-2 mb-5 w-full">
+                                            <span className="text-xs text-gray-500 font-bold">المنهج</span>
+                                            <div className="flex flex-wrap justify-center gap-2">
+                                                <span className="bg-white border border-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                                                    {result.curriculum.nameAr}
+                                                </span>
+                                            </div>
+                                        </div>
 
-                                    {/* Bio / Experience */}
-                                    {teacher.bio && (
-                                        <p className="text-gray-500 text-sm font-medium leading-relaxed border-t border-gray-50 pt-4 w-full text-center line-clamp-2">
-                                            {teacher.bio}
-                                        </p>
-                                    )}
-                                </Link>
-                            );
-                        })
-                    ) : (
-                        // Fallback to placeholder teachers when no real teachers exist
-                        PLACEHOLDER_TEACHERS.map((teacher) => (
-                            <div
-                                key={teacher.id}
-                                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col items-center p-8"
-                            >
-                                {/* Avatar */}
-                                <div className="w-24 h-24 rounded-full bg-gray-100 mb-5 overflow-hidden border-4 border-white shadow-md">
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
-                                        <span className="text-2xl font-bold text-[#003366]">
-                                            {teacher.name.charAt(2)}
-                                        </span>
-                                    </div>
-                                </div>
+                                        {/* Rating */}
+                                        <div className="flex items-center gap-1.5 mb-5 opacity-90">
+                                            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                            <span className="font-bold text-gray-900 text-sm">
+                                                {teacher.averageRating.toFixed(1)}
+                                            </span>
+                                            <span className="text-gray-400 text-xs">
+                                                ({teacher.totalReviews} تقييم)
+                                            </span>
+                                        </div>
 
-                                {/* Name */}
-                                <h3 className="font-bold text-xl text-[#003366] mb-2">
-                                    {teacher.name}
-                                </h3>
+                                        {/* Bio / Experience */}
+                                        {teacher.bio && (
+                                            <p className="text-gray-500 text-sm font-medium leading-relaxed border-t border-gray-50 pt-4 w-full text-center line-clamp-2">
+                                                {teacher.bio}
+                                            </p>
+                                        )}
+                                    </Link>
+                                );
+                            })}
 
-                                {/* Subject */}
-                                <div className="mb-4">
-                                    <span className="inline-block bg-[#F0F7FF] text-[#003366] font-bold px-4 py-1.5 rounded-full text-sm">
-                                        {teacher.subject}
-                                    </span>
-                                </div>
-
-                                {/* Curriculum */}
-                                <div className="flex flex-col items-center gap-2 mb-5 w-full">
-                                    <span className="text-xs text-gray-500 font-bold">المنهج</span>
-                                    <div className="flex flex-wrap justify-center gap-2">
-                                        <span className="bg-white border border-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
-                                            {teacher.curriculum}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Rating */}
-                                <div className="flex items-center gap-1.5 mb-5 opacity-90">
-                                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                                    <span className="font-bold text-gray-900 text-sm">
-                                        {teacher.rating.toFixed(1)}
-                                    </span>
-                                    <span className="text-gray-400 text-xs">
-                                        ({teacher.reviews} تقييم)
-                                    </span>
-                                </div>
-
-                                {/* Bio */}
-                                <p className="text-gray-500 text-sm font-medium leading-relaxed border-t border-gray-50 pt-4 w-full text-center line-clamp-2">
-                                    {teacher.bio}
-                                </p>
-                            </div>
-                        ))
+                            {/* Fill remaining slots with placeholders */}
+                            {fillPlaceholders.map((teacher) => (
+                                <PlaceholderTeacherCard key={teacher.id} teacher={teacher} />
+                            ))}
+                        </>
                     )}
                 </div>
 
@@ -229,4 +240,3 @@ export function TeachersPreview() {
         </section>
     );
 }
-
