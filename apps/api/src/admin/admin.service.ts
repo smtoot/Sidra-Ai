@@ -28,7 +28,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) {}
+  ) { }
 
   async getDashboardStats() {
     const [
@@ -173,8 +173,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-            previousCompletedBookings) *
-          100
+          previousCompletedBookings) *
+        100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -195,7 +195,7 @@ export class AdminService {
       where.status = status;
     }
 
-    return this.prisma.bookings.findMany({
+    const bookings = await this.prisma.bookings.findMany({
       where,
       include: {
         teacher_profiles: {
@@ -213,6 +213,28 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+
+    return bookings.map(b => this.transformBooking(b));
+  }
+
+  private transformBooking(booking: any) {
+    if (!booking) return null;
+
+    // Transform relations to match frontend expected structure (camelCase)
+    // Coincides with BookingService.transformBooking logic
+    return {
+      ...booking,
+      teacherProfile: booking.teacher_profiles
+        ? {
+          ...booking.teacher_profiles,
+          user: booking.teacher_profiles.users,
+        }
+        : undefined,
+      bookedByUser: booking.users_bookings_bookedByUserIdTousers,
+      studentUser: booking.users_bookings_studentUserIdTousers,
+      child: booking.children,
+      subject: booking.subjects,
+    };
   }
 
   async getBookingById(id: string) {
@@ -242,14 +264,15 @@ export class AdminService {
       throw new NotFoundException('Booking not found');
     }
 
-    const result: any = booking;
+    const transformed = this.transformBooking(booking);
 
-    // Map package if exists
+    // Map package if exists (keep this custom logic on top of transformed object)
     if (booking.package_redemptions?.student_packages) {
-      result.student_packages = booking.package_redemptions.student_packages;
+      // @ts-ignore
+      transformed.student_packages = booking.package_redemptions.student_packages;
     }
 
-    return result;
+    return transformed;
   }
 
   async cancelBooking(bookingId: string, adminUserId: string, reason?: string) {
