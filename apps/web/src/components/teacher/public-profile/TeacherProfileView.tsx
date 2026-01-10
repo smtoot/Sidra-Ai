@@ -21,6 +21,8 @@ import {
     TEACHER_STATUS_LABELS
 } from '@/config/teacher-status';
 import { useSystemConfig } from '@/context/SystemConfigContext';
+import { format } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 import { parseVideoUrl } from '@/lib/utils/video-thumbnail';
 
 // --- Helper Functions & Constants ---
@@ -136,6 +138,42 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
     const SKILLS_INITIAL_COUNT = 6;
     const EXPERIENCES_INITIAL_COUNT = 2;
 
+    // --- Timezone Logic ---
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const SUDAN_TIMEZONE = 'Africa/Khartoum';
+
+    const localAvailability = React.useMemo(() => {
+        if (!teacher.availability) return [];
+
+        // Reference dates for days of the week to handle day shifting
+        // Using a known week: Jan 7 2024 was Sunday
+        const DAY_TO_DATE: Record<string, string> = {
+            'SUNDAY': '2024-01-07',
+            'MONDAY': '2024-01-08',
+            'TUESDAY': '2024-01-09',
+            'WEDNESDAY': '2024-01-10',
+            'THURSDAY': '2024-01-11',
+            'FRIDAY': '2024-01-12',
+            'SATURDAY': '2024-01-13'
+        };
+
+        return teacher.availability.map(slot => {
+            const dateStr = `${DAY_TO_DATE[slot.dayOfWeek]} ${slot.startTime}`;
+            // Interpret the time as Sudan Time
+            const zonedDate = fromZonedTime(dateStr, SUDAN_TIMEZONE);
+
+            // Format back to day and time in User's Local Time (default behavior of format/Date)
+            const localDay = format(zonedDate, 'EEEE').toUpperCase(); // e.g., 'SUNDAY'
+            const localTime = format(zonedDate, 'HH:mm');
+
+            return {
+                ...slot,
+                dayOfWeek: localDay,
+                startTime: localTime
+            };
+        });
+    }, [teacher.availability]);
+
     // Check if user has navigation history (didn't land directly on this page)
     useEffect(() => {
         // Check if there's a previous page in the history stack
@@ -186,15 +224,15 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                 </div>
             )}
 
-            {/* Hero Section - Warm gradient background for entire hero */}
-            <div className="bg-gradient-to-b from-cream-light via-secondary/10 to-background">
+            {/* Hero Section - Cleaner gradient */}
+            <div className="bg-gradient-to-b from-primary/5 via-white to-white border-b border-gray-100">
                 <div className="container mx-auto px-4">
                     {/* Back Link */}
                     {isPublic && hasNavigationHistory && (
-                        <div className="pt-4 pb-2">
+                        <div className="pt-6 pb-2">
                             <button
                                 onClick={() => router.back()}
-                                className="inline-flex items-center gap-2 text-primary hover:underline text-sm font-medium"
+                                className="inline-flex items-center gap-2 text-text-subtle hover:text-primary hover:underline text-sm font-medium transition-colors"
                             >
                                 <ArrowRight className="w-4 h-4" />
                                 رجوع للبحث
@@ -203,8 +241,8 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                     )}
 
                     {/* Main Profile Content */}
-                    <div className="py-8 md:py-10">
-                        <div className="flex flex-col md:flex-row-reverse items-center md:items-start gap-8 max-w-4xl mx-auto">
+                    <div className="py-8 md:py-12">
+                        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 max-w-4xl mx-auto">
 
                             {/* Avatar */}
                             <div className="relative flex-shrink-0">
@@ -229,128 +267,140 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                 </div>
                             </div>
 
-                            {/* Info Content */}
-                            <div className="flex-grow text-center md:text-right space-y-4">
-                                {/* Row 1: Name + Verified Badge */}
-                                <div className="flex flex-col md:flex-row items-center md:items-center gap-3">
-                                    <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-                                        {teacher.displayName || (isPreview ? 'الاسم الظاهر' : 'معلم سدرة')}
-                                    </h1>
-                                    {teacher.applicationStatus === 'APPROVED' && (
-                                        <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">
-                                            <ShieldCheck className="w-4 h-4" />
-                                            موثق
-                                        </span>
+                            {/* Info Content - Refined Grid Layout */}
+                            <div className="flex-grow flex flex-col items-center md:items-start gap-6 text-center md:text-right w-full">
+
+                                {/* Block 1: Identity (Name, Badge, Subjects) */}
+                                <div className="space-y-3 w-full">
+                                    <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3">
+                                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
+                                            {teacher.displayName || (isPreview ? 'الاسم الظاهر' : 'معلم سدرة')}
+                                        </h1>
+                                        {teacher.applicationStatus === 'APPROVED' && (
+                                            <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">
+                                                <ShieldCheck className="w-3.5 h-3.5" />
+                                                موثق
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Subjects - Condensed */}
+                                    {teacher.subjects.length > 0 && (
+                                        <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                                            {teacher.subjects.slice(0, 3).map(s => (
+                                                <span
+                                                    key={s.id}
+                                                    className="inline-flex items-center gap-1.5 text-gray-600 bg-gray-50 px-2.5 py-1 rounded-md text-xs font-medium border border-gray-100"
+                                                >
+                                                    <BookOpen className="w-3 h-3 text-gray-400" />
+                                                    {s.subject.nameAr}
+                                                </span>
+                                            ))}
+                                            {teacher.subjects.length > 3 && (
+                                                <span className="text-xs text-text-subtle py-1 px-1 font-medium">
+                                                    +{teacher.subjects.length - 3}
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Row 2: Qualification */}
+                                {/* Qualification (Subtle) */}
                                 {(teacher.qualifications && teacher.qualifications.length > 0) ? (
-                                    <p className="text-gray-600 text-lg">
-                                        <span className="font-medium">{teacher.qualifications[0].degreeName}</span>
+                                    <p className="text-text-subtle text-base max-w-2xl px-4 md:px-0">
+                                        <span className="font-medium text-gray-700">{teacher.qualifications[0].degreeName}</span>
                                         {teacher.qualifications[0].institution && (
                                             <span className="text-gray-400"> • {teacher.qualifications[0].institution}</span>
                                         )}
                                     </p>
                                 ) : teacher.education ? (
-                                    <p className="text-gray-600 text-lg font-medium">{teacher.education}</p>
+                                    <p className="text-text-subtle text-base font-medium max-w-2xl px-4 md:px-0">{teacher.education}</p>
                                 ) : null}
 
-                                {/* Row 3: Subject Tags */}
-                                {teacher.subjects.length > 0 && (
-                                    <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                                        {teacher.subjects.slice(0, 4).map(s => (
-                                            <span
-                                                key={s.id}
-                                                className="inline-flex items-center gap-1.5 bg-white/80 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm"
-                                            >
-                                                <BookOpen className="w-3.5 h-3.5 text-primary" />
-                                                {s.subject.nameAr}
-                                            </span>
-                                        ))}
-                                        {teacher.subjects.length > 4 && (
-                                            <span className="inline-flex items-center bg-white/60 text-gray-500 px-3 py-1.5 rounded-full text-sm font-medium">
-                                                +{teacher.subjects.length - 4}
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Row 4: Stats - Clean inline layout */}
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-gray-600">
+                                {/* Block 2: Stats Bar */}
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 w-full pt-1">
                                     {/* Rating or New Badge */}
                                     {!isRecentlyJoinedTeacher(teacher.totalReviews) ? (
-                                        <div className="flex items-center gap-1.5">
-                                            <Star className="w-5 h-5 text-accent fill-current" />
-                                            <span className="font-bold text-gray-900 text-base">{teacher.averageRating.toFixed(1)}</span>
-                                            <span className="text-gray-400">({teacher.totalReviews} تقييم)</span>
+                                        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm text-sm">
+                                            <Star className="w-4 h-4 text-accent fill-current" />
+                                            <span className="font-bold text-gray-900">{teacher.averageRating.toFixed(1)}</span>
+                                            <span className="w-px h-3 bg-gray-200 mx-1"></span>
+                                            <span className="text-text-subtle text-xs">{teacher.totalReviews} تقييم</span>
                                         </div>
                                     ) : (
-                                        <div className="flex items-center gap-1.5 text-accent-dark">
-                                            <Sparkles className="w-5 h-5" />
-                                            <span className="font-bold">{TEACHER_STATUS_LABELS.RECENTLY_JOINED}</span>
+                                        <div className="inline-flex items-center gap-2 bg-accent/10 border border-accent/20 px-3 py-1.5 rounded-full shadow-sm text-sm">
+                                            <UserPlus className="w-4 h-4 text-accent-dark" />
+                                            <span className="font-bold text-accent-dark">{TEACHER_STATUS_LABELS.RECENTLY_JOINED}</span>
                                         </div>
                                     )}
 
                                     {teacher.totalSessions > 0 && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Users className="w-4 h-4" />
-                                            <span>{teacher.totalSessions}+ طالب</span>
+                                        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm text-sm text-gray-700">
+                                            <Users className="w-3.5 h-3.5 text-blue-500" />
+                                            <span className="font-medium">{teacher.totalSessions}+ حصة</span>
                                         </div>
                                     )}
 
                                     {teacher.yearsOfExperience && teacher.yearsOfExperience > 0 && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Clock className="w-4 h-4" />
-                                            <span>{teacher.yearsOfExperience}+ سنة خبرة</span>
+                                        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm text-sm text-gray-700">
+                                            <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                                            <span className="font-medium">{teacher.yearsOfExperience}+ سنوات خبرة</span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Row 5: Action Buttons + Status */}
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
-                                    {/* Availability Status */}
-                                    {teacher.isOnVacation ? (
-                                        <span className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-2 rounded-full font-bold text-sm">
-                                            <Palmtree className="w-4 h-4" />
-                                            في إجازة
-                                            {teacher.vacationEndDate && (
-                                                <span className="font-normal opacity-80">
-                                                    • يعود {new Date(teacher.vacationEndDate).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
-                                                </span>
+                                {/* Block 3: Action Bar (Price & Buttons) */}
+                                <div className="flex flex-col-reverse md:flex-row items-center justify-center md:justify-start gap-6 w-full pt-4 mt-2 border-t border-gray-100/50">
+
+                                    {/* Availability & Buttons (Grouped with Price on Right) */}
+                                    <div className="flex items-center gap-4">
+                                        {/* Buttons */}
+                                        <div className="flex items-center gap-2">
+                                            {!isPreview && (
+                                                <FavoriteButton
+                                                    teacherId={teacher.id}
+                                                    initialIsFavorited={teacher.isFavorited}
+                                                    className="w-10 h-10 border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100 rounded-full transition-all"
+                                                />
                                             )}
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full font-bold text-sm">
-                                            <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
-                                            متاح للحجز
-                                        </span>
-                                    )}
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="w-10 h-10 border border-gray-200 text-gray-400 hover:text-primary hover:bg-primary/5 hover:border-primary/20 rounded-full transition-all"
+                                                onClick={() => setIsShareModalOpen(true)}
+                                            >
+                                                <Share className="w-4 h-4" />
+                                            </Button>
+                                        </div>
 
-                                    {/* Price */}
+                                        <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
+
+                                        {/* Status */}
+                                        {teacher.isOnVacation ? (
+                                            <span className="inline-flex items-center gap-1.5 text-amber-700 bg-amber-50 px-4 py-2 rounded-full text-sm font-bold border border-amber-100">
+                                                <Palmtree className="w-4 h-4" />
+                                                في إجازة
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 text-green-700 bg-green-50 px-4 py-2 rounded-full text-sm font-bold border border-green-100">
+                                                <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                                                متاح للحجز
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Price - Simplified Text Only */}
                                     {teacher.subjects.length > 0 && (
-                                        <span className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-full font-bold text-sm shadow-sm">
-                                            <DollarSign className="w-4 h-4 text-primary" />
-                                            يبدأ من {Math.min(...teacher.subjects.map(s => Number(s.pricePerHour)))} SDG
-                                        </span>
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-xs text-text-subtle font-medium mb-0.5">يبدأ من</span>
+                                            <div className="flex items-baseline gap-1.5 text-gray-900">
+                                                <span className="text-2xl font-bold tracking-tight">
+                                                    {Math.min(...teacher.subjects.map(s => Number(s.pricePerHour)))}
+                                                </span>
+                                                <span className="text-sm font-medium text-gray-500">SDG</span>
+                                            </div>
+                                        </div>
                                     )}
-
-                                    {/* Action Buttons */}
-                                    {!isPreview && (
-                                        <FavoriteButton
-                                            teacherId={teacher.id}
-                                            initialIsFavorited={teacher.isFavorited}
-                                            className="bg-white hover:bg-gray-50 shadow-sm w-10 h-10 rounded-full"
-                                        />
-                                    )}
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="bg-white hover:bg-gray-50 shadow-sm w-10 h-10 rounded-full"
-                                        onClick={() => setIsShareModalOpen(true)}
-                                    >
-                                        <Share className="w-4 h-4 text-gray-600" />
-                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -430,31 +480,37 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                                 key={option.id}
                                                 onClick={() => !isPreview && setSelectedOptionId(option.id)}
                                                 className={cn(
-                                                    "relative p-4 rounded-xl border-2 transition-all flex flex-col gap-1",
+                                                    "relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2",
                                                     !isPreview && "cursor-pointer",
                                                     selectedOptionId === option.id
-                                                        ? "border-primary bg-primary/5 shadow-sm"
-                                                        : "border-gray-100 hover:border-primary/30"
+                                                        ? "border-primary bg-primary/5 shadow-md ring-1 ring-primary/20"
+                                                        : "border-gray-100 hover:border-primary/40 hover:bg-gray-50"
                                                 )}
                                             >
                                                 {option.badge && (
-                                                    <div className="absolute -top-3 right-4 bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
+                                                    <div className="absolute -top-3 right-4 bg-gradient-to-r from-primary to-primary-600 text-white text-[10px] px-3 py-1 rounded-full font-bold shadow-sm flex items-center gap-1">
+                                                        <Sparkles className="w-3 h-3" />
                                                         {option.badge}
                                                     </div>
                                                 )}
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
                                                         <div className={cn(
-                                                            "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                                                            "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
                                                             selectedOptionId === option.id ? "border-primary" : "border-gray-300"
                                                         )}>
                                                             {selectedOptionId === option.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-900">{option.title}</span>
+                                                                <span className={cn(
+                                                                    "font-bold transition-colors",
+                                                                    selectedOptionId === option.id ? "text-primary" : "text-gray-900"
+                                                                )}>
+                                                                    {option.title}
+                                                                </span>
                                                                 {option.type === 'DEMO' && (
-                                                                    <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-bold">مجاناً</span>
+                                                                    <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-amber-200">مجاناً</span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -465,20 +521,27 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                                         ) : (
                                                             <div className="flex flex-col items-end">
                                                                 <div className="flex items-baseline gap-1">
-                                                                    <span className="text-xl font-bold text-primary">{option.price}</span>
-                                                                    <span className="text-xs text-primary font-medium">SDG</span>
+                                                                    <span className="text-2xl font-bold text-gray-900">{option.price}</span>
+                                                                    <span className="text-xs text-gray-500 font-medium">SDG</span>
                                                                 </div>
                                                                 {option.originalPrice && (
-                                                                    <span className="text-[10px] text-gray-400 line-through">
-                                                                        {option.originalPrice} SDG
+                                                                    <span className="text-[10px] text-red-400 line-through bg-red-50 px-1 rounded">
+                                                                        {option.originalPrice}
                                                                     </span>
                                                                 )}
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="pr-8">
-                                                    <p className="text-[11px] text-text-subtle leading-tight">{option.description}</p>
+
+                                                {/* Description & Savings Footer */}
+                                                <div className="flex items-center justify-between pr-8 border-t border-gray-100/50 pt-2 mt-1">
+                                                    <p className="text-xs text-text-subtle">{option.description}</p>
+                                                    {option.savings && (
+                                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                                            {option.savings}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         ));
@@ -531,13 +594,15 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                             const videoInfo = parseVideoUrl(teacher.introVideoUrl);
 
                             return (
-                                <section className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-100">
-                                    <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
-                                        <Video className="w-5 h-5" />
+                                <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm scroll-mt-20">
+                                    <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-pink-50 flex items-center justify-center">
+                                            <Video className="w-5 h-5 text-pink-600" />
+                                        </div>
                                         فيديو تعريفي
                                     </h2>
                                     {videoInfo ? (
-                                        <div className="relative rounded-xl overflow-hidden shadow-lg" style={{ paddingBottom: '56.25%' }}>
+                                        <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-100" style={{ paddingBottom: '56.25%' }}>
                                             <iframe
                                                 src={videoInfo.embedUrl}
                                                 className="absolute top-0 left-0 w-full h-full"
@@ -575,9 +640,14 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Bio */}
                         {teacher.bio ? (
-                            <section className="bg-surface p-6 rounded-xl border border-gray-100">
-                                <h2 className="text-xl font-bold text-primary mb-4">نبذة عني</h2>
-                                <p className="text-text-main leading-relaxed whitespace-pre-line">{teacher.bio}</p>
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                        <UserPlus className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    نبذة عني
+                                </h2>
+                                <p className="text-text-main leading-relaxed whitespace-pre-line text-lg">{teacher.bio}</p>
                             </section>
                         ) : isPreview && (
                             <section className="bg-surface p-6 rounded-xl border border-gray-100">
@@ -588,9 +658,11 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Academic Qualifications */}
                         {teacher.qualifications && teacher.qualifications.length > 0 ? (
-                            <section className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
-                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
-                                    <GraduationCap className="w-5 h-5" />
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                        <GraduationCap className="w-5 h-5 text-indigo-600" />
+                                    </div>
                                     المؤهلات الأكاديمية
                                 </h2>
                                 <div className="space-y-4">
@@ -656,9 +728,11 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Skills */}
                         {teacher.skills && teacher.skills.length > 0 ? (
-                            <section className="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-xl border border-amber-100">
-                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
-                                    <Award className="w-5 h-5" />
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                                        <Award className="w-5 h-5 text-amber-600" />
+                                    </div>
                                     المهارات
                                 </h2>
                                 <div className="flex flex-wrap gap-2">
@@ -699,9 +773,11 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Work Experience */}
                         {teacher.workExperiences && teacher.workExperiences.length > 0 ? (
-                            <section className="bg-gradient-to-br from-slate-50 to-gray-50 p-6 rounded-xl border border-slate-100">
-                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
-                                    <Briefcase className="w-5 h-5" />
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
+                                        <Briefcase className="w-5 h-5 text-slate-600" />
+                                    </div>
                                     الخبرات العملية
                                 </h2>
                                 <div className="space-y-4">
@@ -774,9 +850,11 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Teaching Approach */}
                         {teacher.teachingApproach && (teacher.teachingApproach.text || teacher.teachingApproach.tags.length > 0) ? (
-                            <section className="bg-gradient-to-br from-primary/5 to-secondary/5 p-6 rounded-xl border border-primary/10">
-                                <h2 className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
-                                    <GraduationCap className="w-5 h-5" />
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                                        <BookOpen className="w-5 h-5 text-teal-600" />
+                                    </div>
                                     أسلوبي في التدريس
                                 </h2>
                                 <div className="space-y-4">
@@ -812,9 +890,11 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Subjects */}
                         {teacher.subjects.length > 0 ? (
-                            <section className="bg-gradient-to-br from-emerald-50 to-teal-50 p-6 rounded-xl border border-emerald-100">
-                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
-                                    <BookMarked className="w-5 h-5" />
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                        <BookMarked className="w-5 h-5 text-emerald-600" />
+                                    </div>
                                     المواد والأسعار
                                 </h2>
                                 <div className="grid gap-4">
@@ -878,7 +958,7 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                     <div className="flex items-start gap-2 text-sm text-text-subtle">
                                         <Sparkles className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
                                         <p className="leading-relaxed">
-                                            جميع الأسعار شاملة المنصة والمتابعة. الباقات متوفرة بخصومات خاصة.
+                                            السعر شامل لجميع الرسوم. خصومات خاصة تتوفر عند حجز الباقات.
                                         </p>
                                     </div>
                                 </div>
@@ -895,19 +975,21 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
 
                         {/* Schedule */}
                         {teacher.availability.length > 0 ? (
-                            <section className="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-6 rounded-xl border border-orange-100">
-                                <h2 className="text-xl font-bold text-primary mb-5 flex items-center gap-2">
-                                    <Clock className="w-5 h-5" />
+                            <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                                        <Clock className="w-5 h-5 text-orange-600" />
+                                    </div>
                                     جدول الأوقات المتاحة
                                 </h2>
 
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
-                                                <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
-                                                    <th className="py-4 px-3 text-right font-bold text-gray-700 w-24 border-b border-gray-200">
-                                                        <Calendar className="w-4 h-4 inline ml-1" />
+                                                <tr className="bg-gray-50 border-b border-gray-200">
+                                                    <th className="py-4 px-4 text-right font-bold text-gray-700 min-w-[100px]">
+                                                        <Calendar className="w-4 h-4 inline ml-1 text-gray-400" />
                                                         اليوم
                                                     </th>
                                                     <th className="py-4 px-4 text-center border-b border-r border-gray-200">
@@ -941,7 +1023,7 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                             </thead>
                                             <tbody>
                                                 {['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'].map((dayKey, index) => {
-                                                    const daySlots = teacher.availability.filter(s => s.dayOfWeek === dayKey);
+                                                    const daySlots = localAvailability.filter(s => s.dayOfWeek === dayKey);
                                                     const hasMorning = daySlots.some(s => getTimePeriod(s.startTime) === 'morning');
                                                     const hasAfternoon = daySlots.some(s => getTimePeriod(s.startTime) === 'afternoon');
                                                     const hasEvening = daySlots.some(s => getTimePeriod(s.startTime) === 'evening');
@@ -1010,7 +1092,7 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                                     </div>
                                     <div className="flex items-center justify-center gap-2 text-xs bg-white/60 py-2 px-4 rounded-lg border border-orange-200/50">
                                         <Clock className="w-3.5 h-3.5 text-primary" />
-                                        <span className="font-medium text-gray-700">جميع الأوقات بتوقيت السودان (CAT)</span>
+                                        <span className="font-medium text-gray-700">جميع الأوقات تظهر بتوقيتك المحلي ({userTimezone})</span>
                                     </div>
                                 </div>
                             </section>
@@ -1135,5 +1217,6 @@ export function TeacherProfileView({ teacher, mode, onBook, slug }: TeacherProfi
                 bio={teacher.bio || undefined}
             />
         </div>
+
     );
 }
