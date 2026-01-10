@@ -26,18 +26,6 @@ export class ConfigValidationService implements OnModuleInit {
       errors.push('JWT_SECRET is required');
     }
 
-    // OPTIONAL (with warnings): AWS S3
-    if (
-      !this.configService.get('AWS_ACCESS_KEY_ID') ||
-      !this.configService.get('AWS_SECRET_ACCESS_KEY')
-    ) {
-      this.logger.warn(
-        '⚠️  AWS credentials not configured - file upload will be disabled',
-      );
-    } else {
-      this.logger.log('✅ AWS S3 configured');
-    }
-
     // CRITICAL: Cloudflare R2 (Required for Production)
     if (
       !this.configService.get('R2_ACCOUNT_ID') ||
@@ -52,16 +40,10 @@ export class ConfigValidationService implements OnModuleInit {
       this.logger.log('✅ Cloudflare R2 storage configured');
     }
 
-    // OPTIONAL: SendGrid
-    if (!this.configService.get('SENDGRID_API_KEY')) {
-      this.logger.warn(
-        '⚠️  SENDGRID_API_KEY not configured - email will be logged only (phone-first: this is acceptable)',
-      );
-    } else {
-      this.logger.log('✅ SendGrid configured');
+    // Check Resend email configuration
+    if (this.configService.get('RESEND_API_KEY')) {
+      this.logger.log('✅ Resend email configured');
     }
-
-    // PHONE-FIRST: No phone auth config required for MVP (manual password reset via admin)
 
     // Fatal errors block startup
     if (errors.length > 0) {

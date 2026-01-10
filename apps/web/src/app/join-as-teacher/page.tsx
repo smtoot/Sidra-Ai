@@ -236,7 +236,7 @@ export default function JoinAsTeacherPage() {
                                     <select
                                         value={countryCode}
                                         onChange={(e) => setCountryCode(e.target.value)}
-                                        className="w-[120px] rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm p-2.5 border"
+                                        className="w-[35%] sm:w-[120px] rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm p-2.5 border"
                                         dir="ltr"
                                     >
                                         {COUNTRY_CODES.map((c) => (

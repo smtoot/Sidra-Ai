@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, Clock, Video, User, CheckCircle2, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 import Link from 'next/link';
+import { getFileUrl } from '@/lib/api/upload';
 import {
     isRecentlyJoinedTeacher,
     isVerifiedTeacher,
@@ -75,11 +75,10 @@ export function TeacherPowerCard({ teacher, onBook }: TeacherPowerCardProps) {
                         <div className={cn("w-full h-full absolute inset-0 bg-gray-50 flex items-center justify-center transition-opacity duration-300", isPlaying ? "opacity-0" : "opacity-100")}>
                             {/* Static Image or Placeholder */}
                             {teacherProfile.profilePhotoUrl && !imgError ? (
-                                <Image
-                                    src={teacherProfile.profilePhotoUrl}
+                                <img
+                                    src={getFileUrl(teacherProfile.profilePhotoUrl)}
                                     alt={teacherProfile.displayName || "Teacher"}
-                                    fill
-                                    className="object-cover"
+                                    className="w-full h-full object-cover"
                                     onError={() => setImgError(true)}
                                 />
                             ) : (
@@ -97,11 +96,10 @@ export function TeacherPowerCard({ teacher, onBook }: TeacherPowerCardProps) {
                 ) : (
                     <div className="w-full h-full relative bg-gray-50 flex items-center justify-center">
                         {teacherProfile.profilePhotoUrl && !imgError ? (
-                            <Image
-                                src={teacherProfile.profilePhotoUrl}
+                            <img
+                                src={getFileUrl(teacherProfile.profilePhotoUrl)}
                                 alt={teacherProfile.displayName || "Teacher"}
-                                fill
-                                className="object-cover"
+                                className="w-full h-full object-cover"
                                 onError={() => setImgError(true)}
                             />
                         ) : (

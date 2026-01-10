@@ -50,7 +50,7 @@ export function WelcomeStep() {
                         <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
                             <FileText className="w-4 h-4 text-amber-600" />
                         </div>
-                        <span className="text-text-subtle">شهاداتك <span className="text-xs">(اختياري في هذه المرحلة)</span></span>
+                        <span className="text-text-subtle">شهاداتك <span className="text-xs font-bold text-amber-700">(مطلوب رفع شهادة واحدة على الأقل)</span></span>
                     </li>
                 </ul>
             </div>

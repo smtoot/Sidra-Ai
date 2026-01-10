@@ -259,7 +259,7 @@ export function SubjectsStep() {
                                     </div>
 
                                     <CollapsibleContent>
-                                        <div className="p-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                        <div className="p-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                                             {stage.grades.map(grade => {
                                                 const isSelected = selectedGrades.includes(grade.id);
                                                 return (
@@ -328,9 +328,9 @@ export function SubjectsStep() {
                             {data.subjects.map(item => (
                                 <div
                                     key={item.id}
-                                    className="flex items-start justify-between p-3 bg-white border border-gray-100 rounded-lg shadow-sm"
+                                    className="flex flex-col sm:flex-row items-start justify-between p-3 bg-white border border-gray-100 rounded-lg shadow-sm gap-3 sm:gap-0"
                                 >
-                                    <div className="flex items-start gap-3">
+                                    <div className="flex items-start gap-3 w-full sm:w-auto">
                                         <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                                             <BookOpen className="w-4 h-4 text-primary" />
                                         </div>
@@ -356,16 +356,16 @@ export function SubjectsStep() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 self-end sm:self-center">
                                         <div className="text-left">
-                                            <p className="font-bold text-primary text-sm">{item.pricePerHour} SDG</p>
+                                            <p className="font-bold text-primary text-sm whitespace-nowrap">{item.pricePerHour} SDG</p>
                                             <p className="text-[10px] text-gray-400">/ساعة</p>
                                         </div>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => handleRemoveSubject(item.id)}
-                                            className="text-red-500 hover:bg-red-50 h-8 w-8"
+                                            className="text-red-500 hover:bg-red-50 h-8 w-8 shrink-0"
                                             disabled={removingId === item.id}
                                         >
                                             {removingId === item.id ? (

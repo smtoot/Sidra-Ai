@@ -6,6 +6,7 @@ import { Star } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { searchApi, SearchResult } from '@/lib/api/search';
 import { SearchSortBy } from '@sidra/shared';
+import { getFileUrl } from '@/lib/api/upload';
 
 // Fallback placeholder teachers when no real teachers exist
 const PLACEHOLDER_TEACHERS = [
@@ -165,7 +166,7 @@ export function TeachersPreview() {
                                         <div className="w-24 h-24 rounded-full bg-gray-100 mb-5 overflow-hidden border-4 border-white shadow-md">
                                             {teacher.profilePhotoUrl ? (
                                                 <img
-                                                    src={teacher.profilePhotoUrl}
+                                                    src={getFileUrl(teacher.profilePhotoUrl)}
                                                     alt={displayName}
                                                     className="w-full h-full object-cover"
                                                 />

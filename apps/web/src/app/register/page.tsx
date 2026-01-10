@@ -141,7 +141,7 @@ export default function RegisterPage() {
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 أنا أريد التسجيل كـ:
                             </label>
-                            <div className="mt-2 flex gap-4">
+                            <div className="mt-2 flex flex-wrap gap-4">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input
                                         type="radio"
@@ -266,7 +266,7 @@ export default function RegisterPage() {
                                 <select
                                     value={countryCode}
                                     onChange={(e) => setCountryCode(e.target.value)}
-                                    className="w-[140px] rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
+                                    className="w-[35%] sm:w-[140px] rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
                                     dir="ltr"
                                 >
                                     {COUNTRY_CODES.map((c) => (
