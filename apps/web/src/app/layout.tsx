@@ -34,6 +34,9 @@ const cairo = Cairo({
 export const metadata: Metadata = {
   title: "Sidra - سدرة",
   description: "Marketplace for Sudanese Teachers",
+  icons: {
+    icon: '/images/logo-icon.png',
+  },
 };
 
 export default function RootLayout({

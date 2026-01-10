@@ -6,6 +6,7 @@ import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOp
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { useSystemConfig } from '@/context/SystemConfigContext';
 
@@ -259,17 +260,29 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                     {isCollapsed && !isMobile ? (
                         <button
                             onClick={() => router.push('/')}
-                            className="text-lg font-bold text-primary mx-auto hover:opacity-80 transition-opacity"
+                            className="relative w-16 h-16 mx-auto hover:opacity-80 transition-opacity"
                         >
-                            س
+                            <Image
+                                src="/images/logo-icon.png"
+                                alt="Sidra"
+                                fill
+                                className="object-contain"
+                            />
                         </button>
                     ) : (
                         <>
                             <button
                                 onClick={() => router.push('/')}
-                                className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
+                                className="flex items-center hover:opacity-80 transition-opacity"
                             >
-                                سدرة
+                                <div className="relative w-40 h-40">
+                                    <Image
+                                        src="/images/logo.png"
+                                        alt="Sidra Logo"
+                                        fill
+                                        className="object-contain"
+                                    />
+                                </div>
                             </button>
                             <div className="flex items-center gap-2">
                                 <NotificationBell />
@@ -465,9 +478,16 @@ export function Navigation({ userRole, userName }: NavigationProps) {
                     </button>
                     <button
                         onClick={() => router.push('/')}
-                        className="text-xl font-bold text-primary hover:opacity-80 transition-opacity"
+                        className="flex items-center hover:opacity-80 transition-opacity"
                     >
-                        سدرة
+                        <div className="relative w-20 h-20">
+                            <Image
+                                src="/images/logo.png"
+                                alt="Sidra Logo"
+                                fill
+                                className="object-contain"
+                            />
+                        </div>
                     </button>
                     <NotificationBell />
                 </div>

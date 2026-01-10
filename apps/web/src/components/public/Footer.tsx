@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { GraduationCap, Mail, Phone, Facebook, Instagram } from 'lucide-react';
+import Image from 'next/image';
 
 const FOOTER_LINKS = {
     main: [
@@ -27,10 +28,14 @@ export function Footer() {
                     {/* Brand & About */}
                     <div className="lg:col-span-2 space-y-6">
                         <Link href="/" className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary-600 rounded-xl flex items-center justify-center">
-                                <GraduationCap className="w-7 h-7 text-white" />
+                            <div className="relative w-64 h-20">
+                                <Image
+                                    src="/images/logo-white.png"
+                                    alt="Sidra"
+                                    fill
+                                    className="object-contain"
+                                />
                             </div>
-                            <span className="text-2xl font-bold tracking-tight !text-white">سدرة</span>
                         </Link>
 
                         <p className="!text-gray-200 leading-loose text-lg max-w-lg font-medium">
