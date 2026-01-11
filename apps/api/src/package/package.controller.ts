@@ -76,7 +76,7 @@ export class PackageController {
   constructor(
     private packageService: PackageService,
     private demoService: DemoService,
-  ) { }
+  ) {}
 
   // =====================================================
   // ADMIN: Manage Tiers & Stats

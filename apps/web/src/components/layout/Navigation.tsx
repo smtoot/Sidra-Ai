@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X, RotateCcw } from 'lucide-react';
+import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X, RotateCcw, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { useSystemConfig } from '@/context/SystemConfigContext';
+import { teacherApi } from '@/lib/api/teacher';
 
 interface NavItem {
     label: string;
@@ -43,6 +44,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
     ],
     TEACHER: [
         { label: 'الرئيسية', href: '/teacher', icon: Home, tourId: 'nav-dashboard' },
+        { label: 'روّج لنفسك', href: '/teacher/promote', icon: Share2 },
         { label: 'ملفي الشخصي', href: '/teacher/profile-hub', icon: User, tourId: 'nav-profile' },
         { label: 'طلبات التدريس', href: '/teacher/requests', icon: FileText },
         { label: 'حصصي', href: '/teacher/sessions', icon: Calendar, tourId: 'nav-lessons' },
@@ -137,10 +139,29 @@ export function Navigation({ userRole, userName }: NavigationProps) {
     const { logout } = useAuth();
     const { packagesEnabled } = useSystemConfig();
 
+    const [isApproved, setIsApproved] = useState(false);
+
+    useEffect(() => {
+        if (userRole === 'TEACHER') {
+            teacherApi.getApplicationStatus()
+                .then(data => setIsApproved(data.applicationStatus === 'APPROVED'))
+                .catch(err => console.error('Failed to check status', err));
+        }
+    }, [userRole]);
+
     // Map all admin roles to use ADMIN menu items
     const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'CONTENT_ADMIN', 'FINANCE', 'SUPPORT'];
     const effectiveRole = adminRoles.includes(userRole) ? 'ADMIN' : userRole;
     let items = menuItems[effectiveRole] || [];
+
+    // Filter Promote Page if not approved
+    if (userRole === 'TEACHER' && !isApproved) {
+        items = items.filter(item => {
+            // Check top level
+            if ('href' in item && item.href === '/teacher/promote') return false;
+            return true;
+        });
+    }
 
     // Filter out Package items if disabled
     if (!packagesEnabled) {

@@ -28,7 +28,7 @@ export class AdminService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BookingService))
     private bookingService: BookingService,
-  ) { }
+  ) {}
 
   async getDashboardStats() {
     const [
@@ -173,8 +173,8 @@ export class AdminService {
     const bookingsGrowth =
       previousCompletedBookings > 0
         ? ((completedBookingsCount - previousCompletedBookings) /
-          previousCompletedBookings) *
-        100
+            previousCompletedBookings) *
+          100
         : completedBookingsCount > 0
           ? 100
           : 0;
@@ -214,7 +214,7 @@ export class AdminService {
       take: 100,
     });
 
-    return bookings.map(b => this.transformBooking(b));
+    return bookings.map((b) => this.transformBooking(b));
   }
 
   private transformBooking(booking: any) {
@@ -226,9 +226,9 @@ export class AdminService {
       ...booking,
       teacherProfile: booking.teacher_profiles
         ? {
-          ...booking.teacher_profiles,
-          user: booking.teacher_profiles.users,
-        }
+            ...booking.teacher_profiles,
+            user: booking.teacher_profiles.users,
+          }
         : undefined,
       bookedByUser: booking.users_bookings_bookedByUserIdTousers,
       studentUser: booking.users_bookings_studentUserIdTousers,
@@ -269,7 +269,8 @@ export class AdminService {
     // Map package if exists (keep this custom logic on top of transformed object)
     if (booking.package_redemptions?.student_packages) {
       // @ts-ignore
-      transformed.student_packages = booking.package_redemptions.student_packages;
+      transformed.student_packages =
+        booking.package_redemptions.student_packages;
     }
 
     return transformed;

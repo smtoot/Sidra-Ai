@@ -64,10 +64,9 @@ export interface Booking {
         id: string;
         email: string;
     };
-    studentUser?: { // Independent student user
+    studentUser?: { // Independent student user (note: displayName only exists on teacher_profiles, not users)
         id: string;
         email?: string;
-        displayName?: string;
         firstName?: string;
         lastName?: string;
         studentProfile?: {

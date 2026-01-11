@@ -209,14 +209,14 @@ export default function SessionDetailPage() {
                         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                             <div className="flex items-start gap-4">
                                 <Avatar
-                                    fallback={session.child?.name?.[0] || session.studentUser?.displayName?.[0] || 'ط'}
+                                    fallback={session.child?.name?.[0] || session.studentUser?.firstName?.[0] || 'ط'}
                                     size="xl"
                                     className="flex-shrink-0"
                                 />
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
                                         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                                            {session.child?.name || session.studentUser?.displayName || 'طالب'}
+                                            {session.child?.name || (session.studentUser?.firstName && session.studentUser?.lastName ? `${session.studentUser.firstName} ${session.studentUser.lastName}`.trim() : session.studentUser?.firstName || 'طالب')}
                                         </h1>
                                         <StatusBadge variant={getStatusVariant(session.status)}>
                                             {getStatusLabel(session.status)}

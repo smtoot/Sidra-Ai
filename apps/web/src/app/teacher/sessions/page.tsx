@@ -302,7 +302,7 @@ export default function TeacherSessionsPage() {
                                                     key={booking.id}
                                                     id={booking.id}
                                                     readableId={booking.readableId}
-                                                    studentName={booking.child?.name || booking.studentUser?.displayName || 'طالب مجهول'}
+                                                    studentName={booking.child?.name || (booking.studentUser?.firstName && booking.studentUser?.lastName ? `${booking.studentUser.firstName} ${booking.studentUser.lastName}`.trim() : booking.studentUser?.firstName || 'طالب')}
                                                     subjectName={booking.subject?.nameAr || 'مادة عامة'}
                                                     startTime={booking.startTime}
                                                     endTime={booking.endTime}

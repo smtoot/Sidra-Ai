@@ -237,9 +237,9 @@ export default function TeacherRequestsPage() {
                                     const getStudentName = (b: Booking) => {
                                         if (b.child?.name) return b.child.name;
                                         if (b.studentUser?.firstName && b.studentUser?.lastName) {
-                                            return `${b.studentUser.firstName} ${b.studentUser.lastName}`;
+                                            return `${b.studentUser.firstName} ${b.studentUser.lastName}`.trim();
                                         }
-                                        if (b.studentUser?.displayName) return b.studentUser.displayName;
+                                        if (b.studentUser?.firstName) return b.studentUser.firstName;
                                         // PRIVACY: Never show email/phone. Fallback to generic name.
                                         return 'طالب';
                                     };

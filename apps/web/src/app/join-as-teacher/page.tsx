@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@sidra/shared';
 import Link from 'next/link';
-import { Home, Search, Info, HelpCircle, GraduationCap, CheckCircle } from 'lucide-react';
+import { GraduationCap, CheckCircle, Info } from 'lucide-react';
+import { PublicNavbar } from '@/components/public/PublicNavbar';
 
 // Country codes - MENA region first (Sudan priority), then international
 const COUNTRY_CODES = [
@@ -121,48 +122,7 @@ export default function JoinAsTeacherPage() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900" dir="rtl">
             {/* Navigation Header */}
-            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                <div className="container mx-auto px-4 py-3">
-                    <div className="flex items-center justify-between">
-                        <Link
-                            href="/"
-                            className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
-                        >
-                            سدرة
-                        </Link>
-                        <nav className="flex items-center gap-1 sm:gap-4">
-                            <Link
-                                href="/"
-                                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm text-gray-600 hover:text-primary transition-colors"
-                            >
-                                <Home className="w-4 h-4" />
-                                <span className="hidden sm:inline">الرئيسية</span>
-                            </Link>
-                            <Link
-                                href="/search"
-                                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm text-gray-600 hover:text-primary transition-colors"
-                            >
-                                <Search className="w-4 h-4" />
-                                <span className="hidden sm:inline">ابحث عن معلم</span>
-                            </Link>
-                            <Link
-                                href="/how-it-works"
-                                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm text-gray-600 hover:text-primary transition-colors"
-                            >
-                                <Info className="w-4 h-4" />
-                                <span className="hidden sm:inline">كيف تعمل</span>
-                            </Link>
-                            <Link
-                                href="/faq"
-                                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm text-gray-600 hover:text-primary transition-colors"
-                            >
-                                <HelpCircle className="w-4 h-4" />
-                                <span className="hidden sm:inline">الأسئلة الشائعة</span>
-                            </Link>
-                        </nav>
-                    </div>
-                </div>
-            </header>
+            <PublicNavbar />
 
             <div className="container mx-auto px-4 py-8 sm:py-12">
                 <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">

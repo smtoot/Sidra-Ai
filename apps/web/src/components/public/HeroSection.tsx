@@ -98,6 +98,7 @@ export function HeroSection() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-gray-500 px-1">المنهج</label>
                                         <Select
+                                            dir="rtl"
                                             value={searchParams.curriculum}
                                             onValueChange={(v) => setSearchParams({ ...searchParams, curriculum: v })}
                                             disabled={curriculaLoading}
@@ -122,6 +123,7 @@ export function HeroSection() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-gray-500 px-1">المرحلة</label>
                                         <Select
+                                            dir="rtl"
                                             value={searchParams.stage}
                                             onValueChange={(v) => setSearchParams({ ...searchParams, stage: v })}
                                             disabled={!searchParams.curriculum || stages.length === 0}
@@ -146,6 +148,7 @@ export function HeroSection() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-gray-500 px-1">المادة</label>
                                         <Select
+                                            dir="rtl"
                                             value={searchParams.subject}
                                             onValueChange={(v) => setSearchParams({ ...searchParams, subject: v })}
                                             disabled={subjectsLoading}
