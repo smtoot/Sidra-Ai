@@ -9,8 +9,9 @@ import * as React from 'react';
 import { BookingConfirmation } from '../src/emails/templates/BookingConfirmation';
 import { PaymentReceipt } from '../src/emails/templates/PaymentReceipt';
 import { SessionReminder } from '../src/emails/templates/SessionReminder';
-import { RegistrationOtp } from '../src/emails/templates/RegistrationOtp';
-import { AccountExists } from '../src/emails/templates/AccountExists';
+// TODO: OTP templates not yet committed to develop branch
+// import { RegistrationOtp } from '../src/emails/templates/RegistrationOtp';
+// import { AccountExists } from '../src/emails/templates/AccountExists';
 import { GenericNotification } from '../src/emails/templates/GenericNotification';
 
 async function generatePreviews() {
@@ -65,26 +66,27 @@ async function generatePreviews() {
     fs.writeFileSync(path.join(outputDir, 'session-reminder-urgent.html'), urgentReminderHtml);
     console.log('Generated session-reminder-urgent.html');
 
-    // Registration OTP
-    const otpHtml = await render(
-        React.createElement(RegistrationOtp, {
-            otp: '123456',
-            email: 'ahmed@example.com',
-            expiryMinutes: 10
-        })
-    );
-    fs.writeFileSync(path.join(outputDir, 'registration-otp.html'), otpHtml);
-    console.log('Generated registration-otp.html');
+    // TODO: OTP templates not yet committed to develop branch
+    // // Registration OTP
+    // const otpHtml = await render(
+    //     React.createElement(RegistrationOtp, {
+    //         otp: '123456',
+    //         email: 'ahmed@example.com',
+    //         expiryMinutes: 10
+    //     })
+    // );
+    // fs.writeFileSync(path.join(outputDir, 'registration-otp.html'), otpHtml);
+    // console.log('Generated registration-otp.html');
 
-    // Account Exists
-    const accountExistsHtml = await render(
-        React.createElement(AccountExists, {
-            email: 'ahmed@example.com',
-            loginUrl: 'https://sidra.ai/login'
-        })
-    );
-    fs.writeFileSync(path.join(outputDir, 'account-exists.html'), accountExistsHtml);
-    console.log('Generated account-exists.html');
+    // // Account Exists
+    // const accountExistsHtml = await render(
+    //     React.createElement(AccountExists, {
+    //         email: 'ahmed@example.com',
+    //         loginUrl: 'https://sidra.ai/login'
+    //     })
+    // );
+    // fs.writeFileSync(path.join(outputDir, 'account-exists.html'), accountExistsHtml);
+    // console.log('Generated account-exists.html');
 
     // Generic Notification
     const genericHtml = await render(
