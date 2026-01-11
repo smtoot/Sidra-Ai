@@ -103,6 +103,30 @@ export interface TeacherWorkExperience {
     createdAt: string;
 }
 
+export interface DashboardStats {
+    profile: {
+        id: string;
+        slug: string | null;
+        displayName: string;
+        firstName: string;
+        lastName: string;
+        photo: string | null;
+        isOnVacation: boolean;
+        vacationEndDate: string | null;
+    };
+    counts: {
+        todaySessions: number;
+        pendingRequests: number;
+        completedSessions: number;
+        demoSessions: number;
+        totalEarnings: number;
+        totalReviews: number;
+    };
+    upcomingSession: any;
+    recentSessions: any[];
+    walletBalance: number;
+}
+
 export const teacherApi = {
     getProfile: async () => {
         const response = await api.get('/teacher/me');
@@ -187,7 +211,7 @@ export const teacherApi = {
         const response = await api.post('/teacher/me/availability/bulk', { slots });
         return response.data;
     },
-    getDashboardStats: async () => {
+    getDashboardStats: async (): Promise<DashboardStats> => {
         const response = await api.get('/teacher/dashboard');
         return response.data;
     },

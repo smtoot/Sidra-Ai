@@ -26,6 +26,7 @@ import { SystemSettingsService } from './system-settings.service';
 import { AuditAction } from '@prisma/client';
 import { PackageService } from '../package/package.service';
 import { LedgerAuditService } from '../wallet/ledger-audit.service';
+import { EmailPreviewService } from '../notification/email-preview.service';
 
 /**
  * Authenticated request interface for JWT-protected endpoints
@@ -48,7 +49,8 @@ export class AdminController {
     private readonly auditService: AuditService,
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
-  ) {}
+    private readonly emailPreviewService: EmailPreviewService,
+  ) { }
 
   @Get('dashboard')
   getDashboardStats() {
@@ -382,5 +384,17 @@ export class AdminController {
       body.reason,
       body.type,
     );
+  }
+
+  // =================== EMAIL PREVIEWS ===================
+
+  @Get('emails/templates')
+  getEmailTemplates() {
+    return this.emailPreviewService.getAvailableTemplates();
+  }
+
+  @Get('emails/preview/:templateId')
+  getEmailPreview(@Param('templateId') templateId: string) {
+    return this.emailPreviewService.renderTemplate(templateId);
   }
 }

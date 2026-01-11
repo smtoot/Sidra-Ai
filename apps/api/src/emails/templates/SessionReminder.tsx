@@ -73,91 +73,100 @@ export const SessionReminder: React.FC<SessionReminderProps> = ({
 // Styles
 const greeting = {
     fontSize: '16px',
-    color: '#1e293b',
+    color: '#1f293b', // Text Main
     margin: '20px 0 15px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const paragraph = {
     fontSize: '14px',
-    color: '#475569',
+    color: '#4b5563', // Text Body
     lineHeight: '1.6',
     margin: '0 0 15px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const reminderBox = {
-    backgroundColor: '#dbeafe',
+    backgroundColor: '#f0f9ff', // Light Blue bg
     borderRadius: '8px',
-    padding: '15px',
-    margin: '0 0 20px 0',
+    padding: '16px',
+    margin: '0 0 24px 0',
     textAlign: 'center' as const,
-    border: '2px solid #0ea5e9',
+    border: '1px solid #003366', // Brand Primary border
 };
 
 const urgentBox = {
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#fffbeb', // Amber bg
     borderRadius: '8px',
-    padding: '15px',
-    margin: '0 0 20px 0',
+    padding: '16px',
+    margin: '0 0 24px 0',
     textAlign: 'center' as const,
-    border: '2px solid #f59e0b',
+    border: '1px solid #d97706', // Amber dark
 };
 
 const urgentText = {
     fontSize: '18px',
-    color: '#1e293b',
+    color: '#1f293b', // Text Main
     margin: '0',
     fontWeight: 'bold',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const detailsBox = {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#FAFAFA',
     borderRadius: '8px',
-    padding: '20px',
-    margin: '20px 0',
+    padding: '24px',
+    margin: '24px 0',
+    border: '1px solid #e5e7eb',
 };
 
 const detailValue = {
     fontSize: '16px',
-    color: '#1e293b',
-    margin: '0 0 10px 0',
+    color: '#1f293b', // Text Main
+    margin: '0 0 12px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
+    display: 'block',
 };
 
 const ctaSection = {
     textAlign: 'center' as const,
-    margin: '25px 0',
+    margin: '32px 0',
 };
 
 const button = {
-    backgroundColor: '#10b981',
-    borderRadius: '6px',
+    backgroundColor: '#D4A056', // Brand Accent (Gold)
+    borderRadius: '8px',
     color: '#ffffff',
     fontSize: '16px',
     fontWeight: 'bold',
     textDecoration: 'none',
     textAlign: 'center' as const,
     display: 'inline-block',
-    padding: '14px 32px',
+    padding: '16px 32px',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const tipsBox = {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#f0fdf4', // Green bg (Success-like)
     borderRadius: '8px',
-    padding: '15px 20px',
-    margin: '20px 0 0 0',
-    borderRight: '3px solid #10b981',
+    padding: '20px',
+    margin: '24px 0 0 0',
+    borderRight: '4px solid #10b981',
 };
 
 const tipsTitle = {
     fontSize: '14px',
     color: '#15803d',
-    margin: '0 0 10px 0',
+    margin: '0 0 12px 0',
     fontWeight: 'bold',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const tipItem = {
     fontSize: '13px',
     color: '#166534',
-    margin: '5px 0',
+    margin: '6px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 export default SessionReminder;

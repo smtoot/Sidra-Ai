@@ -462,5 +462,17 @@ export const adminApi = {
     getMyPermissions: async () => {
         const response = await api.get('/admin/team/me/permissions');
         return response.data;
+    },
+
+    // =================== EMAIL PREVIEWS ===================
+
+    getEmailTemplates: async () => {
+        const response = await api.get('/admin/emails/templates');
+        return response.data;
+    },
+
+    getEmailPreview: async (templateId: string) => {
+        const response = await api.get(`/admin/emails/preview/${templateId}`);
+        return response.data;
     }
 };
