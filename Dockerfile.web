@@ -1,0 +1,64 @@
+# Multi-stage Dockerfile for Sidra Web (Next.js)
+# Handles monorepo structure with shared packages
+
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files for all workspaces
+COPY package*.json ./
+COPY apps/web/package*.json ./apps/web/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install dependencies
+RUN echo "=== DOCKER BUILD: Installing dependencies ===" && npm install
+
+# Copy source files
+COPY . .
+
+# Build shared package first (web depends on it)
+RUN echo "=== DOCKER BUILD: Building shared package ===" && npm run build --workspace=packages/shared
+
+# Build the Next.js app
+RUN echo "=== DOCKER BUILD: Building Next.js app ===" && npm run build --workspace=apps/web
+
+# Verify .next folder was created
+RUN echo "=== DOCKER BUILD: Checking .next folder ===" && ls -la apps/web/.next/ || echo ".NEXT FOLDER NOT FOUND!"
+
+# Production stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy the entire built workspace from builder
+# This preserves workspace structure and symlinks
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web ./apps/web
+COPY --from=builder /app/packages ./packages
+
+# Copy Next.js build artifacts
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next ./apps/web/.next
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
+EXPOSE 3000
+
+# Start Next.js production server
+CMD ["npm", "run", "start", "--workspace=apps/web"]
