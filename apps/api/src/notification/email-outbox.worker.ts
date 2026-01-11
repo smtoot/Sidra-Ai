@@ -263,6 +263,23 @@ export class EmailOutboxWorker {
           });
           break;
 
+        case 'registration-otp':
+          const { RegistrationOtp } = require('../emails');
+          emailComponent = React.createElement(RegistrationOtp, {
+            otp: payload.otp,
+            email: payload.email,
+            expiryMinutes: payload.expiryMinutes || 10,
+          });
+          break;
+
+        case 'account-exists':
+          const { AccountExists } = require('../emails');
+          emailComponent = React.createElement(AccountExists, {
+            email: payload.email,
+            loginUrl: payload.loginUrl,
+          });
+          break;
+
         default:
           // Use generic notification for all other cases
           const { GenericNotification } = require('../emails');

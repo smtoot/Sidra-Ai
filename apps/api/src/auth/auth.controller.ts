@@ -15,6 +15,9 @@ import {
   LoginDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  RegisterRequestDto,
+  VerifyRegistrationDto,
+  ResendOtpDto,
 } from '@sidra/shared';
 import { Public } from './public.decorator';
 
@@ -107,6 +110,51 @@ export class AuthController {
     );
     // Still return tokens in body for backwards compatibility during transition
     return tokens;
+  }
+
+  /**
+   * NEW OTP FLOW: Step 1 - Request Registration with OTP
+   * Rate limit: 10 per minute at controller level (service has stricter 5/hour per email)
+   */
+  @Public()
+  @Post('register/request')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async requestRegistration(@Body() dto: RegisterRequestDto, @Req() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'unknown';
+    return this.authService.requestRegistration(dto, ipAddress);
+  }
+
+  /**
+   * NEW OTP FLOW: Step 2 - Verify OTP and Complete Registration
+   * Rate limit: 10 per minute (allows retries for typos)
+   */
+  @Public()
+  @Post('register/verify')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async verifyRegistration(
+    @Body() dto: VerifyRegistrationDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.verifyRegistrationOtp(dto);
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
+    return tokens;
+  }
+
+  /**
+   * NEW OTP FLOW: Step 3 - Resend OTP
+   * Rate limit: 5 per minute at controller level (service has stricter 5/hour per email)
+   */
+  @Public()
+  @Post('register/resend')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resendOtp(@Body() dto: ResendOtpDto, @Req() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'unknown';
+    return this.authService.resendOtp(dto, ipAddress);
   }
 
   @Public() // SECURITY: Public endpoint - no JWT required

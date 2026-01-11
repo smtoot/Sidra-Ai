@@ -11,4 +11,4 @@ import { EmailPreviewService } from './email-preview.service';
   providers: [NotificationService, EmailOutboxWorker, EmailPreviewService],
   exports: [NotificationService, EmailOutboxWorker, EmailPreviewService],
 })
-export class NotificationModule { }
+export class NotificationModule {}
