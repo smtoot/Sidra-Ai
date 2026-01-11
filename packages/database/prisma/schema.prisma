@@ -1229,3 +1229,37 @@ model PasswordResetToken {
   @@index([email])
   @@index([token])
 }
+
+model pending_registrations {
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  phoneNumber          String
+  firstName            String?
+  lastName             String?
+  passwordHash         String
+  role                 String
+  otpHash              String
+  otpExpiresAt         DateTime
+  otpAttempts          Int       @default(0)
+  createdAt            DateTime  @default(now())
+  lastOtpSentAt        DateTime  @default(now())
+  previousOtpHash      String?
+  previousOtpExpiresAt DateTime?
+
+  @@index([email])
+  @@index([otpExpiresAt])
+  @@index([createdAt])
+}
+
+model otp_rate_limits {
+  id             String   @id @default(uuid())
+  email          String
+  ipAddress      String
+  lastAttemptAt  DateTime @default(now())
+  attemptCount   Int      @default(1)
+  windowStartsAt DateTime @default(now())
+
+  @@unique([email, ipAddress])
+  @@index([email, windowStartsAt])
+  @@index([ipAddress, windowStartsAt])
+}
