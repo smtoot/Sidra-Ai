@@ -27,3 +27,10 @@ backups/
 *.bak
 *.bak*
 *.backup
+
+# Generated email previews (can be regenerated via generate-previews.ts)
+apps/api/email-previews/
+
+# Test files (local testing only)
+test-*.js
+test-*.ts

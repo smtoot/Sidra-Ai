@@ -22,26 +22,26 @@ export default function StudentHowItWorksPage() {
                     </p>
 
                     {/* Trust Highlights */}
-                    <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-10 text-sm md:text-base font-medium text-gray-700">
-                        <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-full text-blue-800">
+                    <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-10 text-sm md:text-base font-medium text-gray-600">
+                        <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 px-4 py-2 rounded-full text-blue-700">
                             <Video className="w-4 h-4" />
                             <span>حصص مباشرة أونلاين</span>
                         </div>
-                        <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-full text-emerald-800">
+                        <div className="flex items-center gap-2 bg-emerald-50/50 border border-emerald-100 px-4 py-2 rounded-full text-emerald-700">
                             <Lock className="w-4 h-4" />
                             <span>دفع محمي</span>
                         </div>
-                        <div className="flex items-center gap-2 bg-purple-50 px-4 py-2 rounded-full text-purple-800">
+                        <div className="flex items-center gap-2 bg-purple-50/50 border border-purple-100 px-4 py-2 rounded-full text-purple-700">
                             <CheckCircle2 className="w-4 h-4" />
                             <span>معلمون موثوقون</span>
                         </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Button size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto shadow-sm hover:shadow-md transition-all" asChild>
+                        <Button size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto shadow-sm hover:shadow-md transition-all font-bold" asChild>
                             <Link href="/explore">ابدأ البحث عن معلم</Link>
                         </Button>
-                        <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto border-gray-200 hover:bg-gray-50 hover:text-gray-900" asChild>
+                        <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900" asChild>
                             <Link href="#faq">الأسئلة الشائعة</Link>
                         </Button>
                     </div>
@@ -84,8 +84,11 @@ export default function StudentHowItWorksPage() {
                                     <Video className="w-10 h-10 text-green-600" />
                                 </div>
                                 <h3 className="text-xl font-bold text-[#111827] mb-3">3. ابدأ الحصة من بيتك</h3>
-                                <p className="text-gray-600 leading-relaxed">
+                                <p className="text-gray-600 leading-relaxed mb-1">
                                     تُقام الحصة مباشرة أونلاين عبر أدوات مثل Google Meet أو Zoom، بدون أي تنقّل.
+                                </p>
+                                <p className="text-sm text-primary font-medium">
+                                    بدون حضور، بدون تنقّل، كل شيء من البيت
                                 </p>
                             </div>
                         </div>
@@ -106,6 +109,8 @@ export default function StudentHowItWorksPage() {
                             <h2 className="text-2xl md:text-3xl font-bold text-[#111827] mb-4">جميع الحصص أونلاين 100%</h2>
                             <p className="text-lg text-gray-600 mb-6 leading-relaxed">
                                 كل الحصص في سدرة تُقام مباشرة عبر الإنترنت باستخدام أدوات موثوقة مثل Google Meet أو Zoom. لا حاجة للذهاب إلى أي مكان أو الحضور شخصيًا.
+                                <br />
+                                <span className="text-primary font-medium">مناسبة للطلاب داخل وخارج السودان.</span>
                             </p>
                             <ul className="grid sm:grid-cols-3 gap-3 text-sm font-medium text-gray-700">
                                 <li className="flex items-center justify-center md:justify-start gap-2 bg-gray-50 py-2 px-3 rounded-lg">
@@ -190,6 +195,12 @@ export default function StudentHowItWorksPage() {
                                 جميع الحصص فردية (واحد لواحد) لضمان أفضل تركيز وجودة تعليم.
                             </AccordionContent>
                         </AccordionItem>
+                        <AccordionItem value="item-5" className="bg-white border rounded-xl px-2 shadow-sm">
+                            <AccordionTrigger className="text-lg font-bold text-[#111827] hover:no-underline px-4 py-4">هل أحتاج تحميل برنامج خاص؟</AccordionTrigger>
+                            <AccordionContent className="text-gray-600 leading-relaxed text-base px-4 pb-4">
+                                لا، الحصص تتم عبر Google Meet أو Zoom بدون أي تحميل إضافي.
+                            </AccordionContent>
+                        </AccordionItem>
                     </Accordion>
                 </div>
             </section>
@@ -197,12 +208,12 @@ export default function StudentHowItWorksPage() {
             {/* 6) Final CTA */}
             <section className="py-20 bg-white">
                 <div className="container mx-auto px-4 text-center max-w-4xl">
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-6">جاهز لبدء رحلة تعلّم أونلاين وآمنة لأبنائك؟</h2>
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-6">جاهز تبدأ رحلة تعليم أونلاين وآمنة لابنك؟</h2>
                     <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
                         تعلّم من البيت مع أفضل المعلمين السودانيين عبر منصة موثوقة.
                     </p>
-                    <Button size="lg" className="h-14 px-10 text-lg rounded-full shadow-lg hover:shadow-xl transition-all" asChild>
-                        <Link href="/explore">ابدأ البحث عن معلم</Link>
+                    <Button size="lg" className="h-14 px-10 text-lg rounded-full shadow-lg hover:shadow-xl transition-all font-bold" asChild>
+                        <Link href="/explore">ابدأ البحث عن معلم الآن</Link>
                     </Button>
                 </div>
             </section>
