@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 // The new password for all accounts
-const NEW_PASSWORD = 'test1234';
+const NEW_PASSWORD = 'password123';
 
 async function resetAllPasswords() {
     console.log('🔐 Password Reset Script for Local Development\n');

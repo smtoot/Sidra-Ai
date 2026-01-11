@@ -764,6 +764,7 @@ export class TeacherService {
       wallet,
       completedSessions,
       totalEarnings,
+      demoSessions,
       recentSessions,
     ] = await Promise.all([
       // Count ONLY today's scheduled sessions
@@ -805,13 +806,19 @@ export class TeacherService {
           status: 'COMPLETED',
         },
       }),
-      // Sum of all earnings (PAYMENT_RELEASE transactions)
       this.prisma.transactions.aggregate({
         where: {
           wallets: { userId },
           type: 'PAYMENT_RELEASE',
         },
         _sum: { amount: true },
+      }),
+      // Demo Sessions Count
+      this.prisma.demo_sessions.count({
+        where: {
+          teacherId: profile.id,
+          status: 'COMPLETED',
+        },
       }),
       // Recent 5 completed sessions for activity feed
       this.prisma.bookings.findMany({
@@ -861,7 +868,9 @@ export class TeacherService {
         todaySessions,
         pendingRequests,
         completedSessions,
+        demoSessions,
         totalEarnings: totalEarnings._sum.amount || 0,
+        totalReviews: profile.totalReviews,
       },
       upcomingSession: formattedSession,
       recentSessions: formattedRecentSessions,

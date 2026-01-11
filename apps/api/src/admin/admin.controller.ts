@@ -50,7 +50,7 @@ export class AdminController {
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
     private readonly emailPreviewService: EmailPreviewService,
-  ) { }
+  ) {}
 
   @Get('dashboard')
   getDashboardStats() {
