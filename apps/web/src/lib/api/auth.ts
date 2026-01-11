@@ -1,4 +1,5 @@
 import { api } from '../api';
+import { RegisterRequestDto, VerifyRegistrationDto, ResendOtpDto } from '@sidra/shared';
 
 export interface Child {
     id: string;
@@ -61,5 +62,19 @@ export const authApi = {
     },
     markTourCompleted: async (): Promise<void> => {
         await api.post('/users/tour-completed');
+    },
+
+    // OTP Registration Flow
+    requestRegistration: async (dto: RegisterRequestDto): Promise<{ message: string; email: string }> => {
+        const response = await api.post('/auth/register/request', dto);
+        return response.data;
+    },
+    verifyRegistration: async (dto: VerifyRegistrationDto): Promise<{ access_token: string; refresh_token: string; user: any }> => {
+        const response = await api.post('/auth/register/verify', dto);
+        return response.data;
+    },
+    resendOtp: async (dto: ResendOtpDto): Promise<{ message: string }> => {
+        const response = await api.post('/auth/register/resend', dto);
+        return response.data;
     }
 };
