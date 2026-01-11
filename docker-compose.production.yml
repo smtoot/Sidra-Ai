@@ -67,6 +67,7 @@ services:
       - .env.production
     environment:
       NODE_ENV: production
+      PORT: 3000
       NEXT_PUBLIC_API_URL: https://api.sidra.sd
     networks:
       - sidra_network
@@ -99,7 +100,7 @@ services:
       - api
       - web
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
