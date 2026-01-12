@@ -22,7 +22,11 @@ RUN echo "=== DOCKER BUILD: Building shared package ===" && npm run build --work
 
 # Build arguments for Next.js public env vars (required at build time)
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_JITSI_ENABLED
+ARG NEXT_PUBLIC_JITSI_DOMAIN
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_JITSI_ENABLED=$NEXT_PUBLIC_JITSI_ENABLED
+ENV NEXT_PUBLIC_JITSI_DOMAIN=$NEXT_PUBLIC_JITSI_DOMAIN
 
 # Build the Next.js app
 RUN echo "=== DOCKER BUILD: Building Next.js app ===" && npm run build --workspace=apps/web

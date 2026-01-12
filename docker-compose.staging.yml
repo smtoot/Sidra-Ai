@@ -71,6 +71,8 @@ services:
       args:
         NODE_ENV: staging
         NEXT_PUBLIC_API_URL: https://api-staging.sidra.sd
+        NEXT_PUBLIC_JITSI_ENABLED: "true"
+        NEXT_PUBLIC_JITSI_DOMAIN: meet-staging.sidra.sd
     container_name: sidra_web_staging
     restart: unless-stopped
     env_file:
