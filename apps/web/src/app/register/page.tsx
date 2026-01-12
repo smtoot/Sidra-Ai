@@ -100,7 +100,13 @@ export default function RegisterPage() {
             setStep('otp');
             startResendCountdown();
         } catch (err: any) {
-            const message = err.response?.data?.message || 'فشل إرسال رمز التحقق. حاول مرة أخرى.';
+            // Extract error message from API response
+            let message = 'فشل إرسال رمز التحقق. حاول مرة أخرى.';
+            if (err.response?.data?.message) {
+                message = err.response.data.message;
+            } else if (err.message) {
+                message = err.message;
+            }
             setError(message);
         } finally {
             setIsLoading(false);
@@ -150,7 +156,13 @@ export default function RegisterPage() {
                 }
             }, 1500);
         } catch (err: any) {
-            const message = err.response?.data?.message || 'رمز التحقق غير صحيح. حاول مرة أخرى.';
+            // Extract error message from API response
+            let message = 'رمز التحقق غير صحيح. حاول مرة أخرى.';
+            if (err.response?.data?.message) {
+                message = err.response.data.message;
+            } else if (err.message) {
+                message = err.message;
+            }
             setError(message);
             setOtp('');
         } finally {
@@ -168,7 +180,13 @@ export default function RegisterPage() {
             setSuccess('تم إرسال رمز تحقق جديد');
             startResendCountdown();
         } catch (err: any) {
-            const message = err.response?.data?.message || 'فشل إرسال الرمز. حاول مرة أخرى.';
+            // Extract error message from API response
+            let message = 'فشل إرسال الرمز. حاول مرة أخرى.';
+            if (err.response?.data?.message) {
+                message = err.response.data.message;
+            } else if (err.message) {
+                message = err.message;
+            }
             setError(message);
         } finally {
             setIsLoading(false);
