@@ -13,12 +13,13 @@ export default function StudentHowItWorksPage() {
 
                 <div className="container mx-auto px-4 text-center max-w-4xl relative z-10">
                     <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-[#111827] mb-6 leading-tight tracking-tight">
-                        كيف تستخدم سدرة؟ <br className="hidden md:block" />
-                        <span className="text-primary mt-2 inline-block">تعلّم أونلاين بثقة وخطوات واضحة</span>
+                        تعليم أونلاين آمن… <br className="hidden md:block" />
+                        <span className="text-primary mt-2 inline-block">يرفع مستوى ابنك من البيت</span>
                     </h1>
 
                     <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-8 leading-relaxed">
-                        سدرة منصة تعليمية أونلاين 100%، تربطك بأفضل المعلمين السودانيين في حصص مباشرة عبر الإنترنت، بدون الحاجة للذهاب إلى أي مكان.
+                        حصص فردية مباشرة مع نخبة من المعلمين السودانيين.<br className="hidden sm:block" />
+                        متابعة مستمرة، بيئة تعليمية آمنة، ودفع محمي 100%.
                     </p>
 
                     {/* Trust Highlights */}
@@ -37,13 +38,18 @@ export default function StudentHowItWorksPage() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Button size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto shadow-sm hover:shadow-md transition-all font-bold" asChild>
-                            <Link href="/explore">ابدأ البحث عن معلم</Link>
-                        </Button>
-                        <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900" asChild>
-                            <Link href="#faq">الأسئلة الشائعة</Link>
-                        </Button>
+                    <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
+                            <Button size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto shadow-sm hover:shadow-md transition-all font-bold" asChild>
+                                <Link href="/search" className="!text-white" style={{ color: "white" }}>ابدأ البحث عن معلم</Link>
+                            </Button>
+                            <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900" asChild>
+                                <Link href="#faq">الأسئلة الشائعة</Link>
+                            </Button>
+                        </div>
+                        <p className="text-sm text-gray-500 font-medium">
+                            بدون التزام • بدون تسجيل مسبق • البحث مجاني
+                        </p>
                     </div>
                 </div>
             </section>
@@ -61,9 +67,9 @@ export default function StudentHowItWorksPage() {
                                 <div className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
                                     <Search className="w-10 h-10 text-blue-600" />
                                 </div>
-                                <h3 className="text-xl font-bold text-[#111827] mb-3">1. اختر معلمك المناسب</h3>
+                                <h3 className="text-xl font-bold text-[#111827] mb-3">1. اختر المعلم الذي تطمئن له</h3>
                                 <p className="text-gray-600 leading-relaxed">
-                                    تصفح المعلمين حسب المادة، المرحلة، والمنهج، واطّلع على الخبرة والتقييمات.
+                                    تصفّح ملفات المعلمين، واطّلع على خبراتهم وتقييمات أولياء الأمور.
                                 </p>
                             </div>
 
@@ -72,9 +78,9 @@ export default function StudentHowItWorksPage() {
                                 <div className="w-20 h-20 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
                                     <Calendar className="w-10 h-10 text-orange-600" />
                                 </div>
-                                <h3 className="text-xl font-bold text-[#111827] mb-3">2. احجز الحصة أونلاين</h3>
+                                <h3 className="text-xl font-bold text-[#111827] mb-3">2. احجز موعدك أونلاين بسهولة</h3>
                                 <p className="text-gray-600 leading-relaxed">
-                                    اختر الوقت المناسب لك، وأكمل الحجز، وستصلك تفاصيل الحصة الأونلاين.
+                                    اختر الوقت المناسب لك وأكّد الحجز خلال دقائق.
                                 </p>
                             </div>
 
@@ -83,12 +89,9 @@ export default function StudentHowItWorksPage() {
                                 <div className="w-20 h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
                                     <Video className="w-10 h-10 text-green-600" />
                                 </div>
-                                <h3 className="text-xl font-bold text-[#111827] mb-3">3. ابدأ الحصة من بيتك</h3>
+                                <h3 className="text-xl font-bold text-[#111827] mb-3">3. ابنك يتعلّم من بيته بأمان</h3>
                                 <p className="text-gray-600 leading-relaxed mb-1">
-                                    تُقام الحصة مباشرة أونلاين عبر أدوات مثل Google Meet أو Zoom، بدون أي تنقّل.
-                                </p>
-                                <p className="text-sm text-primary font-medium">
-                                    بدون حضور، بدون تنقّل، كل شيء من البيت
+                                    الحصة تتم مباشرة أونلاين بدون أي تنقّل أو مجهود.
                                 </p>
                             </div>
                         </div>
@@ -106,11 +109,10 @@ export default function StudentHowItWorksPage() {
                             </div>
                         </div>
                         <div className="flex-grow">
-                            <h2 className="text-2xl md:text-3xl font-bold text-[#111827] mb-4">جميع الحصص أونلاين 100%</h2>
+                            <h2 className="text-2xl md:text-3xl font-bold text-[#111827] mb-4">حصصنا أونلاين 100%… بدون مشاوير ولا تعب</h2>
                             <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-                                كل الحصص في سدرة تُقام مباشرة عبر الإنترنت باستخدام أدوات موثوقة مثل Google Meet أو Zoom. لا حاجة للذهاب إلى أي مكان أو الحضور شخصيًا.
-                                <br />
-                                <span className="text-primary font-medium">مناسبة للطلاب داخل وخارج السودان.</span>
+                                جميع الحصص تتم مباشرة عبر منصات موثوقة مثل Google Meet و Zoom.<br />
+                                تعلّم مريح من المنزل يوفر الوقت والمجهود عليك وعلى ابنك.
                             </p>
                             <ul className="grid sm:grid-cols-3 gap-3 text-sm font-medium text-gray-700">
                                 <li className="flex items-center justify-center md:justify-start gap-2 bg-gray-50 py-2 px-3 rounded-lg">
@@ -141,11 +143,11 @@ export default function StudentHowItWorksPage() {
                                     <ShieldCheck className="w-6 h-6" />
                                     <span className="font-semibold tracking-wide uppercase text-xs">أمان مضمون</span>
                                 </div>
-                                <CardTitle className="text-2xl md:text-3xl font-bold text-[#111827]">دفع محمي عبر سدرة</CardTitle>
+                                <CardTitle className="text-2xl md:text-3xl font-bold text-[#111827]">أمانك المالي مسؤوليتنا</CardTitle>
                             </CardHeader>
                             <CardContent className="p-8 md:p-10 text-center">
                                 <p className="text-lg md:text-xl text-gray-700 leading-relaxed font-medium mb-8">
-                                    "نحتفظ بالمبلغ المدفوع ولا يتم تحويله للمعلم إلا بعد انتهاء الحصة وتأكيد الطالب أو ولي الأمر."
+                                    "نحتفظ بالمبلغ المدفوع بشكل آمن داخل منصة سدرة، ولا يتم تحويله للمعلم إلا بعد انتهاء الحصة وتأكيدك أنت (أو ولي الأمر) أن الحصة تمت بنجاح. نظام حماية يضمن حقك ويمنحك راحة بال كاملة."
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-gray-600">
                                     <div className="flex items-center gap-2">
@@ -208,13 +210,19 @@ export default function StudentHowItWorksPage() {
             {/* 6) Final CTA */}
             <section className="py-20 bg-white">
                 <div className="container mx-auto px-4 text-center max-w-4xl">
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-6">جاهز تبدأ رحلة تعليم أونلاين وآمنة لابنك؟</h2>
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-6">جاهز تبدأ رحلة تعليم أونلاين آمنة لابنك؟</h2>
                     <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-                        تعلّم من البيت مع أفضل المعلمين السودانيين عبر منصة موثوقة.
+                        انضم لمئات الأسر التي اختارت سدرة<br className="hidden sm:block" />
+                        لتعليم أبنائها مع معلمين موثوقين وفي بيئة آمنة.
                     </p>
-                    <Button size="lg" className="h-14 px-10 text-lg rounded-full shadow-lg hover:shadow-xl transition-all font-bold" asChild>
-                        <Link href="/explore">ابدأ البحث عن معلم الآن</Link>
-                    </Button>
+                    <div className="flex flex-col items-center justify-center gap-3">
+                        <Button size="lg" className="h-14 px-10 text-lg rounded-full shadow-lg hover:shadow-xl transition-all font-bold" asChild>
+                            <Link href="/search" className="!text-white" style={{ color: "white" }}>ابدأ البحث عن معلم الآن</Link>
+                        </Button>
+                        <p className="text-sm text-gray-500 font-medium">
+                            الدفع آمن • لا التزام مسبق • دعم دائم
+                        </p>
+                    </div>
                 </div>
             </section>
         </div>

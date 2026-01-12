@@ -6,7 +6,7 @@ import { parentApi } from '@/lib/api/parent';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
-import { Calendar, CheckCircle, Edit, Search, ArrowRight, Clock, BookOpen, GraduationCap, School as SchoolIcon } from 'lucide-react';
+import { Calendar, CheckCircle, Edit, Search, ArrowRight, Clock, BookOpen, GraduationCap, School as SchoolIcon, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -115,71 +115,75 @@ export default function ChildProfilePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50/50 font-sans p-4 md:p-8" dir="rtl">
-            <div className="max-w-5xl mx-auto space-y-8">
+        <div className="min-h-screen bg-gray-50/50 font-sans overflow-x-hidden" dir="rtl">
+            <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-4 md:space-y-6">
 
-                {/* Header Nav */}
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Link href="/parent/children" className="hover:text-gray-900 transition-colors">عودة إلى إدارة الأبناء</Link>
-                    <span>/</span>
-                    <span className="font-semibold text-gray-900">{child.name}</span>
+                {/* Header Nav - Breadcrumb */}
+                <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
+                    <Link href="/parent/children" className="hover:text-gray-900 transition-colors">إدارة الأبناء</Link>
+                    <ChevronRight className="w-3 h-3 rotate-180" />
+                    <span className="font-semibold text-gray-900 truncate">{child.name}</span>
                 </div>
 
-                {/* Profile Header Card */}
+                {/* Profile Header Card - Mobile Optimized */}
                 <Card className="border-none shadow-sm overflow-hidden bg-white">
-                    <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
-                        <Avatar
-                            className="w-24 h-24 text-3xl font-bold bg-primary-100 text-primary-700 ring-4 ring-white shadow-sm"
-                            fallback={child.name[0]}
-                        />
-                        <div className="flex-1 text-center md:text-right space-y-2">
-                            {/* Hierarchy: Name > Grade Tag > Desc */}
-                            <div className="flex flex-col md:flex-row items-center md:items-center gap-3 mb-1">
-                                <h1 className="text-3xl font-bold text-gray-900">{child.name}</h1>
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-100/80 rounded-full">
-                                    <GraduationCap className="w-4 h-4 text-gray-600" />
-                                    <span className="text-sm font-medium text-gray-700">{GRADE_LABELS[child.gradeLevel] || child.gradeLevel}</span>
+                    <CardContent className="p-4 md:p-6">
+                        {/* Mobile: Stacked Layout */}
+                        <div className="flex flex-col items-center text-center md:flex-row md:items-start md:text-right gap-4">
+                            <Avatar
+                                className="w-16 h-16 md:w-20 md:h-20 text-2xl md:text-3xl font-bold bg-primary-100 text-primary-700 ring-2 ring-white shadow-sm flex-shrink-0"
+                                fallback={child.name[0]}
+                            />
+
+                            <div className="flex-1 min-w-0 w-full">
+                                {/* Name + Grade */}
+                                <div className="flex flex-col md:flex-row items-center md:items-center gap-2 mb-2">
+                                    <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">{child.name}</h1>
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full">
+                                        <GraduationCap className="w-3 h-3 text-gray-600" />
+                                        <span className="text-xs font-medium text-gray-700">{GRADE_LABELS[child.gradeLevel] || child.gradeLevel}</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <p className="text-gray-500 text-base">ملف الابن ومتابعة التقدم الدراسي</p>
+                                <p className="text-gray-500 text-sm mb-3">ملف الابن ومتابعة التقدم الدراسي</p>
 
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-4 text-sm">
-                                {child.curriculum && (
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-white border border-gray-200 rounded-full text-gray-600">
-                                        <BookOpen className="w-3.5 h-3.5 text-gray-400" />
-                                        <span>{child.curriculum.nameAr}</span>
-                                    </div>
-                                )}
-                                {child.schoolName && (
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-white border border-gray-200 rounded-full text-gray-600">
-                                        <SchoolIcon className="w-3.5 h-3.5 text-gray-400" />
-                                        <span>{child.schoolName}</span>
-                                    </div>
-                                )}
+                                {/* Tags - Curriculum & School */}
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
+                                    {child.curriculum && (
+                                        <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded-full text-gray-600">
+                                            <BookOpen className="w-3 h-3 text-gray-400" />
+                                            <span className="truncate max-w-[120px]">{child.curriculum.nameAr}</span>
+                                        </div>
+                                    )}
+                                    {child.schoolName && (
+                                        <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded-full text-gray-600">
+                                            <SchoolIcon className="w-3 h-3 text-gray-400" />
+                                            <span className="truncate max-w-[100px]">{child.schoolName}</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="w-full md:w-auto flex flex-col gap-3 min-w-[240px]">
-                            <Link href={`/search?childId=${child.id}`} className="w-full">
-                                <Button size="lg" className="w-full gap-2 shadow-sm text-base bg-primary-600 hover:bg-primary-700 text-white">
+                        {/* Actions - Full Width on Mobile */}
+                        <div className="mt-4 space-y-2">
+                            <Link href={`/search?childId=${child.id}`} className="block">
+                                <Button className="w-full h-10 gap-2 shadow-sm text-sm font-bold bg-primary-600 hover:bg-primary-700">
                                     <Search className="w-4 h-4" />
                                     احجز حصة لـ {child.name.split(' ')[0]}
                                 </Button>
                             </Link>
-                            <div className="flex gap-3">
-                                {/* Order: 1) View Bookings 2) Edit Details */}
-                                <Link href="/parent/bookings" className="flex-1">
-                                    <Button variant="outline" className="w-full gap-2 border-gray-200 hover:bg-gray-50 text-gray-700 h-10">
-                                        <Calendar className="w-4 h-4" />
-                                        عرض الحجوزات
+                            <div className="grid grid-cols-2 gap-2">
+                                <Link href="/parent/bookings">
+                                    <Button variant="outline" className="w-full gap-1.5 border-gray-200 text-gray-700 h-9 text-xs md:text-sm">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        الحجوزات
                                     </Button>
                                 </Link>
-                                <Link href={`/parent/children/${child.id}/edit`} className="flex-1">
-                                    <Button variant="outline" className="w-full gap-2 border-gray-200 hover:bg-gray-50 text-gray-700 h-10">
-                                        <Edit className="w-4 h-4" />
-                                        تعديل بيانات الابن
+                                <Link href={`/parent/children/${child.id}/edit`}>
+                                    <Button variant="outline" className="w-full gap-1.5 border-gray-200 text-gray-700 h-9 text-xs md:text-sm">
+                                        <Edit className="w-3.5 h-3.5" />
+                                        تعديل البيانات
                                     </Button>
                                 </Link>
                             </div>
@@ -187,35 +191,35 @@ export default function ChildProfilePage() {
                     </CardContent>
                 </Card>
 
-                {/* Quick Stats Grid - Visual Dominance */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
-                        <CardContent className="p-0">
-                            <div className="p-5 flex items-center justify-between">
+                {/* Quick Stats Grid - 2 Columns */}
+                <div className="grid grid-cols-2 gap-3">
+                    <Card className="border-none shadow-sm bg-white">
+                        <CardContent className="p-3 md:p-4">
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-sm font-medium text-gray-500 mb-1">حصص قادمة</div>
-                                    <div className={`text-3xl font-bold ${child.stats?.upcomingCount > 0 ? 'text-primary-600' : 'text-gray-300'}`}>
+                                    <div className="text-xs md:text-sm font-medium text-gray-500 mb-0.5">حصص قادمة</div>
+                                    <div className={`text-xl md:text-2xl font-bold ${child.stats?.upcomingCount > 0 ? 'text-primary-600' : 'text-gray-300'}`}>
                                         {child.stats?.upcomingCount || 0}
                                     </div>
                                 </div>
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${child.stats?.upcomingCount > 0 ? 'bg-primary-50 text-primary-600' : 'bg-gray-100 text-gray-300'}`}>
-                                    <Clock className="w-6 h-6" />
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${child.stats?.upcomingCount > 0 ? 'bg-primary-50 text-primary-600' : 'bg-gray-100 text-gray-300'}`}>
+                                    <Clock className="w-5 h-5" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
-                        <CardContent className="p-0">
-                            <div className="p-5 flex items-center justify-between">
+                    <Card className="border-none shadow-sm bg-white">
+                        <CardContent className="p-3 md:p-4">
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-sm font-medium text-gray-500 mb-1">حصص مكتملة</div>
-                                    <div className={`text-3xl font-bold ${child.stats?.completedCount > 0 ? 'text-green-600' : 'text-gray-300'}`}>
+                                    <div className="text-xs md:text-sm font-medium text-gray-500 mb-0.5">حصص مكتملة</div>
+                                    <div className={`text-xl md:text-2xl font-bold ${child.stats?.completedCount > 0 ? 'text-green-600' : 'text-gray-300'}`}>
                                         {child.stats?.completedCount || 0}
                                     </div>
                                 </div>
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${child.stats?.completedCount > 0 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-300'}`}>
-                                    <CheckCircle className="w-6 h-6" />
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${child.stats?.completedCount > 0 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-300'}`}>
+                                    <CheckCircle className="w-5 h-5" />
                                 </div>
                             </div>
                         </CardContent>
@@ -223,52 +227,52 @@ export default function ChildProfilePage() {
                 </div>
 
                 {/* Recent / Upcoming Sessions */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                        <h2 className="text-xl font-bold text-gray-900">أحدث الحصص</h2>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-base md:text-lg font-bold text-gray-900">أحدث الحصص</h2>
                         {child.recentBookings?.length > 0 && (
                             <Link
                                 href={`/parent/bookings?childId=${child.id}`}
-                                className="text-primary-600 hover:text-primary-700 text-sm font-semibold flex items-center gap-1 hover:underline"
+                                className="text-primary-600 hover:text-primary-700 text-xs font-semibold flex items-center gap-1"
                             >
-                                عرض جميع حجوزات {child.name.split(' ')[0]} <ArrowRight className="w-4 h-4 rotate-180" />
+                                عرض الكل <ArrowRight className="w-3 h-3 rotate-180" />
                             </Link>
                         )}
                     </div>
 
                     {child.recentBookings && child.recentBookings.length > 0 ? (
-                        <div className="grid gap-4">
+                        <div className="space-y-2">
                             {child.recentBookings.map((booking: any) => {
                                 const status = getBookingStatus(booking.status);
                                 return (
-                                    <Card key={booking.id} className="border-none shadow-sm hover:shadow-md transition-all group">
-                                        <CardContent className="p-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
+                                    <Card key={booking.id} className="border-none shadow-sm hover:shadow-md transition-all">
+                                        <CardContent className="p-3">
+                                            <div className="flex items-center gap-3">
                                                 <Avatar
                                                     src={booking.teacherProfile?.user?.profilePhotoUrl}
                                                     fallback={booking.teacherProfile?.user?.displayName?.[0] || 'T'}
-                                                    className="w-12 h-12 border border-gray-100"
+                                                    className="w-10 h-10 border border-gray-100 flex-shrink-0"
                                                 />
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <div className="font-bold text-gray-900 text-lg">
-                                                            {booking.subject?.nameAr} <span className="text-gray-400 font-normal text-base">– مع {booking.teacherProfile?.user?.displayName ? `الأستاذ ${booking.teacherProfile?.user?.displayName}` : 'الأستاذ'}</span>
-                                                        </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-bold text-gray-900 text-sm truncate">
+                                                        {booking.subject?.nameAr}
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.color}`}>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-xs text-gray-500 truncate">
+                                                            {booking.teacherProfile?.user?.displayName || 'المعلم'}
+                                                        </span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${status.color}`}>
                                                             {status.label}
                                                         </span>
                                                     </div>
                                                 </div>
-                                            </div>
-
-                                            <div className="text-left pl-2">
-                                                <div className="font-bold text-gray-900 text-lg md:text-xl mb-1 dir-ltr">
-                                                    {formatArabicTime(booking.startTime)}
-                                                </div>
-                                                <div className="text-sm text-gray-500 font-medium">
-                                                    {formatArabicDate(booking.startTime)}
+                                                <div className="text-left flex-shrink-0">
+                                                    <div className="font-bold text-gray-900 text-sm" dir="ltr">
+                                                        {formatArabicTime(booking.startTime)}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-500">
+                                                        {formatArabicDate(booking.startTime)}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -277,20 +281,22 @@ export default function ChildProfilePage() {
                             })}
                         </div>
                     ) : (
-                        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
-                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
-                                <Calendar className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">لا توجد حصص مسجلة لهذا الابن حتى الآن</h3>
-                            <p className="text-gray-500 text-sm max-w-md mx-auto mb-6">احجز حصة مع أفضل المعلمين لمساعدة ابنك في دراسته</p>
+                        <Card className="border-none shadow-sm">
+                            <CardContent className="p-6 text-center">
+                                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300">
+                                    <Calendar className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-1">لا توجد حصص مسجلة</h3>
+                                <p className="text-gray-500 text-xs mb-4">احجز حصة لمساعدة ابنك في دراسته</p>
 
-                            <Link href={`/search?childId=${child.id}`}>
-                                <Button className="gap-2 shadow-sm">
-                                    <Search className="w-4 h-4" />
-                                    احجز حصة الآن
-                                </Button>
-                            </Link>
-                        </div>
+                                <Link href={`/search?childId=${child.id}`}>
+                                    <Button size="sm" className="gap-1.5 shadow-sm">
+                                        <Search className="w-3.5 h-3.5" />
+                                        احجز حصة الآن
+                                    </Button>
+                                </Link>
+                            </CardContent>
+                        </Card>
                     )}
                 </div>
 
@@ -298,3 +304,4 @@ export default function ChildProfilePage() {
         </div>
     );
 }
+

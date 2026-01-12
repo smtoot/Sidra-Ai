@@ -5,11 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { FeatureFlagModule } from '../feature-flag/feature-flag.module';
 
 @Module({
-  imports: [
-    ConfigModule,
-    PrismaModule,
-    FeatureFlagModule,
-  ],
+  imports: [ConfigModule, PrismaModule, FeatureFlagModule],
   providers: [JitsiService],
   exports: [JitsiService],
 })

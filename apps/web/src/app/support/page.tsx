@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupportTickets, SupportTicket, TicketStatus } from '@/lib/api/support-ticket';
 import { TicketList } from '@/components/support/TicketList';
-import { Ticket, Clock, MessageCircle, CheckCircle2, Plus } from 'lucide-react';
+import { Ticket, Clock, MessageCircle, CheckCircle2, Plus, LifeBuoy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface TicketStats {
   total: number;
@@ -39,14 +40,14 @@ function StatsCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${colorClasses[color]}`}>
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-lg ${iconColorClasses[color]}`}>
-          <Icon className="w-5 h-5" />
+    <div className={`rounded-xl border p-3 md:p-4 ${colorClasses[color]}`}>
+      <div className="flex items-center gap-2 md:gap-3">
+        <div className={`p-1.5 md:p-2 rounded-lg ${iconColorClasses[color]}`}>
+          <Icon className="w-4 h-4 md:w-5 md:h-5" />
         </div>
         <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-sm opacity-80">{label}</p>
+          <p className="text-xl md:text-2xl font-bold">{value}</p>
+          <p className="text-xs md:text-sm opacity-80">{label}</p>
         </div>
       </div>
     </div>
@@ -97,64 +98,85 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">طلبات المساعدة</h1>
-          <p className="text-gray-600 mt-1">عرض وإدارة طلبات الدعم الخاصة بك</p>
+    <div className="min-h-screen bg-gray-50/50 font-sans" dir="rtl">
+      <div className="max-w-5xl mx-auto p-4 md:p-8 pb-24 md:pb-8 space-y-4 md:space-y-6">
+
+        {/* Clear Page Title */}
+        <div className="mb-2">
+          <div className="flex items-center gap-2 mb-1">
+            <LifeBuoy className="w-5 h-5 text-primary-600 md:hidden" />
+            <h1 className="text-lg md:text-2xl font-bold text-gray-900">طلبات المساعدة</h1>
+          </div>
+          <p className="text-gray-500 text-xs md:text-sm">عرض وإدارة طلبات الدعم الخاصة بك</p>
         </div>
-        <button
-          onClick={handleCreateTicket}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          طلب مساعدة
-        </button>
+
+        {/* Desktop Button */}
+        <div className="hidden md:block">
+          <Button
+            onClick={handleCreateTicket}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            طلب مساعدة جديد
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        {!loading && !error && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+            <StatsCard
+              icon={Ticket}
+              label="إجمالي الطلبات"
+              value={stats.total}
+              color="blue"
+            />
+            <StatsCard
+              icon={Clock}
+              label="قيد المعالجة"
+              value={stats.open}
+              color="amber"
+            />
+            <StatsCard
+              icon={MessageCircle}
+              label="بانتظار ردك"
+              value={stats.waitingForResponse}
+              color="orange"
+            />
+            <StatsCard
+              icon={CheckCircle2}
+              label="تم الحل"
+              value={stats.resolved}
+              color="green"
+            />
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+          </div>
+        ) : (
+          <TicketList tickets={tickets} onTicketClick={handleTicketClick} />
+        )}
       </div>
 
-      {/* Stats Cards */}
-      {!loading && !error && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatsCard
-            icon={Ticket}
-            label="إجمالي الطلبات"
-            value={stats.total}
-            color="blue"
-          />
-          <StatsCard
-            icon={Clock}
-            label="قيد المعالجة"
-            value={stats.open}
-            color="amber"
-          />
-          <StatsCard
-            icon={MessageCircle}
-            label="بانتظار ردك"
-            value={stats.waitingForResponse}
-            color="orange"
-          />
-          <StatsCard
-            icon={CheckCircle2}
-            label="تم الحل"
-            value={stats.resolved}
-            color="green"
-          />
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      ) : (
-        <TicketList tickets={tickets} onTicketClick={handleTicketClick} />
-      )}
+      {/* Mobile Sticky Bottom CTA */}
+      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-sm border-t border-gray-100 md:hidden safe-area-bottom z-50">
+        <Button
+          onClick={handleCreateTicket}
+          className="w-full h-11 rounded-xl gap-2 font-bold shadow-lg"
+        >
+          <Plus className="w-4 h-4" />
+          طلب مساعدة جديد
+        </Button>
+      </div>
     </div>
   );
 }
+

@@ -66,7 +66,7 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
       setError(null);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/bookings/${bookingId}/jitsi-config`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/bookings/${bookingId}/jitsi-config`,
         {
           method: 'GET',
           headers: {
@@ -131,7 +131,7 @@ export function useToggleJitsi(bookingId: string) {
       setError(null);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/bookings/${bookingId}/toggle-jitsi`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/bookings/${bookingId}/toggle-jitsi`,
         {
           method: 'PATCH',
           headers: {

@@ -179,7 +179,10 @@ export class BookingController {
       dto.useExternal,
       req.user.userId,
     );
-    return { success: true, message: `Meeting method updated to ${dto.useExternal ? 'external link' : 'Jitsi'}` };
+    return {
+      success: true,
+      message: `Meeting method updated to ${dto.useExternal ? 'external link' : 'Jitsi'}`,
+    };
   }
 
   // --- Phase 2C: Payment Integration ---
