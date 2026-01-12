@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
 
 export interface JitsiConfigResponse {
   bookingId: string;
@@ -40,7 +39,12 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
   const [config, setConfig] = useState<JitsiConfigResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { accessToken } = useAuth();
+
+  // Get access token from localStorage (same pattern as api.ts)
+  const getAccessToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('token');
+  };
 
   const fetchConfig = async () => {
     if (!bookingId) {
@@ -49,11 +53,13 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
       return;
     }
 
+    const accessToken = getAccessToken();
     if (!accessToken) {
       setError('Authentication required');
       setIsLoading(false);
       return;
     }
+
 
     try {
       setIsLoading(true);
@@ -90,7 +96,7 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
 
   useEffect(() => {
     fetchConfig();
-  }, [bookingId, accessToken]);
+  }, [bookingId]);
 
   return {
     config,
@@ -106,9 +112,15 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
 export function useToggleJitsi(bookingId: string) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { accessToken } = useAuth();
+
+  // Get access token from localStorage
+  const getAccessToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('token');
+  };
 
   const toggleMeetingMethod = async (useExternal: boolean) => {
+    const accessToken = getAccessToken();
     if (!accessToken) {
       setError('Authentication required');
       return false;
