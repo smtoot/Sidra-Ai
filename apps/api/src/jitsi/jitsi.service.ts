@@ -1,4 +1,9 @@
-import { Injectable, Logger, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,11 +55,17 @@ export class JitsiService {
   /**
    * Generate a JWT token for Jitsi authentication
    */
-  generateJitsiToken(roomName: string, userInfo: JitsiUserInfo, expiryHours: number = 24): string {
-    const appId = this.configService.get<string>('JITSI_APP_ID_STAGING') ||
-                  this.configService.get<string>('JITSI_APP_ID_PRODUCTION');
-    const appSecret = this.configService.get<string>('JITSI_APP_SECRET_STAGING') ||
-                      this.configService.get<string>('JITSI_APP_SECRET_PRODUCTION');
+  generateJitsiToken(
+    roomName: string,
+    userInfo: JitsiUserInfo,
+    expiryHours: number = 24,
+  ): string {
+    const appId =
+      this.configService.get<string>('JITSI_APP_ID_STAGING') ||
+      this.configService.get<string>('JITSI_APP_ID_PRODUCTION');
+    const appSecret =
+      this.configService.get<string>('JITSI_APP_SECRET_STAGING') ||
+      this.configService.get<string>('JITSI_APP_SECRET_PRODUCTION');
 
     if (!appId || !appSecret) {
       this.logger.error('Jitsi configuration missing: APP_ID or APP_SECRET');
@@ -62,7 +73,7 @@ export class JitsiService {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const exp = now + (expiryHours * 60 * 60); // Convert hours to seconds
+    const exp = now + expiryHours * 60 * 60; // Convert hours to seconds
 
     const payload: JitsiTokenPayload = {
       aud: appId,
@@ -82,10 +93,15 @@ export class JitsiService {
 
     try {
       const token = jwt.sign(payload, appSecret, { algorithm: 'HS256' });
-      this.logger.log(`Generated Jitsi token for user ${userInfo.id} in room ${roomName}`);
+      this.logger.log(
+        `Generated Jitsi token for user ${userInfo.id} in room ${roomName}`,
+      );
       return token;
     } catch (error) {
-      this.logger.error(`Failed to generate Jitsi token: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate Jitsi token: ${error.message}`,
+        error.stack,
+      );
       throw new BadRequestException('Failed to generate meeting token');
     }
   }
@@ -94,7 +110,9 @@ export class JitsiService {
    * Get Jitsi domain from environment
    */
   private getJitsiDomain(): string {
-    return this.configService.get<string>('JITSI_DOMAIN') || 'meet-staging.sidra.sd';
+    return (
+      this.configService.get<string>('JITSI_DOMAIN') || 'meet-staging.sidra.sd'
+    );
   }
 
   /**
@@ -165,8 +183,9 @@ export class JitsiService {
     }
 
     // Verify user has access to this booking
-    const isTeacher = booking.teacherId === booking.teacher_profiles.id &&
-                      booking.teacher_profiles.userId === userId;
+    const isTeacher =
+      booking.teacherId === booking.teacher_profiles.id &&
+      booking.teacher_profiles.userId === userId;
     const isBooker = booking.bookedByUserId === userId;
     const isStudent = booking.studentUserId === userId;
 
@@ -282,11 +301,15 @@ export class JitsiService {
     });
 
     const accessMinutes = settings?.meetingLinkAccessMinutesBefore || 15;
-    const accessTime = new Date(startTime.getTime() - accessMinutes * 60 * 1000);
+    const accessTime = new Date(
+      startTime.getTime() - accessMinutes * 60 * 1000,
+    );
 
     // Check if too early
     if (now < accessTime) {
-      const minutesUntilAccess = Math.ceil((accessTime.getTime() - now.getTime()) / (60 * 1000));
+      const minutesUntilAccess = Math.ceil(
+        (accessTime.getTime() - now.getTime()) / (60 * 1000),
+      );
       return {
         canJoin: false,
         message: `Meeting will be accessible ${minutesUntilAccess} minute(s) before the scheduled start time`,
@@ -318,7 +341,10 @@ export class JitsiService {
   /**
    * Get user information for Jitsi JWT
    */
-  private async getUserInfo(userId: string, booking: any): Promise<JitsiUserInfo> {
+  private async getUserInfo(
+    userId: string,
+    booking: any,
+  ): Promise<JitsiUserInfo> {
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: {
@@ -360,18 +386,24 @@ export class JitsiService {
   async toggleJitsiForBooking(
     bookingId: string,
     useExternal: boolean,
-    teacherId: string,
+    teacherUserId: string,
   ): Promise<void> {
     const booking = await this.prisma.bookings.findUnique({
       where: { id: bookingId },
+      include: {
+        teacher_profiles: true,
+      },
     });
 
     if (!booking) {
       throw new BadRequestException('Booking not found');
     }
 
-    if (booking.teacherId !== teacherId) {
-      throw new UnauthorizedException('Only the teacher can change the meeting method');
+    // Check if the user is the teacher for this booking
+    if (booking.teacher_profiles?.userId !== teacherUserId) {
+      throw new UnauthorizedException(
+        'Only the teacher can change the meeting method',
+      );
     }
 
     await this.prisma.bookings.update({
@@ -379,13 +411,16 @@ export class JitsiService {
       data: {
         useExternalMeetingLink: useExternal,
         // If switching to Jitsi and no room ID exists, generate one
-        ...(!useExternal && !booking.jitsiRoomId && {
-          jitsiRoomId: this.generateRoomName(bookingId),
-          jitsiEnabled: true,
-        }),
+        ...(!useExternal &&
+          !booking.jitsiRoomId && {
+            jitsiRoomId: this.generateRoomName(bookingId),
+            jitsiEnabled: true,
+          }),
       },
     });
 
-    this.logger.log(`Booking ${bookingId} meeting method changed to ${useExternal ? 'external' : 'jitsi'}`);
+    this.logger.log(
+      `Booking ${bookingId} meeting method changed to ${useExternal ? 'external' : 'jitsi'}`,
+    );
   }
 }
