@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { BookingService } from './booking.service';
+import { JitsiService } from '../jitsi/jitsi.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -26,7 +27,10 @@ import {
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(
+    private readonly bookingService: BookingService,
+    private readonly jitsiService: JitsiService,
+  ) {}
 
   // Parent creates a booking request
   // SECURITY: Rate limit to prevent booking spam
@@ -148,6 +152,34 @@ export class BookingController {
     @Body() dto: { meetingLink: string },
   ) {
     return this.bookingService.updateMeetingLink(req.user.userId, id, dto);
+  }
+
+  // --- Jitsi Integration ---
+
+  // Get Jitsi configuration with JWT token for a booking
+  // Accessible by teacher, parent/student who booked the session
+  @Get(':id/jitsi-config')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
+  async getJitsiConfig(@Request() req: any, @Param('id') id: string) {
+    return this.jitsiService.getJitsiConfigForBooking(id, req.user.userId);
+  }
+
+  // Teacher toggles between Jitsi and external meeting link
+  @Patch(':id/toggle-jitsi')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 toggles per minute
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async toggleJitsi(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: { useExternal: boolean },
+  ) {
+    await this.jitsiService.toggleJitsiForBooking(
+      id,
+      dto.useExternal,
+      req.user.userId,
+    );
+    return { success: true, message: `Meeting method updated to ${dto.useExternal ? 'external link' : 'Jitsi'}` };
   }
 
   // --- Phase 2C: Payment Integration ---

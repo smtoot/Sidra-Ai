@@ -8,6 +8,7 @@ import { PackageModule } from '../package/package.module';
 import { ReadableIdModule } from '../common/readable-id/readable-id.module';
 import { TeacherModule } from '../teacher/teacher.module';
 import { AdminModule } from '../admin/admin.module';
+import { JitsiModule } from '../jitsi/jitsi.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AdminModule } from '../admin/admin.module';
     NotificationModule,
     PackageModule,
     ReadableIdModule,
+    JitsiModule,
     forwardRef(() => TeacherModule),
     forwardRef(() => AdminModule),
   ],

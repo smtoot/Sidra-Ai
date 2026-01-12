@@ -72,6 +72,9 @@ model bookings {
   startTime                            DateTime
   endTime                              DateTime
   meetingLink                          String?
+  jitsiRoomId                          String?
+  jitsiEnabled                         Boolean               @default(false)
+  useExternalMeetingLink               Boolean               @default(false)
   price                                Decimal               @db.Decimal(10, 2)
   commissionRate                       Decimal               @default(0.18) @db.Decimal(5, 2)
   status                               BookingStatus         @default(PENDING_TEACHER_APPROVAL)
