@@ -20,6 +20,10 @@ COPY . .
 # Build shared package first (web depends on it)
 RUN echo "=== DOCKER BUILD: Building shared package ===" && npm run build --workspace=packages/shared
 
+# Build arguments for Next.js public env vars (required at build time)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Build the Next.js app
 RUN echo "=== DOCKER BUILD: Building Next.js app ===" && npm run build --workspace=apps/web
 
