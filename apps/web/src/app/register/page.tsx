@@ -144,15 +144,16 @@ export default function RegisterPage() {
             setSuccess('تم إنشاء الحساب بنجاح! جاري تحويلك...');
 
             // Redirect based on role
+            // Use window.location.href for full page reload to ensure cookies are set
             setTimeout(() => {
                 if (role === 'PARENT') {
-                    router.push('/parent');
+                    window.location.href = '/parent';
                 } else if (role === 'TEACHER') {
-                    router.push('/teacher/onboarding');
+                    window.location.href = '/teacher/onboarding';
                 } else if (role === 'STUDENT') {
-                    router.push('/student');
+                    window.location.href = '/student';
                 } else {
-                    router.push('/');
+                    window.location.href = '/';
                 }
             }, 1500);
         } catch (err: any) {
