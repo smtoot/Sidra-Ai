@@ -9,6 +9,7 @@ import { Calendar, ExternalLink, ChevronRight, Wallet, Clock } from 'lucide-reac
 import Link from 'next/link';
 import { format, differenceInMinutes, isToday, isTomorrow } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { ActiveSessionCard } from '@/components/dashboard/ActiveSessionCard';
 import { DashboardHeader } from './components/DashboardHeader';
 import { EmptyStateGuided } from './components/EmptyStateGuided';
 import { QuickActions } from './components/QuickActions';
@@ -64,7 +65,8 @@ export default function StudentDashboardPage() {
         totalClasses,
         completedClassesCount,
         totalHoursLearned,
-        suggestedTeachers
+        suggestedTeachers,
+        activeSession,
     } = stats;
     const hasUpcoming = upcomingClasses && upcomingClasses.length > 0;
     const nextClass = hasUpcoming ? upcomingClasses[0] : null;
@@ -78,8 +80,16 @@ export default function StudentDashboardPage() {
                 {/* MOBILE-FIRST LAYOUT */}
                 <div className="lg:hidden space-y-3">
                     {/* 2️⃣ HERO SECTION - Highest Priority for new users */}
-                    {!hasUpcoming && (
+                    {!hasUpcoming && !activeSession && (
                         <EmptyStateGuided suggestedTeachers={suggestedTeachers} />
+                    )}
+
+                    {/* 3️⃣ ACTIVE SESSION CARD (Highest Mobile Priority) */}
+                    {activeSession && (
+                        <ActiveSessionCard
+                            session={activeSession}
+                            userRole="STUDENT"
+                        />
                     )}
 
                     {/* 4️⃣ Next Session Card (Contextual) */}
@@ -213,6 +223,14 @@ export default function StudentDashboardPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                         {/* Left Column: Main Content */}
                         <div className="lg:col-span-2 space-y-6">
+                            {/* Desktop Active Session */}
+                            {activeSession && (
+                                <ActiveSessionCard
+                                    session={activeSession}
+                                    userRole="STUDENT"
+                                />
+                            )}
+
                             {hasUpcoming ? (
                                 <Card className="border-none shadow-md overflow-hidden">
                                     <CardHeader className="border-b bg-white px-4 md:px-6 py-3 md:py-4 flex flex-row items-center justify-between">

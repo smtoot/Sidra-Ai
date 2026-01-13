@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { UpdateParentProfileDto, CreateChildDto, UpdateChildDto } from './dto';
+import { SessionUtil } from '../common/utils/session.util';
 
 @Injectable()
 export class ParentService {
@@ -13,26 +14,41 @@ export class ParentService {
   ) {}
 
   async getDashboardStats(userId: string) {
-    const [wallet, upcomingBookings, parentProfile] = await Promise.all([
-      this.walletService.getBalance(userId),
-      this.prisma.bookings.findMany({
-        where: {
-          bookedByUserId: userId,
-          status: 'SCHEDULED',
-        },
-        orderBy: { startTime: 'asc' },
-        take: 5, // Limit to next 5 upcoming classes
-        include: {
-          teacher_profiles: { include: { users: true } },
-          subjects: true,
-          children: true, // Include child name
-        },
-      }),
-      this.prisma.parent_profiles.findUnique({
-        where: { userId },
-        include: { children: true },
-      }),
-    ]);
+    const [wallet, upcomingBookings, activeSessionsResult, parentProfile] =
+      await Promise.all([
+        this.walletService.getBalance(userId),
+        this.prisma.bookings.findMany({
+          where: {
+            bookedByUserId: userId,
+            status: 'SCHEDULED',
+          },
+          orderBy: { startTime: 'asc' },
+          take: 5, // Limit to next 5 upcoming classes
+          include: {
+            teacher_profiles: { include: { users: true } },
+            subjects: true,
+            children: true, // Include child name
+          },
+        }),
+        // Fetch Active Sessions for ANY child
+        this.prisma.bookings.findMany({
+          where: {
+            bookedByUserId: userId,
+            status: 'SCHEDULED',
+            startTime: { lte: new Date(Date.now() + 10 * 60 * 1000) }, // Start <= Now + 10m
+            endTime: { gte: new Date() }, // End >= Now
+          },
+          include: {
+            teacher_profiles: { include: { users: true } },
+            subjects: true,
+            children: true,
+          },
+        }),
+        this.prisma.parent_profiles.findUnique({
+          where: { userId },
+          include: { children: true },
+        }),
+      ]);
 
     // Flatten and enrich booking data
     const upcomingClasses = upcomingBookings.map((booking, index) => ({
@@ -40,9 +56,34 @@ export class ParentService {
       isNextGlobalSession: index === 0, // Oldest upcoming is "next"
     }));
 
+    // Process Active Sessions
+    const now = new Date();
+    // Explicitly type mapped session or let inference work
+    const activeSessions = activeSessionsResult.map((session) => ({
+      ...session,
+      studentName: session.children ? session.children.name : 'Child',
+      teacherName: session.teacher_profiles?.users?.firstName || 'Teacher',
+      subjectName: session.subjects?.nameAr || 'General',
+      isActive: SessionUtil.isSessionActive(
+        session.startTime,
+        session.endTime,
+        now,
+      ),
+      isJoinable: SessionUtil.isSessionJoinable(
+        session.startTime,
+        session.endTime,
+        now,
+      ),
+      isLate: SessionUtil.isSessionLate(session.startTime, now),
+      hasMeetingLink: !!session.meetingLink,
+    }));
+
     return {
       balance: wallet?.balance || 0,
       upcomingClasses,
+      activeSessions, // Returns array, sorted active first implicitly by findMany order if any (actually findMany defaults to id if not specified, but we depend on frontend to sort or added orderBy in query?)
+      // Query didn't have orderBy. Let's assume frontend sorts or it's fine for now (rare to have simultaneous).
+      // We should ideally sort by start time desc or asc.
       children: parentProfile?.children || [],
     };
   }

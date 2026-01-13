@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { teacherApi } from '@/lib/api/teacher';
 import { DayOfWeek } from '@sidra/shared';
-import { Clock } from 'lucide-react';
+import { Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard';
 import AvailabilityGrid from '@/components/teacher/AvailabilityGrid';
@@ -33,6 +33,8 @@ export default function TeacherAvailabilityPage() {
     const [exceptions, setExceptions] = useState<AvailabilityException[]>([]);
     const [loading, setLoading] = useState(true);
     const [timezone, setTimezone] = useState('');
+    const [profileTimezone, setProfileTimezone] = useState<string | null>(null);
+    const [browserTimezone, setBrowserTimezone] = useState<string>('');
 
     // Modal State
     const [exceptionModalOpen, setExceptionModalOpen] = useState(false);
@@ -43,6 +45,7 @@ export default function TeacherAvailabilityPage() {
         try {
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
             setTimezone(tz);
+            setBrowserTimezone(tz);
         } catch (e) {
             setTimezone('توقيتك المحلي');
         }
@@ -57,11 +60,25 @@ export default function TeacherAvailabilityPage() {
             ]);
             setAvailability(profile.availability || []);
             setExceptions(exceptionsData || []);
+            setProfileTimezone(profile.timezone || 'UTC');
         } catch (err) {
             console.error('Failed to load data', err);
             toast.error('فشل في تحميل البيانات');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateTimezone = async () => {
+        try {
+            await teacherApi.updateProfile({ timezone: browserTimezone });
+            setProfileTimezone(browserTimezone);
+            toast.success(`تم تحديث منطقتك الزمنية إلى ${browserTimezone}`);
+            // Reload to ensuring everything syncs
+            loadData();
+        } catch (err) {
+            console.error('Failed to update timezone:', err);
+            toast.error('فشل تحديث المنطقة الزمنية');
         }
     };
 
@@ -144,6 +161,28 @@ export default function TeacherAvailabilityPage() {
                         )}
                     </div>
                 </header>
+
+                {profileTimezone && browserTimezone && profileTimezone !== browserTimezone && (
+                    <div className="mb-8 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 shadow-sm mx-auto max-w-4xl" dir="rtl">
+                        <div className="p-2 bg-amber-100 rounded-full shrink-0">
+                            <AlertTriangle className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-bold text-amber-800 text-base mb-1">تنبيه اختلاف المنطقة الزمنية</h3>
+                            <p className="text-amber-700 text-sm leading-relaxed mb-3">
+                                منطقتك الزمنية المسجلة هي <strong>{profileTimezone}</strong>، ولكن متصفحك يظهر أنك في <strong>{browserTimezone}</strong>.
+                                <br />
+                                هذا قد يسبب ظهور المواعيد بشكل خاطئ للطلاب. هل تريد تحديث الإعدادات؟
+                            </p>
+                            <button
+                                onClick={handleUpdateTimezone}
+                                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-sm font-bold transition-colors shadow-sm"
+                            >
+                                نعم، تحديث إلى {browserTimezone}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {loading ? (
                     <div className="flex items-center justify-center py-20 min-h-[400px]">

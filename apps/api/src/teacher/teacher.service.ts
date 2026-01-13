@@ -20,6 +20,7 @@ import { NotificationService } from '../notification/notification.service';
 import { formatInTimezone } from '../common/utils/timezone.util';
 import { TeacherProfileMapper } from './teacher-profile.mapper';
 import { BookingMapper } from '../booking/booking.mapper';
+import { SessionUtil } from '../common/utils/session.util';
 
 @Injectable()
 export class TeacherService {
@@ -760,6 +761,7 @@ export class TeacherService {
     const [
       todaySessions,
       pendingRequests,
+      activeSession,
       upcomingSession,
       wallet,
       completedSessions,
@@ -784,14 +786,32 @@ export class TeacherService {
           status: 'PENDING_TEACHER_APPROVAL',
         },
       }),
-      // Get the NEXT upcoming session (by startTime, not createdAt)
+      // ACTIVE SESSION (Happening NOW)
       this.prisma.bookings.findFirst({
         where: {
           teacherId: profile.id,
           status: 'SCHEDULED',
-          startTime: { gte: new Date() }, // Only future sessions
+          startTime: { lte: new Date() },
+          endTime: { gte: new Date() },
         },
-        orderBy: { startTime: 'asc' }, // Closest session first
+        include: {
+          children: true,
+          users_bookings_studentUserIdTousers: true,
+          subjects: true,
+        },
+      }),
+      // UPCOMING SESSION (Future, Not Active)
+      // Note: We deliberately exclude the active one by checking startTime > now
+      // But for "Joinable" sessions (start - 10m), they might fall into "active" logic
+      // if we defined active as "joinable".
+      // Our definition: Active = Strict Time. Upcoming = Future.
+      this.prisma.bookings.findFirst({
+        where: {
+          teacherId: profile.id,
+          status: 'SCHEDULED',
+          startTime: { gt: new Date() },
+        },
+        orderBy: { startTime: 'asc' },
         include: {
           children: true,
           users_bookings_studentUserIdTousers: true,
@@ -837,11 +857,7 @@ export class TeacherService {
       }),
     ]);
 
-    // Format the session using BookingMapper
-    const formattedSession = BookingMapper.mapBooking(upcomingSession);
-
     // Format recent sessions using BookingMapper
-    // We extend the mapped booking with dashboard-specific calculated fields
     const formattedRecentSessions = recentSessions.map((session) => {
       const mapped = BookingMapper.mapBooking(session);
       return {
@@ -852,17 +868,70 @@ export class TeacherService {
       };
     });
 
+    // Enrich Sessions with Flags using SessionUtil
+    const now = new Date();
+
+    // Process active session (if any)
+    let processedActiveSession = null;
+    if (activeSession) {
+      // Manual mapping or use BookingMapper if compatible (assuming BookingMapper handles raw prisma result)
+      const mapped = BookingMapper.mapBooking(activeSession);
+      const studentName = activeSession.children
+        ? activeSession.children.name
+        : activeSession.users_bookings_studentUserIdTousers
+          ? activeSession.users_bookings_studentUserIdTousers.firstName +
+            ' ' +
+            activeSession.users_bookings_studentUserIdTousers.lastName
+          : 'Student';
+
+      processedActiveSession = {
+        ...mapped,
+        studentName, // Override/Ensure studentName is set
+        subjectName: activeSession.subjects?.nameAr || 'General',
+        isActive: true,
+        isJoinable: true,
+        isLate: SessionUtil.isSessionLate(activeSession.startTime, now),
+        hasMeetingLink: !!activeSession.meetingLink,
+      };
+    }
+
+    // Process upcoming session
+    let processedUpcomingSession = null;
+    if (upcomingSession) {
+      const mapped = BookingMapper.mapBooking(upcomingSession);
+      const studentName = upcomingSession.children
+        ? upcomingSession.children.name
+        : upcomingSession.users_bookings_studentUserIdTousers
+          ? upcomingSession.users_bookings_studentUserIdTousers.firstName +
+            ' ' +
+            upcomingSession.users_bookings_studentUserIdTousers.lastName
+          : 'Student';
+
+      processedUpcomingSession = {
+        ...mapped,
+        studentName,
+        subjectName: upcomingSession.subjects?.nameAr || 'General',
+        isActive: false,
+        isJoinable: SessionUtil.isSessionJoinable(
+          upcomingSession.startTime,
+          upcomingSession.endTime,
+          now,
+        ),
+        hasMeetingLink: !!upcomingSession.meetingLink,
+      };
+    }
+
     return {
       profile: {
         id: profile.id,
-        slug: profile.slug, // Include slug
+        slug: profile.slug,
         displayName: profile.displayName || 'معلم',
-        firstName: profile.users.firstName, // Added for dashboard greeting
-        lastName: profile.users.lastName, // Added just in case
+        firstName: profile.users.firstName,
+        lastName: profile.users.lastName,
         photo: profile.profilePhotoUrl || null,
-        // Vacation Mode status
         isOnVacation: profile.isOnVacation,
         vacationEndDate: profile.vacationEndDate,
+        // include meetingLink if needed, but it's set per session now
       },
       counts: {
         todaySessions,
@@ -872,9 +941,10 @@ export class TeacherService {
         totalEarnings: totalEarnings._sum.amount || 0,
         totalReviews: profile.totalReviews,
       },
-      upcomingSession: formattedSession,
+      upcomingSession: processedUpcomingSession,
+      activeSession: processedActiveSession,
       recentSessions: formattedRecentSessions,
-      walletBalance: wallet.balance,
+      walletBalance: wallet?.balance || 0,
     };
   }
 

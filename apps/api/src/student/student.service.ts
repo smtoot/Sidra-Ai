@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
-import { UpdateTeacherProfileDto } from '@sidra/shared'; // Using shared DTO or need new one?
+import { UpdateTeacherProfileDto } from '@sidra/shared';
+import { SessionUtil } from '../common/utils/session.util';
 // Actually we need a StudentProfileDto. For now, simplistic or reuse.
 // The spec said "StudentProfile: 1:1 with User where role=STUDENT".
 
@@ -34,13 +35,37 @@ export class StudentService {
         this.logger.error(`Failed to fetch wallet for ${userId}: ${e.message}`);
       }
 
-      // 3. Fetch Bookings (Upcoming)
+      // 3. Fetch Bookings (Active & Upcoming)
+      let activeSession: any = null;
       let upcomingClasses: any[] = [];
+      const now = new Date();
+
       try {
+        // ACTIVE / JOINABLE SESSION
+        // Starts within 10 mins (or started), and hasn't ended
+        const joinBufferTime = new Date(now.getTime() + 10 * 60 * 1000); // Now + 10m
+
+        activeSession = await this.prisma.bookings.findFirst({
+          where: {
+            bookedByUserId: userId,
+            status: 'SCHEDULED',
+            startTime: { lte: joinBufferTime },
+            endTime: { gte: now },
+          },
+          include: {
+            teacher_profiles: { include: { users: true } },
+            subjects: true,
+          },
+        });
+
+        // UPCOMING SESSIONS (Future)
+        // Exclude the active one
         upcomingClasses = await this.prisma.bookings.findMany({
           where: {
             bookedByUserId: userId,
             status: 'SCHEDULED',
+            id: activeSession ? { not: activeSession.id } : undefined, // Exclude active
+            startTime: { gt: now }, // Strictly future
           },
           orderBy: { startTime: 'asc' },
           take: 5,
@@ -50,7 +75,29 @@ export class StudentService {
           },
         });
       } catch (e) {
-        this.logger.error(`Failed to fetch upcoming classes: ${e.message}`);
+        this.logger.error(`Failed to fetch classes: ${e.message}`);
+      }
+
+      // Enrich Active Session
+      if (activeSession) {
+        activeSession = {
+          ...activeSession,
+          isActive: SessionUtil.isSessionActive(
+            activeSession.startTime,
+            activeSession.endTime,
+            now,
+          ),
+          isJoinable: SessionUtil.isSessionJoinable(
+            activeSession.startTime,
+            activeSession.endTime,
+            now,
+          ),
+          isLate: SessionUtil.isSessionLate(activeSession.startTime, now),
+          teacherName:
+            activeSession.teacher_profiles?.users?.firstName || 'Teacher',
+          subjectName: activeSession.subjects?.nameAr || 'General',
+          hasMeetingLink: !!activeSession.meetingLink, // Allow join only if link exists
+        };
       }
 
       // 4. Calculate Stats (Completed Classes & Hours)
@@ -102,6 +149,7 @@ export class StudentService {
 
       return {
         balance: wallet.balance || 0,
+        activeSession, // NEW
         upcomingClasses,
         totalClasses,
         completedClassesCount,

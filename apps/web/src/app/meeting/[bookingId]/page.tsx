@@ -3,6 +3,8 @@
 import React, { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useJitsiConfig } from '@/hooks/useJitsiConfig';
+import { bookingApi } from '@/lib/api/booking';
+import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 
 // Dynamically import JitsiMeetingRoom to avoid SSR issues
@@ -45,10 +47,50 @@ export default function MeetingPage() {
     }
   }, [config, refetch]);
 
-  const handleMeetingEnd = () => {
-    console.log('Meeting ended, redirecting...');
-    // Redirect back to the booking details or dashboard
-    router.push(`/booking/${bookingId}`);
+  // Handle user leaving the meeting (Hangup) - Just redirect, don't change status
+  const handleMeetingLeft = () => {
+    console.log('User left meeting');
+    redirectUser();
+  };
+
+  // Handle meeting ended (End Meeting for All) - Attempt to complete session
+  const handleMeetingEnded = async () => {
+    console.log('Meeting ended (readyToClose)');
+
+    // Only attempt to complete if user is teacher
+    if (config?.jitsiConfig?.userInfo?.role === 'teacher') {
+      try {
+        await bookingApi.completeSession(bookingId);
+        toast.success('تم إنهاء الحصة وتسجيلها بانتظار التأكيد');
+      } catch (err: any) {
+        console.error('Failed to complete session:', err);
+        // Show specific error if it's the "too early" error
+        if (err?.response?.data?.message?.includes('Cannot complete session before it ends')) {
+          toast.warning('لم يتم تغيير حالة الحصة: الوقت لم ينته بعد');
+        } else {
+          toast.error('حدث خطأ أثناء تحديث حالة الحصة');
+        }
+      }
+    }
+
+    redirectUser();
+  };
+
+  const redirectUser = () => {
+    // Determine redirect URL based on role if available
+    if (config?.jitsiConfig?.userInfo?.role) {
+      const { role } = config.jitsiConfig.userInfo;
+      if (role === 'teacher') {
+        router.push(`/teacher/sessions/${bookingId}`);
+        return;
+      } else if (role === 'student' || role === 'parent') {
+        router.push(`/${role}/bookings/${bookingId}`);
+        return;
+      }
+    }
+
+    // Fallback if role is unknown
+    router.push('/');
   };
 
   const handleMeetingError = (err: Error) => {
@@ -176,9 +218,9 @@ export default function MeetingPage() {
     return (
       <JitsiMeetingRoom
         config={config.jitsiConfig}
-        onMeetingEnd={handleMeetingEnd}
+        onMeetingEnd={handleMeetingLeft}
         onMeetingError={handleMeetingError}
-        onReadyToClose={handleMeetingEnd}
+        onReadyToClose={handleMeetingEnded}
       />
     );
   }

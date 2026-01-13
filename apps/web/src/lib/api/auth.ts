@@ -21,6 +21,7 @@ export interface UserProfile {
     role: 'PARENT' | 'TEACHER' | 'ADMIN' | 'STUDENT';
     phoneNumber?: string;
     isVerified: boolean;
+    hasCompletedTour: boolean;
     parentProfile?: {
         id: string;
         children: Child[];

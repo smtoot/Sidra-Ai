@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { Avatar } from '@/components/ui/avatar';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { ActiveSessionCard } from '@/components/dashboard/ActiveSessionCard';
 import { ParentStatsGrid } from './components/ParentStatsGrid';
 import { ParentEmptyStateGuided } from './components/ParentEmptyStateGuided';
 import { ParentBookingEmptyState } from './components/ParentBookingEmptyState';
@@ -70,7 +71,7 @@ export default function ParentDashboardPage() {
         );
     }
 
-    const { balance, upcomingClasses, children } = stats;
+    const { balance, upcomingClasses, children, activeSessions } = stats;
     const hasChildren = children && children.length > 0;
     const hasUpcoming = upcomingClasses && upcomingClasses.length > 0;
     const nextClass = hasUpcoming ? upcomingClasses[0] : null;
@@ -111,6 +112,19 @@ export default function ParentDashboardPage() {
 
                 {/* MOBILE-FIRST LAYOUT */}
                 <div className="lg:hidden space-y-3">
+
+                    {/* 1.5 ACTIVE SESSIONS (Priority) */}
+                    {activeSessions && activeSessions.length > 0 && (
+                        <div className="space-y-3">
+                            {activeSessions.map((session: any) => (
+                                <ActiveSessionCard
+                                    key={session.id}
+                                    session={session}
+                                    userRole="PARENT"
+                                />
+                            ))}
+                        </div>
+                    )}
 
                     {/* 2️⃣ HERO SECTION - Parent-focused */}
                     {hasChildren && (
@@ -276,6 +290,19 @@ export default function ParentDashboardPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                         {/* Left Column: Dynamic Main Content */}
                         <div className="lg:col-span-2 space-y-6">
+                            {/* Desktop Active Sessions */}
+                            {activeSessions && activeSessions.length > 0 && (
+                                <div className="space-y-4">
+                                    {activeSessions.map((session: any) => (
+                                        <ActiveSessionCard
+                                            key={session.id}
+                                            session={session}
+                                            userRole="PARENT"
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
                             {!hasChildren ? (
                                 <ParentEmptyStateGuided />
                             ) : !hasUpcoming ? (

@@ -50,7 +50,7 @@ export class AdminController {
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
     private readonly emailPreviewService: EmailPreviewService,
-  ) {}
+  ) { }
 
   @Get('dashboard')
   getDashboardStats() {
@@ -60,6 +60,152 @@ export class AdminController {
   @Get('analytics/financial')
   getFinancialAnalytics() {
     return this.adminService.getFinancialAnalytics();
+  }
+
+  // =================== ADVANCED ANALYTICS ===================
+
+  /**
+   * Get comprehensive student analytics with filtering
+   * Filters: curriculum, grade, school, city, country, date range
+   */
+  @Get('analytics/students')
+  getStudentAnalytics(
+    @Query('curriculumId') curriculumId?: string,
+    @Query('gradeLevel') gradeLevel?: string,
+    @Query('schoolName') schoolName?: string,
+    @Query('city') city?: string,
+    @Query('country') country?: string,
+    @Query('hasBookings') hasBookings?: string,
+    @Query('hasPackages') hasPackages?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.adminService.getStudentAnalytics({
+      curriculumId,
+      gradeLevel,
+      schoolName,
+      city,
+      country,
+      hasBookings: hasBookings === 'true' ? true : hasBookings === 'false' ? false : undefined,
+      hasPackages: hasPackages === 'true' ? true : hasPackages === 'false' ? false : undefined,
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+    });
+  }
+
+  /**
+   * Get comprehensive teacher analytics with filtering
+   * Filters: subject, curriculum, grade, application status, city, country, rating, experience
+   */
+  @Get('analytics/teachers')
+  getTeacherAnalytics(
+    @Query('subjectId') subjectId?: string,
+    @Query('curriculumId') curriculumId?: string,
+    @Query('gradeLevelId') gradeLevelId?: string,
+    @Query('applicationStatus') applicationStatus?: string,
+    @Query('city') city?: string,
+    @Query('country') country?: string,
+    @Query('minRating') minRating?: string,
+    @Query('minExperience') minExperience?: string,
+    @Query('hasBookings') hasBookings?: string,
+    @Query('isOnVacation') isOnVacation?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.adminService.getTeacherAnalytics({
+      subjectId,
+      curriculumId,
+      gradeLevelId,
+      applicationStatus,
+      city,
+      country,
+      minRating: minRating ? parseFloat(minRating) : undefined,
+      minExperience: minExperience ? parseInt(minExperience) : undefined,
+      hasBookings: hasBookings === 'true' ? true : hasBookings === 'false' ? false : undefined,
+      isOnVacation: isOnVacation === 'true' ? true : isOnVacation === 'false' ? false : undefined,
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+    });
+  }
+
+  /**
+   * Get comprehensive booking analytics with filtering
+   * Filters: subject, curriculum, teacher, status, date range, price range
+   */
+  @Get('analytics/bookings')
+  getBookingAnalytics(
+    @Query('subjectId') subjectId?: string,
+    @Query('curriculumId') curriculumId?: string,
+    @Query('teacherId') teacherId?: string,
+    @Query('status') status?: string,
+    @Query('beneficiaryType') beneficiaryType?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('hasRating') hasRating?: string,
+    @Query('hasHomework') hasHomework?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('groupBy') groupBy?: string,
+  ) {
+    return this.adminService.getBookingAnalytics({
+      subjectId,
+      curriculumId,
+      teacherId,
+      status,
+      beneficiaryType,
+      minPrice: minPrice ? parseFloat(minPrice) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+      hasRating: hasRating === 'true' ? true : hasRating === 'false' ? false : undefined,
+      hasHomework: hasHomework === 'true' ? true : hasHomework === 'false' ? false : undefined,
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      groupBy: groupBy as 'subject' | 'curriculum' | 'teacher' | 'status' | 'day' | 'week' | 'month' | undefined,
+    });
+  }
+
+  /**
+   * Get parent analytics with filtering
+   * Filters: city, country, children count, bookings, packages
+   */
+  @Get('analytics/parents')
+  getParentAnalytics(
+    @Query('city') city?: string,
+    @Query('country') country?: string,
+    @Query('minChildren') minChildren?: string,
+    @Query('hasBookings') hasBookings?: string,
+    @Query('hasPackages') hasPackages?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.adminService.getParentAnalytics({
+      city,
+      country,
+      minChildren: minChildren ? parseInt(minChildren) : undefined,
+      hasBookings: hasBookings === 'true' ? true : hasBookings === 'false' ? false : undefined,
+      hasPackages: hasPackages === 'true' ? true : hasPackages === 'false' ? false : undefined,
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+    });
+  }
+
+  /**
+   * Get filter options (curricula, subjects, grades, cities) for analytics UI
+   */
+  @Get('analytics/filter-options')
+  getAnalyticsFilterOptions() {
+    return this.adminService.getAnalyticsFilterOptions();
+  }
+
+  /**
+   * Export analytics data as CSV
+   */
+  @Get('analytics/export')
+  async exportAnalytics(
+    @Query('type') type: 'students' | 'teachers' | 'bookings' | 'parents',
+    @Query('format') format: 'csv' | 'json' = 'csv',
+    @Query() filters: Record<string, string>,
+  ) {
+    return this.adminService.exportAnalytics(type, format, filters);
   }
 
   @Get('bookings')
@@ -158,6 +304,7 @@ export class AdminController {
       allowedSessionDurations?: number[];
       searchConfig?: Record<string, unknown>; // JSON object for dynamic search configuration
       cancellationPolicies?: Record<string, unknown>; // JSON object for policy config
+      jitsiConfig?: Record<string, unknown>; // JSON object for Jitsi config
     },
   ) {
     return this.settingsService.updateSettings(req.user.userId, dto);

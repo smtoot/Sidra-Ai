@@ -144,6 +144,9 @@ export default function StudentBookingsPage() {
             case 'support':
                 window.location.href = '/support/new';
                 break;
+            case 'join':
+                window.location.href = `/meeting/${booking.id}`;
+                break;
         }
     };
 

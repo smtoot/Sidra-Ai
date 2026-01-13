@@ -16,12 +16,12 @@ services:
     networks:
       - sidra_staging_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER_STAGING}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_STAGING}" ]
       interval: 10s
       timeout: 5s
       retries: 5
     ports:
-      - "127.0.0.1:5433:5432"  # Different port to avoid conflict with production
+      - "127.0.0.1:5433:5432" # Different port to avoid conflict with production
     deploy:
       resources:
         limits:
@@ -42,7 +42,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER_STAGING}:${POSTGRES_PASSWORD_STAGING}@postgres_staging:5432/${POSTGRES_DB_STAGING}
       NODE_ENV: staging
-      ENABLE_CRON: "false"  # Disable cron jobs on staging to avoid conflicts
+      ENABLE_CRON: "false" # Disable cron jobs on staging to avoid conflicts
       PORT: 4001
     volumes:
       - api_staging_uploads:/app/uploads
@@ -52,11 +52,13 @@ services:
       postgres_staging:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4001/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:4001/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    ports:
+      - "4001:4001"
     deploy:
       resources:
         limits:
@@ -88,7 +90,7 @@ services:
     depends_on:
       - api_staging
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3001 || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:3001 || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -232,8 +234,8 @@ services:
     container_name: sidra_jvb_staging
     restart: unless-stopped
     ports:
-      - "10001:10001/udp"  # RTP media (changed from 10000 to avoid Webmin conflict)
-      - "4444:4444/tcp"    # Fallback TCP (changed from 4443)
+      - "10001:10001/udp" # RTP media (changed from 10000 to avoid Webmin conflict)
+      - "4444:4444/tcp" # Fallback TCP (changed from 4443)
     environment:
       - XMPP_DOMAIN=meet.jitsi.staging
       - XMPP_AUTH_DOMAIN=auth.meet.jitsi.staging
@@ -257,8 +259,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'    # Reserve CPU for video processing
-          memory: 2G     # Up to 2GB RAM for video
+          cpus: '0.8' # Reserve CPU for video processing
+          memory: 2G # Up to 2GB RAM for video
         reservations:
           cpus: '0.4'
           memory: 1G

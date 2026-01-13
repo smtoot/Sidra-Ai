@@ -66,7 +66,14 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
       setIsLoading(true);
       setError(null);
 
-      const { apiUrl } = getRuntimeConfig();
+      let apiUrl: string;
+      try {
+        const config = getRuntimeConfig();
+        apiUrl = config.apiUrl;
+      } catch (e) {
+        // Fallback for when runtime config isn't loaded yet
+        apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      }
 
       const response = await fetch(
         `${apiUrl}/bookings/${bookingId}/jitsi-config`,
@@ -133,7 +140,13 @@ export function useToggleJitsi(bookingId: string) {
       setIsLoading(true);
       setError(null);
 
-      const { apiUrl } = getRuntimeConfig();
+      let apiUrl: string;
+      try {
+        const config = getRuntimeConfig();
+        apiUrl = config.apiUrl;
+      } catch (e) {
+        apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      }
 
       const response = await fetch(
         `${apiUrl}/bookings/${bookingId}/toggle-jitsi`,

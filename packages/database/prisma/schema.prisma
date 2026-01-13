@@ -597,6 +597,7 @@ model system_settings {
   maxVacationDays                Int      @default(21)
   searchConfig                   Json?
   cancellationPolicies           Json?
+  jitsiConfig                    Json?
   depositBankName                String   @default("بنك الخرطوم")
   depositAccountHolderName       String   @default("عمر محمد عبدالرحيم عبيشي")
   depositAccountNumber           String   @default("1401733")

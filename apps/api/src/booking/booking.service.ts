@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
@@ -42,7 +43,8 @@ export class BookingService {
     private readableIdService: ReadableIdService,
     private teacherService: TeacherService,
     private system_settingsService: SystemSettingsService,
-  ) {}
+    private configService: ConfigService,
+  ) { }
 
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
@@ -269,6 +271,7 @@ export class BookingService {
           meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
           status: 'PENDING_TEACHER_APPROVAL',
           pendingTierId: dto.tierId || null, // For deferred package purchases
+          jitsiEnabled: this.configService.get('JITSI_ENABLED') === 'true', // Auto-enable if feature is on
         },
         include: {
           teacher_profiles: { include: { users: true } },
@@ -308,25 +311,25 @@ export class BookingService {
       metadata: { bookingId: booking.id },
       email: booking.teacher_profiles.users.email
         ? {
-            to: booking.teacher_profiles.users.email,
-            subject: 'طلب حجز جديد | New Booking Request',
-            templateId: 'booking-request',
-            payload: {
-              recipientName:
-                booking.teacher_profiles.users.firstName || 'المعلم',
-              title: 'طلب حجز جديد',
-              message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
-              sessionDate: new Date(booking.startTime).toLocaleDateString(
-                'ar-EG',
-              ),
-              sessionTime: new Date(booking.startTime).toLocaleTimeString(
-                'ar-EG',
-                { hour: '2-digit', minute: '2-digit' },
-              ),
-              link: `${process.env.FRONTEND_URL}/teacher/requests`,
-              actionLabel: 'عرض الطلبات',
-            },
-          }
+          to: booking.teacher_profiles.users.email,
+          subject: 'طلب حجز جديد | New Booking Request',
+          templateId: 'booking-request',
+          payload: {
+            recipientName:
+              booking.teacher_profiles.users.firstName || 'المعلم',
+            title: 'طلب حجز جديد',
+            message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
+            sessionDate: new Date(booking.startTime).toLocaleDateString(
+              'ar-EG',
+            ),
+            sessionTime: new Date(booking.startTime).toLocaleTimeString(
+              'ar-EG',
+              { hour: '2-digit', minute: '2-digit' },
+            ),
+            link: `${process.env.FRONTEND_URL}/teacher/requests`,
+            actionLabel: 'عرض الطلبات',
+          },
+        }
         : undefined,
     });
 
@@ -418,11 +421,43 @@ export class BookingService {
         if (balance < price) {
           // --- Insufficient Balance Flow ---
 
-          // If deadline is already passed (or too close to session), we cannot allow "Pay Later"
+          // If deadline is already passed (or too close to session), we checks if we can allow a short "immediate" window
           if (paymentDeadline.getTime() <= now.getTime()) {
-            throw new BadRequestException(
-              'رصيد ولي الأمر غير كافٍ والوقت متأخر جداً لانتظار الدفع. يجب شحن المحفظة فوراً.',
-            );
+            // FIX: If session hasn't started yet, give a 15-minute (or until start) window instead of hard failure
+            const msUntilStart = booking.startTime.getTime() - now.getTime();
+            const MIN_PAYMENT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+            if (msUntilStart > 0) {
+              // Allow a short window: min(15 min, time until start)
+              const allowedWindow = Math.min(
+                MIN_PAYMENT_WINDOW_MS,
+                msUntilStart,
+              );
+              // Update paymentDeadline to be "now + window"
+              // We must re-assign the const variable, but it's const. We need to handle this.
+              // Logic fix: Re-calculate paymentDeadline or create a new variable.
+              // Since we are inside the block, we can just use the new date for the update.
+              const newDeadline = new Date(now.getTime() + allowedWindow);
+
+              // Proceed with this new deadline
+              const updatedBooking = await tx.bookings.update({
+                where: { id: bookingId },
+                data: {
+                  status: 'WAITING_FOR_PAYMENT',
+                  paymentDeadline: newDeadline,
+                },
+              });
+
+              return {
+                bookings: updatedBooking,
+                paymentRequired: true,
+                isPackage: false,
+              };
+            } else {
+              throw new BadRequestException(
+                'رصيد ولي الأمر غير كافٍ والوقت متأخر جداً لانتظار الدفع. يجب شحن المحفظة فوراً.',
+              );
+            }
           }
 
           // Transition to WAITING_FOR_PAYMENT
@@ -614,27 +649,27 @@ export class BookingService {
               metadata: { bookingId: updatedBooking.id },
               email: parentUser?.email
                 ? {
-                    to: parentUser.email,
-                    subject:
-                      'تم قبول طلب الحجز - يرجى الدفع | Payment Required',
-                    templateId: 'booking_approved',
-                    payload: {
-                      recipientName: parentUser.firstName || 'ولي الأمر',
-                      title: 'تم قبول طلب الحجز',
-                      message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
-                      sessionDate: new Date(
-                        updatedBooking.startTime,
-                      ).toLocaleDateString('ar-EG'),
-                      sessionTime: new Date(
-                        updatedBooking.startTime,
-                      ).toLocaleTimeString('ar-EG', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      }),
-                      link: `${process.env.FRONTEND_URL}/parent/bookings`,
-                      actionLabel: 'ادفع الآن',
-                    },
-                  }
+                  to: parentUser.email,
+                  subject:
+                    'تم قبول طلب الحجز - يرجى الدفع | Payment Required',
+                  templateId: 'booking_approved',
+                  payload: {
+                    recipientName: parentUser.firstName || 'ولي الأمر',
+                    title: 'تم قبول طلب الحجز',
+                    message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
+                    sessionDate: new Date(
+                      updatedBooking.startTime,
+                    ).toLocaleDateString('ar-EG'),
+                    sessionTime: new Date(
+                      updatedBooking.startTime,
+                    ).toLocaleTimeString('ar-EG', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                    link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                    actionLabel: 'ادفع الآن',
+                  },
+                }
                 : undefined,
             });
           } else if (isRedemption) {
@@ -651,26 +686,26 @@ export class BookingService {
               metadata: { bookingId: updatedBooking.id },
               email: parentUser?.email
                 ? {
-                    to: parentUser.email,
-                    subject: 'تم تأكيد الحجز (باقة) | Booking Confirmed',
-                    templateId: 'booking_approved',
-                    payload: {
-                      recipientName: parentUser.firstName || 'ولي الأمر',
-                      title: 'تم تأكيد الحجز',
-                      message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} وتم تأكيد الحصة من رصيد الباقة.`,
-                      sessionDate: new Date(
-                        updatedBooking.startTime,
-                      ).toLocaleDateString('ar-EG'),
-                      sessionTime: new Date(
-                        updatedBooking.startTime,
-                      ).toLocaleTimeString('ar-EG', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      }),
-                      link: `${process.env.FRONTEND_URL}/parent/bookings`,
-                      actionLabel: 'عرض الحجوزات',
-                    },
-                  }
+                  to: parentUser.email,
+                  subject: 'تم تأكيد الحجز (باقة) | Booking Confirmed',
+                  templateId: 'booking_approved',
+                  payload: {
+                    recipientName: parentUser.firstName || 'ولي الأمر',
+                    title: 'تم تأكيد الحجز',
+                    message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} وتم تأكيد الحصة من رصيد الباقة.`,
+                    sessionDate: new Date(
+                      updatedBooking.startTime,
+                    ).toLocaleDateString('ar-EG'),
+                    sessionTime: new Date(
+                      updatedBooking.startTime,
+                    ).toLocaleTimeString('ar-EG', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                    link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                    actionLabel: 'عرض الحجوزات',
+                  },
+                }
                 : undefined,
             });
           } else {
@@ -688,26 +723,26 @@ export class BookingService {
               metadata: { bookingId: updatedBooking.id },
               email: parentUser?.email
                 ? {
-                    to: parentUser.email,
-                    subject: 'تم تأكيد الحجز | Booking Confirmed',
-                    templateId: 'booking_approved',
-                    payload: {
-                      recipientName: parentUser.firstName || 'ولي الأمر',
-                      title: 'تم تأكيد الحجز',
-                      message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. تم خصم المبلغ من رصيدك.`,
-                      sessionDate: new Date(
-                        updatedBooking.startTime,
-                      ).toLocaleDateString('ar-EG'),
-                      sessionTime: new Date(
-                        updatedBooking.startTime,
-                      ).toLocaleTimeString('ar-EG', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      }),
-                      link: `${process.env.FRONTEND_URL}/parent/bookings`,
-                      actionLabel: 'عرض الحجوزات',
-                    },
-                  }
+                  to: parentUser.email,
+                  subject: 'تم تأكيد الحجز | Booking Confirmed',
+                  templateId: 'booking_approved',
+                  payload: {
+                    recipientName: parentUser.firstName || 'ولي الأمر',
+                    title: 'تم تأكيد الحجز',
+                    message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. تم خصم المبلغ من رصيدك.`,
+                    sessionDate: new Date(
+                      updatedBooking.startTime,
+                    ).toLocaleDateString('ar-EG'),
+                    sessionTime: new Date(
+                      updatedBooking.startTime,
+                    ).toLocaleTimeString('ar-EG', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                    link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                    actionLabel: 'عرض الحجوزات',
+                  },
+                }
                 : undefined,
             });
           }
@@ -901,8 +936,8 @@ export class BookingService {
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.package_tiers.findMany({
-            where: { id: { in: pendingTierIds } },
-          })
+          where: { id: { in: pendingTierIds } },
+        })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -976,8 +1011,8 @@ export class BookingService {
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.package_tiers.findMany({
-            where: { id: { in: pendingTierIds } },
-          })
+          where: { id: { in: pendingTierIds } },
+        })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -1175,38 +1210,44 @@ export class BookingService {
     if (!booking) return null;
 
     // Transform relations to match frontend expected structure (camelCase)
-    return {
+    const transformed = {
       ...booking,
       teacherProfile: booking.teacher_profiles
         ? {
-            ...booking.teacher_profiles,
-            user: booking.teacher_profiles.users,
-          }
+          ...booking.teacher_profiles,
+          user: booking.teacher_profiles.users,
+        }
         : undefined,
       bookedByUser: booking.users_bookings_bookedByUserIdTousers,
       studentUser: booking.users_bookings_studentUserIdTousers
         ? {
-            ...booking.users_bookings_studentUserIdTousers,
-            studentProfile: booking.users_bookings_studentUserIdTousers
-              .student_profiles
-              ? {
-                  ...booking.users_bookings_studentUserIdTousers
-                    .student_profiles,
-                  curriculum:
-                    booking.users_bookings_studentUserIdTousers.student_profiles
-                      .curricula,
-                }
-              : undefined,
-          }
+          ...booking.users_bookings_studentUserIdTousers,
+          studentProfile: booking.users_bookings_studentUserIdTousers
+            .student_profiles
+            ? {
+              ...booking.users_bookings_studentUserIdTousers
+                .student_profiles,
+              curriculum:
+                booking.users_bookings_studentUserIdTousers.student_profiles
+                  .curricula,
+            }
+            : undefined,
+        }
         : undefined,
       child: booking.children
         ? {
-            ...booking.children,
-            curriculum: booking.children.curricula,
-          }
+          ...booking.children,
+          curriculum: booking.children.curricula,
+        }
         : undefined,
       subject: booking.subjects,
+      jitsiEnabled: !!booking.jitsiEnabled, // Force boolean
     };
+    // DEBUG LOGGING
+    if (booking.readableId === 'BK-2601-0002') {
+      console.log(`[DEBUG] Transformed Booking BK-2601-0002: jitsiEnabled=${transformed.jitsiEnabled}, DB_Value=${booking.jitsiEnabled}`);
+    }
+    return transformed;
   }
 
   /**
@@ -1661,7 +1702,7 @@ export class BookingService {
     // Notify teacher - use normalizeMoney for consistent calculation
     const teacherEarnings = normalizeMoney(
       normalizeMoney(bookingContext.price) *
-        (1 - Number(bookingContext.commissionRate)),
+      (1 - Number(bookingContext.commissionRate)),
     );
     await this.notificationService.notifyTeacherPaymentReleased({
       bookingId: updatedBooking.id,

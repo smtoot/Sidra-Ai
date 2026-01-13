@@ -18,6 +18,60 @@ import { ProcessTransactionDto, TransactionStatus } from '@sidra/shared';
 import { TeacherProfileMapper } from '../teacher/teacher-profile.mapper';
 import { Prisma } from '@prisma/client';
 
+// =================== ANALYTICS FILTER INTERFACES ===================
+
+interface StudentAnalyticsFilters {
+  curriculumId?: string;
+  gradeLevel?: string;
+  schoolName?: string;
+  city?: string;
+  country?: string;
+  hasBookings?: boolean;
+  hasPackages?: boolean;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+interface TeacherAnalyticsFilters {
+  subjectId?: string;
+  curriculumId?: string;
+  gradeLevelId?: string;
+  applicationStatus?: string;
+  city?: string;
+  country?: string;
+  minRating?: number;
+  minExperience?: number;
+  hasBookings?: boolean;
+  isOnVacation?: boolean;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+interface BookingAnalyticsFilters {
+  subjectId?: string;
+  curriculumId?: string;
+  teacherId?: string;
+  status?: string;
+  beneficiaryType?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  hasRating?: boolean;
+  hasHomework?: boolean;
+  dateFrom?: Date;
+  dateTo?: Date;
+  groupBy?: 'subject' | 'curriculum' | 'teacher' | 'status' | 'day' | 'week' | 'month';
+}
+
+interface ParentAnalyticsFilters {
+  city?: string;
+  country?: string;
+  minChildren?: number;
+  hasBookings?: boolean;
+  hasPackages?: boolean;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -1725,6 +1779,1141 @@ export class AdminService {
     }
 
     return user;
+  }
+
+  // =================== ADVANCED ANALYTICS ===================
+
+  /**
+   * Get comprehensive student analytics with advanced filtering
+   */
+  async getStudentAnalytics(filters: StudentAnalyticsFilters) {
+    const where: Prisma.student_profilesWhereInput = {};
+
+    // Apply curriculum filter
+    if (filters.curriculumId) {
+      where.curriculumId = filters.curriculumId;
+    }
+
+    // Apply grade level filter
+    if (filters.gradeLevel) {
+      where.gradeLevel = { contains: filters.gradeLevel, mode: 'insensitive' };
+    }
+
+    // Apply school name filter
+    if (filters.schoolName) {
+      where.schoolName = { contains: filters.schoolName, mode: 'insensitive' };
+    }
+
+    // Apply city filter
+    if (filters.city) {
+      where.city = { contains: filters.city, mode: 'insensitive' };
+    }
+
+    // Apply country filter
+    if (filters.country) {
+      where.country = { contains: filters.country, mode: 'insensitive' };
+    }
+
+    // Apply date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      where.users = {
+        createdAt: {
+          ...(filters.dateFrom && { gte: filters.dateFrom }),
+          ...(filters.dateTo && { lte: filters.dateTo }),
+        },
+      };
+    }
+
+    // Get all student profiles with counts
+    const students = await this.prisma.student_profiles.findMany({
+      where,
+      include: {
+        users: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
+        curricula: {
+          select: { id: true, nameAr: true, nameEn: true },
+        },
+      },
+    });
+
+    // Get booking and package counts for each student
+    const studentIds = students.map((s) => s.userId);
+
+    const [bookingCounts, packageCounts] = await Promise.all([
+      this.prisma.bookings.groupBy({
+        by: ['studentUserId'],
+        where: { studentUserId: { in: studentIds } },
+        _count: { id: true },
+      }),
+      this.prisma.student_packages.groupBy({
+        by: ['studentId'],
+        where: { studentId: { in: studentIds } },
+        _count: { id: true },
+      }),
+    ]);
+
+    // Create maps for quick lookup
+    const bookingMap = new Map(
+      bookingCounts.map((b) => [b.studentUserId, b._count.id]),
+    );
+    const packageMap = new Map(
+      packageCounts.map((p) => [p.studentId, p._count.id]),
+    );
+
+    // Filter by hasBookings/hasPackages if needed
+    let filteredStudents = students.map((s) => ({
+      ...s,
+      bookingsCount: bookingMap.get(s.userId) || 0,
+      packagesCount: packageMap.get(s.userId) || 0,
+    }));
+
+    if (filters.hasBookings === true) {
+      filteredStudents = filteredStudents.filter((s) => s.bookingsCount > 0);
+    } else if (filters.hasBookings === false) {
+      filteredStudents = filteredStudents.filter((s) => s.bookingsCount === 0);
+    }
+
+    if (filters.hasPackages === true) {
+      filteredStudents = filteredStudents.filter((s) => s.packagesCount > 0);
+    } else if (filters.hasPackages === false) {
+      filteredStudents = filteredStudents.filter((s) => s.packagesCount === 0);
+    }
+
+    // Calculate aggregations
+    const curriculumBreakdown = this.groupBy(filteredStudents, (s) =>
+      s.curricula?.nameAr || 'غير محدد',
+    );
+    const gradeLevelBreakdown = this.groupBy(
+      filteredStudents,
+      (s) => s.gradeLevel || 'غير محدد',
+    );
+    const cityBreakdown = this.groupBy(
+      filteredStudents,
+      (s) => s.city || 'غير محدد',
+    );
+    const countryBreakdown = this.groupBy(
+      filteredStudents,
+      (s) => s.country || 'غير محدد',
+    );
+
+    return {
+      summary: {
+        totalStudents: filteredStudents.length,
+        activeStudents: filteredStudents.filter((s) => s.users.isActive).length,
+        withBookings: filteredStudents.filter((s) => s.bookingsCount > 0).length,
+        withPackages: filteredStudents.filter((s) => s.packagesCount > 0).length,
+        totalBookings: filteredStudents.reduce((sum, s) => sum + s.bookingsCount, 0),
+        totalPackages: filteredStudents.reduce((sum, s) => sum + s.packagesCount, 0),
+      },
+      breakdown: {
+        byCurriculum: Object.entries(curriculumBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
+        })),
+        byGradeLevel: Object.entries(gradeLevelBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
+        })),
+        byCity: Object.entries(cityBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
+        })),
+        byCountry: Object.entries(countryBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
+        })),
+      },
+      students: filteredStudents.slice(0, 100), // Return first 100 for the list
+    };
+  }
+
+  /**
+   * Get comprehensive teacher analytics with advanced filtering
+   */
+  async getTeacherAnalytics(filters: TeacherAnalyticsFilters) {
+    const where: Prisma.teacher_profilesWhereInput = {};
+
+    // Apply application status filter
+    if (filters.applicationStatus) {
+      where.applicationStatus = filters.applicationStatus as any;
+    }
+
+    // Apply city filter
+    if (filters.city) {
+      where.city = { contains: filters.city, mode: 'insensitive' };
+    }
+
+    // Apply country filter
+    if (filters.country) {
+      where.country = { contains: filters.country, mode: 'insensitive' };
+    }
+
+    // Apply rating filter
+    if (filters.minRating !== undefined) {
+      where.averageRating = { gte: filters.minRating };
+    }
+
+    // Apply experience filter
+    if (filters.minExperience !== undefined) {
+      where.yearsOfExperience = { gte: filters.minExperience };
+    }
+
+    // Apply vacation filter
+    if (filters.isOnVacation !== undefined) {
+      where.isOnVacation = filters.isOnVacation;
+    }
+
+    // Apply subject/curriculum/grade filters through teacher_subjects
+    if (filters.subjectId || filters.curriculumId || filters.gradeLevelId) {
+      where.teacher_subjects = {
+        some: {
+          ...(filters.subjectId && { subjectId: filters.subjectId }),
+          ...(filters.curriculumId && { curriculumId: filters.curriculumId }),
+          ...(filters.gradeLevelId && {
+            teacher_subject_grades: {
+              some: { gradeLevelId: filters.gradeLevelId },
+            },
+          }),
+        },
+      };
+    }
+
+    // Apply date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      where.users = {
+        createdAt: {
+          ...(filters.dateFrom && { gte: filters.dateFrom }),
+          ...(filters.dateTo && { lte: filters.dateTo }),
+        },
+      };
+    }
+
+    // Get all teacher profiles with related data
+    const teachers = await this.prisma.teacher_profiles.findMany({
+      where,
+      include: {
+        users: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
+        teacher_subjects: {
+          include: {
+            subjects: { select: { id: true, nameAr: true, nameEn: true } },
+            curricula: { select: { id: true, nameAr: true, nameEn: true } },
+            teacher_subject_grades: {
+              include: {
+                grade_levels: { select: { id: true, nameAr: true, nameEn: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Get booking counts for each teacher
+    const teacherIds = teachers.map((t) => t.id);
+    const bookingCounts = await this.prisma.bookings.groupBy({
+      by: ['teacherId'],
+      where: { teacherId: { in: teacherIds } },
+      _count: { id: true },
+    });
+
+    const bookingMap = new Map(
+      bookingCounts.map((b) => [b.teacherId, b._count.id]),
+    );
+
+    // Enhance teacher data with booking counts
+    let enrichedTeachers = teachers.map((t) => ({
+      ...t,
+      bookingsCount: bookingMap.get(t.id) || 0,
+    }));
+
+    // Filter by hasBookings if needed
+    if (filters.hasBookings === true) {
+      enrichedTeachers = enrichedTeachers.filter((t) => t.bookingsCount > 0);
+    } else if (filters.hasBookings === false) {
+      enrichedTeachers = enrichedTeachers.filter((t) => t.bookingsCount === 0);
+    }
+
+    // Calculate aggregations
+    const statusBreakdown = this.groupBy(
+      enrichedTeachers,
+      (t) => t.applicationStatus,
+    );
+    const cityBreakdown = this.groupBy(
+      enrichedTeachers,
+      (t) => t.city || 'غير محدد',
+    );
+    const countryBreakdown = this.groupBy(
+      enrichedTeachers,
+      (t) => t.country || 'غير محدد',
+    );
+
+    // Subject breakdown
+    const subjectCounts: Record<string, number> = {};
+    const curriculumCounts: Record<string, number> = {};
+
+    enrichedTeachers.forEach((t) => {
+      t.teacher_subjects.forEach((ts) => {
+        const subjectName = ts.subjects.nameAr;
+        const curriculumName = ts.curricula.nameAr;
+        subjectCounts[subjectName] = (subjectCounts[subjectName] || 0) + 1;
+        curriculumCounts[curriculumName] = (curriculumCounts[curriculumName] || 0) + 1;
+      });
+    });
+
+    return {
+      summary: {
+        totalTeachers: enrichedTeachers.length,
+        approvedTeachers: enrichedTeachers.filter(
+          (t) => t.applicationStatus === 'APPROVED',
+        ).length,
+        pendingTeachers: enrichedTeachers.filter(
+          (t) => t.applicationStatus === 'SUBMITTED',
+        ).length,
+        withBookings: enrichedTeachers.filter((t) => t.bookingsCount > 0).length,
+        onVacation: enrichedTeachers.filter((t) => t.isOnVacation).length,
+        totalBookings: enrichedTeachers.reduce((sum, t) => sum + t.bookingsCount, 0),
+        averageRating:
+          enrichedTeachers.length > 0
+            ? (
+                enrichedTeachers.reduce((sum, t) => sum + t.averageRating, 0) /
+                enrichedTeachers.length
+              ).toFixed(2)
+            : '0',
+        averageExperience:
+          enrichedTeachers.filter((t) => t.yearsOfExperience).length > 0
+            ? (
+                enrichedTeachers
+                  .filter((t) => t.yearsOfExperience)
+                  .reduce((sum, t) => sum + (t.yearsOfExperience || 0), 0) /
+                enrichedTeachers.filter((t) => t.yearsOfExperience).length
+              ).toFixed(1)
+            : '0',
+      },
+      breakdown: {
+        byStatus: Object.entries(statusBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(1),
+        })),
+        bySubject: Object.entries(subjectCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, count]) => ({
+            name,
+            count,
+          })),
+        byCurriculum: Object.entries(curriculumCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, count]) => ({
+            name,
+            count,
+          })),
+        byCity: Object.entries(cityBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(1),
+        })),
+        byCountry: Object.entries(countryBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(1),
+        })),
+      },
+      teachers: enrichedTeachers.slice(0, 100), // Return first 100 for the list
+    };
+  }
+
+  /**
+   * Get comprehensive booking analytics with advanced filtering
+   */
+  async getBookingAnalytics(filters: BookingAnalyticsFilters) {
+    const where: Prisma.bookingsWhereInput = {};
+
+    // Apply subject filter
+    if (filters.subjectId) {
+      where.subjectId = filters.subjectId;
+    }
+
+    // Apply teacher filter
+    if (filters.teacherId) {
+      where.teacherId = filters.teacherId;
+    }
+
+    // Apply status filter
+    if (filters.status && filters.status !== 'ALL') {
+      where.status = filters.status as any;
+    }
+
+    // Apply beneficiary type filter
+    if (filters.beneficiaryType) {
+      where.beneficiaryType = filters.beneficiaryType as any;
+    }
+
+    // Apply price range filter
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.price = {
+        ...(filters.minPrice !== undefined && { gte: filters.minPrice }),
+        ...(filters.maxPrice !== undefined && { lte: filters.maxPrice }),
+      };
+    }
+
+    // Apply date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      where.startTime = {
+        ...(filters.dateFrom && { gte: filters.dateFrom }),
+        ...(filters.dateTo && { lte: filters.dateTo }),
+      };
+    }
+
+    // Apply rating filter
+    if (filters.hasRating !== undefined) {
+      if (filters.hasRating) {
+        where.ratings = { isNot: null };
+      } else {
+        where.ratings = { is: null };
+      }
+    }
+
+    // Apply homework filter
+    if (filters.hasHomework !== undefined) {
+      where.homeworkAssigned = filters.hasHomework;
+    }
+
+    // Apply curriculum filter through teacher_subjects
+    if (filters.curriculumId) {
+      where.teacher_profiles = {
+        teacher_subjects: {
+          some: { curriculumId: filters.curriculumId },
+        },
+      };
+    }
+
+    // Get bookings with related data
+    const bookings = await this.prisma.bookings.findMany({
+      where,
+      include: {
+        subjects: { select: { id: true, nameAr: true, nameEn: true } },
+        teacher_profiles: {
+          select: {
+            id: true,
+            displayName: true,
+            fullName: true,
+            teacher_subjects: {
+              include: {
+                curricula: { select: { id: true, nameAr: true, nameEn: true } },
+              },
+            },
+          },
+        },
+        users_bookings_studentUserIdTousers: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        ratings: { select: { score: true } },
+      },
+      orderBy: { startTime: 'desc' },
+      take: 1000, // Limit for performance
+    });
+
+    // Calculate summary statistics
+    const completedBookings = bookings.filter((b) => b.status === 'COMPLETED');
+    const totalRevenue = completedBookings.reduce(
+      (sum, b) => sum + Number(b.price),
+      0,
+    );
+    const averagePrice =
+      bookings.length > 0
+        ? bookings.reduce((sum, b) => sum + Number(b.price), 0) / bookings.length
+        : 0;
+
+    // Group by subject
+    const subjectBreakdown = this.groupBy(
+      bookings,
+      (b) => b.subjects.nameAr,
+    );
+
+    // Group by status
+    const statusBreakdown = this.groupBy(bookings, (b) => b.status);
+
+    // Group by teacher
+    const teacherBreakdown = this.groupBy(
+      bookings,
+      (b) => b.teacher_profiles.displayName || b.teacher_profiles.fullName || 'غير معروف',
+    );
+
+    // Time-based grouping
+    let timeSeriesData: { label: string; count: number; revenue: number }[] = [];
+    if (filters.groupBy === 'day' || filters.groupBy === 'week' || filters.groupBy === 'month') {
+      const groupedByTime = this.groupBookingsByTime(bookings, filters.groupBy);
+      timeSeriesData = Object.entries(groupedByTime).map(([label, items]) => ({
+        label,
+        count: items.length,
+        revenue: items.reduce((sum, b) => sum + Number(b.price), 0),
+      }));
+    }
+
+    return {
+      summary: {
+        totalBookings: bookings.length,
+        completedBookings: completedBookings.length,
+        cancelledBookings: bookings.filter((b) =>
+          b.status.includes('CANCELLED'),
+        ).length,
+        pendingBookings: bookings.filter(
+          (b) =>
+            b.status === 'PENDING_TEACHER_APPROVAL' ||
+            b.status === 'WAITING_FOR_PAYMENT',
+        ).length,
+        disputedBookings: bookings.filter((b) => b.status === 'DISPUTED').length,
+        totalRevenue: Math.round(totalRevenue),
+        averagePrice: Math.round(averagePrice),
+        withRating: bookings.filter((b) => b.ratings).length,
+        withHomework: bookings.filter((b) => b.homeworkAssigned).length,
+        averageRating:
+          bookings.filter((b) => b.ratings).length > 0
+            ? (
+                bookings
+                  .filter((b) => b.ratings)
+                  .reduce((sum, b) => sum + (b.ratings?.score || 0), 0) /
+                bookings.filter((b) => b.ratings).length
+              ).toFixed(2)
+            : '0',
+      },
+      breakdown: {
+        bySubject: Object.entries(subjectBreakdown)
+          .sort((a, b) => b[1].length - a[1].length)
+          .map(([name, items]) => ({
+            name,
+            count: items.length,
+            revenue: items.reduce((sum, b) => sum + Number(b.price), 0),
+            percentage: ((items.length / bookings.length) * 100).toFixed(1),
+          })),
+        byStatus: Object.entries(statusBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / bookings.length) * 100).toFixed(1),
+        })),
+        byTeacher: Object.entries(teacherBreakdown)
+          .sort((a, b) => b[1].length - a[1].length)
+          .slice(0, 20)
+          .map(([name, items]) => ({
+            name,
+            count: items.length,
+            revenue: items.reduce((sum, b) => sum + Number(b.price), 0),
+          })),
+        timeSeries: timeSeriesData,
+      },
+      bookings: bookings.slice(0, 100), // Return first 100 for the list
+    };
+  }
+
+  /**
+   * Get comprehensive parent analytics with advanced filtering
+   */
+  async getParentAnalytics(filters: ParentAnalyticsFilters) {
+    const where: Prisma.parent_profilesWhereInput = {};
+
+    // Apply city filter
+    if (filters.city) {
+      where.city = { contains: filters.city, mode: 'insensitive' };
+    }
+
+    // Apply country filter
+    if (filters.country) {
+      where.country = { contains: filters.country, mode: 'insensitive' };
+    }
+
+    // Apply date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      where.users = {
+        createdAt: {
+          ...(filters.dateFrom && { gte: filters.dateFrom }),
+          ...(filters.dateTo && { lte: filters.dateTo }),
+        },
+      };
+    }
+
+    // Get all parent profiles with children
+    const parents = await this.prisma.parent_profiles.findMany({
+      where,
+      include: {
+        users: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
+        children: {
+          include: {
+            curricula: { select: { id: true, nameAr: true, nameEn: true } },
+          },
+        },
+      },
+    });
+
+    // Get booking and package counts for each parent
+    const parentUserIds = parents.map((p) => p.userId);
+
+    const [bookingCounts, packageCounts] = await Promise.all([
+      this.prisma.bookings.groupBy({
+        by: ['bookedByUserId'],
+        where: { bookedByUserId: { in: parentUserIds } },
+        _count: { id: true },
+      }),
+      this.prisma.student_packages.groupBy({
+        by: ['payerId'],
+        where: { payerId: { in: parentUserIds } },
+        _count: { id: true },
+      }),
+    ]);
+
+    const bookingMap = new Map(
+      bookingCounts.map((b) => [b.bookedByUserId, b._count.id]),
+    );
+    const packageMap = new Map(
+      packageCounts.map((p) => [p.payerId, p._count.id]),
+    );
+
+    // Enhance parent data
+    let enrichedParents = parents.map((p) => ({
+      ...p,
+      childrenCount: p.children.length,
+      bookingsCount: bookingMap.get(p.userId) || 0,
+      packagesCount: packageMap.get(p.userId) || 0,
+    }));
+
+    // Apply filters
+    if (filters.minChildren !== undefined) {
+      enrichedParents = enrichedParents.filter(
+        (p) => p.childrenCount >= (filters.minChildren || 0),
+      );
+    }
+
+    if (filters.hasBookings === true) {
+      enrichedParents = enrichedParents.filter((p) => p.bookingsCount > 0);
+    } else if (filters.hasBookings === false) {
+      enrichedParents = enrichedParents.filter((p) => p.bookingsCount === 0);
+    }
+
+    if (filters.hasPackages === true) {
+      enrichedParents = enrichedParents.filter((p) => p.packagesCount > 0);
+    } else if (filters.hasPackages === false) {
+      enrichedParents = enrichedParents.filter((p) => p.packagesCount === 0);
+    }
+
+    // Calculate aggregations
+    const cityBreakdown = this.groupBy(
+      enrichedParents,
+      (p) => p.city || 'غير محدد',
+    );
+    const countryBreakdown = this.groupBy(
+      enrichedParents,
+      (p) => p.country || 'غير محدد',
+    );
+    const childrenCountBreakdown = this.groupBy(enrichedParents, (p) =>
+      p.childrenCount.toString(),
+    );
+
+    // Children curriculum breakdown
+    const curriculumCounts: Record<string, number> = {};
+    enrichedParents.forEach((p) => {
+      p.children.forEach((c) => {
+        const curriculumName = c.curricula?.nameAr || 'غير محدد';
+        curriculumCounts[curriculumName] = (curriculumCounts[curriculumName] || 0) + 1;
+      });
+    });
+
+    return {
+      summary: {
+        totalParents: enrichedParents.length,
+        activeParents: enrichedParents.filter((p) => p.users.isActive).length,
+        withBookings: enrichedParents.filter((p) => p.bookingsCount > 0).length,
+        withPackages: enrichedParents.filter((p) => p.packagesCount > 0).length,
+        totalChildren: enrichedParents.reduce((sum, p) => sum + p.childrenCount, 0),
+        totalBookings: enrichedParents.reduce((sum, p) => sum + p.bookingsCount, 0),
+        totalPackages: enrichedParents.reduce((sum, p) => sum + p.packagesCount, 0),
+        averageChildrenPerParent:
+          enrichedParents.length > 0
+            ? (
+                enrichedParents.reduce((sum, p) => sum + p.childrenCount, 0) /
+                enrichedParents.length
+              ).toFixed(2)
+            : '0',
+      },
+      breakdown: {
+        byCity: Object.entries(cityBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / enrichedParents.length) * 100).toFixed(1),
+        })),
+        byCountry: Object.entries(countryBreakdown).map(([name, items]) => ({
+          name,
+          count: items.length,
+          percentage: ((items.length / enrichedParents.length) * 100).toFixed(1),
+        })),
+        byChildrenCount: Object.entries(childrenCountBreakdown)
+          .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+          .map(([count, items]) => ({
+            count: parseInt(count),
+            parents: items.length,
+          })),
+        byChildrenCurriculum: Object.entries(curriculumCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, count]) => ({
+            name,
+            count,
+          })),
+      },
+      parents: enrichedParents.slice(0, 100), // Return first 100 for the list
+    };
+  }
+
+  /**
+   * Get filter options for analytics UI
+   */
+  async getAnalyticsFilterOptions() {
+    const [curricula, subjects, grades, cities, countries] = await Promise.all([
+      this.prisma.curricula.findMany({
+        where: { isActive: true },
+        select: { id: true, nameAr: true, nameEn: true },
+        orderBy: { nameAr: 'asc' },
+      }),
+      this.prisma.subjects.findMany({
+        where: { isActive: true },
+        select: { id: true, nameAr: true, nameEn: true },
+        orderBy: { nameAr: 'asc' },
+      }),
+      this.prisma.grade_levels.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          nameAr: true,
+          nameEn: true,
+          educational_stages: {
+            select: {
+              nameAr: true,
+              curricula: { select: { nameAr: true } },
+            },
+          },
+        },
+        orderBy: { sequence: 'asc' },
+      }),
+      this.prisma.student_profiles.findMany({
+        where: { city: { not: null } },
+        select: { city: true },
+        distinct: ['city'],
+      }),
+      this.prisma.student_profiles.findMany({
+        where: { country: { not: null } },
+        select: { country: true },
+        distinct: ['country'],
+      }),
+    ]);
+
+    // Get unique teacher cities and countries too
+    const [teacherCities, teacherCountries] = await Promise.all([
+      this.prisma.teacher_profiles.findMany({
+        where: { city: { not: null } },
+        select: { city: true },
+        distinct: ['city'],
+      }),
+      this.prisma.teacher_profiles.findMany({
+        where: { country: { not: null } },
+        select: { country: true },
+        distinct: ['country'],
+      }),
+    ]);
+
+    // Merge and dedupe cities and countries
+    const allCities = [
+      ...new Set([
+        ...cities.map((c) => c.city).filter(Boolean),
+        ...teacherCities.map((c) => c.city).filter(Boolean),
+      ]),
+    ].sort();
+
+    const allCountries = [
+      ...new Set([
+        ...countries.map((c) => c.country).filter(Boolean),
+        ...teacherCountries.map((c) => c.country).filter(Boolean),
+      ]),
+    ].sort();
+
+    return {
+      curricula,
+      subjects,
+      grades: grades.map((g) => ({
+        ...g,
+        fullName: `${g.educational_stages.curricula.nameAr} - ${g.educational_stages.nameAr} - ${g.nameAr}`,
+      })),
+      cities: allCities,
+      countries: allCountries,
+      applicationStatuses: [
+        { value: 'DRAFT', label: 'مسودة' },
+        { value: 'SUBMITTED', label: 'مقدم' },
+        { value: 'CHANGES_REQUESTED', label: 'تحتاج تعديل' },
+        { value: 'INTERVIEW_REQUIRED', label: 'تحتاج مقابلة' },
+        { value: 'INTERVIEW_SCHEDULED', label: 'مقابلة محددة' },
+        { value: 'APPROVED', label: 'معتمد' },
+        { value: 'REJECTED', label: 'مرفوض' },
+      ],
+      bookingStatuses: [
+        { value: 'PENDING_TEACHER_APPROVAL', label: 'بانتظار موافقة المعلم' },
+        { value: 'WAITING_FOR_PAYMENT', label: 'بانتظار الدفع' },
+        { value: 'PAYMENT_REVIEW', label: 'قيد مراجعة الدفع' },
+        { value: 'SCHEDULED', label: 'مجدول' },
+        { value: 'COMPLETED', label: 'مكتمل' },
+        { value: 'CANCELLED_BY_PARENT', label: 'ملغي من ولي الأمر' },
+        { value: 'CANCELLED_BY_TEACHER', label: 'ملغي من المعلم' },
+        { value: 'CANCELLED_BY_ADMIN', label: 'ملغي من الإدارة' },
+        { value: 'DISPUTED', label: 'متنازع عليه' },
+        { value: 'REFUNDED', label: 'مسترد' },
+      ],
+    };
+  }
+
+  /**
+   * Export analytics data as CSV or JSON
+   */
+  async exportAnalytics(
+    type: 'students' | 'teachers' | 'bookings' | 'parents',
+    format: 'csv' | 'json',
+    filters: Record<string, string>,
+  ) {
+    let data: any;
+
+    switch (type) {
+      case 'students':
+        data = await this.getStudentAnalytics({
+          curriculumId: filters.curriculumId,
+          gradeLevel: filters.gradeLevel,
+          schoolName: filters.schoolName,
+          city: filters.city,
+          country: filters.country,
+          hasBookings:
+            filters.hasBookings === 'true'
+              ? true
+              : filters.hasBookings === 'false'
+                ? false
+                : undefined,
+          hasPackages:
+            filters.hasPackages === 'true'
+              ? true
+              : filters.hasPackages === 'false'
+                ? false
+                : undefined,
+          dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+          dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+        });
+        break;
+      case 'teachers':
+        data = await this.getTeacherAnalytics({
+          subjectId: filters.subjectId,
+          curriculumId: filters.curriculumId,
+          gradeLevelId: filters.gradeLevelId,
+          applicationStatus: filters.applicationStatus,
+          city: filters.city,
+          country: filters.country,
+          minRating: filters.minRating ? parseFloat(filters.minRating) : undefined,
+          minExperience: filters.minExperience
+            ? parseInt(filters.minExperience)
+            : undefined,
+          hasBookings:
+            filters.hasBookings === 'true'
+              ? true
+              : filters.hasBookings === 'false'
+                ? false
+                : undefined,
+          isOnVacation:
+            filters.isOnVacation === 'true'
+              ? true
+              : filters.isOnVacation === 'false'
+                ? false
+                : undefined,
+          dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+          dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+        });
+        break;
+      case 'bookings':
+        data = await this.getBookingAnalytics({
+          subjectId: filters.subjectId,
+          curriculumId: filters.curriculumId,
+          teacherId: filters.teacherId,
+          status: filters.status,
+          beneficiaryType: filters.beneficiaryType,
+          minPrice: filters.minPrice ? parseFloat(filters.minPrice) : undefined,
+          maxPrice: filters.maxPrice ? parseFloat(filters.maxPrice) : undefined,
+          hasRating:
+            filters.hasRating === 'true'
+              ? true
+              : filters.hasRating === 'false'
+                ? false
+                : undefined,
+          hasHomework:
+            filters.hasHomework === 'true'
+              ? true
+              : filters.hasHomework === 'false'
+                ? false
+                : undefined,
+          dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+          dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+        });
+        break;
+      case 'parents':
+        data = await this.getParentAnalytics({
+          city: filters.city,
+          country: filters.country,
+          minChildren: filters.minChildren
+            ? parseInt(filters.minChildren)
+            : undefined,
+          hasBookings:
+            filters.hasBookings === 'true'
+              ? true
+              : filters.hasBookings === 'false'
+                ? false
+                : undefined,
+          hasPackages:
+            filters.hasPackages === 'true'
+              ? true
+              : filters.hasPackages === 'false'
+                ? false
+                : undefined,
+          dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+          dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+        });
+        break;
+    }
+
+    if (format === 'json') {
+      return data;
+    }
+
+    // Convert to CSV
+    const items = data[type] || [];
+    if (items.length === 0) {
+      return { csv: '', filename: `${type}-export.csv` };
+    }
+
+    const headers = this.getExportHeaders(type);
+    const rows = items.map((item: any) => this.formatExportRow(type, item));
+
+    const csv =
+      headers.join(',') + '\n' + rows.map((r: string[]) => r.join(',')).join('\n');
+
+    return {
+      csv,
+      filename: `${type}-export-${new Date().toISOString().split('T')[0]}.csv`,
+      summary: data.summary,
+    };
+  }
+
+  /**
+   * Helper: Group array by key function
+   */
+  private groupBy<T>(array: T[], keyFn: (item: T) => string): Record<string, T[]> {
+    return array.reduce(
+      (result, item) => {
+        const key = keyFn(item);
+        if (!result[key]) {
+          result[key] = [];
+        }
+        result[key].push(item);
+        return result;
+      },
+      {} as Record<string, T[]>,
+    );
+  }
+
+  /**
+   * Helper: Group bookings by time period
+   */
+  private groupBookingsByTime(
+    bookings: any[],
+    period: 'day' | 'week' | 'month',
+  ): Record<string, any[]> {
+    return bookings.reduce(
+      (result, booking) => {
+        const date = new Date(booking.startTime);
+        let key: string;
+
+        switch (period) {
+          case 'day':
+            key = date.toISOString().split('T')[0];
+            break;
+          case 'week':
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay());
+            key = weekStart.toISOString().split('T')[0];
+            break;
+          case 'month':
+            key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            break;
+        }
+
+        if (!result[key]) {
+          result[key] = [];
+        }
+        result[key].push(booking);
+        return result;
+      },
+      {} as Record<string, any[]>,
+    );
+  }
+
+  /**
+   * Helper: Get export headers based on type
+   */
+  private getExportHeaders(type: string): string[] {
+    switch (type) {
+      case 'students':
+        return [
+          'الاسم',
+          'البريد الإلكتروني',
+          'الهاتف',
+          'المنهج',
+          'الصف',
+          'المدرسة',
+          'المدينة',
+          'الدولة',
+          'عدد الحجوزات',
+          'عدد الباقات',
+          'تاريخ التسجيل',
+        ];
+      case 'teachers':
+        return [
+          'الاسم',
+          'البريد الإلكتروني',
+          'الهاتف',
+          'الحالة',
+          'المدينة',
+          'الدولة',
+          'التقييم',
+          'سنوات الخبرة',
+          'عدد الحجوزات',
+          'تاريخ التسجيل',
+        ];
+      case 'bookings':
+        return [
+          'رقم الحجز',
+          'المعلم',
+          'الطالب',
+          'المادة',
+          'التاريخ',
+          'السعر',
+          'الحالة',
+          'التقييم',
+        ];
+      case 'parents':
+        return [
+          'الاسم',
+          'البريد الإلكتروني',
+          'الهاتف',
+          'المدينة',
+          'الدولة',
+          'عدد الأطفال',
+          'عدد الحجوزات',
+          'عدد الباقات',
+          'تاريخ التسجيل',
+        ];
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Helper: Format export row based on type
+   */
+  private formatExportRow(type: string, item: any): string[] {
+    const escapeCSV = (str: any) => {
+      if (str === null || str === undefined) return '';
+      const s = String(str);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    switch (type) {
+      case 'students':
+        return [
+          escapeCSV(`${item.users?.firstName || ''} ${item.users?.lastName || ''}`),
+          escapeCSV(item.users?.email),
+          escapeCSV(item.users?.phoneNumber),
+          escapeCSV(item.curricula?.nameAr),
+          escapeCSV(item.gradeLevel),
+          escapeCSV(item.schoolName),
+          escapeCSV(item.city),
+          escapeCSV(item.country),
+          escapeCSV(item.bookingsCount),
+          escapeCSV(item.packagesCount),
+          escapeCSV(new Date(item.users?.createdAt).toLocaleDateString('ar-SA')),
+        ];
+      case 'teachers':
+        return [
+          escapeCSV(item.displayName || item.fullName),
+          escapeCSV(item.users?.email),
+          escapeCSV(item.whatsappNumber || item.users?.phoneNumber),
+          escapeCSV(item.applicationStatus),
+          escapeCSV(item.city),
+          escapeCSV(item.country),
+          escapeCSV(item.averageRating),
+          escapeCSV(item.yearsOfExperience),
+          escapeCSV(item.bookingsCount),
+          escapeCSV(new Date(item.users?.createdAt).toLocaleDateString('ar-SA')),
+        ];
+      case 'bookings':
+        return [
+          escapeCSV(item.readableId || item.id.slice(0, 8)),
+          escapeCSV(item.teacher_profiles?.displayName || item.teacher_profiles?.fullName),
+          escapeCSV(
+            `${item.users_bookings_studentUserIdTousers?.firstName || ''} ${item.users_bookings_studentUserIdTousers?.lastName || ''}`,
+          ),
+          escapeCSV(item.subjects?.nameAr),
+          escapeCSV(new Date(item.startTime).toLocaleDateString('ar-SA')),
+          escapeCSV(item.price),
+          escapeCSV(item.status),
+          escapeCSV(item.ratings?.score || '-'),
+        ];
+      case 'parents':
+        return [
+          escapeCSV(`${item.users?.firstName || ''} ${item.users?.lastName || ''}`),
+          escapeCSV(item.users?.email),
+          escapeCSV(item.users?.phoneNumber),
+          escapeCSV(item.city),
+          escapeCSV(item.country),
+          escapeCSV(item.childrenCount),
+          escapeCSV(item.bookingsCount),
+          escapeCSV(item.packagesCount),
+          escapeCSV(new Date(item.users?.createdAt).toLocaleDateString('ar-SA')),
+        ];
+      default:
+        return [];
+    }
   }
 
   async hardDeleteUser(adminId: string, userId: string) {

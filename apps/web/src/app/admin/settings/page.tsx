@@ -137,7 +137,8 @@ export default function AdminSettingsPage() {
                 meetingLinkAccessMinutesBefore: linkAccessMinutes,
                 maxVacationDays: vacationDays,
                 searchConfig: settings.searchConfig,
-                cancellationPolicies: cancellationForm
+                cancellationPolicies: cancellationForm,
+
             });
             toast.success('تم تحديث الإعدادات بنجاح');
             loadSettings(); // Reload to confirm
@@ -478,9 +479,10 @@ export default function AdminSettingsPage() {
                             </div>
                         </div>
 
+
+
                         <hr className="border-gray-100" />
 
-                        {/* Search Configuration */}
                         <div className="space-y-6">
                             <h3 className="text-lg font-bold text-gray-900">إعدادات البحث</h3>
                             <p className="text-sm text-text-subtle">التحكم في فلاتر البحث المتاحة للطلاب.</p>
