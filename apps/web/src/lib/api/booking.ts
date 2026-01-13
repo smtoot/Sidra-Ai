@@ -90,6 +90,8 @@ export interface Booking {
     };
     student?: any; // Legacy compatibility
     meetingLink?: string;
+    jitsiEnabled?: boolean;
+    jitsiRoomId?: string;
     subject?: {
         id: string;
         nameAr: string;
@@ -183,7 +185,15 @@ export const bookingApi = {
 
     getParentBookings: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/parent/my-bookings');
-        return response.data;
+        // Backend returns paginated response: { data: Booking[], meta: {...} }
+        const result = response.data;
+        if (result && Array.isArray(result.data)) {
+            return result.data;
+        }
+        if (Array.isArray(result)) {
+            return result;
+        }
+        return [];
     },
 
     getStudentBookings: async (): Promise<Booking[]> => {

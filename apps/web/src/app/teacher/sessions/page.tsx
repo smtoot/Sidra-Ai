@@ -387,18 +387,18 @@ export default function TeacherSessionsPage() {
                                                                             <button
                                                                                 className={cn(
                                                                                     "px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 shadow-sm text-sm",
-                                                                                    buttonState.canStart && booking.meetingLink
+                                                                                    buttonState.canStart && booking.jitsiEnabled
                                                                                         ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200"
                                                                                         : "bg-gray-100 text-gray-400 cursor-not-allowed",
-                                                                                    buttonState.label.includes('🔴') && booking.meetingLink && "animate-pulse"
+                                                                                    buttonState.label.includes('🔴') && booking.jitsiEnabled && "animate-pulse"
                                                                                 )}
-                                                                                disabled={!buttonState.canStart || !booking.meetingLink}
+                                                                                disabled={!buttonState.canStart || !booking.jitsiEnabled}
                                                                                 onClick={() => {
-                                                                                    if (buttonState.canStart && booking.meetingLink) {
-                                                                                        window.open(booking.meetingLink, '_blank');
+                                                                                    if (buttonState.canStart && booking.jitsiEnabled) {
+                                                                                        window.open(`/meeting/${booking.id}`, '_blank');
                                                                                     }
                                                                                 }}
-                                                                                title={!booking.meetingLink ? 'يجب إضافة رابط الاجتماع أولاً' : ''}
+                                                                                title={!booking.jitsiEnabled ? 'الفصل الافتراضي غير مفعل' : ''}
                                                                             >
                                                                                 <Video className="w-4 h-4" />
                                                                                 {buttonState.label}
