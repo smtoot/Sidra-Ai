@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getRuntimeConfig } from '@/config/runtime';
 
 /**
  * SECURITY FIX: Helper to get CSRF token from cookie
@@ -10,8 +11,26 @@ function getCsrfToken(): string | null {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
+/**
+ * Get API base URL from runtime config (client) or environment (server)
+ */
+function getApiBaseURL(): string {
+    if (typeof window === 'undefined') {
+        // Server-side: use environment variable
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    }
+    // Client-side: use runtime config
+    try {
+        const { apiUrl } = getRuntimeConfig();
+        return apiUrl;
+    } catch {
+        // Fallback if runtime config not loaded yet
+        return 'http://localhost:4000';
+    }
+}
+
 export const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+    baseURL: getApiBaseURL(),
     headers: {
         'Content-Type': 'application/json',
     },
@@ -139,7 +158,7 @@ api.interceptors.response.use(
                     // Server reads refresh_token from httpOnly cookie
                     const refreshToken = localStorage.getItem('refresh_token');
                     const response = await axios.post(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/refresh`,
+                        `${getApiBaseURL()}/auth/refresh`,
                         refreshToken ? { refresh_token: refreshToken } : {},
                         { withCredentials: true }
                     );

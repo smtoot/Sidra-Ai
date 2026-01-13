@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getRuntimeConfig } from '@/config/runtime';
 
 export interface JitsiConfigResponse {
   bookingId: string;
@@ -65,8 +66,10 @@ export function useJitsiConfig(bookingId: string): UseJitsiConfigResult {
       setIsLoading(true);
       setError(null);
 
+      const { apiUrl } = getRuntimeConfig();
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/bookings/${bookingId}/jitsi-config`,
+        `${apiUrl}/bookings/${bookingId}/jitsi-config`,
         {
           method: 'GET',
           headers: {
@@ -130,8 +133,10 @@ export function useToggleJitsi(bookingId: string) {
       setIsLoading(true);
       setError(null);
 
+      const { apiUrl } = getRuntimeConfig();
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/bookings/${bookingId}/toggle-jitsi`,
+        `${apiUrl}/bookings/${bookingId}/toggle-jitsi`,
         {
           method: 'PATCH',
           headers: {

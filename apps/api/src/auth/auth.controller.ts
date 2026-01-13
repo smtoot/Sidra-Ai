@@ -38,17 +38,36 @@ interface AuthRequest {
 }
 
 /**
+ * Get cookie domain for cross-subdomain support
+ * Returns '.sidra.sd' in production/staging to share cookies between
+ * api.sidra.sd/api-staging.sidra.sd and sidra.sd/staging.sidra.sd
+ */
+function getCookieDomain(): string | undefined {
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+  if (cookieDomain) {
+    return cookieDomain;
+  }
+  // In development, don't set domain (localhost doesn't support subdomains)
+  if (process.env.NODE_ENV !== 'production') {
+    return undefined;
+  }
+  return '.sidra.sd';
+}
+
+/**
  * SECURITY FIX: Cookie configuration for httpOnly tokens
  * - httpOnly: Prevents XSS attacks from accessing tokens via JavaScript
  * - secure: Only send over HTTPS in production
  * - sameSite: Prevents CSRF attacks by not sending cookies with cross-site requests
  * - path: Restrict cookie scope
+ * - domain: Allow cookies to work across subdomains (api.sidra.sd <-> sidra.sd)
  */
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const, // 'lax' allows top-level navigation, 'strict' for max security
   path: '/',
+  domain: getCookieDomain(),
 };
 
 const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15 minutes
@@ -81,6 +100,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax' as const,
       path: '/',
+      domain: getCookieDomain(),
       maxAge: ACCESS_TOKEN_MAX_AGE,
     });
   }
@@ -89,9 +109,10 @@ export class AuthController {
    * SECURITY FIX: Helper to clear auth cookies
    */
   private clearAuthCookies(res: Response) {
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/' });
-    res.clearCookie('csrf_token', { path: '/' });
+    const cookieOptions = { path: '/', domain: getCookieDomain() };
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
+    res.clearCookie('csrf_token', cookieOptions);
   }
 
   @Public() // SECURITY: Public endpoint - no JWT required
