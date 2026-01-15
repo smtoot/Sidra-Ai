@@ -51,4 +51,4 @@ fi
 # -t: Force pseudo-terminal allocation (optional, useful for some interactive commands, but might mess up clean output reading)
 # We omit -t by default to get clean stdout/stderr for the agent to read.
 
-ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "cd $REMOTE_DIR && $COMMAND"
+ssh -A -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "cd $REMOTE_DIR && $COMMAND"
