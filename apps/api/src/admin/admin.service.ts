@@ -59,7 +59,14 @@ interface BookingAnalyticsFilters {
   hasHomework?: boolean;
   dateFrom?: Date;
   dateTo?: Date;
-  groupBy?: 'subject' | 'curriculum' | 'teacher' | 'status' | 'day' | 'week' | 'month';
+  groupBy?:
+    | 'subject'
+    | 'curriculum'
+    | 'teacher'
+    | 'status'
+    | 'day'
+    | 'week'
+    | 'month';
 }
 
 interface ParentAnalyticsFilters {
@@ -1889,8 +1896,9 @@ export class AdminService {
     }
 
     // Calculate aggregations
-    const curriculumBreakdown = this.groupBy(filteredStudents, (s) =>
-      s.curricula?.nameAr || 'غير محدد',
+    const curriculumBreakdown = this.groupBy(
+      filteredStudents,
+      (s) => s.curricula?.nameAr || 'غير محدد',
     );
     const gradeLevelBreakdown = this.groupBy(
       filteredStudents,
@@ -1909,31 +1917,53 @@ export class AdminService {
       summary: {
         totalStudents: filteredStudents.length,
         activeStudents: filteredStudents.filter((s) => s.users.isActive).length,
-        withBookings: filteredStudents.filter((s) => s.bookingsCount > 0).length,
-        withPackages: filteredStudents.filter((s) => s.packagesCount > 0).length,
-        totalBookings: filteredStudents.reduce((sum, s) => sum + s.bookingsCount, 0),
-        totalPackages: filteredStudents.reduce((sum, s) => sum + s.packagesCount, 0),
+        withBookings: filteredStudents.filter((s) => s.bookingsCount > 0)
+          .length,
+        withPackages: filteredStudents.filter((s) => s.packagesCount > 0)
+          .length,
+        totalBookings: filteredStudents.reduce(
+          (sum, s) => sum + s.bookingsCount,
+          0,
+        ),
+        totalPackages: filteredStudents.reduce(
+          (sum, s) => sum + s.packagesCount,
+          0,
+        ),
       },
       breakdown: {
-        byCurriculum: Object.entries(curriculumBreakdown).map(([name, items]) => ({
-          name,
-          count: items.length,
-          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
-        })),
-        byGradeLevel: Object.entries(gradeLevelBreakdown).map(([name, items]) => ({
-          name,
-          count: items.length,
-          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
-        })),
+        byCurriculum: Object.entries(curriculumBreakdown).map(
+          ([name, items]) => ({
+            name,
+            count: items.length,
+            percentage: (
+              (items.length / filteredStudents.length) *
+              100
+            ).toFixed(1),
+          }),
+        ),
+        byGradeLevel: Object.entries(gradeLevelBreakdown).map(
+          ([name, items]) => ({
+            name,
+            count: items.length,
+            percentage: (
+              (items.length / filteredStudents.length) *
+              100
+            ).toFixed(1),
+          }),
+        ),
         byCity: Object.entries(cityBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
+          percentage: ((items.length / filteredStudents.length) * 100).toFixed(
+            1,
+          ),
         })),
         byCountry: Object.entries(countryBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / filteredStudents.length) * 100).toFixed(1),
+          percentage: ((items.length / filteredStudents.length) * 100).toFixed(
+            1,
+          ),
         })),
       },
       students: filteredStudents.slice(0, 100), // Return first 100 for the list
@@ -2022,7 +2052,9 @@ export class AdminService {
             curricula: { select: { id: true, nameAr: true, nameEn: true } },
             teacher_subject_grades: {
               include: {
-                grade_levels: { select: { id: true, nameAr: true, nameEn: true } },
+                grade_levels: {
+                  select: { id: true, nameAr: true, nameEn: true },
+                },
               },
             },
           },
@@ -2078,7 +2110,8 @@ export class AdminService {
         const subjectName = ts.subjects.nameAr;
         const curriculumName = ts.curricula.nameAr;
         subjectCounts[subjectName] = (subjectCounts[subjectName] || 0) + 1;
-        curriculumCounts[curriculumName] = (curriculumCounts[curriculumName] || 0) + 1;
+        curriculumCounts[curriculumName] =
+          (curriculumCounts[curriculumName] || 0) + 1;
       });
     });
 
@@ -2091,9 +2124,13 @@ export class AdminService {
         pendingTeachers: enrichedTeachers.filter(
           (t) => t.applicationStatus === 'SUBMITTED',
         ).length,
-        withBookings: enrichedTeachers.filter((t) => t.bookingsCount > 0).length,
+        withBookings: enrichedTeachers.filter((t) => t.bookingsCount > 0)
+          .length,
         onVacation: enrichedTeachers.filter((t) => t.isOnVacation).length,
-        totalBookings: enrichedTeachers.reduce((sum, t) => sum + t.bookingsCount, 0),
+        totalBookings: enrichedTeachers.reduce(
+          (sum, t) => sum + t.bookingsCount,
+          0,
+        ),
         averageRating:
           enrichedTeachers.length > 0
             ? (
@@ -2115,7 +2152,9 @@ export class AdminService {
         byStatus: Object.entries(statusBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(1),
+          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(
+            1,
+          ),
         })),
         bySubject: Object.entries(subjectCounts)
           .sort((a, b) => b[1] - a[1])
@@ -2132,12 +2171,16 @@ export class AdminService {
         byCity: Object.entries(cityBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(1),
+          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(
+            1,
+          ),
         })),
         byCountry: Object.entries(countryBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(1),
+          percentage: ((items.length / enrichedTeachers.length) * 100).toFixed(
+            1,
+          ),
         })),
       },
       teachers: enrichedTeachers.slice(0, 100), // Return first 100 for the list
@@ -2243,14 +2286,12 @@ export class AdminService {
     );
     const averagePrice =
       bookings.length > 0
-        ? bookings.reduce((sum, b) => sum + Number(b.price), 0) / bookings.length
+        ? bookings.reduce((sum, b) => sum + Number(b.price), 0) /
+          bookings.length
         : 0;
 
     // Group by subject
-    const subjectBreakdown = this.groupBy(
-      bookings,
-      (b) => b.subjects.nameAr,
-    );
+    const subjectBreakdown = this.groupBy(bookings, (b) => b.subjects.nameAr);
 
     // Group by status
     const statusBreakdown = this.groupBy(bookings, (b) => b.status);
@@ -2258,12 +2299,20 @@ export class AdminService {
     // Group by teacher
     const teacherBreakdown = this.groupBy(
       bookings,
-      (b) => b.teacher_profiles.displayName || b.teacher_profiles.fullName || 'غير معروف',
+      (b) =>
+        b.teacher_profiles.displayName ||
+        b.teacher_profiles.fullName ||
+        'غير معروف',
     );
 
     // Time-based grouping
-    let timeSeriesData: { label: string; count: number; revenue: number }[] = [];
-    if (filters.groupBy === 'day' || filters.groupBy === 'week' || filters.groupBy === 'month') {
+    let timeSeriesData: { label: string; count: number; revenue: number }[] =
+      [];
+    if (
+      filters.groupBy === 'day' ||
+      filters.groupBy === 'week' ||
+      filters.groupBy === 'month'
+    ) {
       const groupedByTime = this.groupBookingsByTime(bookings, filters.groupBy);
       timeSeriesData = Object.entries(groupedByTime).map(([label, items]) => ({
         label,
@@ -2284,7 +2333,8 @@ export class AdminService {
             b.status === 'PENDING_TEACHER_APPROVAL' ||
             b.status === 'WAITING_FOR_PAYMENT',
         ).length,
-        disputedBookings: bookings.filter((b) => b.status === 'DISPUTED').length,
+        disputedBookings: bookings.filter((b) => b.status === 'DISPUTED')
+          .length,
         totalRevenue: Math.round(totalRevenue),
         averagePrice: Math.round(averagePrice),
         withRating: bookings.filter((b) => b.ratings).length,
@@ -2444,7 +2494,8 @@ export class AdminService {
     enrichedParents.forEach((p) => {
       p.children.forEach((c) => {
         const curriculumName = c.curricula?.nameAr || 'غير محدد';
-        curriculumCounts[curriculumName] = (curriculumCounts[curriculumName] || 0) + 1;
+        curriculumCounts[curriculumName] =
+          (curriculumCounts[curriculumName] || 0) + 1;
       });
     });
 
@@ -2454,9 +2505,18 @@ export class AdminService {
         activeParents: enrichedParents.filter((p) => p.users.isActive).length,
         withBookings: enrichedParents.filter((p) => p.bookingsCount > 0).length,
         withPackages: enrichedParents.filter((p) => p.packagesCount > 0).length,
-        totalChildren: enrichedParents.reduce((sum, p) => sum + p.childrenCount, 0),
-        totalBookings: enrichedParents.reduce((sum, p) => sum + p.bookingsCount, 0),
-        totalPackages: enrichedParents.reduce((sum, p) => sum + p.packagesCount, 0),
+        totalChildren: enrichedParents.reduce(
+          (sum, p) => sum + p.childrenCount,
+          0,
+        ),
+        totalBookings: enrichedParents.reduce(
+          (sum, p) => sum + p.bookingsCount,
+          0,
+        ),
+        totalPackages: enrichedParents.reduce(
+          (sum, p) => sum + p.packagesCount,
+          0,
+        ),
         averageChildrenPerParent:
           enrichedParents.length > 0
             ? (
@@ -2469,12 +2529,16 @@ export class AdminService {
         byCity: Object.entries(cityBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / enrichedParents.length) * 100).toFixed(1),
+          percentage: ((items.length / enrichedParents.length) * 100).toFixed(
+            1,
+          ),
         })),
         byCountry: Object.entries(countryBreakdown).map(([name, items]) => ({
           name,
           count: items.length,
-          percentage: ((items.length / enrichedParents.length) * 100).toFixed(1),
+          percentage: ((items.length / enrichedParents.length) * 100).toFixed(
+            1,
+          ),
         })),
         byChildrenCount: Object.entries(childrenCountBreakdown)
           .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
@@ -2639,7 +2703,9 @@ export class AdminService {
           applicationStatus: filters.applicationStatus,
           city: filters.city,
           country: filters.country,
-          minRating: filters.minRating ? parseFloat(filters.minRating) : undefined,
+          minRating: filters.minRating
+            ? parseFloat(filters.minRating)
+            : undefined,
           minExperience: filters.minExperience
             ? parseInt(filters.minExperience)
             : undefined,
@@ -2723,7 +2789,9 @@ export class AdminService {
     const rows = items.map((item: any) => this.formatExportRow(type, item));
 
     const csv =
-      headers.join(',') + '\n' + rows.map((r: string[]) => r.join(',')).join('\n');
+      headers.join(',') +
+      '\n' +
+      rows.map((r: string[]) => r.join(',')).join('\n');
 
     return {
       csv,
@@ -2735,7 +2803,10 @@ export class AdminService {
   /**
    * Helper: Group array by key function
    */
-  private groupBy<T>(array: T[], keyFn: (item: T) => string): Record<string, T[]> {
+  private groupBy<T>(
+    array: T[],
+    keyFn: (item: T) => string,
+  ): Record<string, T[]> {
     return array.reduce(
       (result, item) => {
         const key = keyFn(item);
@@ -2861,7 +2932,9 @@ export class AdminService {
     switch (type) {
       case 'students':
         return [
-          escapeCSV(`${item.users?.firstName || ''} ${item.users?.lastName || ''}`),
+          escapeCSV(
+            `${item.users?.firstName || ''} ${item.users?.lastName || ''}`,
+          ),
           escapeCSV(item.users?.email),
           escapeCSV(item.users?.phoneNumber),
           escapeCSV(item.curricula?.nameAr),
@@ -2871,7 +2944,9 @@ export class AdminService {
           escapeCSV(item.country),
           escapeCSV(item.bookingsCount),
           escapeCSV(item.packagesCount),
-          escapeCSV(new Date(item.users?.createdAt).toLocaleDateString('ar-SA')),
+          escapeCSV(
+            new Date(item.users?.createdAt).toLocaleDateString('ar-SA'),
+          ),
         ];
       case 'teachers':
         return [
@@ -2884,12 +2959,17 @@ export class AdminService {
           escapeCSV(item.averageRating),
           escapeCSV(item.yearsOfExperience),
           escapeCSV(item.bookingsCount),
-          escapeCSV(new Date(item.users?.createdAt).toLocaleDateString('ar-SA')),
+          escapeCSV(
+            new Date(item.users?.createdAt).toLocaleDateString('ar-SA'),
+          ),
         ];
       case 'bookings':
         return [
           escapeCSV(item.readableId || item.id.slice(0, 8)),
-          escapeCSV(item.teacher_profiles?.displayName || item.teacher_profiles?.fullName),
+          escapeCSV(
+            item.teacher_profiles?.displayName ||
+              item.teacher_profiles?.fullName,
+          ),
           escapeCSV(
             `${item.users_bookings_studentUserIdTousers?.firstName || ''} ${item.users_bookings_studentUserIdTousers?.lastName || ''}`,
           ),
@@ -2901,7 +2981,9 @@ export class AdminService {
         ];
       case 'parents':
         return [
-          escapeCSV(`${item.users?.firstName || ''} ${item.users?.lastName || ''}`),
+          escapeCSV(
+            `${item.users?.firstName || ''} ${item.users?.lastName || ''}`,
+          ),
           escapeCSV(item.users?.email),
           escapeCSV(item.users?.phoneNumber),
           escapeCSV(item.city),
@@ -2909,7 +2991,9 @@ export class AdminService {
           escapeCSV(item.childrenCount),
           escapeCSV(item.bookingsCount),
           escapeCSV(item.packagesCount),
-          escapeCSV(new Date(item.users?.createdAt).toLocaleDateString('ar-SA')),
+          escapeCSV(
+            new Date(item.users?.createdAt).toLocaleDateString('ar-SA'),
+          ),
         ];
       default:
         return [];

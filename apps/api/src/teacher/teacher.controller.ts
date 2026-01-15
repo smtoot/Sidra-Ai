@@ -149,6 +149,16 @@ export class TeacherController {
     return this.teacherService.addException(req.user.userId, dto);
   }
 
+  @Post('me/exceptions/bulk')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 bulk updates per minute
+  @RequiresApproval()
+  setBulkExceptions(@Request() req: any, @Body() dto: { exceptions: any[] }) {
+    return this.teacherService.replaceExceptions(
+      req.user.userId,
+      dto.exceptions,
+    );
+  }
+
   @Delete('me/exceptions/:id')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 deletions per minute
   @RequiresApproval()

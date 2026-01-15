@@ -31,6 +31,7 @@ export interface JitsiTokenPayload {
   sub: string;
   room: string;
   exp: number;
+  nbf?: number; // Not before timestamp
   context: {
     user: {
       id: string;
@@ -41,9 +42,14 @@ export interface JitsiTokenPayload {
       affiliation?: 'owner' | 'member';
       features?: {
         'screen-sharing'?: string | boolean;
-        'recording'?: string | boolean;
+        recording?: string | boolean;
         [key: string]: any;
       };
+    };
+    // P0-2: Include booking metadata for validation
+    booking?: {
+      id: string;
+      tokenVersion: number;
     };
   };
 }
@@ -56,7 +62,7 @@ export class JitsiService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly featureFlagService: FeatureFlagService,
-  ) { }
+  ) {}
 
   /**
    * Generate a JWT token for Jitsi authentication
@@ -73,28 +79,52 @@ export class JitsiService {
     const jitsiConfig = (settings?.jitsiConfig as any) || {};
 
     return {
-      appId: jitsiConfig.appId || this.configService.get<string>('JITSI_APP_ID_STAGING') || this.configService.get<string>('JITSI_APP_ID_PRODUCTION'),
-      appSecret: jitsiConfig.appSecret || this.configService.get<string>('JITSI_APP_SECRET_STAGING') || this.configService.get<string>('JITSI_APP_SECRET_PRODUCTION'),
-      domain: jitsiConfig.domain || this.configService.get<string>('JITSI_DOMAIN') || 'meet-staging.sidra.sd',
-      xmppDomain: jitsiConfig.xmppDomain || this.configService.get<string>('JITSI_XMPP_DOMAIN') || 'meet.jitsi',
+      appId:
+        jitsiConfig.appId ||
+        this.configService.get<string>('JITSI_APP_ID_STAGING') ||
+        this.configService.get<string>('JITSI_APP_ID_PRODUCTION'),
+      appSecret:
+        jitsiConfig.appSecret ||
+        this.configService.get<string>('JITSI_APP_SECRET_STAGING') ||
+        this.configService.get<string>('JITSI_APP_SECRET_PRODUCTION'),
+      domain:
+        jitsiConfig.domain ||
+        this.configService.get<string>('JITSI_DOMAIN') ||
+        'meet-staging.sidra.sd',
+      xmppDomain:
+        jitsiConfig.xmppDomain ||
+        this.configService.get<string>('JITSI_XMPP_DOMAIN') ||
+        'meet.jitsi',
       // Feature Flags
       startAudioMuted: jitsiConfig.startAudioMuted ?? false,
       startVideoMuted: jitsiConfig.startVideoMuted ?? false,
       enableChat: jitsiConfig.enableChat ?? true,
       enableScreenSharing: jitsiConfig.enableScreenSharing ?? true,
+      enableRecording: jitsiConfig.enableRecording ?? false,
       // Toolbar Config
-      teacherToolbarButtons: jitsiConfig.teacherToolbarButtons as string[] || null,
-      studentToolbarButtons: jitsiConfig.studentToolbarButtons as string[] || null,
+      teacherToolbarButtons:
+        (jitsiConfig.teacherToolbarButtons as string[]) || null,
+      studentToolbarButtons:
+        (jitsiConfig.studentToolbarButtons as string[]) || null,
     };
   }
 
   /**
    * Generate a JWT token for Jitsi authentication
+   *
+   * P0-1 SECURITY FIX: Token expiry is now session-bound instead of 24 hours
+   * P0-2 SECURITY FIX: Token includes booking metadata for invalidation support
+   *
+   * @param roomName - The Jitsi room name
+   * @param userInfo - User information for the JWT context
+   * @param sessionEndTime - Session end time (token expires 30 min after this)
+   * @param bookingInfo - Optional booking metadata for token invalidation
    */
   async generateJitsiToken(
     roomName: string,
     userInfo: JitsiUserInfo,
-    expiryHours: number = 24,
+    sessionEndTime: Date,
+    bookingInfo?: { id: string; tokenVersion: number },
   ): Promise<string> {
     const config = await this.getJitsiSettings();
 
@@ -104,14 +134,25 @@ export class JitsiService {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const exp = now + expiryHours * 60 * 60; // Convert hours to seconds
+
+    // P0-1 SECURITY FIX: Token expires 30 minutes after session end time
+    // This allows buffer for sessions that run slightly over, but prevents
+    // long-lived tokens that could be used after booking cancellation
+    const SESSION_BUFFER_MINUTES = 30;
+    const sessionEndTimestamp = Math.floor(sessionEndTime.getTime() / 1000);
+    const exp = sessionEndTimestamp + SESSION_BUFFER_MINUTES * 60;
+
+    // Ensure token is valid for at least 1 hour from now (minimum validity)
+    const minExp = now + 60 * 60; // 1 hour minimum
+    const finalExp = Math.max(exp, minExp);
 
     const payload: JitsiTokenPayload = {
       aud: config.appId,
       iss: config.appId,
       sub: config.xmppDomain,
       room: roomName,
-      exp,
+      exp: finalExp,
+      nbf: now, // Token not valid before now
       context: {
         user: {
           id: userInfo.id,
@@ -121,18 +162,30 @@ export class JitsiService {
           affiliation: userInfo.role === 'teacher' ? 'owner' : 'member',
           features: {
             'screen-sharing': config.enableScreenSharing ? 'true' : 'false',
-            'recording': 'true',
-          } as any
+            recording: config.enableRecording ? 'true' : 'false',
+          } as any,
         },
+        // P0-2: Include booking metadata in token for audit/validation
+        ...(bookingInfo && {
+          booking: {
+            id: bookingInfo.id,
+            tokenVersion: bookingInfo.tokenVersion,
+          },
+        }),
       },
     };
 
     try {
       const token = jwt.sign(payload, config.appSecret, { algorithm: 'HS256' });
-      this.logger.log(`Generated Jitsi token for user ${userInfo.id} in room ${roomName}`);
+      this.logger.log(
+        `Generated Jitsi token for user ${userInfo.id} in room ${roomName} (expires: ${new Date(finalExp * 1000).toISOString()})`,
+      );
       return token;
     } catch (error) {
-      this.logger.error(`Failed to generate Jitsi token: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate Jitsi token: ${error.message}`,
+        error.stack,
+      );
       throw new BadRequestException('Failed to generate meeting token');
     }
   }
@@ -141,10 +194,19 @@ export class JitsiService {
 
   /**
    * Generate a unique room name for a booking
+   *
+   * P0-2 SECURITY FIX: Room name now includes token version to invalidate
+   * old tokens when booking is cancelled or rescheduled. When tokenVersion
+   * changes, the room name changes, making old tokens useless.
+   *
+   * @param bookingId - The booking UUID
+   * @param tokenVersion - The current token version (increments on cancellation)
    */
-  generateRoomName(bookingId: string): string {
+  generateRoomName(bookingId: string, tokenVersion: number = 1): string {
     const cleanId = bookingId.replace(/-/g, '');
-    return `sidra_booking_${cleanId}`;
+    // Include token version in room name - when version changes, room changes
+    // This effectively invalidates all previously issued tokens for this booking
+    return `sidra_booking_${cleanId}_v${tokenVersion}`;
   }
 
   /**
@@ -162,7 +224,9 @@ export class JitsiService {
     message?: string;
     accessibleAt?: Date;
   }> {
-    this.logger.log(`[DEBUG] getJitsiConfigForBooking called for ${bookingId} by ${userId}`);
+    this.logger.log(
+      `[DEBUG] getJitsiConfigForBooking called for ${bookingId} by ${userId}`,
+    );
 
     const booking = await this.prisma.bookings.findUnique({
       where: { id: bookingId },
@@ -176,7 +240,9 @@ export class JitsiService {
 
     if (!booking) throw new BadRequestException('Booking not found');
 
-    const isTeacher = booking.teacherId === booking.teacher_profiles.id && booking.teacher_profiles.userId === userId;
+    const isTeacher =
+      booking.teacherId === booking.teacher_profiles.id &&
+      booking.teacher_profiles.userId === userId;
     const isBooker = booking.bookedByUserId === userId;
     const isStudent = booking.studentUserId === userId;
 
@@ -190,7 +256,9 @@ export class JitsiService {
         meetingMethod: 'external',
         externalMeetingLink: booking.meetingLink || undefined,
         canJoin: !!booking.meetingLink,
-        message: booking.meetingLink ? 'External meeting link available' : 'No meeting link available yet',
+        message: booking.meetingLink
+          ? 'External meeting link available'
+          : 'No meeting link available yet',
       };
     }
 
@@ -209,35 +277,75 @@ export class JitsiService {
     // Get dynamic settings
     const config = await this.getJitsiSettings();
     const userInfo = await this.getUserInfo(userId, booking);
-    const roomName = booking.jitsiRoomId || this.generateRoomName(bookingId);
 
-    // We need to use 'generateJitsiToken' but wait, we redefined it to be async.
-    // However, canJoinMeeting logic calls simple token generation? No. 
-    // We must call the async version here.
-    const token = await this.generateJitsiToken(roomName, userInfo);
+    // P0-2 SECURITY FIX: Include token version in room name for invalidation
+    // Note: jitsiTokenVersion field added in migration - cast to any until Prisma client regenerated
+    const tokenVersion = (booking as any).jitsiTokenVersion || 1;
+    const roomName = booking.jitsiRoomId
+      ? `${booking.jitsiRoomId}_v${tokenVersion}` // Append version to existing room ID
+      : this.generateRoomName(bookingId, tokenVersion);
+
+    // P0-1 SECURITY FIX: Token expires based on session end time, not 24 hours
+    // P0-2 SECURITY FIX: Include booking metadata for audit trail
+    const token = await this.generateJitsiToken(
+      roomName,
+      userInfo,
+      new Date(booking.endTime),
+      { id: bookingId, tokenVersion },
+    );
 
     // Default buttons if not set in DB
     const defaultTeacherButtons = [
-      'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-      'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-      'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-      'videoquality', 'filmstrip', 'feedback', 'stats', 'shortcuts',
-      'tileview', 'download', 'help', 'mute-everyone', 'security'
+      'microphone',
+      'camera',
+      'closedcaptions',
+      'desktop',
+      'fullscreen',
+      'fodeviceselection',
+      'hangup',
+      'profile',
+      'chat',
+      'recording',
+      'livestreaming',
+      'etherpad',
+      'sharedvideo',
+      'settings',
+      'raisehand',
+      'videoquality',
+      'filmstrip',
+      'feedback',
+      'stats',
+      'shortcuts',
+      'tileview',
+      'download',
+      'help',
+      'mute-everyone',
+      'security',
     ];
 
     const defaultStudentButtons = [
-      'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-      'fodeviceselection', 'hangup', 'profile', 'chat', 'raisehand', 'tileview'
+      'microphone',
+      'camera',
+      'closedcaptions',
+      'desktop',
+      'fullscreen',
+      'fodeviceselection',
+      'hangup',
+      'profile',
+      'chat',
+      'raisehand',
+      'tileview',
     ];
 
-    const toolbarButtons = userInfo.role === 'teacher'
-      ? (config.teacherToolbarButtons || defaultTeacherButtons)
-      : (config.studentToolbarButtons || defaultStudentButtons);
+    const toolbarButtons =
+      userInfo.role === 'teacher'
+        ? config.teacherToolbarButtons || defaultTeacherButtons
+        : config.studentToolbarButtons || defaultStudentButtons;
 
     // Remove 'chat' if disabled globally
     const finalToolbarButtons = config.enableChat
       ? toolbarButtons
-      : toolbarButtons.filter(b => b !== 'chat');
+      : toolbarButtons.filter((b) => b !== 'chat');
 
     const jitsiConfig: JitsiConfig = {
       domain: config.domain,
@@ -245,7 +353,8 @@ export class JitsiService {
       jwt: token,
       userInfo,
       configOverwrite: {
-        startWithAudioMuted: config.startAudioMuted && userInfo.role !== 'teacher',
+        startWithAudioMuted:
+          config.startAudioMuted && userInfo.role !== 'teacher',
         startWithVideoMuted: config.startVideoMuted,
         enableWelcomePage: false,
         prejoinPageEnabled: true,
@@ -254,10 +363,12 @@ export class JitsiService {
         disableDeepLinking: true,
       },
       interfaceConfigOverwrite: {
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
+        SHOW_JITSI_WATERMARK: true,
+        SHOW_WATERMARK_FOR_GUESTS: true,
         DEFAULT_BACKGROUND: '#1a1a1a',
-        TOOLBAR_BUTTONS: finalToolbarButtons
+        DEFAULT_LOGO_URL: 'images/watermark.png',
+        JITSI_WATERMARK_LINK: 'https://sidra.sd',
+        TOOLBAR_BUTTONS: finalToolbarButtons,
       },
     };
 
@@ -393,16 +504,20 @@ export class JitsiService {
       );
     }
 
+    // P0-2: Get current token version for room name generation
+    const tokenVersion = (booking as any).jitsiTokenVersion || 1;
+
     await this.prisma.bookings.update({
       where: { id: bookingId },
       data: {
         useExternalMeetingLink: useExternal,
         // If switching to Jitsi and no room ID exists, generate one
+        // Note: We store the base room ID without version - version is appended at runtime
         ...(!useExternal &&
           !booking.jitsiRoomId && {
-          jitsiRoomId: this.generateRoomName(bookingId),
-          jitsiEnabled: true,
-        }),
+            jitsiRoomId: this.generateRoomName(bookingId, tokenVersion),
+            jitsiEnabled: true,
+          }),
       },
     });
 

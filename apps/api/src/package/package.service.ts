@@ -762,13 +762,17 @@ export class PackageService {
       const endTime = new Date(sessionDate);
       endTime.setHours(endTime.getHours() + 1);
 
-      // Check 1: Teacher Availability (Schedule & Exceptions)
-      const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-        data.teacherId,
-        sessionDate,
-      );
+      // Check 1: Teacher Availability (Schedule & Exceptions) via MATERIALIZED SLOTS
+      const slot = await this.prisma.teacher_session_slots.findUnique({
+        where: {
+          teacherId_startTimeUtc: {
+            teacherId: data.teacherId,
+            startTimeUtc: sessionDate,
+          },
+        },
+      });
 
-      if (!isTeacherAvailable) {
+      if (!slot) {
         conflicts.push(sessionDate);
         continue;
       }
@@ -944,14 +948,17 @@ export class PackageService {
 
         const endTime = new Date(sessionDate.getTime() + duration * 60 * 1000);
 
-        // Check 1: Teacher Availability (Schedule & Exceptions)
-        // Note: isSlotAvailable checks daily/weekly pattern and exceptions
-        const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-          data.teacherId,
-          sessionDate,
-        );
+        // Check 1: Teacher Availability via MATERIALIZED SLOTS
+        const slot = await this.prisma.teacher_session_slots.findUnique({
+          where: {
+            teacherId_startTimeUtc: {
+              teacherId: data.teacherId,
+              startTimeUtc: sessionDate,
+            },
+          },
+        });
 
-        if (!isTeacherAvailable) {
+        if (!slot) {
           const patternInfo = patternAvailability.get(patternKey)!;
           patternInfo.conflicts.push({
             date: sessionDate.toISOString(),
@@ -1100,13 +1107,17 @@ export class PackageService {
     const endTime = new Date(sessionDate);
     endTime.setHours(endTime.getHours() + 1);
 
-    // Check 1: Teacher Availability (Schedule & Exceptions) - preliminary check
-    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-      pkg.teacherId,
-      sessionDate,
-    );
+    // Check 1: Teacher Availability via MATERIALIZED SLOTS - preliminary check
+    const slot = await this.prisma.teacher_session_slots.findUnique({
+      where: {
+        teacherId_startTimeUtc: {
+          teacherId: pkg.teacherId,
+          startTimeUtc: sessionDate,
+        },
+      },
+    });
 
-    if (!isTeacherAvailable) {
+    if (!slot) {
       throw new BadRequestException(
         'Teacher is not available at this time (Out of hours)',
       );
@@ -1259,13 +1270,17 @@ export class PackageService {
     const newEndTime = new Date(newDate);
     newEndTime.setHours(newEndTime.getHours() + 1);
 
-    // Check 1: Teacher Availability at new time (preliminary check)
-    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-      booking.teacherId,
-      newDate,
-    );
+    // Check 1: Teacher Availability at new time via MATERIALIZED SLOTS (preliminary check)
+    const slot = await this.prisma.teacher_session_slots.findUnique({
+      where: {
+        teacherId_startTimeUtc: {
+          teacherId: booking.teacherId,
+          startTimeUtc: newDate,
+        },
+      },
+    });
 
-    if (!isTeacherAvailable) {
+    if (!slot) {
       throw new BadRequestException(
         'Teacher is not available at the new time (Out of hours)',
       );

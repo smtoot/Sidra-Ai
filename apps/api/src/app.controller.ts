@@ -17,14 +17,14 @@ export class AppController {
   }
 
   // SECURITY: Public health check endpoint for monitoring/load balancers
-  // STABILITY FIX: Returns proper HTTP status codes for Railway health checks
+  // STABILITY FIX: Returns proper HTTP status codes for health checks
   @Public()
   @Get('health')
   async healthCheck() {
     const health = await this.appService.healthCheck();
 
     // Return 503 Service Unavailable if database is down
-    // This allows Railway to restart the container or route traffic elsewhere
+    // This allows container orchestration to restart or route traffic elsewhere
     if (health.status === 'error') {
       throw new HttpException(health, HttpStatus.SERVICE_UNAVAILABLE);
     }

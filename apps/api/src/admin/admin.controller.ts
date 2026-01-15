@@ -50,7 +50,7 @@ export class AdminController {
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
     private readonly emailPreviewService: EmailPreviewService,
-  ) { }
+  ) {}
 
   @Get('dashboard')
   getDashboardStats() {
@@ -86,8 +86,18 @@ export class AdminController {
       schoolName,
       city,
       country,
-      hasBookings: hasBookings === 'true' ? true : hasBookings === 'false' ? false : undefined,
-      hasPackages: hasPackages === 'true' ? true : hasPackages === 'false' ? false : undefined,
+      hasBookings:
+        hasBookings === 'true'
+          ? true
+          : hasBookings === 'false'
+            ? false
+            : undefined,
+      hasPackages:
+        hasPackages === 'true'
+          ? true
+          : hasPackages === 'false'
+            ? false
+            : undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
     });
@@ -121,8 +131,18 @@ export class AdminController {
       country,
       minRating: minRating ? parseFloat(minRating) : undefined,
       minExperience: minExperience ? parseInt(minExperience) : undefined,
-      hasBookings: hasBookings === 'true' ? true : hasBookings === 'false' ? false : undefined,
-      isOnVacation: isOnVacation === 'true' ? true : isOnVacation === 'false' ? false : undefined,
+      hasBookings:
+        hasBookings === 'true'
+          ? true
+          : hasBookings === 'false'
+            ? false
+            : undefined,
+      isOnVacation:
+        isOnVacation === 'true'
+          ? true
+          : isOnVacation === 'false'
+            ? false
+            : undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
     });
@@ -155,11 +175,25 @@ export class AdminController {
       beneficiaryType,
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-      hasRating: hasRating === 'true' ? true : hasRating === 'false' ? false : undefined,
-      hasHomework: hasHomework === 'true' ? true : hasHomework === 'false' ? false : undefined,
+      hasRating:
+        hasRating === 'true' ? true : hasRating === 'false' ? false : undefined,
+      hasHomework:
+        hasHomework === 'true'
+          ? true
+          : hasHomework === 'false'
+            ? false
+            : undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
-      groupBy: groupBy as 'subject' | 'curriculum' | 'teacher' | 'status' | 'day' | 'week' | 'month' | undefined,
+      groupBy: groupBy as
+        | 'subject'
+        | 'curriculum'
+        | 'teacher'
+        | 'status'
+        | 'day'
+        | 'week'
+        | 'month'
+        | undefined,
     });
   }
 
@@ -181,8 +215,18 @@ export class AdminController {
       city,
       country,
       minChildren: minChildren ? parseInt(minChildren) : undefined,
-      hasBookings: hasBookings === 'true' ? true : hasBookings === 'false' ? false : undefined,
-      hasPackages: hasPackages === 'true' ? true : hasPackages === 'false' ? false : undefined,
+      hasBookings:
+        hasBookings === 'true'
+          ? true
+          : hasBookings === 'false'
+            ? false
+            : undefined,
+      hasPackages:
+        hasPackages === 'true'
+          ? true
+          : hasPackages === 'false'
+            ? false
+            : undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
     });

@@ -15,6 +15,11 @@ export class CreateBookingDto {
     @IsString()
     subjectId!: string;
 
+    @IsUUID()
+    @IsString()
+    @IsOptional()
+    slotId?: string; // Phase 3: The materialized slot being booked
+
     @IsDateString()
     startTime!: string; // ISO 8601
 

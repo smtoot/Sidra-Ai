@@ -1,5 +1,5 @@
 #!/bin/sh
-# Startup script with database connection retry logic for Railway
+# Startup script with database connection retry logic
 
 set -e
 

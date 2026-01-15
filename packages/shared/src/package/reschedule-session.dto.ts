@@ -1,4 +1,4 @@
-import { IsDateString, IsString, IsOptional, Matches } from 'class-validator';
+import { IsDateString, IsString, IsOptional, Matches, IsUUID } from 'class-validator';
 
 /**
  * DTO for rescheduling a package session
@@ -18,6 +18,10 @@ export class RescheduleSessionDto {
   @IsOptional()
   @IsString()
   reason?: string; // Optional reason (e.g., "لدي موعد طارئ")
+
+  @IsOptional()
+  @IsUUID()
+  slotId?: string; // Proposed slot for rescheduling
 }
 
 /**

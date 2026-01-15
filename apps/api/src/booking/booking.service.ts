@@ -46,7 +46,7 @@ export class BookingService {
     private system_settingsService: SystemSettingsService,
     private configService: ConfigService,
     private availabilitySlotService: AvailabilitySlotService,
-  ) { }
+  ) {}
 
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
@@ -194,7 +194,9 @@ export class BookingService {
       });
 
       if (bookingConflict) {
-        throw new BadRequestException('هذا الموعد غير متاح. يرجى اختيار وقت آخر.');
+        throw new BadRequestException(
+          'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
+        );
       }
 
       // **P0-1 FIX: Price Manipulation**
@@ -231,7 +233,9 @@ export class BookingService {
           dto.teacherId,
         );
         if (!demoEnabled) {
-          throw new BadRequestException('هذا المعلم لا يقدم حصص تجريبية حالياً');
+          throw new BadRequestException(
+            'هذا المعلم لا يقدم حصص تجريبية حالياً',
+          );
         }
         isValidDemo = true;
       }
@@ -359,25 +363,25 @@ export class BookingService {
       metadata: { bookingId: booking.id },
       email: booking.teacher_profiles.users.email
         ? {
-          to: booking.teacher_profiles.users.email,
-          subject: 'طلب حجز جديد | New Booking Request',
-          templateId: 'booking-request',
-          payload: {
-            recipientName:
-              booking.teacher_profiles.users.firstName || 'المعلم',
-            title: 'طلب حجز جديد',
-            message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
-            sessionDate: new Date(booking.startTime).toLocaleDateString(
-              'ar-EG',
-            ),
-            sessionTime: new Date(booking.startTime).toLocaleTimeString(
-              'ar-EG',
-              { hour: '2-digit', minute: '2-digit' },
-            ),
-            link: `${process.env.FRONTEND_URL}/teacher/requests`,
-            actionLabel: 'عرض الطلبات',
-          },
-        }
+            to: booking.teacher_profiles.users.email,
+            subject: 'طلب حجز جديد | New Booking Request',
+            templateId: 'booking-request',
+            payload: {
+              recipientName:
+                booking.teacher_profiles.users.firstName || 'المعلم',
+              title: 'طلب حجز جديد',
+              message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
+              sessionDate: new Date(booking.startTime).toLocaleDateString(
+                'ar-EG',
+              ),
+              sessionTime: new Date(booking.startTime).toLocaleTimeString(
+                'ar-EG',
+                { hour: '2-digit', minute: '2-digit' },
+              ),
+              link: `${process.env.FRONTEND_URL}/teacher/requests`,
+              actionLabel: 'عرض الطلبات',
+            },
+          }
         : undefined,
     });
 
@@ -697,27 +701,27 @@ export class BookingService {
               metadata: { bookingId: updatedBooking.id },
               email: parentUser?.email
                 ? {
-                  to: parentUser.email,
-                  subject:
-                    'تم قبول طلب الحجز - يرجى الدفع | Payment Required',
-                  templateId: 'booking_approved',
-                  payload: {
-                    recipientName: parentUser.firstName || 'ولي الأمر',
-                    title: 'تم قبول طلب الحجز',
-                    message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
-                    sessionDate: new Date(
-                      updatedBooking.startTime,
-                    ).toLocaleDateString('ar-EG'),
-                    sessionTime: new Date(
-                      updatedBooking.startTime,
-                    ).toLocaleTimeString('ar-EG', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }),
-                    link: `${process.env.FRONTEND_URL}/parent/bookings`,
-                    actionLabel: 'ادفع الآن',
-                  },
-                }
+                    to: parentUser.email,
+                    subject:
+                      'تم قبول طلب الحجز - يرجى الدفع | Payment Required',
+                    templateId: 'booking_approved',
+                    payload: {
+                      recipientName: parentUser.firstName || 'ولي الأمر',
+                      title: 'تم قبول طلب الحجز',
+                      message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. يرجى سداد المبلغ قبل ${updatedBooking.paymentDeadline ? new Date(updatedBooking.paymentDeadline).toLocaleTimeString('ar-EG') : 'الموعد المحدد'} لتأكيد الحجز.`,
+                      sessionDate: new Date(
+                        updatedBooking.startTime,
+                      ).toLocaleDateString('ar-EG'),
+                      sessionTime: new Date(
+                        updatedBooking.startTime,
+                      ).toLocaleTimeString('ar-EG', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }),
+                      link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                      actionLabel: 'ادفع الآن',
+                    },
+                  }
                 : undefined,
             });
           } else if (isRedemption) {
@@ -734,26 +738,26 @@ export class BookingService {
               metadata: { bookingId: updatedBooking.id },
               email: parentUser?.email
                 ? {
-                  to: parentUser.email,
-                  subject: 'تم تأكيد الحجز (باقة) | Booking Confirmed',
-                  templateId: 'booking_approved',
-                  payload: {
-                    recipientName: parentUser.firstName || 'ولي الأمر',
-                    title: 'تم تأكيد الحجز',
-                    message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} وتم تأكيد الحصة من رصيد الباقة.`,
-                    sessionDate: new Date(
-                      updatedBooking.startTime,
-                    ).toLocaleDateString('ar-EG'),
-                    sessionTime: new Date(
-                      updatedBooking.startTime,
-                    ).toLocaleTimeString('ar-EG', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }),
-                    link: `${process.env.FRONTEND_URL}/parent/bookings`,
-                    actionLabel: 'عرض الحجوزات',
-                  },
-                }
+                    to: parentUser.email,
+                    subject: 'تم تأكيد الحجز (باقة) | Booking Confirmed',
+                    templateId: 'booking_approved',
+                    payload: {
+                      recipientName: parentUser.firstName || 'ولي الأمر',
+                      title: 'تم تأكيد الحجز',
+                      message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} وتم تأكيد الحصة من رصيد الباقة.`,
+                      sessionDate: new Date(
+                        updatedBooking.startTime,
+                      ).toLocaleDateString('ar-EG'),
+                      sessionTime: new Date(
+                        updatedBooking.startTime,
+                      ).toLocaleTimeString('ar-EG', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }),
+                      link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                      actionLabel: 'عرض الحجوزات',
+                    },
+                  }
                 : undefined,
             });
           } else {
@@ -771,26 +775,26 @@ export class BookingService {
               metadata: { bookingId: updatedBooking.id },
               email: parentUser?.email
                 ? {
-                  to: parentUser.email,
-                  subject: 'تم تأكيد الحجز | Booking Confirmed',
-                  templateId: 'booking_approved',
-                  payload: {
-                    recipientName: parentUser.firstName || 'ولي الأمر',
-                    title: 'تم تأكيد الحجز',
-                    message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. تم خصم المبلغ من رصيدك.`,
-                    sessionDate: new Date(
-                      updatedBooking.startTime,
-                    ).toLocaleDateString('ar-EG'),
-                    sessionTime: new Date(
-                      updatedBooking.startTime,
-                    ).toLocaleTimeString('ar-EG', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }),
-                    link: `${process.env.FRONTEND_URL}/parent/bookings`,
-                    actionLabel: 'عرض الحجوزات',
-                  },
-                }
+                    to: parentUser.email,
+                    subject: 'تم تأكيد الحجز | Booking Confirmed',
+                    templateId: 'booking_approved',
+                    payload: {
+                      recipientName: parentUser.firstName || 'ولي الأمر',
+                      title: 'تم تأكيد الحجز',
+                      message: `وافق المعلم على طلبك لموعد ${new Date(updatedBooking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(updatedBooking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}. تم خصم المبلغ من رصيدك.`,
+                      sessionDate: new Date(
+                        updatedBooking.startTime,
+                      ).toLocaleDateString('ar-EG'),
+                      sessionTime: new Date(
+                        updatedBooking.startTime,
+                      ).toLocaleTimeString('ar-EG', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }),
+                      link: `${process.env.FRONTEND_URL}/parent/bookings`,
+                      actionLabel: 'عرض الحجوزات',
+                    },
+                  }
                 : undefined,
             });
           }
@@ -850,11 +854,14 @@ export class BookingService {
       }
 
       // 4. Slot Restoration
-      await this.availabilitySlotService.restoreSlot(tx, booking.teacherId, booking.startTime);
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        booking.teacherId,
+        booking.startTime,
+      );
 
       return res;
     });
-
 
     // Notify parent about booking rejection
     await this.notificationService.notifyUser({
@@ -974,8 +981,8 @@ export class BookingService {
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.package_tiers.findMany({
-          where: { id: { in: pendingTierIds } },
-        })
+            where: { id: { in: pendingTierIds } },
+          })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -1049,8 +1056,8 @@ export class BookingService {
     const tiers =
       pendingTierIds.length > 0
         ? await this.prisma.package_tiers.findMany({
-          where: { id: { in: pendingTierIds } },
-        })
+            where: { id: { in: pendingTierIds } },
+          })
         : [];
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.sessionCount]));
@@ -1252,31 +1259,31 @@ export class BookingService {
       ...booking,
       teacherProfile: booking.teacher_profiles
         ? {
-          ...booking.teacher_profiles,
-          user: booking.teacher_profiles.users,
-        }
+            ...booking.teacher_profiles,
+            user: booking.teacher_profiles.users,
+          }
         : undefined,
       bookedByUser: booking.users_bookings_bookedByUserIdTousers,
       studentUser: booking.users_bookings_studentUserIdTousers
         ? {
-          ...booking.users_bookings_studentUserIdTousers,
-          studentProfile: booking.users_bookings_studentUserIdTousers
-            .student_profiles
-            ? {
-              ...booking.users_bookings_studentUserIdTousers
-                .student_profiles,
-              curriculum:
-                booking.users_bookings_studentUserIdTousers.student_profiles
-                  .curricula,
-            }
-            : undefined,
-        }
+            ...booking.users_bookings_studentUserIdTousers,
+            studentProfile: booking.users_bookings_studentUserIdTousers
+              .student_profiles
+              ? {
+                  ...booking.users_bookings_studentUserIdTousers
+                    .student_profiles,
+                  curriculum:
+                    booking.users_bookings_studentUserIdTousers.student_profiles
+                      .curricula,
+                }
+              : undefined,
+          }
         : undefined,
       child: booking.children
         ? {
-          ...booking.children,
-          curriculum: booking.children.curricula,
-        }
+            ...booking.children,
+            curriculum: booking.children.curricula,
+          }
         : undefined,
       subject: booking.subjects,
       jitsiEnabled: !!booking.jitsiEnabled, // Force boolean
@@ -1755,7 +1762,7 @@ export class BookingService {
     // Notify teacher - use normalizeMoney for consistent calculation
     const teacherEarnings = normalizeMoney(
       normalizeMoney(bookingContext.price) *
-      (1 - Number(bookingContext.commissionRate)),
+        (1 - Number(bookingContext.commissionRate)),
     );
     await this.notificationService.notifyTeacherPaymentReleased({
       bookingId: updatedBooking.id,
@@ -2178,7 +2185,11 @@ export class BookingService {
         });
 
         // Slot Restoration
-        await this.availabilitySlotService.restoreSlot(tx, booking.teacherId, booking.startTime);
+        await this.availabilitySlotService.restoreSlot(
+          tx,
+          booking.teacherId,
+          booking.startTime,
+        );
 
         // =====================================================
         // PACKAGE INTEGRATION: Cancel redemption if exists
@@ -2501,7 +2512,8 @@ export class BookingService {
         `SELECT id, "rescheduleCount", "startTime", "endTime" FROM "bookings" WHERE "id" = $1 FOR UPDATE`,
         bookingId,
       );
-      if (bookings.length === 0) throw new NotFoundException('Booking disappeared');
+      if (bookings.length === 0)
+        throw new NotFoundException('Booking disappeared');
 
       // 2. Lock & Check Slot exists for NEW time
       const slots = await tx.$queryRawUnsafe<any[]>(
@@ -2560,7 +2572,11 @@ export class BookingService {
       }
 
       // 5. Restore ORIGINAL Slot
-      await this.availabilitySlotService.restoreSlot(tx, teacherId, oldStartTime);
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        teacherId,
+        oldStartTime,
+      );
 
       // 6. Consume NEW Slot
       await this.availabilitySlotService.deleteOverlappingSlots(
@@ -2723,7 +2739,9 @@ export class BookingService {
           },
         });
         if (!slot) {
-          throw new ConflictException('الموعد المقترح غير متاح في جدول المعلم.');
+          throw new ConflictException(
+            'الموعد المقترح غير متاح في جدول المعلم.',
+          );
         }
 
         // C. Check Booking Conflicts
@@ -2865,7 +2883,8 @@ export class BookingService {
         `SELECT id, "rescheduleCount" FROM "bookings" WHERE "id" = $1 FOR UPDATE`,
         request.bookingId,
       );
-      if (bookings.length === 0) throw new NotFoundException('Booking disappeared');
+      if (bookings.length === 0)
+        throw new NotFoundException('Booking disappeared');
 
       // 1c. Lock & Check Slot exists for NEW time
       const slots = await tx.$queryRawUnsafe<any[]>(
@@ -2877,7 +2896,9 @@ export class BookingService {
       );
 
       if (slots.length === 0) {
-        throw new ConflictException('الموعد الجديد غير متاح حالياً. يرجى اختيار وقت آخر.');
+        throw new ConflictException(
+          'الموعد الجديد غير متاح حالياً. يرجى اختيار وقت آخر.',
+        );
       }
 
       // 2. Conflict Check (Source of Truth) for NEW time
@@ -2900,7 +2921,9 @@ export class BookingService {
       });
 
       if (conflict) {
-        throw new ConflictException('الموعد الجديد غير متاح حالياً. يرجى اختيار وقت آخر.');
+        throw new ConflictException(
+          'الموعد الجديد غير متاح حالياً. يرجى اختيار وقت آخر.',
+        );
       }
 
       // 3. Update Booking (Merged into main transaction)
@@ -2955,10 +2978,19 @@ export class BookingService {
       });
 
       // 6. Restore ORIGINAL Slot
-      await this.availabilitySlotService.restoreSlot(tx, teacherId, oldStartTime);
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        teacherId,
+        oldStartTime,
+      );
 
       // 7. Consume NEW Slot
-      await this.availabilitySlotService.deleteOverlappingSlots(tx, teacherId, newStartTime, newEndTime);
+      await this.availabilitySlotService.deleteOverlappingSlots(
+        tx,
+        teacherId,
+        newStartTime,
+        newEndTime,
+      );
     });
 
     this.logger.log(
@@ -3189,7 +3221,8 @@ export class BookingService {
         `SELECT id, "rescheduleCount" FROM "bookings" WHERE "id" = $1 FOR UPDATE`,
         bookingId,
       );
-      if (bookings.length === 0) throw new NotFoundException('Booking disappeared');
+      if (bookings.length === 0)
+        throw new NotFoundException('Booking disappeared');
 
       // 1c. Lock & Check Slot exists for NEW time
       const slots = await tx.$queryRawUnsafe<any[]>(
@@ -3224,7 +3257,9 @@ export class BookingService {
       });
 
       if (conflict) {
-        throw new BadRequestException('الموعد الجديد غير متاح بسبب تضارب مع حصة أخرى.');
+        throw new BadRequestException(
+          'الموعد الجديد غير متاح بسبب تضارب مع حصة أخرى.',
+        );
       }
 
       // 3. Update Booking
@@ -3241,10 +3276,19 @@ export class BookingService {
       });
 
       // 4. Restore ORIGINAL Slot
-      await this.availabilitySlotService.restoreSlot(tx, teacherId, oldStartTime);
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        teacherId,
+        oldStartTime,
+      );
 
       // 5. Consume NEW Slot
-      await this.availabilitySlotService.deleteOverlappingSlots(tx, teacherId, newStartTime, newEndTime);
+      await this.availabilitySlotService.deleteOverlappingSlots(
+        tx,
+        teacherId,
+        newStartTime,
+        newEndTime,
+      );
 
       return res;
     });
@@ -3285,7 +3329,11 @@ export class BookingService {
   async logMeetingEvent(
     userId: string,
     bookingId: string,
-    eventType: 'PARTICIPANT_JOINED' | 'PARTICIPANT_LEFT' | 'MEETING_STARTED' | 'MEETING_ENDED',
+    eventType:
+      | 'PARTICIPANT_JOINED'
+      | 'PARTICIPANT_LEFT'
+      | 'MEETING_STARTED'
+      | 'MEETING_ENDED',
     metadata?: Record<string, any>,
   ) {
     // Verify user has access to this booking
@@ -3361,7 +3409,9 @@ export class BookingService {
       id: event.id,
       bookingId: event.bookingId,
       userId: event.userId,
-      userName: `${event.users.firstName || ''} ${event.users.lastName || ''}`.trim() || event.users.email,
+      userName:
+        `${event.users.firstName || ''} ${event.users.lastName || ''}`.trim() ||
+        event.users.email,
       userRole: event.userRole,
       eventType: event.eventType,
       metadata: event.metadata,

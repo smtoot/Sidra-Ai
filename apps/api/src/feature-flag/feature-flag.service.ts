@@ -1,41 +1,62 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Feature Flag Service
  *
  * Centralized service for managing feature flags across the application.
  * Supports both environment variable flags and database-driven flags.
+ * Database settings take priority over environment variables.
  */
 @Injectable()
 export class FeatureFlagService {
   private readonly logger = new Logger(FeatureFlagService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
-   * Check if Jitsi is enabled globally
+   * Check if Jitsi is enabled globally (async - reads from DB)
+   * Priority: DB `jitsiConfig.enabled` > Env `JITSI_ENABLED` > Default false
    */
-  isJitsiEnabled(): boolean {
-    const enabled =
-      this.configService.get<string>('JITSI_ENABLED', 'false') === 'true';
-    this.logger.debug(`Jitsi global flag: ${enabled}`);
-    return enabled;
+  async isJitsiEnabled(): Promise<boolean> {
+    try {
+      const settings = await this.prisma.system_settings.findUnique({
+        where: { id: 'default' },
+      });
+
+      const jitsiConfig = (settings?.jitsiConfig as any) || {};
+
+      // If DB has explicit setting, use it
+      if (typeof jitsiConfig.enabled === 'boolean') {
+        this.logger.debug(`Jitsi global flag (DB): ${jitsiConfig.enabled}`);
+        return jitsiConfig.enabled;
+      }
+
+      // Fallback to environment variable
+      const envEnabled =
+        this.configService.get<string>('JITSI_ENABLED', 'false') === 'true';
+      this.logger.debug(`Jitsi global flag (ENV): ${envEnabled}`);
+      return envEnabled;
+    } catch (error) {
+      this.logger.warn(`Error reading Jitsi flag from DB: ${error.message}`);
+      // Fallback to env var on error
+      return (
+        this.configService.get<string>('JITSI_ENABLED', 'false') === 'true'
+      );
+    }
   }
 
   /**
    * Check if Jitsi is enabled for a specific teacher
-   * This allows gradual rollout to specific teachers
+   * Currently just checks global flag (per-teacher disabled per user request)
    */
   async isJitsiEnabledForTeacher(teacherId: string): Promise<boolean> {
-    // First check global flag
-    if (!this.isJitsiEnabled()) {
-      return false;
-    }
-
-    // TODO: Add database check for per-teacher flags
-    // For now, return global flag
-    return true;
+    // Check global flag only (no per-teacher control as per user request)
+    return this.isJitsiEnabled();
   }
 
   /**
@@ -47,8 +68,8 @@ export class FeatureFlagService {
       return false;
     }
 
-    // Check if teacher has Jitsi enabled
-    return this.isJitsiEnabledForTeacher(booking.teacherId);
+    // Check global flag
+    return this.isJitsiEnabled();
   }
 
   /**

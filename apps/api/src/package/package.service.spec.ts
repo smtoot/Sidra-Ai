@@ -54,7 +54,7 @@ const mockNotificationService = {
 };
 
 const mockTeacherService = {
-  isSlotAvailable: jest.fn().mockResolvedValue(true),
+  // isSlotAvailable removed
 };
 
 describe('PackageService', () => {
@@ -110,6 +110,9 @@ describe('PackageService', () => {
       findUnique: jest.fn(),
     },
     teacher_package_tier_settings: {
+      findUnique: jest.fn(),
+    },
+    teacher_session_slots: {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -184,6 +187,9 @@ describe('PackageService', () => {
       });
       mockPrismaBase.transactions.create.mockResolvedValue({
         id: 'wallet-tx-1',
+      });
+      mockPrismaBase.teacher_session_slots.findUnique.mockResolvedValue({
+        id: 'slot-1',
       });
     });
 

@@ -21,6 +21,7 @@ import { formatInTimezone } from '../common/utils/timezone.util';
 import { TeacherProfileMapper } from './teacher-profile.mapper';
 import { BookingMapper } from '../booking/booking.mapper';
 import { SessionUtil } from '../common/utils/session.util';
+import { AvailabilitySlotService } from './availability-slot.service';
 
 @Injectable()
 export class TeacherService {
@@ -31,6 +32,7 @@ export class TeacherService {
     private walletService: WalletService,
     private system_settingsService: SystemSettingsService,
     private notificationService: NotificationService,
+    private availabilitySlotService: AvailabilitySlotService,
   ) {}
 
   async getProfile(userId: string) {
@@ -499,43 +501,60 @@ export class TeacherService {
       throw new BadRequestException('Availability slot cannot exceed 12 hours');
     }
 
-    // Validation: Check for overlapping slots on the same day
-    const existingSlots = await this.prisma.availability.findMany({
-      where: {
-        teacherId: profile.id,
-        dayOfWeek: dto.dayOfWeek,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Acquire Advisory Lock
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        profile.id,
+      );
 
-    for (const slot of existingSlots) {
-      const [slotStartHour, slotStartMin] = slot.startTime
-        .split(':')
-        .map(Number);
-      const [slotEndHour, slotEndMin] = slot.endTime.split(':').map(Number);
-      const slotStartMinutes = slotStartHour * 60 + slotStartMin;
-      const slotEndMinutes = slotEndHour * 60 + slotEndMin;
+      // 2. Validation: Check for overlapping slots on the same day (inside TX)
+      const existingSlots = await tx.availability.findMany({
+        where: {
+          teacherId: profile.id,
+          dayOfWeek: dto.dayOfWeek,
+        },
+      });
 
-      // Check for overlap
-      if (
-        (startMinutes >= slotStartMinutes && startMinutes < slotEndMinutes) ||
-        (endMinutes > slotStartMinutes && endMinutes <= slotEndMinutes) ||
-        (startMinutes <= slotStartMinutes && endMinutes >= slotEndMinutes)
-      ) {
-        throw new BadRequestException(
-          `This time slot overlaps with an existing availability (${slot.startTime} - ${slot.endTime})`,
-        );
+      for (const slot of existingSlots) {
+        const [slotStartHour, slotStartMin] = slot.startTime
+          .split(':')
+          .map(Number);
+        const [slotEndHour, slotEndMin] = slot.endTime.split(':').map(Number);
+        const slotStartMinutes = slotStartHour * 60 + slotStartMin;
+        const slotEndMinutes = slotEndHour * 60 + slotEndMin;
+
+        // Check for overlap
+        if (
+          (startMinutes >= slotStartMinutes && startMinutes < slotEndMinutes) ||
+          (endMinutes > slotStartMinutes && endMinutes <= slotEndMinutes) ||
+          (startMinutes <= slotStartMinutes && endMinutes >= slotEndMinutes)
+        ) {
+          throw new BadRequestException(
+            `This time slot overlaps with an existing availability (${slot.startTime} - ${slot.endTime})`,
+          );
+        }
       }
-    }
 
-    return this.prisma.availability.create({
-      data: {
-        id: crypto.randomUUID(),
-        teacherId: profile.id,
-        dayOfWeek: dto.dayOfWeek,
-        startTime: dto.startTime,
-        endTime: dto.endTime,
-        isRecurring: dto.isRecurring,
-      },
+      const availability = await tx.availability.create({
+        data: {
+          id: crypto.randomUUID(),
+          teacherId: profile.id,
+          dayOfWeek: dto.dayOfWeek,
+          startTime: dto.startTime,
+          endTime: dto.endTime,
+          isRecurring: dto.isRecurring,
+        },
+      });
+
+      // 3. REGENERATE SLOTS (Passing transaction client)
+      await this.availabilitySlotService.generateSlotsForTeacher(
+        profile.id,
+        31,
+        tx,
+      );
+
+      return availability;
     });
   }
 
@@ -545,13 +564,80 @@ export class TeacherService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const slot = await this.prisma.availability.findFirst({
-      where: { id: availabilityId, teacherId: profile.id },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Acquire Advisory Lock
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        profile.id,
+      );
+
+      const slot = await tx.availability.findFirst({
+        where: { id: availabilityId, teacherId: profile.id },
+      });
+
+      if (!slot) throw new NotFoundException('Slot not found');
+
+      const result = await tx.availability.delete({
+        where: { id: availabilityId },
+      });
+
+      // 2. REGENERATE SLOTS (Passing transaction client)
+      await this.availabilitySlotService.generateSlotsForTeacher(
+        profile.id,
+        31,
+        tx,
+      );
+
+      return result;
     });
+  }
 
-    if (!slot) throw new NotFoundException('Slot not found');
+  async replaceExceptions(userId: string, exceptions: CreateExceptionDto[]) {
+    const profile = await this.prisma.teacher_profiles.findUnique({
+      where: { userId },
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.prisma.availability.delete({ where: { id: availabilityId } });
+    // Use transaction to ensure atomicity
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Acquire Advisory Lock
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        profile.id,
+      );
+
+      // 2. Delete all existing exceptions
+      await tx.availability_exceptions.deleteMany({
+        where: { teacherId: profile.id },
+      });
+
+      // 3. Create new exceptions
+      const created = await Promise.all(
+        exceptions.map((ex) =>
+          tx.availability_exceptions.create({
+            data: {
+              teacherId: profile.id,
+              startDate: new Date(ex.startDate),
+              endDate: new Date(ex.endDate),
+              type: ex.type || 'ALL_DAY',
+              startTime: ex.startTime,
+              endTime: ex.endTime,
+              reason: ex.reason,
+              updatedAt: new Date(),
+            },
+          }),
+        ),
+      );
+
+      // 4. REGENERATE SLOTS (Refresh calendar to account for new exceptions)
+      await this.availabilitySlotService.generateSlotsForTeacher(
+        profile.id,
+        31,
+        tx,
+      );
+
+      return created;
+    });
   }
 
   async replaceAvailability(userId: string, slots: CreateAvailabilityDto[]) {
@@ -561,15 +647,21 @@ export class TeacherService {
     if (!profile) throw new NotFoundException('Profile not found');
 
     // Use transaction to ensure atomicity: delete all existing, then create new
-    return this.prisma.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Acquire Advisory Lock
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        profile.id,
+      );
+
       // Delete all existing availability for this teacher
-      await prisma.availability.deleteMany({
+      await tx.availability.deleteMany({
         where: { teacherId: profile.id },
       });
 
       // Create new slots in bulk
       if (slots.length > 0) {
-        await prisma.availability.createMany({
+        await tx.availability.createMany({
           data: slots.map((slot) => ({
             id: crypto.randomUUID(),
             teacherId: profile.id,
@@ -581,8 +673,15 @@ export class TeacherService {
         });
       }
 
+      // 2. REGENERATE SLOTS (Passing transaction client)
+      await this.availabilitySlotService.generateSlotsForTeacher(
+        profile.id,
+        31,
+        tx,
+      );
+
       // Return updated availability
-      return prisma.availability.findMany({
+      return tx.availability.findMany({
         where: { teacherId: profile.id },
         orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
       });
@@ -665,18 +764,35 @@ export class TeacherService {
       }
     }
 
-    return this.prisma.availability_exceptions.create({
-      data: {
-        id: crypto.randomUUID(),
-        updatedAt: new Date(),
-        teacherId: profile.id,
-        startDate,
-        endDate,
-        type: dto.type || 'ALL_DAY',
-        startTime: dto.startTime,
-        endTime: dto.endTime,
-        reason: dto.reason,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Acquire Advisory Lock
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        profile.id,
+      );
+
+      const exception = await tx.availability_exceptions.create({
+        data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
+          teacherId: profile.id,
+          startDate,
+          endDate,
+          type: dto.type || 'ALL_DAY',
+          startTime: dto.startTime,
+          endTime: dto.endTime,
+          reason: dto.reason,
+        },
+      });
+
+      // 2. REGENERATE SLOTS (Passing transaction client)
+      await this.availabilitySlotService.generateSlotsForTeacher(
+        profile.id,
+        31,
+        tx,
+      );
+
+      return exception;
     });
   }
 
@@ -686,14 +802,31 @@ export class TeacherService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const exception = await this.prisma.availability_exceptions.findFirst({
-      where: { id: exceptionId, teacherId: profile.id },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Acquire Advisory Lock
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`,
+        profile.id,
+      );
 
-    if (!exception) throw new NotFoundException('Exception not found');
+      const exception = await tx.availability_exceptions.findFirst({
+        where: { id: exceptionId, teacherId: profile.id },
+      });
 
-    return this.prisma.availability_exceptions.delete({
-      where: { id: exceptionId },
+      if (!exception) throw new NotFoundException('Exception not found');
+
+      const result = await tx.availability_exceptions.delete({
+        where: { id: exceptionId },
+      });
+
+      // 2. REGENERATE SLOTS (Passing transaction client)
+      await this.availabilitySlotService.generateSlotsForTeacher(
+        profile.id,
+        31,
+        tx,
+      );
+
+      return result;
     });
   }
 
@@ -1340,6 +1473,7 @@ export class TeacherService {
     });
     return {
       maxVacationDays: settings?.maxVacationDays || 21,
+      vacationEnabled: settings?.vacationEnabled ?? true,
     };
   }
 
@@ -1429,143 +1563,81 @@ export class TeacherService {
         },
       });
 
-      // 6. Enable vacation mode
-      const updated = await this.prisma.teacher_profiles.update({
-        where: { userId },
-        data: {
-          isOnVacation: true,
-          vacationStartDate: now,
-          vacationEndDate: returnDate,
-          vacationReason: dto.reason || null,
-        },
-        select: {
-          isOnVacation: true,
-          vacationEndDate: true,
-        },
+      // Use transaction for all vacation-related status and slot changes
+      const result = await this.prisma.$transaction(async (tx) => {
+        // 1. Acquire Advisory Lock
+        await tx.$executeRawUnsafe(
+          `SELECT pg_advisory_xact_lock(hashtext($1))`,
+          profile.id,
+        );
+
+        // 2. Enable vacation mode
+        const updated = await tx.teacher_profiles.update({
+          where: { userId },
+          data: {
+            isOnVacation: true,
+            vacationStartDate: now,
+            vacationEndDate: returnDate,
+            vacationReason: dto.reason || null,
+          },
+          select: {
+            isOnVacation: true,
+            vacationEndDate: true,
+          },
+        });
+
+        // 3. REGENERATE SLOTS (Passing transaction client)
+        await this.availabilitySlotService.generateSlotsForTeacher(
+          profile.id,
+          31,
+          tx,
+        );
+
+        return updated;
       });
 
       // 7. Return with warning if conflicting bookings exist
       return {
         success: true,
-        isOnVacation: updated.isOnVacation,
-        vacationEndDate: updated.vacationEndDate,
-        warning:
-          conflictingBookings.length > 0
-            ? {
-                message:
-                  'لديك حصص مؤكدة خلال فترة الإجازة. يجب عليك تقديم هذه الحصص كما هو مجدول.',
-                conflictingBookingsCount: conflictingBookings.length,
-              }
-            : undefined,
+        isOnVacation: result.isOnVacation,
+        vacationEndDate: result.vacationEndDate,
+        conflicts: conflictingBookings,
       };
     } else {
       // === DISABLING VACATION MODE ===
-      const updated = await this.prisma.teacher_profiles.update({
-        where: { userId },
-        data: {
-          isOnVacation: false,
-          vacationStartDate: null,
+      return this.prisma.$transaction(async (tx) => {
+        // 1. Acquire Advisory Lock
+        await tx.$executeRawUnsafe(
+          `SELECT pg_advisory_xact_lock(hashtext($1))`,
+          profile.id,
+        );
+
+        const updated = await tx.teacher_profiles.update({
+          where: { userId },
+          data: {
+            isOnVacation: false,
+            vacationStartDate: null,
+            vacationEndDate: null,
+            vacationReason: null,
+          },
+          select: {
+            isOnVacation: true,
+          },
+        });
+
+        // 2. REGENERATE SLOTS (Passing transaction client)
+        await this.availabilitySlotService.generateSlotsForTeacher(
+          profile.id,
+          31,
+          tx,
+        );
+
+        return {
+          success: true,
+          isOnVacation: updated.isOnVacation,
           vacationEndDate: null,
-          vacationReason: null,
-        },
-        select: {
-          isOnVacation: true,
-        },
+        };
       });
-
-      return {
-        success: true,
-        isOnVacation: updated.isOnVacation,
-        vacationEndDate: null,
-      };
     }
-  }
-
-  // --- Availability Validation ---
-
-  /**
-   * Validate that a time slot is actually available for booking
-   * Check 1) Weekly Availability (Working Hours)
-   * Check 2) Exceptions (Time Off)
-   * Does NOT check existing bookings (that's the caller's responsibility)
-   */
-  async isSlotAvailable(teacherId: string, startTime: Date): Promise<boolean> {
-    // Get teacher's timezone
-    const profile = await this.prisma.teacher_profiles.findUnique({
-      where: { id: teacherId },
-      select: { timezone: true },
-    });
-    const teacherTimezone = profile?.timezone || 'UTC';
-
-    // Get day and time in teacher's timezone
-    const dayOfWeek = this.getDayOfWeekFromZoned(startTime, teacherTimezone);
-    const timeStr = formatInTimezone(startTime, teacherTimezone, 'HH:mm');
-
-    // For date comparisons, normalize to start of day in teacher's timezone
-    const dateStr = formatInTimezone(startTime, teacherTimezone, 'yyyy-MM-dd');
-    const dateForComparison = new Date(dateStr + 'T00:00:00.000Z');
-
-    // 1. Check weekly availability exists
-    const weeklySlot = await this.prisma.availability.findFirst({
-      where: {
-        teacherId,
-        dayOfWeek: dayOfWeek as any,
-        startTime: { lte: timeStr },
-        endTime: { gt: timeStr },
-      },
-    });
-
-    if (!weeklySlot) {
-      return false; // Teacher not working
-    }
-
-    // 2. Check for ALL_DAY exceptions
-    const allDayException = await this.prisma.availability_exceptions.findFirst(
-      {
-        where: {
-          teacherId,
-          type: 'ALL_DAY',
-          startDate: { lte: dateForComparison },
-          endDate: { gte: dateForComparison },
-        },
-      },
-    );
-
-    if (allDayException) {
-      return false; // Entire day is blocked
-    }
-
-    // 3. Check for PARTIAL_DAY exceptions
-    const partialException =
-      await this.prisma.availability_exceptions.findFirst({
-        where: {
-          teacherId,
-          type: 'PARTIAL_DAY',
-          startDate: { lte: dateForComparison },
-          endDate: { gte: dateForComparison },
-          startTime: { lte: timeStr },
-          endTime: { gt: timeStr },
-        },
-      });
-
-    if (partialException) {
-      return false; // Specific time is blocked
-    }
-
-    return true; // Available
-  }
-
-  private getDayOfWeekFromZoned(date: Date, timezone: string): string {
-    const dayName = formatInTimezone(date, timezone, 'EEEE').toUpperCase();
-    const dayMap: { [key: string]: string } = {
-      SUNDAY: 'SUNDAY',
-      MONDAY: 'MONDAY',
-      TUESDAY: 'TUESDAY',
-      WEDNESDAY: 'WEDNESDAY',
-      THURSDAY: 'THURSDAY',
-      FRIDAY: 'FRIDAY',
-      SATURDAY: 'SATURDAY',
-    };
-    return dayMap[dayName] || dayName;
   }
 }

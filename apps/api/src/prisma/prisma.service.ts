@@ -15,7 +15,7 @@ export class PrismaService
 
   constructor() {
     // STABILITY FIX: Configure connection pool to prevent exhaustion
-    // Railway containers have limited resources, so we use conservative pool settings
+    // Use conservative pool settings to optimize resource usage
     super({
       datasources: {
         db: {

@@ -92,8 +92,8 @@ async function bootstrap() {
     logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   });
 
-  // STABILITY: Handle termination signals for Railway deployments
-  // Railway sends SIGTERM before killing the container
+  // STABILITY: Handle termination signals for graceful shutdowns
+  // Docker/container orchestration sends SIGTERM before killing the container
   const signals: NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
   for (const signal of signals) {
     process.on(signal, () => {
