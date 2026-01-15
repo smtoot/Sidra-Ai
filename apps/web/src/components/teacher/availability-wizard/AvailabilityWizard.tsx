@@ -65,8 +65,39 @@ export default function AvailabilityWizard({ onClose, onComplete, initialState }
         setState(prev => ({ ...prev, ...updates }));
     };
 
-    const nextStep = () => setStep(prev => Math.min(prev + 1, STEPS.length - 1));
-    const prevStep = () => setStep(prev => Math.max(prev - 1, 0));
+    const [vacationEnabled, setVacationEnabled] = useState(true);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const settings = await teacherApi.getVacationSettings();
+                setVacationEnabled(settings.vacationEnabled ?? true);
+            } catch (error) {
+                console.error('Failed to fetch vacation settings', error);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const nextStep = () => {
+        setStep(prev => {
+            let next = prev + 1;
+            if (prev === 4 && !vacationEnabled) { // If currently on Exceptions (step 4) and vacation is disabled
+                next = prev + 2; // Skip Vacation (step 5)
+            }
+            return Math.min(next, STEPS.length - 1);
+        });
+    };
+
+    const prevStep = () => {
+        setStep(prev => {
+            let next = prev - 1;
+            if (prev === 6 && !vacationEnabled) { // If currently on Review (step 6) and vacation is disabled
+                next = prev - 2; // Skip Vacation (step 5) backwards
+            }
+            return Math.max(next, 0);
+        });
+    };
 
     const handleFinalSubmit = async () => {
         setLoading(true);
@@ -140,15 +171,20 @@ export default function AvailabilityWizard({ onClose, onComplete, initialState }
 
                 {/* Progress */}
                 <div className="hidden md:flex items-center gap-2">
-                    {STEPS.map((s, i) => (
-                        <div key={i} className="flex items-center">
-                            <div className={cn(
-                                "w-3 h-3 rounded-full transition-colors",
-                                i === step ? "bg-primary" : i < step ? "bg-primary/40" : "bg-gray-200"
-                            )} />
-                            {i < STEPS.length - 1 && <div className="w-8 h-[2px] bg-gray-100 mx-1" />}
-                        </div>
-                    ))}
+                    {STEPS.map((s, i) => {
+                        // Hide vacation step from progress bar payload if disabled
+                        if (!vacationEnabled && i === 5) return null;
+
+                        return (
+                            <div key={i} className="flex items-center">
+                                <div className={cn(
+                                    "w-3 h-3 rounded-full transition-colors",
+                                    i === step ? "bg-primary" : i < step ? "bg-primary/40" : "bg-gray-200"
+                                )} />
+                                {i < STEPS.length - 1 && <div className="w-8 h-[2px] bg-gray-100 mx-1" />}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="text-sm font-medium text-text-subtle">
