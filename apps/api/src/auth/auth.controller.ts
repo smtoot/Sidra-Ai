@@ -64,7 +64,7 @@ function getCookieDomain(): string | undefined {
  */
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env.NODE_ENV !== 'development', // Secure for both production and staging
   sameSite: 'lax' as const, // 'lax' allows top-level navigation, 'strict' for max security
   path: '/',
   domain: getCookieDomain(),
@@ -97,7 +97,7 @@ export class AuthController {
     // CSRF token is NOT httpOnly - frontend needs to read it to include in headers
     res.cookie('csrf_token', csrfToken, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development', // Secure for both production and staging
       sameSite: 'lax' as const,
       path: '/',
       domain: getCookieDomain(),
