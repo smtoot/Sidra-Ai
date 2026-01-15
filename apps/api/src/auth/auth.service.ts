@@ -30,7 +30,7 @@ export class AuthService {
     private notificationService: NotificationService,
     private otpService: OtpService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Validate password requirements
@@ -503,10 +503,54 @@ export class AuthService {
 
     if (!isMatch) {
       this.logger.warn(`Login failed: password mismatch for user ${user.id}`);
+
+      // AUDIT: Log failed login attempt
+      try {
+        await this.prisma.audit_logs.create({
+          data: {
+            actorId: user.id,
+            action: 'LOGIN_FAILED',
+            payload: { reason: 'Password mismatch', clientIp: 'Unknown' }, // Enhance with IP if available in context
+            createdAt: new Date(),
+          },
+        });
+      } catch (err) {
+        this.logger.error('Failed to log audit for login failure', err);
+      }
+
       throw new UnauthorizedException('Invalid credentials');
     }
 
     this.logger.log(`Login successful for user ${user.id}`);
+
+    // SECURITY: Concurrent Login Prevention (Single Session Enforcement)
+    // Revoke all existing valid refresh tokens for this user
+    try {
+      await this.prisma.refresh_tokens.updateMany({
+        where: { userId: user.id, revoked: false },
+        data: {
+          revoked: true,
+          revokedAt: new Date(),
+          replacedByToken: 'NEW_SESSION_FORCED',
+        },
+      });
+    } catch (err) {
+      this.logger.error(`Failed to revoke existing tokens for user ${user.id}`, err);
+    }
+
+    // AUDIT: Log successful login
+    try {
+      await this.prisma.audit_logs.create({
+        data: {
+          actorId: user.id,
+          action: 'LOGIN_SUCCESS',
+          createdAt: new Date(),
+        },
+      });
+    } catch (err) {
+      this.logger.error('Failed to log audit for login success', err);
+    }
+
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName || undefined,
       lastName: user.lastName || undefined,
@@ -565,23 +609,23 @@ export class AuthService {
       ...rest,
       parentProfile: parent_profiles
         ? {
-            ...parent_profiles,
-            children: parent_profiles.children.map((child) => {
-              // Map curricula -> curriculum for children
-              const { curricula, ...childRest } = child as any;
-              return {
-                ...childRest,
-                curriculum: curricula,
-              };
-            }),
-          }
+          ...parent_profiles,
+          children: parent_profiles.children.map((child) => {
+            // Map curricula -> curriculum for children
+            const { curricula, ...childRest } = child as any;
+            return {
+              ...childRest,
+              curriculum: curricula,
+            };
+          }),
+        }
         : undefined,
       studentProfile: student_profiles
         ? {
-            ...student_profiles,
-            // Map curricula -> curriculum for student
-            curriculum: (student_profiles as any).curricula,
-          }
+          ...student_profiles,
+          // Map curricula -> curriculum for student
+          curriculum: (student_profiles as any).curricula,
+        }
         : undefined,
       teacherProfile: teacher_profiles || undefined,
     };
