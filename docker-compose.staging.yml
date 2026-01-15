@@ -153,6 +153,9 @@ services:
       - prosody_staging
       - jicofo_staging
       - jvb_staging
+    volumes:
+      - ./deploy/jitsi-config/lang/main-ar.json:/usr/share/jitsi-meet/lang/main-ar.json
+      - ./deploy/jitsi-config/images/watermark.png:/usr/share/jitsi-meet/images/watermark.png
     deploy:
       resources:
         limits:
@@ -267,6 +270,7 @@ services:
 
 networks:
   sidra_staging_network:
+    name: sidra_staging_network
     driver: bridge
 
 volumes:

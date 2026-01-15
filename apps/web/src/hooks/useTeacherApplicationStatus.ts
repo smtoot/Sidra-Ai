@@ -14,6 +14,14 @@ export function useTeacherApplicationStatus() {
 
         // If no user, don't fetch
         if (!user) {
+            console.log('[useTeacherApplicationStatus] No user, skipping status fetch');
+            setLoading(false);
+            return;
+        }
+
+        // Only fetch for teachers
+        if (user.role !== 'TEACHER') {
+            console.log('[useTeacherApplicationStatus] User is not a teacher:', user.role);
             setLoading(false);
             return;
         }
@@ -21,14 +29,20 @@ export function useTeacherApplicationStatus() {
         let mounted = true;
 
         const loadStatus = async () => {
+            console.log('[useTeacherApplicationStatus] Fetching status for user:', user.id);
             try {
                 const data = await teacherApi.getApplicationStatus();
+                console.log('[useTeacherApplicationStatus] Status received:', data?.applicationStatus);
                 if (mounted) {
                     setStatus(data);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 if (mounted) {
-                    console.error('Failed to load application status', err);
+                    console.error('[useTeacherApplicationStatus] Failed to load status:', {
+                        message: err?.message,
+                        status: err?.response?.status,
+                        data: err?.response?.data
+                    });
                     setError(err);
                 }
             } finally {
