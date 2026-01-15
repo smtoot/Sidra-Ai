@@ -21,6 +21,7 @@ packages/**/.env.*
 # Database backups - should be stored in secure cloud storage
 backups/
 *.sql
+!**/prisma/migrations/**/*.sql
 *.sql.gz
 
 # Backup files
