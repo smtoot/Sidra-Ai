@@ -30,7 +30,7 @@ export class AuthService {
     private notificationService: NotificationService,
     private otpService: OtpService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   /**
    * Validate password requirements
@@ -535,7 +535,10 @@ export class AuthService {
         },
       });
     } catch (err) {
-      this.logger.error(`Failed to revoke existing tokens for user ${user.id}`, err);
+      this.logger.error(
+        `Failed to revoke existing tokens for user ${user.id}`,
+        err,
+      );
     }
 
     // AUDIT: Log successful login
@@ -609,23 +612,23 @@ export class AuthService {
       ...rest,
       parentProfile: parent_profiles
         ? {
-          ...parent_profiles,
-          children: parent_profiles.children.map((child) => {
-            // Map curricula -> curriculum for children
-            const { curricula, ...childRest } = child as any;
-            return {
-              ...childRest,
-              curriculum: curricula,
-            };
-          }),
-        }
+            ...parent_profiles,
+            children: parent_profiles.children.map((child) => {
+              // Map curricula -> curriculum for children
+              const { curricula, ...childRest } = child as any;
+              return {
+                ...childRest,
+                curriculum: curricula,
+              };
+            }),
+          }
         : undefined,
       studentProfile: student_profiles
         ? {
-          ...student_profiles,
-          // Map curricula -> curriculum for student
-          curriculum: (student_profiles as any).curricula,
-        }
+            ...student_profiles,
+            // Map curricula -> curriculum for student
+            curriculum: (student_profiles as any).curricula,
+          }
         : undefined,
       teacherProfile: teacher_profiles || undefined,
     };
