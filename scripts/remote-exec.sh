@@ -13,19 +13,26 @@
 # 4. Run `chmod +x scripts/remote-exec.sh` to make it executable.
 # ==============================================================================
 
-# --- CONFIGURATION (AUTO-FILLED) ---
+# --- CONFIGURATION ---
 
-# Path to your private SSH key
-SSH_KEY_PATH="/Users/omerheathrow/.ssh/id_ed25519" 
-
-# Remote User (Usually 'root' for VPS)
-REMOTE_USER="root"
+# Source the configuration file
+CONFIG_FILE="$(dirname "$0")/deploy.config"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    echo "Error: Configuration file not found at $CONFIG_FILE"
+    echo "Please copy scripts/deploy.config.example to scripts/deploy.config and configure it."
+    exit 1
+fi
 
 # Remote Host IP (Port 10000 is likely Webmin, assuming SSH is on standard port 22)
-REMOTE_HOST="148.135.136.4"
+REMOTE_HOST="$VPS_IP"
+
+# Remote User
+REMOTE_USER="$VPS_USER"
 
 # Remote Project Directory
-REMOTE_DIR="/home/sidra/Sidra-Ai"
+REMOTE_DIR="$VPS_PATH"
 
 # --- END CONFIGURATION ---
 

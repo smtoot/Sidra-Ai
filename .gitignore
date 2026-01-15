@@ -45,3 +45,4 @@ test-*.ts
 .worktrees/
 .security-key
 logs/security/
+scripts/deploy.config

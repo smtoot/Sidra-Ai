@@ -1,10 +1,16 @@
 #!/bin/bash
 
 # Configuration
-VPS_IP="148.135.136.4"
-VPS_USER="sidra"
-VPS_PATH="/home/sidra/Sidra-Ai"
-SSH_KEY="/Users/omerheathrow/.ssh/id_ed25519"
+CONFIG_FILE="$(dirname "$0")/deploy.config"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    echo "Error: Configuration file not found at $CONFIG_FILE"
+    echo "Please copy scripts/deploy.config.example to scripts/deploy.config and configure it."
+    exit 1
+fi
+
+SSH_KEY="$SSH_KEY_PATH"
 
 echo "🚀 Syncing code to VPS ($VPS_IP)..."
 
