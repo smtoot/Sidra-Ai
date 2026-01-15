@@ -1,11 +1,19 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useJitsiConfig } from '@/hooks/useJitsiConfig';
-import { bookingApi } from '@/lib/api/booking';
-import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { SessionCompletionModal } from '@/components/booking/SessionCompletionModal';
 
 // Dynamically import JitsiMeetingRoom to avoid SSR issues
 const JitsiMeetingRoom = dynamic(
@@ -36,6 +44,10 @@ export default function MeetingPage() {
 
   const { config, isLoading, error, refetch } = useJitsiConfig(bookingId);
 
+  // P1-5: State for end meeting confirmation dialog and session completion modal
+  const [showEndConfirmation, setShowEndConfirmation] = useState(false);
+  const [showSessionCompletionModal, setShowSessionCompletionModal] = useState(false);
+
   useEffect(() => {
     // Poll for configuration updates every 30 seconds if not yet accessible
     if (config && !config.canJoin) {
@@ -53,26 +65,41 @@ export default function MeetingPage() {
     redirectUser();
   };
 
-  // Handle meeting ended (End Meeting for All) - Attempt to complete session
-  const handleMeetingEnded = async () => {
+  // P1-5: Show confirmation dialog when teacher ends meeting
+  const handleMeetingEnded = () => {
     console.log('Meeting ended (readyToClose)');
 
-    // Only attempt to complete if user is teacher
+    // For teachers, show confirmation dialog before completing session
     if (config?.jitsiConfig?.userInfo?.role === 'teacher') {
-      try {
-        await bookingApi.completeSession(bookingId);
-        toast.success('تم إنهاء الحصة وتسجيلها بانتظار التأكيد');
-      } catch (err: any) {
-        console.error('Failed to complete session:', err);
-        // Show specific error if it's the "too early" error
-        if (err?.response?.data?.message?.includes('Cannot complete session before it ends')) {
-          toast.warning('لم يتم تغيير حالة الحصة: الوقت لم ينته بعد');
-        } else {
-          toast.error('حدث خطأ أثناء تحديث حالة الحصة');
-        }
-      }
+      setShowEndConfirmation(true);
+      return;
     }
 
+    // For students/parents, just redirect
+    redirectUser();
+  };
+
+  // P1-5: Open session completion modal when teacher confirms ending
+  const handleConfirmEndSession = () => {
+    setShowEndConfirmation(false);
+    setShowSessionCompletionModal(true);
+  };
+
+  // P1-5: Cancel ending session - redirect without completing
+  const handleCancelEndSession = () => {
+    setShowEndConfirmation(false);
+    redirectUser();
+  };
+
+  // P1-5: Handle successful session completion from modal
+  const handleSessionCompletionSuccess = () => {
+    setShowSessionCompletionModal(false);
+    redirectUser();
+  };
+
+  // P1-5: Handle closing completion modal without completing
+  const handleSessionCompletionClose = () => {
+    setShowSessionCompletionModal(false);
     redirectUser();
   };
 
@@ -216,12 +243,58 @@ export default function MeetingPage() {
   // Ready to join Jitsi meeting
   if (config.jitsiConfig) {
     return (
-      <JitsiMeetingRoom
-        config={config.jitsiConfig}
-        onMeetingEnd={handleMeetingLeft}
-        onMeetingError={handleMeetingError}
-        onReadyToClose={handleMeetingEnded}
-      />
+      <>
+        {/* P1-5: End Meeting Confirmation Dialog for Teachers */}
+        <Dialog open={showEndConfirmation} onOpenChange={setShowEndConfirmation}>
+          <DialogContent className="sm:max-w-md bg-gray-900 border-gray-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-white">إنهاء الحصة</DialogTitle>
+              <DialogDescription className="text-gray-300">
+                هل أنت متأكد من إنهاء الحصة؟ ستتمكن من إضافة ملخص الحصة والواجبات.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-3 sm:gap-3">
+              <Button
+                variant="outline"
+                onClick={handleCancelEndSession}
+                className="border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                إلغاء والخروج
+              </Button>
+              <Button
+                onClick={handleConfirmEndSession}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                متابعة لملخص الحصة
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* P1-5: Session Completion Modal with summary, homework, etc. */}
+        <SessionCompletionModal
+          isOpen={showSessionCompletionModal}
+          onClose={handleSessionCompletionClose}
+          bookingId={bookingId}
+          onSuccess={handleSessionCompletionSuccess}
+        />
+
+        {/* Jitsi Meeting Room - hidden when dialogs are shown */}
+        {!showEndConfirmation && !showSessionCompletionModal && (
+          <JitsiMeetingRoom
+            config={config.jitsiConfig}
+            bookingId={bookingId}
+            onMeetingEnd={handleMeetingLeft}
+            onMeetingError={handleMeetingError}
+            onReadyToClose={handleMeetingEnded}
+          />
+        )}
+
+        {/* Show a backdrop when dialogs are open but Jitsi closed */}
+        {(showEndConfirmation || showSessionCompletionModal) && (
+          <div className="fixed inset-0 bg-gray-900 z-40" />
+        )}
+      </>
     );
   }
 

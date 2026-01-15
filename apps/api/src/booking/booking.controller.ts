@@ -22,6 +22,7 @@ import {
   CreateBookingDto,
   UpdateBookingStatusDto,
   CreateRatingDto,
+  LogMeetingEventDto,
 } from '@sidra/shared';
 
 @Controller('bookings')
@@ -288,5 +289,31 @@ export class BookingController {
       id,
       dto.reason,
     );
+  }
+
+  // --- Meeting Events (P1-1) ---
+
+  // Log a meeting event (join, leave, etc.)
+  @Post(':id/meeting-event')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 events per minute
+  logMeetingEvent(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: LogMeetingEventDto,
+  ) {
+    return this.bookingService.logMeetingEvent(
+      req.user.userId,
+      id,
+      dto.eventType as any,
+      dto.metadata,
+    );
+  }
+
+  // Get meeting events for a booking (for admin)
+  @Get(':id/meeting-events')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.SUPPORT)
+  getMeetingEvents(@Param('id') id: string) {
+    return this.bookingService.getMeetingEvents(id);
   }
 }

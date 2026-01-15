@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, MeetingEvent } from '@/lib/api/admin';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -26,6 +26,9 @@ import {
     FileText,
     History,
     TrendingUp,
+    LogIn,
+    LogOut,
+    Activity,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -186,10 +189,20 @@ export default function AdminBookingDetailPage() {
     const [processing, setProcessing] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
+    // P1-1: Meeting events state
+    const [meetingEvents, setMeetingEvents] = useState<MeetingEvent[]>([]);
+    const [eventsLoading, setEventsLoading] = useState(false);
 
     useEffect(() => {
         loadBooking();
     }, [bookingId]);
+
+    // P1-1: Load meeting events when booking is loaded
+    useEffect(() => {
+        if (booking) {
+            loadMeetingEvents();
+        }
+    }, [booking?.id]);
 
     const loadBooking = async () => {
         setLoading(true);
@@ -200,6 +213,19 @@ export default function AdminBookingDetailPage() {
             console.error('Failed to load booking', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // P1-1: Load meeting events
+    const loadMeetingEvents = async () => {
+        setEventsLoading(true);
+        try {
+            const events = await adminApi.getMeetingEvents(bookingId);
+            setMeetingEvents(events);
+        } catch (error) {
+            console.error('Failed to load meeting events', error);
+        } finally {
+            setEventsLoading(false);
         }
     };
 
@@ -587,6 +613,95 @@ export default function AdminBookingDetailPage() {
                         />
                     </Card>
                 )}
+
+                {/* P1-1: Meeting Activity Log */}
+                <Card padding="lg">
+                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-blue-600" />
+                        سجل نشاط الاجتماع
+                    </h2>
+                    {eventsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                        </div>
+                    ) : meetingEvents.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                            <Video className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                            <p>لا توجد أحداث اجتماع مسجلة</p>
+                            <p className="text-sm mt-1">سيتم تسجيل الأحداث عند انضمام المشاركين للاجتماع</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {meetingEvents.map((event) => {
+                                const getEventIcon = () => {
+                                    switch (event.eventType) {
+                                        case 'PARTICIPANT_JOINED':
+                                            return <LogIn className="w-4 h-4 text-green-600" />;
+                                        case 'PARTICIPANT_LEFT':
+                                            return <LogOut className="w-4 h-4 text-orange-600" />;
+                                        case 'MEETING_STARTED':
+                                            return <Video className="w-4 h-4 text-blue-600" />;
+                                        case 'MEETING_ENDED':
+                                            return <XCircle className="w-4 h-4 text-red-600" />;
+                                        default:
+                                            return <Activity className="w-4 h-4 text-gray-600" />;
+                                    }
+                                };
+
+                                const getEventLabel = () => {
+                                    switch (event.eventType) {
+                                        case 'PARTICIPANT_JOINED':
+                                            return 'انضم للاجتماع';
+                                        case 'PARTICIPANT_LEFT':
+                                            return 'غادر الاجتماع';
+                                        case 'MEETING_STARTED':
+                                            return 'بدأ الاجتماع';
+                                        case 'MEETING_ENDED':
+                                            return 'أنهى الاجتماع';
+                                        default:
+                                            return event.eventType;
+                                    }
+                                };
+
+                                const getRoleBadge = () => {
+                                    switch (event.userRole) {
+                                        case 'teacher':
+                                            return <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">معلم</span>;
+                                        case 'student':
+                                            return <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">طالب</span>;
+                                        case 'parent':
+                                            return <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">ولي أمر</span>;
+                                        default:
+                                            return <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{event.userRole}</span>;
+                                    }
+                                };
+
+                                return (
+                                    <div
+                                        key={event.id}
+                                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100"
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center">
+                                            {getEventIcon()}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-gray-900">{event.userName}</span>
+                                                {getRoleBadge()}
+                                            </div>
+                                            <p className="text-sm text-gray-600">{getEventLabel()}</p>
+                                        </div>
+                                        <div className="text-left text-sm text-gray-500">
+                                            {format(new Date(event.createdAt), 'dd/MM/yyyy', { locale: ar })}
+                                            <br />
+                                            <span className="font-mono">{format(new Date(event.createdAt), 'HH:mm:ss')}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </Card>
 
                 {/* Cancel Reason */}
                 {booking.cancelReason && (
