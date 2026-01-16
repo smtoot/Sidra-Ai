@@ -902,6 +902,19 @@ export class WalletService {
     const normalizedAmount = normalizeMoney(amount);
 
     // 1. Validate Amount - use normalizeMoney for consistent comparison
+    const settings = await this.prisma.system_settings.findUnique({
+      where: { id: 'default' },
+    });
+    const minAmount = settings?.minWithdrawalAmount
+      ? Number(settings.minWithdrawalAmount)
+      : 500;
+
+    if (normalizedAmount < normalizeMoney(minAmount)) {
+      throw new BadRequestException(
+        `تنبيه: الحد الأدنى للسحب هو ${minAmount} SDG`,
+      );
+    }
+
     if (normalizeMoney(wallet.balance) < normalizedAmount) {
       throw new BadRequestException('Insufficient available balance');
     }

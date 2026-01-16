@@ -157,7 +157,6 @@ export class JitsiService {
         user: {
           id: userInfo.id,
           name: userInfo.displayName,
-          email: userInfo.email,
           moderator: userInfo.role === 'teacher',
           affiliation: userInfo.role === 'teacher' ? 'owner' : 'member',
           features: {
@@ -458,7 +457,7 @@ export class JitsiService {
 
     let displayName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
     if (!displayName) {
-      displayName = user.email.split('@')[0];
+      displayName = 'مستخدم';
     }
 
     let role: 'teacher' | 'student' | 'parent';
@@ -472,7 +471,6 @@ export class JitsiService {
 
     return {
       id: user.id,
-      email: user.email,
       displayName,
       role,
     };

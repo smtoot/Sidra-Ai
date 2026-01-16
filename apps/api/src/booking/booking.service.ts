@@ -48,6 +48,18 @@ export class BookingService {
     private availabilitySlotService: AvailabilitySlotService,
   ) {}
 
+  private redactUserPII(user: any) {
+    if (!user) return user;
+    const { email, phoneNumber, ...rest } = user;
+    return rest;
+  }
+
+  private getSafeDisplayName(user: any, fallback: string) {
+    if (!user) return fallback;
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return name || user.displayName || fallback;
+  }
+
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
     // user is the logged-in User entity (from @User decorator)
@@ -131,9 +143,7 @@ export class BookingService {
     // =====================================================
     const booking = await this.prisma.$transaction(async (tx) => {
       // 1. Advisory Lock (per teacher)
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('${dto.teacherId}'))`,
-      );
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.teacherId}))`;
 
       // 2. Slot Validation
       let sessionStartTime = new Date(dto.startTime);
@@ -152,6 +162,9 @@ export class BookingService {
           throw new BadRequestException(
             'لقد تم حجز هذا الموعد للتو. يرجى اختيار وقت آخر.',
           );
+        }
+        if (slot.teacherId !== dto.teacherId) {
+          throw new BadRequestException('Slot does not belong to this teacher');
         }
 
         // Use slot's startTime to be 100% sure we are on the materialized grid
@@ -202,7 +215,7 @@ export class BookingService {
       // **P0-1 FIX: Price Manipulation**
       // Ignore dto.price completely. Calculate based on TeacherSubject price and duration.
       const durationHours =
-        (new Date(dto.endTime).getTime() - new Date(dto.startTime).getTime()) /
+        (sessionEndTime.getTime() - sessionStartTime.getTime()) /
         (1000 * 60 * 60);
 
       // Ensure duration is positive
@@ -353,10 +366,14 @@ export class BookingService {
     this.logger.debug(
       `Notifying teacher ${booking.teacher_profiles.users.email} about new booking request`,
     );
+    const requesterName = this.getSafeDisplayName(
+      booking.users_bookings_bookedByUserIdTousers,
+      'مستخدم',
+    );
     await this.notificationService.notifyUser({
       userId: booking.teacher_profiles.users.id,
       title: 'طلب حجز جديد',
-      message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'}`,
+      message: `لديك طلب حجز جديد من ${requesterName}`,
       type: 'BOOKING_REQUEST',
       link: '/teacher/requests',
       dedupeKey: `BOOKING_REQUEST:${booking.id}:${booking.teacher_profiles.users.id}`,
@@ -370,7 +387,7 @@ export class BookingService {
               recipientName:
                 booking.teacher_profiles.users.firstName || 'المعلم',
               title: 'طلب حجز جديد',
-              message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
+              message: `لديك طلب حجز جديد من ${requesterName} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
               sessionDate: new Date(booking.startTime).toLocaleDateString(
                 'ar-EG',
               ),
@@ -828,9 +845,7 @@ export class BookingService {
 
     const updatedBooking = await this.prisma.$transaction(async (tx) => {
       // 1. Advisory Lock
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('${booking.teacherId}'))`,
-      );
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${booking.teacherId}))`;
 
       // 2. Update Booking
       const res = await tx.bookings.update({
@@ -1260,13 +1275,15 @@ export class BookingService {
       teacherProfile: booking.teacher_profiles
         ? {
             ...booking.teacher_profiles,
-            user: booking.teacher_profiles.users,
+            user: this.redactUserPII(booking.teacher_profiles.users),
           }
         : undefined,
-      bookedByUser: booking.users_bookings_bookedByUserIdTousers,
+      bookedByUser: this.redactUserPII(
+        booking.users_bookings_bookedByUserIdTousers,
+      ),
       studentUser: booking.users_bookings_studentUserIdTousers
         ? {
-            ...booking.users_bookings_studentUserIdTousers,
+            ...this.redactUserPII(booking.users_bookings_studentUserIdTousers),
             studentProfile: booking.users_bookings_studentUserIdTousers
               .student_profiles
               ? {
@@ -1334,7 +1351,7 @@ export class BookingService {
         await this.notificationService.notifyUser({
           userId: booking.bookedByUserId,
           title: 'انتهاء مهلة الدفع',
-          message: `نأسف، تم إلغاء حجزك مع ${booking.teacher_profiles.users.phoneNumber || 'المعلم'} لعدم سداد المبلغ في الوقت المحدد.`,
+          message: `نأسف، تم إلغاء حجزك مع ${this.getSafeDisplayName(booking.teacher_profiles.users, 'المعلم')} لعدم سداد المبلغ في الوقت المحدد.`,
           type: 'SYSTEM_ALERT',
           link: '/parent/bookings',
           dedupeKey: `PAYMENT_EXPIRED:${booking.id}`,
@@ -1344,7 +1361,7 @@ export class BookingService {
         await this.notificationService.notifyUser({
           userId: booking.teacher_profiles.users.id,
           title: 'إلغاء حجز لعدم الدفع',
-          message: `تم إلغاء الحجز المعلق من ${booking.users_bookings_bookedByUserIdTousers.phoneNumber || 'ولي الأمر'} لعدم سداد المبلغ. الموعد متاح مرة أخرى.`,
+          message: `تم إلغاء الحجز المعلق من ${this.getSafeDisplayName(booking.users_bookings_bookedByUserIdTousers, 'ولي الأمر')} لعدم سداد المبلغ. الموعد متاح مرة أخرى.`,
           type: 'SYSTEM_ALERT',
           link: '/teacher/sessions',
           dedupeKey: `PAYMENT_EXPIRED:${booking.id}`,
@@ -1604,7 +1621,10 @@ export class BookingService {
     await this.notificationService.notifySessionComplete({
       bookingId: booking.id,
       parentUserId: booking.bookedByUserId,
-      teacherName: booking.teacher_profiles.users.phoneNumber, // Use phone as identifier
+      teacherName: this.getSafeDisplayName(
+        booking.teacher_profiles.users,
+        'المعلم',
+      ),
       disputeDeadline: disputeWindowClosesAt,
     });
 
@@ -2503,9 +2523,7 @@ export class BookingService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Advisory Lock
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('${teacherId}'))`,
-      );
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teacherId}))`;
 
       // 1b. Lock Booking Row
       const bookings = await tx.$queryRawUnsafe<any[]>(
@@ -2725,9 +2743,7 @@ export class BookingService {
           new Date(proposedStartTime.getTime() + 60 * 60 * 1000);
 
         // A. Advisory Lock
-        await tx.$executeRawUnsafe(
-          `SELECT pg_advisory_xact_lock(hashtext('${booking.teacherId}'))`,
-        );
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${booking.teacherId}))`;
 
         // B. Check Slot
         const slot = await tx.teacher_session_slots.findUnique({
@@ -2874,9 +2890,7 @@ export class BookingService {
 
     await this.prisma.$transaction(async (tx) => {
       // 1. Advisory Lock (per teacher)
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('${teacherId}'))`,
-      );
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teacherId}))`;
 
       // 1b. Lock Booking Row
       const bookings = await tx.$queryRawUnsafe<any[]>(
@@ -3144,10 +3158,12 @@ export class BookingService {
     for (const booking of sessionsNeedingReminder) {
       try {
         const teacherUserId = booking.teacher_profiles.userId;
-        const studentName =
-          booking.children?.name ||
-          booking.users_bookings_studentUserIdTousers?.email ||
-          'الطالب';
+        const studentName = booking.children?.name
+          ? booking.children.name
+          : this.getSafeDisplayName(
+              booking.users_bookings_studentUserIdTousers,
+              'الطالب',
+            );
         const subjectName = booking.subjects?.nameAr || 'الدرس';
         const minutesUntilStart = Math.round(
           (booking.startTime.getTime() - now.getTime()) / (60 * 1000),
@@ -3212,9 +3228,7 @@ export class BookingService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // 1. Advisory Lock (per teacher)
-      await tx.$executeRawUnsafe(
-        `SELECT pg_advisory_xact_lock(hashtext('${teacherId}'))`,
-      );
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teacherId}))`;
 
       // 1b. Lock Booking Row
       const bookings = await tx.$queryRawUnsafe<any[]>(
@@ -3397,7 +3411,6 @@ export class BookingService {
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
             role: true,
           },
         },
@@ -3409,9 +3422,7 @@ export class BookingService {
       id: event.id,
       bookingId: event.bookingId,
       userId: event.userId,
-      userName:
-        `${event.users.firstName || ''} ${event.users.lastName || ''}`.trim() ||
-        event.users.email,
+      userName: this.getSafeDisplayName(event.users, 'مستخدم'),
       userRole: event.userRole,
       eventType: event.eventType,
       metadata: event.metadata,

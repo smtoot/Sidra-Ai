@@ -687,11 +687,13 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiry
 
-    // Save to DB
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Save to DB (store hash only)
     await this.prisma.passwordResetToken.create({
       data: {
         email,
-        token,
+        token: tokenHash,
         expiresAt,
       },
     });
@@ -722,8 +724,9 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     // 1. Find valid token
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const resetRecord = await this.prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: tokenHash },
     });
 
     if (!resetRecord) {
