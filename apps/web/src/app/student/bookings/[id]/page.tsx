@@ -125,7 +125,7 @@ export default function StudentBookingDetailsPage() {
                 router.push('/search');
                 break;
             case 'join':
-                if (booking.meetingLink) window.open(booking.meetingLink, '_blank');
+                if (booking.jitsiEnabled) window.open(`/meeting/${booking.id}`, '_blank');
                 break;
         }
     };

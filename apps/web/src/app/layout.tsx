@@ -9,6 +9,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { PostHogProvider } from "@/providers/PostHogProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProductTourProvider } from "@/providers/ProductTourProvider";
+import { RuntimeConfigProvider } from "@/components/providers/RuntimeConfigProvider";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -51,19 +52,21 @@ export default function RootLayout({
         className={`${cairo.variable} ${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
       >
         <ErrorBoundary>
-          <PostHogProvider>
-            <QueryProvider>
-              <SystemConfigProvider>
-                <AuthProvider>
-                  <ProductTourProvider>
-                    <DashboardLayout>
-                      {children}
-                    </DashboardLayout>
-                  </ProductTourProvider>
-                </AuthProvider>
-              </SystemConfigProvider>
-            </QueryProvider>
-          </PostHogProvider>
+          <RuntimeConfigProvider>
+            <PostHogProvider>
+              <QueryProvider>
+                <SystemConfigProvider>
+                  <AuthProvider>
+                    <ProductTourProvider>
+                      <DashboardLayout>
+                        {children}
+                      </DashboardLayout>
+                    </ProductTourProvider>
+                  </AuthProvider>
+                </SystemConfigProvider>
+              </QueryProvider>
+            </PostHogProvider>
+          </RuntimeConfigProvider>
         </ErrorBoundary>
       </body>
     </html>

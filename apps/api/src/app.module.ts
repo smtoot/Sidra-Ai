@@ -27,6 +27,7 @@ import { PackageModule } from './package/package.module';
 import { TeachingApproachModule } from './teaching-approach/teaching-approach.module';
 import { SupportTicketModule } from './support-ticket/support-ticket.module';
 import { PostHogModule } from './common/posthog/posthog.module';
+import { JitsiModule } from './jitsi/jitsi.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { PostHogModule } from './common/posthog/posthog.module';
     FavoritesModule,
     SupportTicketModule,
     PostHogModule,
+    JitsiModule,
   ],
   controllers: [AppController],
   providers: [

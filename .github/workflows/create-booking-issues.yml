@@ -1,0 +1,63 @@
+name: Create Booking System Improvement Issues
+
+on:
+  workflow_dispatch:  # Manual trigger - defaults to develop branch
+    inputs:
+      branch:
+        description: 'Branch to run workflow on'
+        required: false
+        default: 'develop'
+  push:
+    paths:
+      - 'GITHUB_ISSUES_BOOKING_IMPROVEMENTS.md'
+      - '.github/workflows/create-booking-issues.yml'
+      - '.github/scripts/**'
+    branches:
+      - develop
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd .github/scripts
+          npm install
+
+      - name: Create Milestones
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          cd .github/scripts
+          node create-milestones.js
+
+      - name: Create Labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          cd .github/scripts
+          node create-labels.js
+
+      - name: Create Issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          cd .github/scripts
+          node create-issues.js

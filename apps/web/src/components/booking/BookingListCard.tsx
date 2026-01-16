@@ -16,7 +16,8 @@ import {
     RefreshCw,
     Wallet,
     AlertTriangle,
-    Info
+    Info,
+    Video
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -34,7 +35,8 @@ export type BookingAction =
     | 'rate'
     | 'details'
     | 'book-new'
-    | 'support';
+    | 'support'
+    | 'join';
 
 export interface StatusUIConfig {
     label: string;
@@ -61,7 +63,35 @@ export interface StatusUIConfig {
  * Premium Booking Card Component (Polish Refinement)
  */
 export function BookingListCard({ booking, userRole, onAction }: BookingListCardProps) {
-    const config = getStatusUI(booking.status, booking);
+    let config = getStatusUI(booking.status, booking);
+
+    // Check for Join availability
+    const now = new Date();
+    const start = new Date(booking.startTime);
+    const end = new Date(booking.endTime);
+    // Allow join 15 mins before start until end
+    const joinTime = new Date(start.getTime() - 15 * 60 * 1000);
+    const canJoin = now >= joinTime && now <= end;
+
+    // Override UI for Join button
+    if (booking.status === 'SCHEDULED' && canJoin) {
+        config = {
+            ...config,
+            headerBg: 'bg-emerald-50',
+            headerText: 'text-emerald-800',
+            icon: Video,
+            label: 'الحصة جارية الآن',
+            microcopy: 'يمكنك الانضمام الآن',
+            primaryAction: {
+                label: 'انضم للحصة',
+                actionType: 'join',
+                variant: 'default',
+                className: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200 animate-pulse',
+                icon: Video
+            }
+        };
+    }
+
     const StatusIcon = config.icon || Info;
 
     // Handle card click for "Details" navigation

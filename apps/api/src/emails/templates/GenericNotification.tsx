@@ -28,11 +28,11 @@ export const GenericNotification: React.FC<GenericNotificationProps> = ({
             case 'success':
                 return { bg: '#f0fdf4', border: '#10b981', emoji: '✅' };
             case 'warning':
-                return { bg: '#fef3c7', border: '#f59e0b', emoji: '⚠️' };
+                return { bg: '#fffbeb', border: '#f59e0b', emoji: '⚠️' };
             case 'error':
                 return { bg: '#fef2f2', border: '#ef4444', emoji: '❌' };
             default:
-                return { bg: '#dbeafe', border: '#0ea5e9', emoji: 'ℹ️' };
+                return { bg: '#f0f9ff', border: '#003366', emoji: 'ℹ️' }; // Info uses Brand Primary
         }
     };
 
@@ -72,46 +72,50 @@ export const GenericNotification: React.FC<GenericNotificationProps> = ({
 // Styles
 const greeting = {
     fontSize: '16px',
-    color: '#1e293b',
+    color: '#1f2937', // Text Main
     margin: '0 0 20px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const notificationBox = {
     borderRadius: '8px',
-    padding: '20px',
-    margin: '20px 0',
+    padding: '24px',
+    margin: '24px 0',
 };
 
 const messageText = {
     fontSize: '15px',
-    color: '#1e293b',
+    color: '#1f2937', // Text Main
     lineHeight: '1.7',
     margin: '0',
     whiteSpace: 'pre-line' as const,
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const ctaSection = {
     textAlign: 'center' as const,
-    margin: '25px 0',
+    margin: '32px 0',
 };
 
 const button = {
-    backgroundColor: '#0ea5e9',
-    borderRadius: '6px',
+    backgroundColor: '#D4A056', // Brand Accent (Gold)
+    borderRadius: '8px',
     color: '#ffffff',
     fontSize: '14px',
     fontWeight: 'bold',
     textDecoration: 'none',
     textAlign: 'center' as const,
     display: 'inline-block',
-    padding: '12px 24px',
+    padding: '14px 32px',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const footerNote = {
     fontSize: '12px',
-    color: '#94a3b8',
+    color: '#9ca3af', // Gray 400
     textAlign: 'center' as const,
     margin: '30px 0 0 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 export default GenericNotification;

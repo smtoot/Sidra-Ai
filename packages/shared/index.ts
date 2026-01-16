@@ -2,6 +2,9 @@ import 'reflect-metadata';
 // Auth
 export * from './src/auth/login.dto';
 export * from './src/auth/register.dto';
+export * from './src/auth/register-request.dto';
+export * from './src/auth/verify-registration.dto';
+export * from './src/auth/resend-otp.dto';
 export * from './src/auth/forgot-password.dto';
 export * from './src/auth/reset-password.dto';
 
@@ -18,6 +21,7 @@ export * from './src/wallet/wallet.dto';
 // Booking
 export * from './src/booking/booking.dto';
 export * from './src/booking/complete-session.dto';
+export * from './src/booking/meeting-event.dto';
 
 // Teacher
 export * from './src/teacher/update-profile.dto';

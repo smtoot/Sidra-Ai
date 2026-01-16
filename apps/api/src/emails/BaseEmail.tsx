@@ -1,6 +1,7 @@
 import {
     Body,
     Container,
+    Font,
     Head,
     Heading,
     Html,
@@ -19,6 +20,8 @@ interface BaseEmailProps {
     isRTL?: boolean;
 }
 
+const baseUrl = process.env.WEB_URL || 'https://sidra.sd';
+
 export const BaseEmail: React.FC<BaseEmailProps> = ({
     preview,
     title,
@@ -27,13 +30,43 @@ export const BaseEmail: React.FC<BaseEmailProps> = ({
 }) => {
     return (
         <Html dir={isRTL ? 'rtl' : 'ltr'} lang={isRTL ? 'ar' : 'en'}>
-            <Head />
+            <Head>
+                <style>
+                    {`@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700&display=swap');`}
+                </style>
+                <Font
+                    fontFamily="Cairo"
+                    fallbackFontFamily="Arial"
+                    webFont={{
+                        url: 'https://fonts.gstatic.com/s/cairo/v20/SLXGc1nY6HkvangtZmpQdkhzfH5lkSs2SgRjCAGMQ1z0hZj-e8.woff2',
+                        format: 'woff2',
+                    }}
+                    fontWeight={400}
+                    fontStyle="normal"
+                />
+                <Font
+                    fontFamily="Cairo"
+                    fallbackFontFamily="Arial"
+                    webFont={{
+                        url: 'https://fonts.gstatic.com/s/cairo/v20/SLXGc1nY6HkvangtZmpQdkhzfH5lkSs2SgRjCAGMQ1z0hZj-e8.woff2',
+                        format: 'woff2',
+                    }}
+                    fontWeight={700}
+                    fontStyle="normal"
+                />
+            </Head>
             {preview && <Preview>{preview}</Preview>}
             <Body style={main}>
                 <Container style={container}>
                     {/* Header */}
                     <Section style={header}>
-                        <Heading style={logo}>سدرة</Heading>
+                        <Img
+                            src={`${baseUrl}/images/logo-white.png`}
+                            width="120"
+                            height="auto"
+                            alt="سدرة"
+                            style={logo}
+                        />
                         <Text style={tagline}>منصة التعليم الإلكترونية</Text>
                     </Section>
 
@@ -49,7 +82,7 @@ export const BaseEmail: React.FC<BaseEmailProps> = ({
                             هذا البريد الإلكتروني مرسل من منصة سدرة
                         </Text>
                         <Text style={footerText}>
-                            <Link href="https://sidra.sd" style={link}>
+                            <Link href={baseUrl} style={link}>
                                 sidra.sd
                             </Link>
                         </Text>
@@ -65,65 +98,72 @@ export const BaseEmail: React.FC<BaseEmailProps> = ({
 
 // Styles
 const main = {
-    backgroundColor: '#f8fafc',
-    fontFamily: 'Arial, sans-serif',
+    backgroundColor: '#FAFAFA',
+    fontFamily: 'Cairo, Tajawal, Arial, sans-serif',
 };
 
 const container = {
     margin: '0 auto',
-    padding: '20px 0',
+    padding: '0',
     maxWidth: '600px',
     backgroundColor: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    overflow: 'hidden' as const,
+    marginTop: '20px',
+    marginBottom: '20px',
 };
 
 const header = {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#003366', // Brand Primary
     padding: '30px 20px',
     textAlign: 'center' as const,
 };
 
 const logo = {
-    color: '#ffffff',
-    fontSize: '32px',
-    fontWeight: 'bold',
-    margin: '0 0 5px 0',
+    margin: '0 auto 10px auto',
+    display: 'block',
 };
 
 const tagline = {
-    color: '#ffffff',
+    color: '#D4A056', // Brand Accent
     fontSize: '14px',
     margin: '0',
-    opacity: 0.9,
+    fontWeight: '500',
+    fontFamily: 'Cairo, Tajawal, Arial, sans-serif',
 };
 
 const content = {
-    padding: '40px 20px',
+    padding: '40px 30px',
 };
 
 const h1 = {
-    color: '#1e293b',
+    color: '#1f2937', // Text Main
     fontSize: '24px',
     fontWeight: 'bold',
-    margin: '0 0 20px 0',
+    margin: '0 0 24px 0',
     textAlign: 'center' as const,
+    fontFamily: 'Cairo, Tajawal, Arial, sans-serif',
 };
 
 const footer = {
-    backgroundColor: '#f1f5f9',
-    padding: '20px',
+    backgroundColor: '#f8fafc',
+    padding: '24px',
     textAlign: 'center' as const,
     borderTop: '1px solid #e2e8f0',
 };
 
 const footerText = {
-    color: '#64748b',
+    color: '#6b7280', // Text Subtle
     fontSize: '12px',
-    margin: '5px 0',
+    margin: '6px 0',
+    fontFamily: 'Cairo, Tajawal, Arial, sans-serif',
 };
 
 const link = {
-    color: '#0ea5e9',
+    color: '#003366', // Brand Primary
     textDecoration: 'none',
+    fontWeight: 'bold',
 };
 
 export default BaseEmail;

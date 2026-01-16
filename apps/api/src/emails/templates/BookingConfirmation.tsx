@@ -83,65 +83,71 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({
 // Styles
 const greeting = {
     fontSize: '16px',
-    color: '#1e293b',
+    color: '#1f2937', // Text Main
     margin: '0 0 15px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const paragraph = {
     fontSize: '14px',
-    color: '#475569',
+    color: '#4b5563', // Text Body
     lineHeight: '1.6',
     margin: '0 0 15px 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const detailsBox = {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#FAFAFA', // Background
     borderRadius: '8px',
-    padding: '20px',
-    margin: '20px 0',
-    border: '1px solid #e2e8f0',
+    padding: '24px',
+    margin: '24px 0',
+    border: '1px solid #e5e7eb',
 };
 
 const detailLabel = {
-    fontSize: '12px',
-    color: '#64748b',
-    margin: '0 0 5px 0',
+    fontSize: '13px',
+    color: '#6b7280', // Text Subtle
+    margin: '0 0 6px 0',
     fontWeight: '600',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const detailValue = {
     fontSize: '16px',
-    color: '#1e293b',
-    margin: '0 0 15px 0',
+    color: '#1f2937', // Text Main
+    margin: '0 0 16px 0',
     fontWeight: 'bold',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const divider = {
-    borderColor: '#e2e8f0',
-    margin: '15px 0',
+    borderColor: '#e5e7eb',
+    margin: '16px 0',
 };
 
 const button = {
-    backgroundColor: '#0ea5e9',
-    borderRadius: '6px',
+    backgroundColor: '#D4A056', // Brand Accent (Gold)
+    borderRadius: '8px',
     color: '#ffffff',
-    fontSize: '14px',
+    fontSize: '16px',
     fontWeight: 'bold',
     textDecoration: 'none',
     textAlign: 'center' as const,
     display: 'block',
-    padding: '12px 24px',
-    margin: '10px 0',
+    padding: '14px 24px',
+    margin: '16px 0 0 0',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 const footerNote = {
     fontSize: '13px',
-    color: '#64748b',
-    backgroundColor: '#fef3c7',
-    padding: '12px',
-    borderRadius: '6px',
-    margin: '20px 0 0 0',
-    borderRight: '3px solid #f59e0b',
+    color: '#003366', // Brand Primary
+    backgroundColor: '#f0f9ff', // Light Blue
+    padding: '16px',
+    borderRadius: '8px',
+    margin: '24px 0 0 0',
+    borderRight: '4px solid #003366',
+    fontFamily: 'Tajawal, Cairo, Arial, sans-serif',
 };
 
 export default BookingConfirmation;

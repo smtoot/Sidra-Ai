@@ -1,21 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useTeacherApplicationStatus } from '@/hooks/useTeacherApplicationStatus';
-import { Lock, Clock, AlertCircle } from 'lucide-react';
+import { Lock, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 
 interface TeacherApprovalGuardProps {
     children: React.ReactNode;
 }
 
 export function TeacherApprovalGuard({ children }: TeacherApprovalGuardProps) {
-    const { status, loading } = useTeacherApplicationStatus();
+    const { status, loading, error } = useTeacherApplicationStatus();
 
     if (loading) {
         return <div className="p-12 text-center text-gray-500">جاري التحقق من الصلاحيات...</div>;
+    }
+
+    // Handle API errors - show retry option instead of "under review"
+    if (error) {
+        console.error('[TeacherApprovalGuard] Error loading status:', error);
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center bg-red-50/50 rounded-xl border border-dashed border-red-200 m-8">
+                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                    <AlertCircle className="w-10 h-10 text-red-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    حدث خطأ في التحقق من الصلاحيات
+                </h2>
+                <p className="text-gray-500 max-w-md mb-8 leading-relaxed">
+                    تعذر التحقق من حالة حسابك. يرجى المحاولة مرة أخرى.
+                </p>
+                <Button onClick={() => window.location.reload()} className="gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    إعادة المحاولة
+                </Button>
+            </div>
+        );
     }
 
     if (status?.applicationStatus === 'APPROVED') {

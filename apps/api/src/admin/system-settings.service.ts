@@ -75,6 +75,7 @@ export class SystemSettingsService {
       allowedSessionDurations?: number[]; // Allowed session durations (future-proof)
       meetingLinkAccessMinutesBefore?: number; // Minutes before session when meeting link becomes accessible
       maxVacationDays?: number; // Maximum vacation duration allowed for teachers
+      vacationEnabled?: boolean; // Whether vacation mode is enabled
       searchConfig?: any;
       cancellationPolicies?: any;
     },
@@ -132,6 +133,10 @@ export class SystemSettingsService {
 
     if (data.maxVacationDays !== undefined) {
       updateData.maxVacationDays = data.maxVacationDays;
+    }
+
+    if (data.vacationEnabled !== undefined) {
+      updateData.vacationEnabled = data.vacationEnabled;
     }
 
     if (data.searchConfig !== undefined) {

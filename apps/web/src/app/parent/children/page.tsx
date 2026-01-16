@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { parentApi } from '@/lib/api/parent';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Plus, ChevronRight, GraduationCap, School, Clock } from 'lucide-react';
+import { Users, Plus, ChevronLeft, GraduationCap, Clock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -73,24 +73,33 @@ export default function ChildrenManagementPage() {
     // EMPTY STATE (Full Page)
     if (children.length === 0) {
         return (
-            <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 flex items-center justify-center font-sans" dir="rtl">
-                <div className="max-w-lg w-full text-center">
-                    <div className="w-24 h-24 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Users className="w-12 h-12 text-primary-600" />
+            <div className="min-h-screen bg-gray-50/50 font-sans" dir="rtl">
+                <div className="max-w-lg mx-auto p-4 pt-6">
+                    {/* Clear Page Title */}
+                    <div className="mb-6">
+                        <p className="text-xs text-gray-400 font-medium mb-0.5 md:hidden">إدارة العائلة</p>
+                        <h1 className="text-lg md:text-2xl font-bold text-gray-900">إدارة الأبناء</h1>
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-3">لا يوجد أبناء مضافين</h1>
-                    <p className="text-gray-600 mb-8 leading-relaxed text-lg">
-                        أضف ابنك أو ابنتك لتتمكن من حجز الحصص ومتابعة أدائهم
-                    </p>
 
-                    <div className="space-y-4">
-                        <Link href="/parent/children/new" className="block w-full">
-                            <Button size="lg" className="w-full gap-2 text-base h-12 shadow-md hover:shadow-lg transition-all">
-                                <Plus className="w-5 h-5" />
-                                إضافة ابن / ابنة
-                            </Button>
-                        </Link>
-                    </div>
+                    {/* Empty State Card */}
+                    <Card className="border-none shadow-sm">
+                        <CardContent className="p-8 text-center">
+                            <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Users className="w-8 h-8 text-primary-600" />
+                            </div>
+                            <h2 className="text-lg font-bold text-gray-900 mb-2">لا يوجد أبناء مضافين</h2>
+                            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                                أضف ابنك لبدء حجز الحصص ومتابعة تقدمه الدراسي
+                            </p>
+
+                            <Link href="/parent/children/new" className="block">
+                                <Button className="w-full h-11 gap-2 font-bold shadow-md">
+                                    <Plus className="w-4 h-4" />
+                                    إضافة ابن / ابنة
+                                </Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         );
@@ -99,55 +108,57 @@ export default function ChildrenManagementPage() {
     // LIST STATE
     return (
         <div className="min-h-screen bg-gray-50/50 font-sans" dir="rtl">
-            <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-4 md:space-y-6">
+            <div className="max-w-5xl mx-auto p-4 md:p-8 pb-24 md:pb-8">
 
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5 md:mb-1">إدارة الأبناء</h1>
-                        <p className="text-gray-600 text-xs md:text-sm truncate">إدارة حسابات أبنائك ومتابعة تقدمهم الدراسي</p>
-                    </div>
-                    <Link href="/parent/children/new">
-                        <Button size="sm" className="gap-1.5 md:gap-2 shadow-sm md:h-10 md:text-base md:px-4">
-                            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            <span className="hidden sm:inline">إضافة ابن / ابنة</span>
-                            <span className="sm:hidden">إضافة</span>
-                        </Button>
-                    </Link>
+                {/* Clear Page Title - Fixed for Mobile */}
+                <div className="mb-4 md:mb-6">
+                    <p className="text-xs text-gray-400 font-medium mb-0.5 md:hidden">إدارة العائلة</p>
+                    <h1 className="text-lg md:text-2xl font-bold text-gray-900 mb-1">إدارة الأبناء</h1>
+                    <p className="text-gray-500 text-xs md:text-sm">إدارة حسابات أبنائك ومتابعة تقدمهم</p>
                 </div>
 
-                {/* Children List */}
-                <div className="grid gap-3 md:gap-4">
-                    {children.map((child) => (
-                        <Link href={`/parent/children/${child.id}`} key={child.id}>
-                            <Card className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
-                                <CardContent className="p-3 md:p-5 flex items-center gap-3 md:gap-5">
-                                    <Avatar
-                                        className="w-12 h-12 md:w-16 md:h-16 bg-primary-50 text-primary-700 text-xl md:text-2xl font-bold border-2 border-white shadow-sm flex-shrink-0"
-                                        fallback={child.name[0]}
-                                    />
+                {/* Children Count Badge */}
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="bg-primary-50 text-primary-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                        {children.length} {children.length === 1 ? 'ابن' : 'أبناء'}
+                    </span>
+                </div>
 
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-base md:text-xl font-bold text-gray-900 group-hover:text-primary-700 transition-colors mb-1 md:mb-2 truncate">
-                                            {child.name}
-                                        </h3>
-                                        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
-                                            <div className="flex items-center gap-1 md:gap-1.5 bg-gray-100 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-gray-700">
-                                                <GraduationCap className="w-3 md:w-4 h-3 md:h-4" />
-                                                <span className="truncate max-w-[80px] md:max-w-none">{GRADE_LABELS[child.gradeLevel] || child.gradeLevel || 'غير محدد'}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1 md:gap-1.5 bg-blue-50 text-blue-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium">
-                                                <Clock className="w-3 md:w-3.5 h-3 md:h-3.5" />
-                                                <span>{child.upcomingClassesCount || 0} حصص</span>
+                {/* Children List - Compact Cards */}
+                <div className="space-y-2 md:space-y-3">
+                    {children.map((child) => (
+                        <Link href={`/parent/children/${child.id}`} key={child.id} className="block">
+                            <Card className="border-none shadow-sm hover:shadow-md transition-all group active:scale-[0.99]">
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center gap-3">
+                                        {/* Avatar - Slightly Smaller */}
+                                        <Avatar
+                                            className="w-10 h-10 md:w-12 md:h-12 bg-primary-50 text-primary-700 text-lg md:text-xl font-bold border-2 border-white shadow-sm flex-shrink-0"
+                                            fallback={child.name[0]}
+                                        />
+
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-base md:text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors truncate">
+                                                {child.name}
+                                            </h3>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <div className="flex items-center gap-1 text-[11px] md:text-xs text-gray-600">
+                                                    <GraduationCap className="w-3 h-3" />
+                                                    <span className="truncate max-w-[100px]">{GRADE_LABELS[child.gradeLevel] || child.gradeLevel || 'غير محدد'}</span>
+                                                </div>
+                                                <span className="text-gray-300">•</span>
+                                                <div className="flex items-center gap-1 text-[11px] md:text-xs text-blue-600 font-medium">
+                                                    <Clock className="w-2.5 h-2.5" />
+                                                    <span>{child.upcomingClassesCount || 0} حصص</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div className="text-gray-300 group-hover:text-primary-600 group-hover:-translate-x-1 transition-all flex-shrink-0 hidden sm:block">
-                                        <span className="text-xs md:text-sm font-medium flex items-center gap-1">
-                                            عرض الملف
-                                            <ChevronRight className="w-4 md:w-5 h-4 md:h-5 rotate-180" />
-                                        </span>
+                                        {/* Chevron Affordance - Always Visible */}
+                                        <div className="text-gray-300 group-hover:text-primary-500 transition-colors flex-shrink-0">
+                                            <ChevronLeft className="w-5 h-5" />
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -155,7 +166,28 @@ export default function ChildrenManagementPage() {
                     ))}
                 </div>
 
+                {/* Desktop Add Button */}
+                <div className="hidden md:block mt-6">
+                    <Link href="/parent/children/new">
+                        <Button variant="outline" className="gap-2 h-11">
+                            <Plus className="w-4 h-4" />
+                            إضافة ابن / ابنة
+                        </Button>
+                    </Link>
+                </div>
+
+            </div>
+
+            {/* Mobile Add Button - Fixed at Bottom */}
+            <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-sm border-t border-gray-100 md:hidden safe-area-bottom z-50">
+                <Link href="/parent/children/new" className="block">
+                    <Button className="w-full h-11 rounded-xl gap-2 font-bold shadow-lg">
+                        <Plus className="w-4 h-4" />
+                        إضافة ابن / ابنة
+                    </Button>
+                </Link>
             </div>
         </div>
     );
 }
+

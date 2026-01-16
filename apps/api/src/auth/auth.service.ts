@@ -5,9 +5,17 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { RegisterDto, LoginDto } from '@sidra/shared';
+import {
+  RegisterDto,
+  LoginDto,
+  RegisterRequestDto,
+  VerifyRegistrationDto,
+  ResendOtpDto,
+} from '@sidra/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { OtpService } from './otp.service';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
@@ -20,6 +28,8 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationService: NotificationService,
+    private otpService: OtpService,
+    private configService: ConfigService,
   ) {}
 
   /**
@@ -103,6 +113,346 @@ export class AuthService {
     });
   }
 
+  /**
+   * NEW OTP FLOW: Step 1 - Request Registration with OTP
+   * SECURITY: Prevents email enumeration by always returning success
+   */
+  async requestRegistration(
+    dto: RegisterRequestDto,
+    ipAddress: string,
+  ): Promise<{ message: string }> {
+    const email = dto.email.toLowerCase().trim();
+
+    // 1. Rate limiting check
+    await this.otpService.checkRateLimit(email, ipAddress);
+
+    // 2. Check if user already exists
+    const existingUser = await this.prisma.users.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      // SECURITY: Send "account exists" email but return generic success
+      const frontendUrl =
+        this.configService.get<string>('FRONTEND_URL') ||
+        'http://localhost:3002';
+      await this.notificationService.enqueueEmail({
+        to: email,
+        subject: 'محاولة تسجيل حساب جديد - Account Registration Attempt',
+        templateId: 'account-exists',
+        payload: {
+          email,
+          loginUrl: `${frontendUrl}/login`,
+        },
+      });
+
+      this.logger.log(`Account exists email sent to: ${email}`);
+
+      // SECURITY: Return identical response to prevent enumeration
+      return {
+        message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني',
+      };
+    }
+
+    // 3. Validate phone uniqueness
+    const existingByPhone = await this.prisma.users.findUnique({
+      where: { phoneNumber: dto.phoneNumber },
+    });
+
+    if (existingByPhone) {
+      throw new ConflictException(
+        'رقم الهاتف مستخدم بالفعل - Phone number already in use',
+      );
+    }
+
+    // 4. Hash password (store in pending registration)
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    // 5. Generate OTP and hash it
+    const otp = this.otpService.generateOtp();
+    const otpHash = this.otpService.hashOtp(otp);
+    const otpExpiresAt = this.otpService.calculateOtpExpiry();
+
+    // 6. Create or update pending registration
+    await this.prisma.pending_registrations.upsert({
+      where: { email },
+      update: {
+        phoneNumber: dto.phoneNumber,
+        firstName: dto.firstName || null,
+        lastName: dto.lastName || null,
+        passwordHash: hashedPassword,
+        role: dto.role,
+        otpHash,
+        otpExpiresAt,
+        otpAttempts: 0,
+        lastOtpSentAt: new Date(),
+        // Move current OTP to previous (for grace period)
+        previousOtpHash: otpHash,
+        previousOtpExpiresAt: otpExpiresAt,
+      },
+      create: {
+        email,
+        phoneNumber: dto.phoneNumber,
+        firstName: dto.firstName || null,
+        lastName: dto.lastName || null,
+        passwordHash: hashedPassword,
+        role: dto.role,
+        otpHash,
+        otpExpiresAt,
+        otpAttempts: 0,
+        lastOtpSentAt: new Date(),
+      },
+    });
+
+    // 7. Send OTP email via notification service
+    await this.notificationService.enqueueEmail({
+      to: email,
+      subject: 'رمز التحقق من سدرة - Sidra Verification Code',
+      templateId: 'registration-otp',
+      payload: {
+        otp,
+        email,
+        expiryMinutes: 10,
+      },
+    });
+
+    // 8. Record rate limit attempt
+    await this.otpService.recordRateLimitAttempt(email, ipAddress);
+
+    this.logger.log(`OTP sent for registration: ${email}`);
+
+    return {
+      message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني',
+    };
+  }
+
+  /**
+   * NEW OTP FLOW: Step 2 - Verify OTP and Complete Registration
+   * SECURITY: Uses Serializable transaction with SELECT FOR UPDATE
+   */
+  async verifyRegistrationOtp(dto: VerifyRegistrationDto): Promise<{
+    access_token: string;
+    refresh_token: string;
+    csrf_token: string;
+  }> {
+    const email = dto.email.toLowerCase().trim();
+
+    return await this.prisma
+      .$transaction(
+        async (tx) => {
+          // 1. Lock pending registration row (SELECT FOR UPDATE equivalent)
+          const pending = await tx.pending_registrations.findUnique({
+            where: { email },
+          });
+
+          if (!pending) {
+            throw new BadRequestException(
+              'رمز التحقق غير صحيح أو منتهي الصلاحية - Invalid or expired verification code',
+            );
+          }
+
+          // 2. Check if OTP has expired (with 5-second grace)
+          const now = new Date();
+          const graceExpiresAt = new Date(
+            pending.otpExpiresAt.getTime() + 5000,
+          );
+
+          const isExpired = now > graceExpiresAt;
+
+          // Check if within 30-second grace period for previous OTP
+          const previousOtpValid =
+            isExpired &&
+            this.otpService.isWithinPreviousOtpGracePeriod(
+              dto.otp,
+              pending.previousOtpHash,
+              pending.previousOtpExpiresAt,
+            );
+
+          if (isExpired && !previousOtpValid) {
+            throw new BadRequestException(
+              'رمز التحقق منتهي الصلاحية. اطلب رمزاً جديداً - Verification code expired. Request a new one',
+            );
+          }
+
+          // 3. Check attempts limit
+          if (pending.otpAttempts >= this.otpService.getMaxOtpAttempts()) {
+            throw new BadRequestException(
+              'تجاوزت الحد الأقصى من المحاولات. اطلب رمزاً جديداً - Too many attempts. Request a new code',
+            );
+          }
+
+          // 4. Verify OTP (constant-time)
+          const isValidOtp = this.otpService.verifyOtp(
+            dto.otp,
+            pending.otpHash,
+            pending.otpExpiresAt,
+          );
+
+          // Check previous OTP if current is invalid
+          const isValidPreviousOtp =
+            !isValidOtp &&
+            this.otpService.isWithinPreviousOtpGracePeriod(
+              dto.otp,
+              pending.previousOtpHash,
+              pending.previousOtpExpiresAt,
+            );
+
+          if (!isValidOtp && !isValidPreviousOtp) {
+            // Increment attempt count
+            await tx.pending_registrations.update({
+              where: { email },
+              data: { otpAttempts: { increment: 1 } },
+            });
+
+            throw new BadRequestException(
+              'رمز التحقق غير صحيح - Invalid verification code',
+            );
+          }
+
+          // 5. Check email uniqueness again (race condition protection)
+          const existingUser = await tx.users.findUnique({
+            where: { email },
+          });
+
+          if (existingUser) {
+            throw new ConflictException(
+              'البريد الإلكتروني مستخدم بالفعل - Email already in use',
+            );
+          }
+
+          // 6. Check phone uniqueness again
+          const existingByPhone = await tx.users.findUnique({
+            where: { phoneNumber: pending.phoneNumber },
+          });
+
+          if (existingByPhone) {
+            throw new ConflictException(
+              'رقم الهاتف مستخدم بالفعل - Phone number already in use',
+            );
+          }
+
+          // 7. Create user with verified email
+          const user = await tx.users.create({
+            data: {
+              id: crypto.randomUUID(),
+              updatedAt: new Date(),
+              email: pending.email,
+              phoneNumber: pending.phoneNumber,
+              firstName: pending.firstName,
+              lastName: pending.lastName,
+              passwordHash: pending.passwordHash,
+              role: pending.role as any, // Role is stored as string in pending_registrations
+              isVerified: false,
+              emailVerified: true, // Email is verified via OTP
+              emailVerifiedAt: new Date(),
+              // Create empty profile based on role
+              ...(pending.role === 'TEACHER' && {
+                teacher_profiles: { create: { id: crypto.randomUUID() } },
+              }),
+              ...(pending.role === 'PARENT' && {
+                parent_profiles: { create: { id: crypto.randomUUID() } },
+              }),
+              ...(pending.role === 'STUDENT' && {
+                student_profiles: { create: { id: crypto.randomUUID() } },
+              }),
+            },
+          });
+
+          // 8. Delete pending registration
+          await tx.pending_registrations.delete({
+            where: { email },
+          });
+
+          this.logger.log(`User registered successfully via OTP: ${email}`);
+
+          // 9. Return user data for token generation
+          return {
+            userId: user.id,
+            email: user.email,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          };
+        },
+        {
+          isolationLevel: 'Serializable', // SECURITY: Prevent race conditions
+        },
+      )
+      .then((userData) => {
+        // Generate tokens outside transaction
+        return this.signToken(userData.userId, userData.email, userData.role, {
+          firstName: userData.firstName || undefined,
+          lastName: userData.lastName || undefined,
+        });
+      });
+  }
+
+  /**
+   * NEW OTP FLOW: Step 3 - Resend OTP
+   * SECURITY: Rate limiting + email enumeration prevention
+   */
+  async resendOtp(
+    dto: ResendOtpDto,
+    ipAddress: string,
+  ): Promise<{ message: string }> {
+    const email = dto.email.toLowerCase().trim();
+
+    // 1. Rate limiting check
+    await this.otpService.checkRateLimit(email, ipAddress);
+
+    // 2. Find pending registration
+    const pendingReg = await this.prisma.pending_registrations.findUnique({
+      where: { email },
+    });
+
+    if (!pendingReg) {
+      // SECURITY: Return generic success even if not found
+      this.logger.warn(`Resend OTP attempted for non-existent email: ${email}`);
+      return {
+        message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني',
+      };
+    }
+
+    // 3. Generate new OTP
+    const otp = this.otpService.generateOtp();
+    const otpHash = this.otpService.hashOtp(otp);
+    const otpExpiresAt = this.otpService.calculateOtpExpiry();
+
+    // 4. Update pending registration (move current to previous for grace period)
+    await this.prisma.pending_registrations.update({
+      where: { email },
+      data: {
+        previousOtpHash: pendingReg.otpHash, // Save old OTP for 30-second grace
+        previousOtpExpiresAt: pendingReg.otpExpiresAt,
+        otpHash,
+        otpExpiresAt,
+        otpAttempts: 0, // Reset attempts on resend
+        lastOtpSentAt: new Date(),
+      },
+    });
+
+    // 5. Send new OTP email
+    await this.notificationService.enqueueEmail({
+      to: email,
+      subject: 'رمز التحقق الجديد من سدرة - New Sidra Verification Code',
+      templateId: 'registration-otp',
+      payload: {
+        otp,
+        email,
+        expiryMinutes: 10,
+      },
+    });
+
+    // 6. Record rate limit attempt
+    await this.otpService.recordRateLimitAttempt(email, ipAddress);
+
+    this.logger.log(`OTP resent for: ${email}`);
+
+    return {
+      message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني',
+    };
+  }
+
   async login(dto: LoginDto) {
     // Sanitize inputs
     const phoneNumber = dto.phoneNumber?.trim();
@@ -153,10 +503,57 @@ export class AuthService {
 
     if (!isMatch) {
       this.logger.warn(`Login failed: password mismatch for user ${user.id}`);
+
+      // AUDIT: Log failed login attempt
+      try {
+        await this.prisma.audit_logs.create({
+          data: {
+            actorId: user.id,
+            action: 'LOGIN_FAILED',
+            payload: { reason: 'Password mismatch', clientIp: 'Unknown' }, // Enhance with IP if available in context
+            createdAt: new Date(),
+          },
+        });
+      } catch (err) {
+        this.logger.error('Failed to log audit for login failure', err);
+      }
+
       throw new UnauthorizedException('Invalid credentials');
     }
 
     this.logger.log(`Login successful for user ${user.id}`);
+
+    // SECURITY: Concurrent Login Prevention (Single Session Enforcement)
+    // Revoke all existing valid refresh tokens for this user
+    try {
+      await this.prisma.refresh_tokens.updateMany({
+        where: { userId: user.id, revoked: false },
+        data: {
+          revoked: true,
+          revokedAt: new Date(),
+          replacedByToken: 'NEW_SESSION_FORCED',
+        },
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to revoke existing tokens for user ${user.id}`,
+        err,
+      );
+    }
+
+    // AUDIT: Log successful login
+    try {
+      await this.prisma.audit_logs.create({
+        data: {
+          actorId: user.id,
+          action: 'LOGIN_SUCCESS',
+          createdAt: new Date(),
+        },
+      });
+    } catch (err) {
+      this.logger.error('Failed to log audit for login success', err);
+    }
+
     return this.signToken(user.id, user.email || undefined, user.role, {
       firstName: user.firstName || undefined,
       lastName: user.lastName || undefined,
@@ -290,11 +687,13 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiry
 
-    // Save to DB
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Save to DB (store hash only)
     await this.prisma.passwordResetToken.create({
       data: {
         email,
-        token,
+        token: tokenHash,
         expiresAt,
       },
     });
@@ -325,8 +724,9 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     // 1. Find valid token
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const resetRecord = await this.prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: tokenHash },
     });
 
     if (!resetRecord) {

@@ -12,6 +12,7 @@ import { getTourSteps, type TourTriggerSource } from '@/lib/tour/tour-steps';
 
 // Stable localStorage key for V1
 const TOUR_COMPLETED_KEY = 'sidra_tour_completed_v1';
+const TOUR_SKIPPED_KEY = 'sidra_tour_skipped_v1';
 
 interface ProductTourContextType {
   startTour: (trigger?: TourTriggerSource) => void;
@@ -92,6 +93,13 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
     router.push(finalDestination);
   }, [user?.role, user?.id, destroyDriver, router]);
 
+  // Handle skip tour
+  const handleSkipTour = useCallback(() => {
+    if (driverRef.current) {
+      driverRef.current.destroy();
+    }
+  }, []);
+
   // Helper to clean up all highlight classes from the DOM
   const cleanupHighlights = useCallback(() => {
     document.querySelectorAll('.driver-active-element').forEach(el => {
@@ -105,7 +113,7 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
   // Initialize driver with role-specific final CTA handler
   const initializeDriver = useCallback((role: string, isMobile: boolean) => {
     // Get steps with completion handler
-    const steps = getTourSteps(role as 'TEACHER' | 'PARENT' | 'STUDENT', isMobile, handleTourCompletion);
+    const steps = getTourSteps(role as 'TEACHER' | 'PARENT' | 'STUDENT', isMobile, handleTourCompletion, handleSkipTour);
     stepsRef.current = steps;
 
     const d = driver({
@@ -208,6 +216,12 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
             closedAtStep: activeIndex,
             totalSteps: stepsRef.current.length
           });
+
+          // Mark as skipped/seen in localStorage so it doesn't annoy user on refresh
+          // But do NOT mark full completion in DB to allow manual restart
+          if (user?.id) {
+            localStorage.setItem(TOUR_SKIPPED_KEY, user.id);
+          }
         }
 
         // Clean up all highlights immediately
@@ -295,9 +309,15 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!user?.id || !user?.role) return;
 
-    // Check localStorage cache first (stable key for V1)
-    const cachedCompletion = localStorage.getItem(TOUR_COMPLETED_KEY);
-    if (cachedCompletion === user.id) return;
+    // 1. Check Backend Persistence First (Strongest check)
+    // Cast user as any to access custom property if TS complains, or assume interface updated
+    if ((user as any).hasCompletedTour) return;
+
+    // 2. Check localStorage cache (stable key for V1)
+    if (localStorage.getItem(TOUR_COMPLETED_KEY) === user.id) return;
+
+    // 3. Check if skipped recently (to avoid annoyance on same device)
+    if (localStorage.getItem(TOUR_SKIPPED_KEY) === user.id) return;
 
     // Dashboard paths for each role
     const dashboardPaths = ['/teacher', '/parent', '/student'];
@@ -311,7 +331,7 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
 
       return () => clearTimeout(timer);
     }
-  }, [pathname, user?.id, user?.role, startTour]);
+  }, [pathname, user, startTour]); // Added user to dependency (not just user.id/role)
 
   // Cleanup on unmount
   useEffect(() => {

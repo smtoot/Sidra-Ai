@@ -1,199 +1,228 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Search, Calendar, Video, ShieldCheck, CreditCard, Star } from "lucide-react";
+import { Search, Calendar, Video, ShieldCheck, CheckCircle2, Laptop, Lock, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function StudentHowItWorksPage() {
     return (
-        <div className="font-tajawal relative overflow-hidden" dir="rtl">
-            {/* Hero Section */}
-            <section className="relative py-20 lg:py-32 overflow-hidden bg-surface">
-                <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
-                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
+        <div className="min-h-screen bg-gray-50/50 font-tajawal direction-rtl" dir="rtl">
+            {/* 1) Page Hero */}
+            <section className="relative py-16 lg:py-24 overflow-hidden bg-white border-b border-gray-100">
+                <div className="absolute inset-0 bg-grid-slate-50 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.5))] -z-10" />
 
-                <div className="container mx-auto px-4 text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-fade-in-up">
-                        <Star className="w-4 h-4 fill-current" />
-                        <span>منصة التعليم الأولى في السودان</span>
-                    </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-[#111827] mb-6 tracking-tight animate-fade-in-up delay-100">
-                        رحلتك التعليمية تبدأ <span className="text-primary relative inline-block">
-                            هنا
-                            <svg className="absolute w-full h-3 -bottom-1 left-0 text-accent/30" viewBox="0 0 100 10" preserveAspectRatio="none">
-                                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
-                            </svg>
-                        </span>
+                <div className="container mx-auto px-4 text-center max-w-4xl relative z-10">
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-[#111827] mb-6 leading-tight tracking-tight">
+                        تعليم أونلاين آمن… <br className="hidden md:block" />
+                        <span className="text-primary mt-2 inline-block">يرفع مستوى ابنك من البيت</span>
                     </h1>
-                    <p className="text-lg md:text-xl text-text-subtle max-w-2xl mx-auto mb-10 animate-fade-in-up delay-200 leading-relaxed">
-                        اكتشف أفضل المعلمين السودانيين، وتعلم وفق جدولك الخاص، وحقق أهدافك الدراسية في بيئة آمنة ومتطورة.
+
+                    <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-8 leading-relaxed">
+                        حصص فردية مباشرة مع نخبة من المعلمين السودانيين.<br className="hidden sm:block" />
+                        متابعة مستمرة، بيئة تعليمية آمنة، ودفع محمي 100%.
                     </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
-                        <Button size="lg" className="h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl transition-all w-full sm:w-auto" asChild>
-                            <Link href="/explore">ابحث عن معلم الآن</Link>
-                        </Button>
-                        <Button variant="outline" size="lg" className="h-14 px-8 text-lg rounded-full border-2 w-full sm:w-auto" asChild>
-                            <Link href="/faq">الأسئلة الشائعة</Link>
-                        </Button>
+
+                    {/* Trust Highlights */}
+                    <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-10 text-sm md:text-base font-medium text-gray-600">
+                        <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 px-4 py-2 rounded-full text-blue-700">
+                            <Video className="w-4 h-4" />
+                            <span>حصص مباشرة أونلاين</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-emerald-50/50 border border-emerald-100 px-4 py-2 rounded-full text-emerald-700">
+                            <Lock className="w-4 h-4" />
+                            <span>دفع محمي</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-purple-50/50 border border-purple-100 px-4 py-2 rounded-full text-purple-700">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>معلمون موثوقون</span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
+                            <Button size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto shadow-sm hover:shadow-md transition-all font-bold" asChild>
+                                <Link href="/search" className="!text-white" style={{ color: "white" }}>ابدأ البحث عن معلم</Link>
+                            </Button>
+                            <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full w-full sm:w-auto border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900" asChild>
+                                <Link href="#faq">الأسئلة الشائعة</Link>
+                            </Button>
+                        </div>
+                        <p className="text-sm text-gray-500 font-medium">
+                            بدون التزام • بدون تسجيل مسبق • البحث مجاني
+                        </p>
                     </div>
                 </div>
             </section>
 
-            {/* Steps Section */}
-            <section className="py-20 bg-white">
+            {/* 2) HOW IT WORKS – Core Steps */}
+            <section className="py-16 md:py-24 bg-white">
                 <div className="container mx-auto px-4">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl font-bold text-[#111827] mb-4">كيف تعمل المنصة؟</h2>
-                        <p className="text-text-subtle text-lg">ثلاث خطوات بسيطة تفصلك عن التفوق الدراسي</p>
-                    </div>
+                    <div className="max-w-5xl mx-auto">
+                        <div className="grid md:grid-cols-3 gap-8 md:gap-12 relative">
+                            {/* Connecting Line (Desktop) */}
+                            <div className="hidden md:block absolute top-12 right-[15%] left-[15%] h-0.5 bg-gradient-to-l from-gray-100 via-primary/20 to-gray-100 -z-0" />
 
-                    <div className="grid md:grid-cols-3 gap-8 relative">
-                        {/* Connecting Line (Desktop) */}
-                        <div className="hidden md:block absolute top-12 right-1/6 left-1/6 h-0.5 bg-gradient-to-l from-transparent via-gray-200 to-transparent -z-10" />
-
-                        {/* Step 1 */}
-                        <div className="relative group">
-                            <div className="w-24 h-24 bg-white border-4 border-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300 relative z-10">
-                                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                                    <Search className="w-8 h-8" />
+                            {/* Step 1 */}
+                            <div className="relative group text-center bg-white p-4 rounded-xl z-10">
+                                <div className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                    <Search className="w-10 h-10 text-blue-600" />
                                 </div>
-                                <div className="absolute -top-2 -right-2 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md border-2 border-white">1</div>
+                                <h3 className="text-xl font-bold text-[#111827] mb-3">1. اختر المعلم الذي تطمئن له</h3>
+                                <p className="text-gray-600 leading-relaxed">
+                                    تصفّح ملفات المعلمين، واطّلع على خبراتهم وتقييمات أولياء الأمور.
+                                </p>
                             </div>
-                            <h3 className="text-xl font-bold text-[#111827] text-center mb-3">اختر معلمك المفضل</h3>
-                            <p className="text-text-subtle text-center leading-relaxed">
-                                تصفح ملفات المعلمين، شاهد فيديوهاتهم التعريفية، واقرأ تقييمات الطلاب السابقين لتجد المعلم الأنسب لك.
-                            </p>
-                        </div>
 
-                        {/* Step 2 */}
-                        <div className="relative group">
-                            <div className="w-24 h-24 bg-white border-4 border-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300 relative z-10">
-                                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
-                                    <Calendar className="w-8 h-8" />
+                            {/* Step 2 */}
+                            <div className="relative group text-center bg-white p-4 rounded-xl z-10">
+                                <div className="w-20 h-20 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                    <Calendar className="w-10 h-10 text-orange-600" />
                                 </div>
-                                <div className="absolute -top-2 -right-2 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md border-2 border-white">2</div>
+                                <h3 className="text-xl font-bold text-[#111827] mb-3">2. احجز موعدك أونلاين بسهولة</h3>
+                                <p className="text-gray-600 leading-relaxed">
+                                    اختر الوقت المناسب لك وأكّد الحجز خلال دقائق.
+                                </p>
                             </div>
-                            <h3 className="text-xl font-bold text-[#111827] text-center mb-3">احجز حصتك بسهولة</h3>
-                            <p className="text-text-subtle text-center leading-relaxed">
-                                اختر التوقيت الذي يناسبك من جدول المعلم المتاح، وقم بتأكيد الحجز والدفع بخطوات آمنة وسريعة.
-                            </p>
-                        </div>
 
-                        {/* Step 3 */}
-                        <div className="relative group">
-                            <div className="w-24 h-24 bg-white border-4 border-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300 relative z-10">
-                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                                    <Video className="w-8 h-8" />
+                            {/* Step 3 */}
+                            <div className="relative group text-center bg-white p-4 rounded-xl z-10">
+                                <div className="w-20 h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                    <Video className="w-10 h-10 text-green-600" />
                                 </div>
-                                <div className="absolute -top-2 -right-2 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md border-2 border-white">3</div>
+                                <h3 className="text-xl font-bold text-[#111827] mb-3">3. ابنك يتعلّم من بيته بأمان</h3>
+                                <p className="text-gray-600 leading-relaxed mb-1">
+                                    الحصة تتم مباشرة أونلاين بدون أي تنقّل أو مجهود.
+                                </p>
                             </div>
-                            <h3 className="text-xl font-bold text-[#111827] text-center mb-3">ابدأ التعلم فوراً</h3>
-                            <p className="text-text-subtle text-center leading-relaxed">
-                                انضم للفصل الافتراضي في الموعد المحدد واستمتع بتجربة تعليمية تفاعلية مباشرة مع معلمك.
-                            </p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Features/Benefits Section */}
-            <section className="py-20 bg-surface">
+            {/* 3) ONLINE LEARNING CLARITY SECTION (Mandatory) */}
+            <section className="py-16 bg-blue-50/50">
                 <div className="container mx-auto px-4">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl font-bold text-[#111827] mb-4">لماذا يختار الطلاب سدرة؟</h2>
-                        <p className="text-text-subtle text-lg">نوفر لك بيئة تعليمية متكاملة تضمن لك الأمان والجودة</p>
+                    <div className="max-w-4xl mx-auto bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-blue-100 flex flex-col md:flex-row items-center gap-8 md:gap-12 text-center md:text-right">
+                        <div className="flex-shrink-0">
+                            <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                                <Laptop className="w-12 h-12 text-blue-600" />
+                            </div>
+                        </div>
+                        <div className="flex-grow">
+                            <h2 className="text-2xl md:text-3xl font-bold text-[#111827] mb-4">حصصنا أونلاين 100%… بدون مشاوير ولا تعب</h2>
+                            <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+                                جميع الحصص تتم مباشرة عبر منصات موثوقة مثل Google Meet و Zoom.<br />
+                                تعلّم مريح من المنزل يوفر الوقت والمجهود عليك وعلى ابنك.
+                            </p>
+                            <ul className="grid sm:grid-cols-3 gap-3 text-sm font-medium text-gray-700">
+                                <li className="flex items-center justify-center md:justify-start gap-2 bg-gray-50 py-2 px-3 rounded-lg">
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                    تعلّم من البيت
+                                </li>
+                                <li className="flex items-center justify-center md:justify-start gap-2 bg-gray-50 py-2 px-3 rounded-lg">
+                                    <Video className="w-4 h-4 text-green-500" />
+                                    تواصل مباشر صوت وصورة
+                                </li>
+                                <li className="flex items-center justify-center md:justify-start gap-2 bg-gray-50 py-2 px-3 rounded-lg">
+                                    <Calendar className="w-4 h-4 text-green-500" />
+                                    مرونة في الوقت والمكان
+                                </li>
+                            </ul>
+                        </div>
                     </div>
+                </div>
+            </section>
 
-                    <div className="grid md:grid-cols-3 gap-6">
-                        <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white">
-                            <CardHeader>
-                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 mb-4">
+            {/* 4) TRUST & PAYMENT PROTECTION SECTION */}
+            <section className="py-16 md:py-24 bg-white">
+                <div className="container mx-auto px-4">
+                    <div className="max-w-3xl mx-auto">
+                        <Card className="bg-emerald-50/50 border-emerald-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-emerald-100/50 border-b border-emerald-100 py-6 text-center">
+                                <div className="flex items-center justify-center gap-2 mb-2 text-emerald-700">
                                     <ShieldCheck className="w-6 h-6" />
+                                    <span className="font-semibold tracking-wide uppercase text-xs">أمان مضمون</span>
                                 </div>
-                                <CardTitle className="text-xl font-bold text-[#111827]">معلمون موثوقون</CardTitle>
+                                <CardTitle className="text-2xl md:text-3xl font-bold text-[#111827]">أمانك المالي مسؤوليتنا</CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <p className="text-text-subtle leading-relaxed">
-                                    نحن نتحقق من هوية ومؤهلات كل معلم ينضم للمنصة لضمان حصولك على تعليم عالي الجودة من خبراء في مجالهم.
+                            <CardContent className="p-8 md:p-10 text-center">
+                                <p className="text-lg md:text-xl text-gray-700 leading-relaxed font-medium mb-8">
+                                    "نحتفظ بالمبلغ المدفوع بشكل آمن داخل منصة سدرة، ولا يتم تحويله للمعلم إلا بعد انتهاء الحصة وتأكيدك أنت (أو ولي الأمر) أن الحصة تمت بنجاح. نظام حماية يضمن حقك ويمنحك راحة بال كاملة."
                                 </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white">
-                            <CardHeader>
-                                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 mb-4">
-                                    <Star className="w-6 h-6" />
+                                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                        <span>معلمون موثوقون وتقييمات حقيقية</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                        <span>خصوصية وأمان كامل للطالب</span>
+                                    </div>
                                 </div>
-                                <CardTitle className="text-xl font-bold text-[#111827]">جودة مضمونة</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-text-subtle leading-relaxed">
-                                    نظام تقييم شفاف يسمح لك برؤية آراء الطلاب السابقين، مع ضمان استرداد الحقوق في حال عدم رضاك عن التجربة.
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white">
-                            <CardHeader>
-                                <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 mb-4">
-                                    <CreditCard className="w-6 h-6" />
-                                </div>
-                                <CardTitle className="text-xl font-bold text-[#111827]">دفع آمن وسهل</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-text-subtle leading-relaxed">
-                                    خيارات دفع محلية وعالمية آمنة، مع حماية كاملة لمدفوعاتك ورصيدك في المحفظة الإلكترونية.
-                                </p>
                             </CardContent>
                         </Card>
                     </div>
                 </div>
             </section>
 
-            {/* FAQ Teaser Section */}
-            <section className="py-20 bg-white">
-                <div className="container mx-auto px-4 max-w-4xl">
-                    <div className="text-center mb-10">
-                        <h2 className="text-3xl font-bold text-[#111827] mb-4">أسئلة شائعة من الطلاب</h2>
-                        <Link href="/faq" className="text-primary hover:text-primary-hover font-medium hover:underline">
-                            عرض جميع الأسئلة الشائعة &larr;
-                        </Link>
+            {/* 5) FAQs */}
+            <section id="faq" className="py-16 bg-gray-50">
+                <div className="container mx-auto px-4 max-w-3xl">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-bold text-[#111827] mb-4">الأسئلة الشائعة</h2>
                     </div>
 
-                    <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger className="text-lg font-medium">كيف أضمن جودة المعلم؟</AccordionTrigger>
-                            <AccordionContent className="text-text-subtle leading-relaxed text-base">
-                                يمكنك الاطلاع على الملف الشخصي للمعلم، ومشاهدة الفيديو التعريفي، وقراءة تقييمات الطلاب الآخرين. كما نقدم لك ضمان استرداد الرصيد في حال لم تكن الحصة كما هو متوقع.
+                    <Accordion type="single" collapsible defaultValue="item-1" className="w-full space-y-4">
+                        <AccordionItem value="item-1" className="bg-white border rounded-xl px-2 shadow-sm">
+                            <AccordionTrigger className="text-lg font-bold text-[#111827] hover:no-underline px-4 py-4">كيف أبدأ مع سدرة؟</AccordionTrigger>
+                            <AccordionContent className="text-gray-600 leading-relaxed text-base px-4 pb-4">
+                                اختر المادة والمرحلة والمنهج، ثم تصفح المعلمين واختر الأنسب بناءً على الخبرة والتقييمات، وبعدها احجز الحصة الأونلاين بكل سهولة.
                             </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="item-2">
-                            <AccordionTrigger className="text-lg font-medium">ماذا لو اضطررت لإلغاء الحصة؟</AccordionTrigger>
-                            <AccordionContent className="text-text-subtle leading-relaxed text-base">
-                                يمكنك إلغاء أو إعادة جدولة الحصة بسهولة من لوحة التحكم الخاصة بك. يرجى مراجعة سياسة الإلغاء الخاصة بالمعلم، والتي تظهر بوضوح قبل الحجز (عادةً يسمح بالإلغاء المجاني قبل 24 ساعة).
+                        <AccordionItem value="item-2" className="bg-white border rounded-xl px-2 shadow-sm">
+                            <AccordionTrigger className="text-lg font-bold text-[#111827] hover:no-underline px-4 py-4">هل الحصص حضورية أم أونلاين؟</AccordionTrigger>
+                            <AccordionContent className="text-gray-600 leading-relaxed text-base px-4 pb-4">
+                                جميع الحصص في سدرة أونلاين 100% وتُقام مباشرة عبر الإنترنت باستخدام أدوات مثل Google Meet أو Zoom.
                             </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="item-3">
-                            <AccordionTrigger className="text-lg font-medium">هل يمكنني تجربة حصة قبل الالتزام بباقة؟</AccordionTrigger>
-                            <AccordionContent className="text-text-subtle leading-relaxed text-base">
-                                نعم، العديد من المعلمين يقدمون حصصاً تجريبية بأسعار مخفضة أو مدد قصيرة لتتعرف على أسلوبهم قبل شراء باقة كاملة.
+                        <AccordionItem value="item-3" className="bg-white border rounded-xl px-2 shadow-sm">
+                            <AccordionTrigger className="text-lg font-bold text-[#111827] hover:no-underline px-4 py-4">كيف تضمن سدرة حقّي بعد الدفع؟</AccordionTrigger>
+                            <AccordionContent className="text-gray-600 leading-relaxed text-base px-4 pb-4">
+                                تحتفظ سدرة بالمبلغ المدفوع ولا يتم تحويله للمعلم إلا بعد انتهاء الحصة وتأكيد الطالب أو ولي الأمر.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-4" className="bg-white border rounded-xl px-2 shadow-sm">
+                            <AccordionTrigger className="text-lg font-bold text-[#111827] hover:no-underline px-4 py-4">هل الحصص فردية أم جماعية؟</AccordionTrigger>
+                            <AccordionContent className="text-gray-600 leading-relaxed text-base px-4 pb-4">
+                                جميع الحصص فردية (واحد لواحد) لضمان أفضل تركيز وجودة تعليم.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-5" className="bg-white border rounded-xl px-2 shadow-sm">
+                            <AccordionTrigger className="text-lg font-bold text-[#111827] hover:no-underline px-4 py-4">هل أحتاج تحميل برنامج خاص؟</AccordionTrigger>
+                            <AccordionContent className="text-gray-600 leading-relaxed text-base px-4 pb-4">
+                                لا، الحصص تتم عبر Google Meet أو Zoom بدون أي تحميل إضافي.
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
                 </div>
             </section>
 
-            {/* CTA Section */}
-            <section className="py-20 bg-primary/5">
-                <div className="container mx-auto px-4 text-center">
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-6">مستعد لرفع مستواك الدراسي؟</h2>
-                    <p className="text-text-subtle text-lg max-w-2xl mx-auto mb-10">
-                        انضم لآلاف الطلاب الذين يحققون أهدافهم يومياً مع أفضل المعلمين السودانيين.
+            {/* 6) Final CTA */}
+            <section className="py-20 bg-white">
+                <div className="container mx-auto px-4 text-center max-w-4xl">
+                    <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-6">جاهز تبدأ رحلة تعليم أونلاين آمنة لابنك؟</h2>
+                    <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
+                        انضم لمئات الأسر التي اختارت سدرة<br className="hidden sm:block" />
+                        لتعليم أبنائها مع معلمين موثوقين وفي بيئة آمنة.
                     </p>
-                    <Button size="lg" className="h-14 px-10 text-lg rounded-full shadow-xl hover:shadow-2xl transition-all" asChild>
-                        <Link href="/explore">ابحث عن معلم الآن</Link>
-                    </Button>
+                    <div className="flex flex-col items-center justify-center gap-3">
+                        <Button size="lg" className="h-14 px-10 text-lg rounded-full shadow-lg hover:shadow-xl transition-all font-bold" asChild>
+                            <Link href="/search" className="!text-white" style={{ color: "white" }}>ابدأ البحث عن معلم الآن</Link>
+                        </Button>
+                        <p className="text-sm text-gray-500 font-medium">
+                            الدفع آمن • لا التزام مسبق • دعم دائم
+                        </p>
+                    </div>
                 </div>
             </section>
         </div>

@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Copy, Check, Eye, Calendar, Sparkles, Share2, Download, Megaphone } from 'lucide-react';
-import { teacherApi } from '@/lib/api/teacher';
+import { AlertCircle, Copy, Check, Eye, Calendar, Sparkles, Share2, Download, Megaphone, Star } from 'lucide-react';
+import { teacherApi, DashboardStats } from '@/lib/api/teacher';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export default function PromotePage() {
-    const [stats, setStats] = useState<any>(null);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<any>(null);
     const [isApproved, setIsApproved] = useState(false);
@@ -68,7 +68,7 @@ export default function PromotePage() {
     }
 
     const teacherSlug = profile?.slug || profile?.id;
-    const profileUrl = `https://sidra.sd/teacher/${teacherSlug}`;
+    const profileUrl = `https://sidra.sd/teachers/${teacherSlug}`;
     const directBookingUrl = `${profileUrl}?demo=true`;
 
     return (
@@ -91,10 +91,10 @@ export default function PromotePage() {
                 {/* Stats Bar */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <StatCard
-                        icon={Eye}
-                        label="عدد المشاهدات"
-                        value="0"
-                        color="blue"
+                        icon={Star}
+                        label="عدد التقييمات"
+                        value={stats?.counts?.totalReviews || "0"}
+                        color="yellow"
                     />
                     <StatCard
                         icon={Calendar}
@@ -105,7 +105,7 @@ export default function PromotePage() {
                     <StatCard
                         icon={Sparkles}
                         label="عدد الحصص التجريبية"
-                        value="0"
+                        value={stats?.counts?.demoSessions || "0"}
                         color="purple"
                     />
                 </div>
@@ -320,6 +320,7 @@ function StatCard({ icon: Icon, label, value, color }: any) {
         blue: "bg-blue-50 text-blue-600 border-blue-100",
         green: "bg-green-50 text-green-600 border-green-100",
         purple: "bg-purple-50 text-purple-600 border-purple-100",
+        yellow: "bg-yellow-50 text-yellow-600 border-yellow-100",
     };
 
     return (

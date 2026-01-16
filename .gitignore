@@ -21,9 +21,29 @@ packages/**/.env.*
 # Database backups - should be stored in secure cloud storage
 backups/
 *.sql
+!**/prisma/migrations/**/*.sql
 *.sql.gz
 
 # Backup files
 *.bak
 *.bak*
 *.backup
+
+# Generated email previews (can be regenerated via generate-previews.ts)
+apps/api/email-previews/
+
+# Test files (local testing only)
+test-*.js
+test-*.ts
+
+# Auto Claude data directory
+.auto-claude/
+
+# Auto Claude generated files
+.auto-claude-security.json
+.auto-claude-status
+.claude_settings.json
+.worktrees/
+.security-key
+logs/security/
+scripts/deploy.config

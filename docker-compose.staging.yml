@@ -1,0 +1,284 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Staging)
+  postgres_staging:
+    image: postgres:15-alpine
+    container_name: sidra_postgres_staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_STAGING}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_STAGING}
+      POSTGRES_DB: ${POSTGRES_DB_STAGING}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - sidra_staging_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER_STAGING}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:5433:5432" # Different port to avoid conflict with production
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 512M
+
+  # NestJS API Backend (Staging)
+  api_staging:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        NODE_ENV: staging
+    container_name: sidra_api_staging
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER_STAGING}:${POSTGRES_PASSWORD_STAGING}@postgres_staging:5432/${POSTGRES_DB_STAGING}
+      NODE_ENV: staging
+      ENABLE_CRON: "false" # Disable cron jobs on staging to avoid conflicts
+      PORT: 4001
+    volumes:
+      - api_staging_uploads:/app/uploads
+    networks:
+      - sidra_staging_network
+    depends_on:
+      postgres_staging:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:4001/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    ports:
+      - "4001:4001"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 768M
+
+  # Next.js Web Frontend (Staging)
+  web_staging:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NODE_ENV: staging
+        NEXT_PUBLIC_API_URL: https://api-staging.sidra.sd
+        NEXT_PUBLIC_JITSI_ENABLED: "true"
+        NEXT_PUBLIC_JITSI_DOMAIN: meet-staging.sidra.sd
+    container_name: sidra_web_staging
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: staging
+      PORT: 3001
+      NEXT_PUBLIC_API_URL: https://api-staging.sidra.sd
+      NEXT_PUBLIC_JITSI_ENABLED: "true"
+      NEXT_PUBLIC_JITSI_DOMAIN: meet-staging.sidra.sd
+    networks:
+      - sidra_staging_network
+    depends_on:
+      - api_staging
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:3001 || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 512M
+
+  # Jitsi Web Interface (Staging)
+  jitsi_web_staging:
+    image: jitsi/web:stable-9111
+    container_name: sidra_jitsi_web_staging
+    restart: unless-stopped
+    environment:
+      # Authentication
+      - ENABLE_AUTH=1
+      - ENABLE_GUESTS=0
+      - ENABLE_JWT=1
+      - JWT_APP_ID=${JITSI_APP_ID_STAGING}
+      - JWT_APP_SECRET=${JITSI_APP_SECRET_STAGING}
+      - JWT_ACCEPTED_ISSUERS=${JITSI_APP_ID_STAGING}
+      - JWT_ACCEPTED_AUDIENCES=${JITSI_APP_ID_STAGING}
+      - JWT_ALLOW_EMPTY=0
+
+      # URLs and domains
+      - PUBLIC_URL=https://meet-staging.sidra.sd
+      - XMPP_DOMAIN=meet.jitsi.staging
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi.staging
+      - XMPP_BOSH_URL_BASE=http://prosody_staging:5280
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi.staging
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi.staging
+
+      # Jicofo
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET_STAGING}
+
+      # JVB
+      - JVB_AUTH_USER=jvb
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD_STAGING}
+
+      # Features
+      - ENABLE_RECORDING=0
+      - ENABLE_TRANSCRIPTIONS=0
+      - ENABLE_LOBBY=1
+      - ENABLE_PREJOIN_PAGE=1
+
+      # Quality limits for testing
+      - RESOLUTION=720
+      - RESOLUTION_WIDTH=1280
+      - RESOLUTION_MIN=360
+
+      # Branding
+      - ENABLE_WELCOME_PAGE=false
+      - ENABLE_CLOSE_PAGE=false
+    networks:
+      - sidra_staging_network
+    depends_on:
+      - prosody_staging
+      - jicofo_staging
+      - jvb_staging
+    volumes:
+      - ./deploy/jitsi-config/lang/main-ar.json:/usr/share/jitsi-meet/lang/main-ar.json
+      - ./deploy/jitsi-config/images/watermark.png:/usr/share/jitsi-meet/images/watermark.png
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 384M
+
+  # Prosody XMPP Server (Staging)
+  prosody_staging:
+    image: jitsi/prosody:stable-9111
+    container_name: sidra_prosody_staging
+    restart: unless-stopped
+    environment:
+      - AUTH_TYPE=jwt
+      - ENABLE_AUTH=1
+      - ENABLE_GUESTS=0
+      - JWT_APP_ID=${JITSI_APP_ID_STAGING}
+      - JWT_APP_SECRET=${JITSI_APP_SECRET_STAGING}
+      - JWT_ACCEPTED_ISSUERS=${JITSI_APP_ID_STAGING}
+      - JWT_ACCEPTED_AUDIENCES=${JITSI_APP_ID_STAGING}
+      - JWT_ALLOW_EMPTY=0
+      - JWT_TOKEN_AUTH_MODULE=token_verification
+
+      - XMPP_DOMAIN=meet.jitsi.staging
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi.staging
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi.staging
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi.staging
+
+      - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET_STAGING}
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD_STAGING}
+
+      - JVB_AUTH_USER=jvb
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD_STAGING}
+
+      - ENABLE_LOBBY=1
+      - LOG_LEVEL=info
+    networks:
+      - sidra_staging_network
+    volumes:
+      - prosody_staging_config:/config
+      - prosody_staging_plugins:/prosody-plugins-custom
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 384M
+
+  # Jicofo (Conference Focus) (Staging)
+  jicofo_staging:
+    image: jitsi/jicofo:stable-9111
+    container_name: sidra_jicofo_staging
+    restart: unless-stopped
+    environment:
+      - AUTH_TYPE=jwt
+      - ENABLE_AUTH=1
+      - XMPP_DOMAIN=meet.jitsi.staging
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi.staging
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi.staging
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi.staging
+      - XMPP_SERVER=prosody_staging
+      - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET_STAGING}
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD_STAGING}
+      - JVB_BREWERY_MUC=jvbbrewery
+      - ENABLE_SCTP=1
+    networks:
+      - sidra_staging_network
+    depends_on:
+      - prosody_staging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 384M
+
+  # Jitsi Videobridge (Staging)
+  jvb_staging:
+    image: jitsi/jvb:stable-9111
+    container_name: sidra_jvb_staging
+    restart: unless-stopped
+    ports:
+      - "10001:10001/udp" # RTP media (changed from 10000 to avoid Webmin conflict)
+      - "4444:4444/tcp" # Fallback TCP (changed from 4443)
+    environment:
+      - XMPP_DOMAIN=meet.jitsi.staging
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi.staging
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi.staging
+      - XMPP_SERVER=prosody_staging
+      - JVB_AUTH_USER=jvb
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD_STAGING}
+      - JVB_BREWERY_MUC=jvbbrewery
+      - JVB_PORT=10001
+      - JVB_TCP_HARVESTER_DISABLED=false
+      - JVB_TCP_PORT=4444
+      - JVB_STUN_SERVERS=stun.l.google.com:19302
+      - DOCKER_HOST_ADDRESS=${PUBLIC_IP}
+      - PUBLIC_URL=https://meet-staging.sidra.sd
+      - ENABLE_STATISTICS=1
+      - TZ=UTC
+    networks:
+      - sidra_staging_network
+    depends_on:
+      - prosody_staging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8' # Reserve CPU for video processing
+          memory: 2G # Up to 2GB RAM for video
+        reservations:
+          cpus: '0.4'
+          memory: 1G
+
+networks:
+  sidra_staging_network:
+    name: sidra_staging_network
+    driver: bridge
+
+volumes:
+  postgres_staging_data:
+    driver: local
+  api_staging_uploads:
+    driver: local
+  prosody_staging_config:
+    driver: local
+  prosody_staging_plugins:
+    driver: local

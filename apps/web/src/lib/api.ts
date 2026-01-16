@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getRuntimeConfig, isRuntimeConfigLoaded } from '@/config/runtime';
 
 /**
  * SECURITY FIX: Helper to get CSRF token from cookie
@@ -10,8 +11,27 @@ function getCsrfToken(): string | null {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
+/**
+ * Get API base URL from runtime config (client) or environment (server)
+ * Called dynamically on each request to ensure config is loaded
+ */
+function getApiBaseURL(): string {
+    if (typeof window === 'undefined') {
+        // Server-side: use environment variable
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    }
+    // Client-side: use runtime config if loaded
+    if (isRuntimeConfigLoaded()) {
+        const { apiUrl } = getRuntimeConfig();
+        return apiUrl;
+    }
+    // Fallback if runtime config not loaded yet (should not happen with proper provider setup)
+    console.warn('Runtime config not loaded, using fallback URL');
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+}
+
+// Create axios instance WITHOUT baseURL - it will be set dynamically per request
 export const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -39,6 +59,10 @@ const onRefreshed = (token: string) => {
 };
 
 api.interceptors.request.use((config) => {
+    // Set baseURL dynamically on each request to ensure runtime config is loaded
+    // This is necessary because the axios instance is created before RuntimeConfigProvider loads
+    config.baseURL = getApiBaseURL();
+
     if (typeof window !== 'undefined') {
         // SECURITY FIX: Add CSRF token header for state-changing requests
         // Token is stored in non-httpOnly cookie, sent as header for double-submit protection
@@ -139,7 +163,7 @@ api.interceptors.response.use(
                     // Server reads refresh_token from httpOnly cookie
                     const refreshToken = localStorage.getItem('refresh_token');
                     const response = await axios.post(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/refresh`,
+                        `${getApiBaseURL()}/auth/refresh`,
                         refreshToken ? { refresh_token: refreshToken } : {},
                         { withCredentials: true }
                     );

@@ -136,8 +136,10 @@ export default function AdminSettingsPage() {
                 defaultSessionDurationMinutes: duration,
                 meetingLinkAccessMinutesBefore: linkAccessMinutes,
                 maxVacationDays: vacationDays,
+                vacationEnabled: settings.vacationEnabled,
                 searchConfig: settings.searchConfig,
-                cancellationPolicies: cancellationForm
+                cancellationPolicies: cancellationForm,
+
             });
             toast.success('تم تحديث الإعدادات بنجاح');
             loadSettings(); // Reload to confirm
@@ -424,6 +426,20 @@ export default function AdminSettingsPage() {
                                     <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.demosEnabled ? 'right-8' : 'right-1'}`} />
                                 </button>
                             </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <h4 className="font-bold">وضع الإجازة (Vacation Mode)</h4>
+                                    <p className="text-sm text-text-subtle">تفعيل إمكانية خروج المعلمين في إجازة وتجميد جدولهم.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSettings({ ...settings, vacationEnabled: !settings.vacationEnabled })}
+                                    className={`w-14 h-7 rounded-full transition-colors relative ${settings.vacationEnabled ? 'bg-success' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.vacationEnabled ? 'right-8' : 'right-1'}`} />
+                                </button>
+                            </div>
                         </div>
 
                         <hr className="border-gray-100" />
@@ -478,9 +494,10 @@ export default function AdminSettingsPage() {
                             </div>
                         </div>
 
+
+
                         <hr className="border-gray-100" />
 
-                        {/* Search Configuration */}
                         <div className="space-y-6">
                             <h3 className="text-lg font-bold text-gray-900">إعدادات البحث</h3>
                             <p className="text-sm text-text-subtle">التحكم في فلاتر البحث المتاحة للطلاب.</p>

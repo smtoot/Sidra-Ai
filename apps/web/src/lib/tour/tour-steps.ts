@@ -4,12 +4,18 @@ export type UserRole = 'TEACHER' | 'PARENT' | 'STUDENT';
 export type TourTriggerSource = 'auto' | 'manual';
 
 type CompletionHandler = (destination: string) => Promise<void>;
+type SkipHandler = () => void;
 
 export function getTourSteps(
   role: UserRole,
   isMobile: boolean,
-  onComplete: CompletionHandler
+  onComplete: CompletionHandler,
+  onSkip?: SkipHandler
 ): DriveStep[] {
+  // Add common "Skip" logic to steps if needed, but for now we rely on the header button
+  // We can also add a "Skip Tour" button in the footer via custom popover if requested.
+  // For this iteration, we focus on better copy.
+
   const baseSteps = getBaseSteps(isMobile);
   const roleSteps = getRoleSpecificSteps(role, isMobile, onComplete);
 
@@ -21,8 +27,8 @@ function getBaseSteps(isMobile: boolean): DriveStep[] {
     {
       element: '[data-tour="nav-dashboard"]',
       popover: {
-        title: 'مرحباً بك في سدرة! 👋',
-        description: 'هذي لوحة التحكم الخاصة فيك. خلّينا نعرفك عليها بسرعة.'
+        title: 'أهلاً بك في سدرة! 👋',
+        description: 'جولة سريعة لتتعرف على المنصة.'
       }
     }
   ];
@@ -51,50 +57,50 @@ function getTeacherSteps(isMobile: boolean, onComplete: CompletionHandler): Driv
       element: '[data-tour="nav-dashboard"]',
       popover: {
         title: 'لوحة التحكم',
-        description: 'هنا تشوف ملخص يومك: الحصص الجاية، الأرباح، والإشعارات المهمة.'
+        description: 'لمحة سريعة عن يومك: حصصك القادمة، أرباحك، وإشعاراتك المهمة.'
       }
     },
     {
       element: '[data-tour="nav-availability"]',
       popover: {
         title: 'مواعيد التوفّر ⭐',
-        description: 'أهم خطوة! حدد الأوقات البتكون متاح فيها عشان الطلاب يقدرون يحجزون معك.'
+        description: 'الخطوة الأهم! حدد أوقات فراغك ليتمكن الطلاب من حجز حصص معك.'
       }
     },
     {
       element: '[data-tour="nav-lessons"]',
       popover: {
         title: 'حصصي',
-        description: 'هنا تلاقي كل حجوزاتك - الجاية والماضية. تقدر تبدأ الحصة أو تشوف التفاصيل.'
+        description: 'أرشيف حصصك وتفاصيلها. من هنا تقدر تبدأ الحصة وتشوف كل البيانات.'
       }
     },
     {
       element: '[data-tour="nav-wallet"]',
       popover: {
         title: 'المحفظة',
-        description: 'تابع أرباحك واطلب سحب رصيدك بسهولة.'
+        description: 'تابع دخلك أول بأول، واطلب سحب أرباحك بكل سهولة.'
       }
     },
     {
       element: '[data-tour="nav-profile"]',
       popover: {
         title: 'الملف الشخصي',
-        description: 'عدّل بياناتك، خبراتك، وأسعارك. ملف كامل = ثقة أكثر من الطلاب!'
+        description: 'واجهتك أمام الطلاب. أكمل بياناتك وخبراتك لتزيد فرص حجزك.'
       }
     },
     {
       element: '[data-tour="nav-help"]',
       popover: {
-        title: 'المساعدة',
-        description: 'محتاج مساعدة؟ تواصل معنا في أي وقت. وتقدر تعيد الجولة من هنا!'
+        title: 'مركز المساعدة',
+        description: 'عندك استفسار؟ فريقنا جاهز لخدمتك في أي وقت.'
       }
     },
     {
       // Final step - CTA with explicit completion
       element: '[data-tour="nav-availability"]',
       popover: {
-        title: 'يلّا نبدأ! 🚀',
-        description: 'خلّينا نحدد أوقات توفّرك عشان تبدأ تستقبل حجوزات.',
+        title: 'جاهز للانطلاق؟ 🚀',
+        description: 'دعنا نضبط جدولك لتبدأ في استقبال الحجوزات فوراً.',
         onNextClick: () => {
           onComplete('/teacher/availability');
         }
@@ -109,43 +115,43 @@ function getParentSteps(isMobile: boolean, onComplete: CompletionHandler): Drive
       element: '[data-tour="nav-dashboard"]',
       popover: {
         title: 'لوحة التحكم',
-        description: 'هنا تشوف ملخص حجوزات أطفالك والحصص الجاية.'
+        description: 'ملخص شامل لحجوزات أطفالك والحصص القادمة في مكان واحد.'
       }
     },
     {
       element: '[data-tour="nav-children"]',
       popover: {
         title: 'أطفالي ⭐',
-        description: 'أضف أطفالك عشان تقدر تحجز لهم دروس مع أفضل المعلمين.'
+        description: 'أضف بيانات أطفالك لتتمكن من حجز المعلمين لهم.'
       }
     },
     {
       element: '[data-tour="nav-book-teacher"]',
       popover: {
         title: 'احجز معلم',
-        description: 'تصفح قائمة المعلمين المعتمدين واختر الأنسب لطفلك.'
+        description: 'ابحث عن أفضل المعلمين المعتمدين واختر الأنسب لاحتياجات طفلك.'
       }
     },
     {
       element: '[data-tour="nav-lessons"]',
       popover: {
         title: 'الحصص',
-        description: 'تابع جميع الحجوزات - الجاية والمكتملة.'
+        description: 'جدول بجميع الحصص القادمة والسابقة للرجوع إليها بسهولة.'
       }
     },
     {
       element: '[data-tour="nav-help"]',
       popover: {
-        title: 'المساعدة',
-        description: 'محتاج مساعدة؟ فريقنا جاهز لخدمتك. وتقدر تعيد الجولة من هنا!'
+        title: 'مركز المساعدة',
+        description: 'نحن هنا لمساعدتك! تواصل معنا لأي استفسار.'
       }
     },
     {
       // Final step - CTA with explicit completion
       element: '[data-tour="nav-children"]',
       popover: {
-        title: 'يلّا نبدأ! 🚀',
-        description: 'أضف طفلك الأول عشان نبدأ رحلة التعلم!',
+        title: 'لنبدأ الرحلة! 🚀',
+        description: 'أضف طفلك الأول وابدأ رحلة التعلم الممتعة.',
         onNextClick: () => {
           onComplete('/parent/children');
         }
@@ -160,43 +166,43 @@ function getStudentSteps(isMobile: boolean, onComplete: CompletionHandler): Driv
       element: '[data-tour="nav-dashboard"]',
       popover: {
         title: 'لوحة التحكم',
-        description: 'هنا تشوف ملخص حصصك الجاية وتقدمك.'
+        description: 'نظرة عامة على حصصك القادمة ومستوى تقدمك.'
       }
     },
     {
       element: '[data-tour="nav-book-teacher"]',
       popover: {
         title: 'احجز معلم ⭐',
-        description: 'تصفح المعلمين المعتمدين واحجز حصتك الأولى!'
+        description: 'تصفح قائمة المعلمين واحجز حصتك الأولى في دقائق.'
       }
     },
     {
       element: '[data-tour="nav-lessons"]',
       popover: {
         title: 'حصصي',
-        description: 'تابع جميع حجوزاتك ودخّل الحصة من هنا.'
+        description: 'كل حجوزاتك هنا. اضغط للدخول إلى الحصة أو مراجعة التفاصيل.'
       }
     },
     {
       element: '[data-tour="nav-wallet"]',
       popover: {
         title: 'المحفظة',
-        description: 'شوف رصيدك وتاريخ معاملاتك.'
+        description: 'رصيدك الحالي وتاريخ جميع معاملاتك المالية.'
       }
     },
     {
       element: '[data-tour="nav-help"]',
       popover: {
-        title: 'المساعدة',
-        description: 'محتاج مساعدة؟ تواصل معنا! وتقدر تعيد الجولة من هنا.'
+        title: 'مركز المساعدة',
+        description: 'محتاج مساعدة؟ لا تتردد في التواصل معنا.'
       }
     },
     {
       // Final step - CTA with explicit completion
       element: '[data-tour="nav-book-teacher"]',
       popover: {
-        title: 'يلّا نبدأ! 🚀',
-        description: 'خلّينا نلاقي لك المعلم المناسب!',
+        title: 'انطلق في التعلم! 🚀',
+        description: 'لنبحث عن المعلم المثالي لك الآن.',
         onNextClick: () => {
           onComplete('/search');
         }

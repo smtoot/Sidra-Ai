@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X, RotateCcw, Share2 } from 'lucide-react';
+import { User, LogOut, Home, Search, Calendar, Wallet, Users, DollarSign, BookOpen, FileText, Clock, Settings, Shield, AlertTriangle, ChevronLeft, ChevronRight, Package, PlayCircle, CheckCircle, ChevronDown, GraduationCap, Heart, Headphones, Video, Tag, Menu, X, RotateCcw, Share2, Mail, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -44,7 +44,6 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
     ],
     TEACHER: [
         { label: 'الرئيسية', href: '/teacher', icon: Home, tourId: 'nav-dashboard' },
-        { label: 'روّج لنفسك', href: '/teacher/promote', icon: Share2 },
         { label: 'ملفي الشخصي', href: '/teacher/profile-hub', icon: User, tourId: 'nav-profile' },
         { label: 'طلبات التدريس', href: '/teacher/requests', icon: FileText },
         { label: 'حصصي', href: '/teacher/sessions', icon: Calendar, tourId: 'nav-lessons' },
@@ -52,6 +51,7 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
         { label: 'المحفظة', href: '/teacher/wallet', icon: DollarSign, tourId: 'nav-wallet' },
         { label: 'المواعيد', href: '/teacher/availability', icon: Clock, tourId: 'nav-availability' },
         { label: 'الدعم الفني', href: '/support', icon: Headphones, tourId: 'nav-help' },
+        { label: 'روّج لنفسك', href: '/teacher/promote', icon: Share2 },
         { label: 'الإعدادات', href: '/teacher/settings', icon: Settings },
     ],
     STUDENT: [
@@ -121,12 +121,21 @@ const menuItems: Record<string, (NavItem | NavGroup)[]> = {
             ]
         },
         {
+            label: 'التقارير والتحليلات',
+            icon: BarChart3,
+            items: [
+                { label: 'لوحة التحليلات', href: '/admin/analytics', icon: BarChart3 },
+            ]
+        },
+        {
             label: 'النظام',
             icon: Settings,
             items: [
                 { label: 'فريق الإدارة', href: '/admin/team', icon: Shield },
                 { label: 'سجل العمليات', href: '/admin/audit-logs', icon: FileText },
+                { label: 'إعدادات الفيديو', href: '/admin/video-settings', icon: Video },
                 { label: 'إعدادات النظام', href: '/admin/settings', icon: Settings },
+                { label: 'قوالب البريد', href: '/admin/email-previews', icon: Mail },
             ]
         }
     ],
@@ -225,6 +234,20 @@ export function Navigation({ userRole, userName }: NavigationProps) {
 
     // Use itemsWithCounts instead of items below
 
+
+    // Listen for custom events (Product Tour)
+    useEffect(() => {
+        const handleOpenMobileMenu = () => setMobileMenuOpen(true);
+        const handleExpandSidebar = () => setIsCollapsed(false);
+
+        window.addEventListener('open-mobile-menu', handleOpenMobileMenu);
+        window.addEventListener('expand-sidebar', handleExpandSidebar);
+
+        return () => {
+            window.removeEventListener('open-mobile-menu', handleOpenMobileMenu);
+            window.removeEventListener('expand-sidebar', handleExpandSidebar);
+        };
+    }, []);
 
     // Close mobile menu on route change
     useEffect(() => {

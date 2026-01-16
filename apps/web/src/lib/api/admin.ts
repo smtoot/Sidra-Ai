@@ -241,9 +241,11 @@ export const adminApi = {
         allowedSessionDurations?: number[];
         meetingLinkAccessMinutesBefore?: number;
         maxVacationDays?: number;
+        vacationEnabled?: boolean;
 
         searchConfig?: any;
         cancellationPolicies?: any;
+        jitsiConfig?: any;
     }) => {
         const response = await api.patch('/admin/settings', data);
         return response.data;
@@ -462,5 +464,140 @@ export const adminApi = {
     getMyPermissions: async () => {
         const response = await api.get('/admin/team/me/permissions');
         return response.data;
+    },
+
+    // =================== EMAIL PREVIEWS ===================
+
+    getEmailTemplates: async () => {
+        const response = await api.get('/admin/emails/templates');
+        return response.data;
+    },
+
+    getEmailPreview: async (templateId: string) => {
+        const response = await api.get(`/admin/emails/preview/${templateId}`);
+        return response.data;
+    },
+
+    // =================== ADVANCED ANALYTICS ===================
+
+    getStudentAnalytics: async (filters: {
+        curriculumId?: string;
+        gradeLevel?: string;
+        schoolName?: string;
+        city?: string;
+        country?: string;
+        hasBookings?: boolean;
+        hasPackages?: boolean;
+        dateFrom?: string;
+        dateTo?: string;
+    } = {}) => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') {
+                params.append(key, String(value));
+            }
+        });
+        const response = await api.get(`/admin/analytics/students?${params.toString()}`);
+        return response.data;
+    },
+
+    getTeacherAnalytics: async (filters: {
+        subjectId?: string;
+        curriculumId?: string;
+        gradeLevelId?: string;
+        applicationStatus?: string;
+        city?: string;
+        country?: string;
+        minRating?: number;
+        minExperience?: number;
+        hasBookings?: boolean;
+        isOnVacation?: boolean;
+        dateFrom?: string;
+        dateTo?: string;
+    } = {}) => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') {
+                params.append(key, String(value));
+            }
+        });
+        const response = await api.get(`/admin/analytics/teachers?${params.toString()}`);
+        return response.data;
+    },
+
+    getBookingAnalytics: async (filters: {
+        subjectId?: string;
+        curriculumId?: string;
+        teacherId?: string;
+        status?: string;
+        beneficiaryType?: string;
+        minPrice?: number;
+        maxPrice?: number;
+        hasRating?: boolean;
+        hasHomework?: boolean;
+        dateFrom?: string;
+        dateTo?: string;
+        groupBy?: 'subject' | 'curriculum' | 'teacher' | 'status' | 'day' | 'week' | 'month';
+    } = {}) => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') {
+                params.append(key, String(value));
+            }
+        });
+        const response = await api.get(`/admin/analytics/bookings?${params.toString()}`);
+        return response.data;
+    },
+
+    getParentAnalytics: async (filters: {
+        city?: string;
+        country?: string;
+        minChildren?: number;
+        hasBookings?: boolean;
+        hasPackages?: boolean;
+        dateFrom?: string;
+        dateTo?: string;
+    } = {}) => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') {
+                params.append(key, String(value));
+            }
+        });
+        const response = await api.get(`/admin/analytics/parents?${params.toString()}`);
+        return response.data;
+    },
+
+    getAnalyticsFilterOptions: async () => {
+        const response = await api.get('/admin/analytics/filter-options');
+        return response.data;
+    },
+
+    exportAnalytics: async (
+        type: 'students' | 'teachers' | 'bookings' | 'parents',
+        format: 'csv' | 'json' = 'csv',
+        filters: Record<string, string> = {}
+    ) => {
+        const params = new URLSearchParams({ type, format, ...filters });
+        const response = await api.get(`/admin/analytics/export?${params.toString()}`);
+        return response.data;
+    },
+
+    // --- Meeting Events (P1-1) ---
+    getMeetingEvents: async (bookingId: string): Promise<MeetingEvent[]> => {
+        const response = await api.get(`/bookings/${bookingId}/meeting-events`);
+        return response.data;
     }
 };
+
+// Meeting Event Types (P1-1)
+export interface MeetingEvent {
+    id: string;
+    bookingId: string;
+    userId: string;
+    userName: string;
+    userRole: string;
+    eventType: 'PARTICIPANT_JOINED' | 'PARTICIPANT_LEFT' | 'MEETING_STARTED' | 'MEETING_ENDED';
+    metadata?: Record<string, any>;
+    createdAt: string;
+}

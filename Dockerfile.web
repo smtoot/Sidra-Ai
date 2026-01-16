@@ -20,6 +20,17 @@ COPY . .
 # Build shared package first (web depends on it)
 RUN echo "=== DOCKER BUILD: Building shared package ===" && npm run build --workspace=packages/shared
 
+# Build arguments for Next.js public env vars (required at build time)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_JITSI_ENABLED
+ARG NEXT_PUBLIC_JITSI_DOMAIN
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_JITSI_ENABLED=$NEXT_PUBLIC_JITSI_ENABLED
+ENV NEXT_PUBLIC_JITSI_DOMAIN=$NEXT_PUBLIC_JITSI_DOMAIN
+
+# Clean any existing .next folder to force fresh build
+RUN echo "=== DOCKER BUILD: Cleaning .next folder ===" && rm -rf apps/web/.next
+
 # Build the Next.js app
 RUN echo "=== DOCKER BUILD: Building Next.js app ===" && npm run build --workspace=apps/web
 

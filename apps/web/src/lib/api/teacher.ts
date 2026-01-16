@@ -103,6 +103,30 @@ export interface TeacherWorkExperience {
     createdAt: string;
 }
 
+export interface DashboardStats {
+    profile: {
+        id: string;
+        slug: string | null;
+        displayName: string;
+        firstName: string;
+        lastName: string;
+        photo: string | null;
+        isOnVacation: boolean;
+        vacationEndDate: string | null;
+    };
+    counts: {
+        todaySessions: number;
+        pendingRequests: number;
+        completedSessions: number;
+        demoSessions: number;
+        totalEarnings: number;
+        totalReviews: number;
+    };
+    upcomingSession: any;
+    recentSessions: any[];
+    walletBalance: number;
+}
+
 export const teacherApi = {
     getProfile: async () => {
         const response = await api.get('/teacher/me');
@@ -187,7 +211,11 @@ export const teacherApi = {
         const response = await api.post('/teacher/me/availability/bulk', { slots });
         return response.data;
     },
-    getDashboardStats: async () => {
+    setBulkExceptions: async (exceptions: any[]) => {
+        const response = await api.post('/teacher/me/exceptions/bulk', { exceptions });
+        return response.data;
+    },
+    getDashboardStats: async (): Promise<DashboardStats> => {
         const response = await api.get('/teacher/dashboard');
         return response.data;
     },
@@ -201,6 +229,10 @@ export const teacherApi = {
     },
     removeException: async (id: string) => {
         const response = await api.delete(`/teacher/me/exceptions/${id}`);
+        return response.data;
+    },
+    getVacationSettings: async () => {
+        const response = await api.get('/teacher/me/vacation-settings');
         return response.data;
     },
 
@@ -296,6 +328,10 @@ export const teacherApi = {
         return response.data;
     },
 
+    updateVacationMode: async (data: { isOnVacation: boolean; returnDate?: string; reason?: string }) => {
+        const response = await api.patch('/teacher/me/vacation-mode', data);
+        return response.data;
+    },
     selectInterviewSlot: async (slotId: string): Promise<{ message: string; scheduledAt: string; meetingLink?: string }> => {
         const response = await api.post(`/teacher/me/interview-slots/${slotId}/select`);
         return response.data;

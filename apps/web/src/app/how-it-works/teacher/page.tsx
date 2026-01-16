@@ -15,25 +15,25 @@ export default function TeacherHowItWorksPage() {
                 <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/20 rounded-full blur-[100px]" />
 
                 <div className="container mx-auto px-4 text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-primary-foreground text-sm font-medium mb-8 animate-fade-in-up">
-                        <Globe className="w-4 h-4" />
-                        <span>منصتك الأولى للمعلمين السودانيين</span>
-                    </div>
-                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-extrabold mb-8 tracking-tight animate-fade-in-up delay-100 leading-tight">
-                        انقل خبرتك للعالم،
+
+                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-extrabold mb-8 tracking-tight animate-fade-in-up delay-100 leading-tight text-white drop-shadow-sm">
+                        ابدأ التدريس أونلاين
                         <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-accent">وأنت في مكانك</span>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-accent">وزِد دخلك بمرونة</span>
                     </h1>
-                    <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-12 animate-fade-in-up delay-200 leading-relaxed font-light">
-                        سدرة هي التجمع الرقمي الأول للنخبة من المعلمين السودانيين. نربطك بطلاب من جميع أنحاء العالم يبحثون عن منهجك وأسلوبك المميز.
+                    <p className="text-lg md:text-xl text-gray-200 max-w-3xl mx-auto mb-12 animate-fade-in-up delay-200 leading-relaxed font-light">
+                        أنشئ ملفك، حدّد سعرك وجدولك، واستقبل طلبات طلاب مناسبين لموادك من داخل وخارج السودان.
                     </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up delay-300">
-                        <Button size="lg" className="h-16 px-10 text-xl font-bold rounded-full bg-primary hover:bg-primary-hover text-white shadow-lg shadow-primary/25 w-full sm:w-auto transition-all hover:scale-105" asChild>
-                            <Link href="/join-as-teacher">انضم لنخبة المعلمين</Link>
-                        </Button>
-                        <Button variant="outline" size="lg" className="h-16 px-10 text-xl rounded-full border-2 border-white/20 hover:bg-white/10 text-white w-full sm:w-auto" asChild>
-                            <Link href="#requirements">شروط الانضمام</Link>
-                        </Button>
+                    <div className="flex flex-col items-center justify-center gap-4 animate-fade-in-up delay-300">
+                        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                            <Button size="lg" className="h-16 px-10 text-xl font-bold rounded-full bg-primary hover:bg-primary-hover shadow-lg shadow-primary/25 w-full sm:w-auto transition-all hover:scale-105 group" asChild>
+                                <Link href="/join-as-teacher" className="!text-white group-hover:text-white">انضم كمعلم الآن</Link>
+                            </Button>
+                            <Button variant="outline" size="lg" className="h-16 px-10 text-xl rounded-full border-2 border-white/20 hover:bg-white/10 text-white w-full sm:w-auto" asChild>
+                                <Link href="#requirements">شروط الانضمام</Link>
+                            </Button>
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2">التسجيل مجاني • تحكم كامل في وقتك • دعم في إعداد الملف</p>
                     </div>
                 </div>
             </section>
@@ -46,14 +46,14 @@ export default function TeacherHowItWorksPage() {
                         <p className="text-text-subtle text-lg max-w-2xl mx-auto">صممنا المنصة لتمنحك الأدوات والحرية التي تستحقها كمعلم محترف.</p>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid md:grid-cols-2 gap-8">
                         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-6">
-                                <Users className="w-7 h-7" />
+                            <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 mb-6">
+                                <Timer className="w-7 h-7" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3">مجتمع تعليمي سوداني</h3>
+                            <h3 className="text-xl font-bold mb-3">حرية كاملة في الوقت</h3>
                             <p className="text-text-subtle leading-relaxed">
-                                كن جزءاً من مجتمع يضم أفضل الكفاءات السودانية. طلابنا يبحثون تحديداً عن المعلم السوداني لتميزه في الشرح والمناهج.
+                                اختر الأيام والساعات التي تناسبك فقط.
                             </p>
                         </div>
 
@@ -61,19 +61,29 @@ export default function TeacherHowItWorksPage() {
                             <div className="w-14 h-14 bg-green-50 rounded-xl flex items-center justify-center text-green-600 mb-6">
                                 <Wallet className="w-7 h-7" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3">دخل إضافي مضمون</h3>
+                            <h3 className="text-xl font-bold mb-3">دخل إضافي بمرونة</h3>
                             <p className="text-text-subtle leading-relaxed">
-                                حدد سعرك للساعة بحرية. نضمن لك تحويل مستحقاتك بشكل دوري وآمن، سواء كنت داخل السودان أو خارجه.
+                                أنت من يحدد سعر الحصة حسب خبرتك ومجالك.
                             </p>
                         </div>
 
                         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 mb-6">
-                                <Timer className="w-7 h-7" />
+                            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-6">
+                                <Users className="w-7 h-7" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3">حرية كاملة في الوقت</h3>
+                            <h3 className="text-xl font-bold mb-3">مجتمع تعليمي سوداني</h3>
                             <p className="text-text-subtle leading-relaxed">
-                                لا دوام ثابت ولا التزامات مفروضة. افتح الجدول في الأوقات التي تناسبك، وأغلقه متى شئت.
+                                طلاب من داخل السودان وخارجه يبحثون عن معلمين موثوقين.
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 mb-6">
+                                <CheckCircle className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-3">مدفوعات مضمونة وآمنة</h3>
+                            <p className="text-text-subtle leading-relaxed">
+                                كل حصة يتم حجزها عبر سدرة تكون مدفوعة ومؤكدة مسبقًا. نستلم قيمة الحصة لضمان حقك الكامل، ويتم تحويل أرباحك بعد انتهاء الحصة بكل سلاسة.
                             </p>
                         </div>
                     </div>
@@ -113,9 +123,9 @@ export default function TeacherHowItWorksPage() {
                                 <div className="flex gap-6">
                                     <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xl shadow-lg border-4 border-white ring-2 ring-primary/10">1</div>
                                     <div>
-                                        <h3 className="text-xl font-bold mb-2">أنشئ ملفك الاحترافي</h3>
+                                        <h3 className="text-xl font-bold mb-2">أنشئ ملفك التعريفي</h3>
                                         <p className="text-text-subtle leading-relaxed">
-                                            سجل بياناتك، ارفع مؤهلاتك، وسجل فيديو تعريفي قصير يظهر شخصيتك وأسلوبك في التدريس. هذا الفيديو هو بوابتك لجذب الطلاب.
+                                            أضف خبراتك، موادك، ومعلوماتك التعليمية.
                                         </p>
                                     </div>
                                 </div>
@@ -123,9 +133,9 @@ export default function TeacherHowItWorksPage() {
                                 <div className="flex gap-6">
                                     <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xl shadow-lg border-4 border-white ring-2 ring-primary/10">2</div>
                                     <div>
-                                        <h3 className="text-xl font-bold mb-2">حدد سعرك وجدولك</h3>
+                                        <h3 className="text-xl font-bold mb-2">حدّد سعرك وجدولك</h3>
                                         <p className="text-text-subtle leading-relaxed">
-                                            أنت المدير هنا. حدد سعر الساعة الذي تراه مناسباً لخبرتك، وافتح الأوقات المتاحة في جدولك لاستقبال الحجوزات.
+                                            أنت المتحكم الكامل في السعر والأوقات.
                                         </p>
                                     </div>
                                 </div>
@@ -133,15 +143,16 @@ export default function TeacherHowItWorksPage() {
                                 <div className="flex gap-6">
                                     <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xl shadow-lg border-4 border-white ring-2 ring-primary/10">3</div>
                                     <div>
-                                        <h3 className="text-xl font-bold mb-2">ابدأ التدريس واجني الأرباح</h3>
+                                        <h3 className="text-xl font-bold mb-2">استقبل الطلبات وابدأ التدريس</h3>
                                         <p className="text-text-subtle leading-relaxed">
-                                            استقبل طلبات الحجز، قدم حصصاً ممتعة في فصلنا الافتراضي، واستلم أرباحك بشكل دوري ومضمون.
+                                            طلبات حقيقية من طلاب جاهزين للتعلّم.
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="mt-10">
+                                <p className="text-sm text-text-subtle mb-4">التسجيل لا يستغرق أكثر من 3–5 دقائق، ويمكنك تعديل ملفك في أي وقت.</p>
                                 <Button className="h-12 px-8 rounded-full" asChild>
                                     <Link href="/join-as-teacher">ابدأ التسجيل الآن <ArrowLeft className="w-4 h-4 mr-2" /></Link>
                                 </Button>
@@ -156,54 +167,108 @@ export default function TeacherHowItWorksPage() {
                 <div className="container mx-auto px-4 max-w-4xl">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl font-bold text-[#111827] mb-4">شروط الانضمام</h2>
-                        <p className="text-text-subtle text-lg">نبحث عن الجودة والالتزام لضمان أفضل تجربة لطلابنا</p>
+                        <p className="text-text-subtle text-lg">نضع هذه المتطلبات فقط لضمان جودة التعليم وحماية حقوق الجميع.</p>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="bg-white p-6 rounded-xl border border-gray-100 flex items-start gap-4">
                             <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
                             <div>
-                                <h4 className="font-bold text-gray-900 mb-1">خبرة تعليمية ومؤهل</h4>
-                                <p className="text-sm text-text-subtle">يفضل وجود شهادة جامعية أو خبرة عملية في تدريس المادة المختارة.</p>
+                                <h4 className="font-bold text-gray-900 mb-1">التحقق من الهوية لضمان الأمان</h4>
                             </div>
                         </div>
+
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 flex items-start gap-4">
+                            <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
+                            <div>
+                                <h4 className="font-bold text-gray-900 mb-1">خبرة أو مؤهل مناسب</h4>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 flex items-start gap-4">
+                            <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
+                            <div>
+                                <h4 className="font-bold text-gray-900 mb-1">الالتزام بالمواعيد</h4>
+                            </div>
+                        </div>
+
                         <div className="bg-white p-6 rounded-xl border border-gray-100 flex items-start gap-4">
                             <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
                             <div>
                                 <h4 className="font-bold text-gray-900 mb-1">اتصال إنترنت مستقر</h4>
-                                <p className="text-sm text-text-subtle">سرعة إنترنت جيدة لضمان جودة الصوت والفيديو أثناء الحصة.</p>
                             </div>
                         </div>
+
                         <div className="bg-white p-6 rounded-xl border border-gray-100 flex items-start gap-4">
                             <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
                             <div>
-                                <h4 className="font-bold text-gray-900 mb-1">جهاز حاسوب أو تابلت</h4>
-                                <p className="text-sm text-text-subtle">يفضل استخدام لابتوب أو تابلت حديث لاستخدام أدوات الفصل الافتراضي.</p>
+                                <h4 className="font-bold text-gray-900 mb-1">جهاز مناسب (لابتوب أو تابلت)</h4>
                             </div>
                         </div>
+
                         <div className="bg-white p-6 rounded-xl border border-gray-100 flex items-start gap-4">
                             <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
                             <div>
-                                <h4 className="font-bold text-gray-900 mb-1">شغف والتزام</h4>
-                                <p className="text-sm text-text-subtle">الرغبة الحقيقية في مساعدة الطلاب والالتزام بالمواعيد المحددة.</p>
+                                <h4 className="font-bold text-gray-900 mb-1">أسلوب تواصل مهني</h4>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
+
+
+            {/* Teacher FAQ Section */}
+            <section className="py-24 bg-white">
+                <div className="container mx-auto px-4 max-w-3xl">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl font-bold text-[#111827] mb-4">أسئلة شائعة للمعلمين</h2>
+                    </div>
+
+                    <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger className="text-lg font-bold">كيف تصلني طلبات الطلاب؟</AccordionTrigger>
+                            <AccordionContent className="text-text-subtle text-base leading-relaxed">
+                                تظهر لك الطلبات مباشرة حسب تخصصك وجدولك ويمكنك قبولها أو رفضها.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-2">
+                            <AccordionTrigger className="text-lg font-bold">متى وكيف يتم الدفع؟</AccordionTrigger>
+                            <AccordionContent className="text-text-subtle text-base leading-relaxed">
+                                يتم تحويل المبلغ لك بعد انتهاء الحصة وتأكيد الطالب.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-3">
+                            <AccordionTrigger className="text-lg font-bold">هل أتحكم في السعر والجدول؟</AccordionTrigger>
+                            <AccordionContent className="text-text-subtle text-base leading-relaxed">
+                                نعم، أنت من يحدد السعر وأوقات التدريس بالكامل.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-4">
+                            <AccordionTrigger className="text-lg font-bold">هل توجد عمولة؟</AccordionTrigger>
+                            <AccordionContent className="text-text-subtle text-base leading-relaxed">
+                                نعم، توجد نسبة بسيطة لتغطية تكاليف التشغيل والتسويق، تظهر لك بوضوح عند تحديد السعر.
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </div>
+            </section>
+
             {/* Final CTA */}
             <section className="py-24 bg-primary text-white">
                 <div className="container mx-auto px-4 text-center">
-                    <h2 className="text-3xl md:text-5xl font-bold mb-8">هل أنت مستعد لتكون جزءاً من التغيير؟</h2>
+                    <h2 className="text-3xl md:text-5xl font-bold mb-8">جاهز تبدأ التدريس مع سدرة؟</h2>
                     <p className="text-xl text-primary-foreground/90 max-w-2xl mx-auto mb-12">
-                        شارك في بناء مستقبل التعليم في السودان، وزد دخلك من خلال شغفك.
+                        أنشئ ملفك وحدد سعرك واستقبل طلبات طلاب مناسبين.
                     </p>
-                    <Button size="lg" variant="secondary" className="h-16 px-12 text-xl font-bold rounded-full shadow-2xl hover:scale-105 transition-transform text-primary" asChild>
-                        <Link href="/join-as-teacher">سجل كمعلم الآن</Link>
-                    </Button>
+                    <div className="flex flex-col items-center">
+                        <Button size="lg" variant="secondary" className="h-16 px-12 text-xl font-bold rounded-full shadow-2xl hover:scale-105 transition-transform text-primary bg-[#FCD34D] hover:bg-[#FCD34D]/90 border-none group" asChild>
+                            <Link href="/join-as-teacher">انضم كمعلم الآن</Link>
+                        </Button>
+                        <p className="text-primary-foreground/80 mt-4 text-sm font-medium">التسجيل مجاني • بدون التزام • دعم خطوة بخطوة</p>
+                    </div>
                 </div>
             </section>
-        </div>
+        </div >
     );
 }

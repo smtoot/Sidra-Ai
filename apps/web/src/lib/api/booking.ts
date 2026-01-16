@@ -90,6 +90,8 @@ export interface Booking {
     };
     student?: any; // Legacy compatibility
     meetingLink?: string;
+    jitsiEnabled?: boolean;
+    jitsiRoomId?: string;
     subject?: {
         id: string;
         nameAr: string;
@@ -183,7 +185,15 @@ export const bookingApi = {
 
     getParentBookings: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/parent/my-bookings');
-        return response.data;
+        // Backend returns paginated response: { data: Booking[], meta: {...} }
+        const result = response.data;
+        if (result && Array.isArray(result.data)) {
+            return result.data;
+        }
+        if (Array.isArray(result)) {
+            return result;
+        }
+        return [];
     },
 
     getStudentBookings: async (): Promise<Booking[]> => {
@@ -226,8 +236,43 @@ export const bookingApi = {
     cancelBooking: async (id: string, reason?: string) => {
         const response = await api.patch(`/bookings/${id}/cancel`, { reason });
         return response.data;
+    },
+
+    // --- Meeting Events (P1-1) ---
+
+    // Log a meeting event
+    logMeetingEvent: async (id: string, eventType: MeetingEventType, metadata?: Record<string, any>) => {
+        const response = await api.post(`/bookings/${id}/meeting-event`, {
+            eventType,
+            metadata
+        });
+        return response.data;
+    },
+
+    // Get meeting events for a booking (admin only)
+    getMeetingEvents: async (id: string): Promise<MeetingEvent[]> => {
+        const response = await api.get(`/bookings/${id}/meeting-events`);
+        return response.data;
     }
 };
+
+// Meeting Event Types (P1-1)
+export type MeetingEventType =
+    | 'PARTICIPANT_JOINED'
+    | 'PARTICIPANT_LEFT'
+    | 'MEETING_STARTED'
+    | 'MEETING_ENDED';
+
+export interface MeetingEvent {
+    id: string;
+    bookingId: string;
+    userId: string;
+    userName: string;
+    userRole: string;
+    eventType: MeetingEventType;
+    metadata?: Record<string, any>;
+    createdAt: string;
+}
 
 export interface CancelEstimate {
     canCancel: boolean;

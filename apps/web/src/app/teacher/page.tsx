@@ -13,6 +13,7 @@ import { TeacherApprovalGuard } from '@/components/teacher/TeacherApprovalGuard'
 import { getFileUrl } from '@/lib/api/upload';
 import { format, isToday, isTomorrow, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { ActiveSessionCard } from '@/components/dashboard/ActiveSessionCard';
 
 
 export default function TeacherDashboardPage() {
@@ -60,7 +61,7 @@ export default function TeacherDashboardPage() {
         </div>
     );
 
-    const { profile, counts, upcomingSession, recentSessions, walletBalance } = stats;
+    const { profile, counts, upcomingSession, activeSession, recentSessions, walletBalance } = stats;
 
     // Compute upcoming session date labels
     let sessionDateLabel = '';
@@ -198,8 +199,18 @@ export default function TeacherDashboardPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-6">
                         {/* Left Column - Main Content */}
                         <div className="lg:col-span-2 space-y-5 md:space-y-6">
-                            {/* Next Session Highlight */}
-                            {upcomingSession ? (
+                            {/* Active Session Highlight - High Priority */}
+                            {activeSession && (
+                                <div className="mb-2">
+                                    <ActiveSessionCard
+                                        session={activeSession}
+                                        userRole="TEACHER"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Next Session Highlight (Only if no active session) */}
+                            {!activeSession && upcomingSession ? (
                                 <Card className="border-none shadow-lg overflow-hidden bg-gradient-to-br from-primary-600 to-primary-700">
                                     <CardContent className="p-4 md:p-6 text-white">
                                         <div className="flex items-start justify-between mb-4 md:mb-6">
@@ -238,10 +249,10 @@ export default function TeacherDashboardPage() {
                                             <Button
                                                 size="default"
                                                 className="w-full sm:w-auto bg-white text-primary-600 hover:bg-primary-50 shadow-lg text-sm md:text-base"
-                                                disabled={!upcomingSession.meetingLink}
+                                                disabled={!upcomingSession.jitsiEnabled}
                                                 onClick={() => {
-                                                    if (upcomingSession.meetingLink) {
-                                                        window.open(upcomingSession.meetingLink, '_blank');
+                                                    if (upcomingSession.jitsiEnabled) {
+                                                        window.open(`/meeting/${upcomingSession.id}`, '_blank');
                                                     }
                                                 }}
                                             >
@@ -250,22 +261,19 @@ export default function TeacherDashboardPage() {
                                             </Button>
                                         </div>
 
-                                        {!upcomingSession.meetingLink && (
+                                        {!upcomingSession.jitsiEnabled && (
                                             <div className="mt-3 md:mt-4 p-2.5 md:p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg">
                                                 <div className="flex items-start gap-2 text-xs md:text-sm">
                                                     <AlertCircle className="w-3.5 md:w-4 h-3.5 md:h-4 mt-0.5 shrink-0" />
                                                     <div>
-                                                        <strong>تنبيه:</strong> لم تقم بإضافة رابط الاجتماع.
-                                                        <Link href="/teacher/sessions" className="underline font-semibold mr-1">
-                                                            إضافة الآن
-                                                        </Link>
+                                                        <strong>تنبيه:</strong> الفصل الافتراضي غير مفعل لهذا الحجز.
                                                     </div>
                                                 </div>
                                             </div>
                                         )}
                                     </CardContent>
                                 </Card>
-                            ) : (
+                            ) : !activeSession ? (
                                 <Card className="border-2 border-dashed border-gray-200">
                                     <CardContent className="p-8 md:p-12 text-center">
                                         <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
@@ -278,7 +286,7 @@ export default function TeacherDashboardPage() {
                                         </Link>
                                     </CardContent>
                                 </Card>
-                            )}
+                            ) : null}
 
                             {/* Week Timeline */}
                             <Card className="border-none shadow-md">
@@ -474,7 +482,7 @@ export default function TeacherDashboardPage() {
                     </div>
                 </div>
             </div>
-        </TeacherApprovalGuard>
+        </TeacherApprovalGuard >
     );
 }
 

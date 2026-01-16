@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
@@ -28,6 +29,7 @@ import {
 import { EncryptionUtil } from '../common/utils/encryption.util';
 import { TeacherService } from '../teacher/teacher.service';
 import { SystemSettingsService } from '../admin/system-settings.service';
+import { AvailabilitySlotService } from '../teacher/availability-slot.service';
 
 @Injectable()
 export class BookingService {
@@ -42,7 +44,21 @@ export class BookingService {
     private readableIdService: ReadableIdService,
     private teacherService: TeacherService,
     private system_settingsService: SystemSettingsService,
+    private configService: ConfigService,
+    private availabilitySlotService: AvailabilitySlotService,
   ) {}
+
+  private redactUserPII(user: any) {
+    if (!user) return user;
+    const { email, phoneNumber, ...rest } = user;
+    return rest;
+  }
+
+  private getSafeDisplayName(user: any, fallback: string) {
+    if (!user) return fallback;
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return name || user.displayName || fallback;
+  }
 
   // Create a booking request (Parent or Student)
   async createRequest(user: any, dto: CreateBookingDto) {
@@ -122,95 +138,138 @@ export class BookingService {
       throw new BadRequestException('Cannot book sessions in the past');
     }
 
-    // **VALIDATION**: Check if the slot is actually available
-
-    // 1. Check teacher's schedule (Weekly + Exceptions)
-    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-      dto.teacherId,
-      new Date(dto.startTime),
-    );
-
-    if (!isTeacherAvailable) {
-      throw new BadRequestException(
-        'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
-      );
-    }
-
-    // 2. Check for existing booking conflicts
-    const bookingConflict = await this.prisma.bookings.findFirst({
-      where: {
-        teacherId: dto.teacherId,
-        startTime: { lte: new Date(dto.startTime) },
-        endTime: { gt: new Date(dto.startTime) },
-        status: {
-          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
-        },
-      },
-    });
-
-    if (bookingConflict) {
-      throw new BadRequestException(
-        'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
-      );
-    }
-
-    // **P0-1 FIX: Price Manipulation**
-    // Ignore dto.price completely. Calculate based on TeacherSubject price and duration.
-    const durationHours =
-      (new Date(dto.endTime).getTime() - new Date(dto.startTime).getTime()) /
-      (1000 * 60 * 60);
-
-    // Ensure duration is positive
-    if (durationHours <= 0) {
-      throw new BadRequestException('End time must be after start time');
-    }
-
-    // SECURITY: Enforce maximum session duration to prevent abuse
-    const MAX_SESSION_HOURS = 8;
-    if (durationHours > MAX_SESSION_HOURS) {
-      throw new BadRequestException(
-        `Session duration cannot exceed ${MAX_SESSION_HOURS} hours`,
-      );
-    }
-
-    // Calculate price: pricePerHour * duration
-    // Assuming pricePerHour is Decimal in Prism but JS number here?
-    // teacher_subjects.pricePerHour is likely Decimal/string from Prisma.
-    // Let's use Number() for simplicity in this logic, but ideally Decimal.js.
-    const pricePerHour = Number(teacher_subjects.pricePerHour);
-    const rawPrice = pricePerHour * durationHours;
-
-    // DEMO LOGIC: Demo sessions are free (Price = 0)
-    // SECURITY FIX: Validate isDemo flag server-side against teacher settings
-    let isValidDemo = false;
-    if (dto.isDemo) {
-      const demoEnabled = await this.demoService.isTeacherDemoEnabled(
-        dto.teacherId,
-      );
-      if (!demoEnabled) {
-        throw new BadRequestException('هذا المعلم لا يقدم حصص تجريبية حالياً');
-      }
-      isValidDemo = true;
-    }
-    const calculatedPrice = isValidDemo ? 0 : normalizeMoney(rawPrice);
-
-    // Snapshot commission rate (from system settings or default)
-    // Hardcoded default for now or fetch settings. Using 0.18 as per schema default.
-    const commissionRate = 0.18;
-
-    // Generate human-readable booking ID
-    const readableId = await this.readableIdService.generate('BOOKING');
-
-    // CHANGED: Per-session meeting links
-    // Meeting links are now set per-session by the teacher, not copied from global profile
-    // Teacher will be prompted to add meeting link before each session
-
     // =====================================================
-    // SECURITY FIX: Atomic transaction for booking + demo/package
-    // Prevents race conditions and ensures consistent cleanup
+    // SECURITY & CONCURRENCY: Phase 3 Slot-based Logic
     // =====================================================
     const booking = await this.prisma.$transaction(async (tx) => {
-      // 1. For demo bookings, verify eligibility AND create record atomically
+      // 1. Advisory Lock (per teacher)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.teacherId}))`;
+
+      // 2. Slot Validation
+      let sessionStartTime = new Date(dto.startTime);
+      let sessionEndTime = new Date(dto.endTime);
+
+      let slot: any;
+      if ((dto as any).slotId) {
+        // Strict locking for the target slot
+        const slots = await tx.$queryRawUnsafe<any[]>(
+          `SELECT * FROM "teacher_session_slots" WHERE "id" = $1 FOR UPDATE NOWAIT`,
+          (dto as any).slotId,
+        );
+        slot = slots[0];
+
+        if (!slot) {
+          throw new BadRequestException(
+            'لقد تم حجز هذا الموعد للتو. يرجى اختيار وقت آخر.',
+          );
+        }
+        if (slot.teacherId !== dto.teacherId) {
+          throw new BadRequestException('Slot does not belong to this teacher');
+        }
+
+        // Use slot's startTime to be 100% sure we are on the materialized grid
+        sessionStartTime = slot.startTimeUtc;
+        sessionEndTime = new Date(sessionStartTime.getTime() + 60 * 60 * 1000);
+      } else {
+        // Fallback for flows that don't pass slotId yet: Strict Direct Slot Lookup
+        const slots = await tx.$queryRawUnsafe<any[]>(
+          `SELECT * FROM "teacher_session_slots" 
+           WHERE "teacherId" = $1 AND "startTimeUtc" = $2::timestamp 
+           FOR UPDATE NOWAIT`,
+          dto.teacherId,
+          sessionStartTime,
+        );
+        slot = slots[0];
+
+        if (!slot) {
+          throw new BadRequestException(
+            'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
+          );
+        }
+      }
+
+      // 3. Conflict Check (Source of Truth)
+      const bookingConflict = await tx.bookings.findFirst({
+        where: {
+          teacherId: dto.teacherId,
+          startTime: { lt: sessionEndTime },
+          endTime: { gt: sessionStartTime },
+          status: {
+            in: [
+              'SCHEDULED',
+              'PENDING_TEACHER_APPROVAL',
+              'WAITING_FOR_PAYMENT',
+              'PENDING_CONFIRMATION',
+              'PAYMENT_REVIEW',
+            ] as any,
+          },
+        },
+      });
+
+      if (bookingConflict) {
+        throw new BadRequestException(
+          'هذا الموعد غير متاح. يرجى اختيار وقت آخر.',
+        );
+      }
+
+      // **P0-1 FIX: Price Manipulation**
+      // Ignore dto.price completely. Calculate based on TeacherSubject price and duration.
+      const durationHours =
+        (sessionEndTime.getTime() - sessionStartTime.getTime()) /
+        (1000 * 60 * 60);
+
+      // Ensure duration is positive
+      if (durationHours <= 0) {
+        throw new BadRequestException('End time must be after start time');
+      }
+
+      // SECURITY: Enforce maximum session duration to prevent abuse
+      const MAX_SESSION_HOURS = 8;
+      if (durationHours > MAX_SESSION_HOURS) {
+        throw new BadRequestException(
+          `Session duration cannot exceed ${MAX_SESSION_HOURS} hours`,
+        );
+      }
+
+      // Calculate price: pricePerHour * duration
+      // Assuming pricePerHour is Decimal in Prism but JS number here?
+      // teacher_subjects.pricePerHour is likely Decimal/string from Prisma.
+      // Let's use Number() for simplicity in this logic, but ideally Decimal.js.
+      const pricePerHour = Number(teacher_subjects.pricePerHour);
+      const rawPrice = pricePerHour * durationHours;
+
+      // DEMO LOGIC: Demo sessions are free (Price = 0)
+      // SECURITY FIX: Validate isDemo flag server-side against teacher settings
+      let isValidDemo = false;
+      if (dto.isDemo) {
+        const demoEnabled = await this.demoService.isTeacherDemoEnabled(
+          dto.teacherId,
+        );
+        if (!demoEnabled) {
+          throw new BadRequestException(
+            'هذا المعلم لا يقدم حصص تجريبية حالياً',
+          );
+        }
+        isValidDemo = true;
+      }
+      const calculatedPrice = isValidDemo ? 0 : normalizeMoney(rawPrice);
+
+      // Snapshot commission rate (from system settings or default)
+      // Hardcoded default for now or fetch settings. Using 0.18 as per schema default.
+      const commissionRate = 0.18;
+
+      // Generate human-readable booking ID
+      const readableId = await this.readableIdService.generate('BOOKING');
+
+      // CHANGED: Per-session meeting links
+      // Meeting links are now set per-session by the teacher, not copied from global profile
+      // Teacher will be prompted to add meeting link before each session
+
+      // =====================================================
+      // SECURITY FIX: Atomic transaction for booking + demo/package
+      // Prevents race conditions and ensures consistent cleanup
+      // =====================================================
+      // 4. For demo bookings, verify eligibility AND create record atomically
       if (isValidDemo) {
         // Determine demoOwner: The person booking (parent or standalone student)
         const demoOwnerId = user.userId;
@@ -260,8 +319,8 @@ export class BookingService {
           studentUserId,
 
           subjectId: dto.subjectId,
-          startTime: new Date(dto.startTime),
-          endTime: new Date(dto.endTime),
+          startTime: sessionStartTime,
+          endTime: sessionEndTime,
           timezone: dto.timezone || 'UTC', // Store user's timezone
           price: calculatedPrice, // P0-1: Server-calculated, normalized to integer (0 for demo)
           commissionRate: commissionRate,
@@ -269,6 +328,7 @@ export class BookingService {
           meetingLink: null, // CHANGED: No longer copy from teacher profile - must be set per session
           status: 'PENDING_TEACHER_APPROVAL',
           pendingTierId: dto.tierId || null, // For deferred package purchases
+          jitsiEnabled: this.configService.get('JITSI_ENABLED') === 'true', // Auto-enable if feature is on
         },
         include: {
           teacher_profiles: { include: { users: true } },
@@ -291,6 +351,14 @@ export class BookingService {
         );
       }
 
+      // 4. Consume Slot (Delete all overlapping slots)
+      await this.availabilitySlotService.deleteOverlappingSlots(
+        tx,
+        dto.teacherId,
+        sessionStartTime,
+        sessionEndTime,
+      );
+
       return newBooking;
     });
 
@@ -298,10 +366,14 @@ export class BookingService {
     this.logger.debug(
       `Notifying teacher ${booking.teacher_profiles.users.email} about new booking request`,
     );
+    const requesterName = this.getSafeDisplayName(
+      booking.users_bookings_bookedByUserIdTousers,
+      'مستخدم',
+    );
     await this.notificationService.notifyUser({
       userId: booking.teacher_profiles.users.id,
       title: 'طلب حجز جديد',
-      message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'}`,
+      message: `لديك طلب حجز جديد من ${requesterName}`,
       type: 'BOOKING_REQUEST',
       link: '/teacher/requests',
       dedupeKey: `BOOKING_REQUEST:${booking.id}:${booking.teacher_profiles.users.id}`,
@@ -315,7 +387,7 @@ export class BookingService {
               recipientName:
                 booking.teacher_profiles.users.firstName || 'المعلم',
               title: 'طلب حجز جديد',
-              message: `لديك طلب حجز جديد من ${booking.users_bookings_bookedByUserIdTousers?.email || 'مستخدم'} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
+              message: `لديك طلب حجز جديد من ${requesterName} لموعد ${new Date(booking.startTime).toLocaleDateString('ar-EG')} الساعة ${new Date(booking.startTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}.`,
               sessionDate: new Date(booking.startTime).toLocaleDateString(
                 'ar-EG',
               ),
@@ -418,11 +490,43 @@ export class BookingService {
         if (balance < price) {
           // --- Insufficient Balance Flow ---
 
-          // If deadline is already passed (or too close to session), we cannot allow "Pay Later"
+          // If deadline is already passed (or too close to session), we checks if we can allow a short "immediate" window
           if (paymentDeadline.getTime() <= now.getTime()) {
-            throw new BadRequestException(
-              'رصيد ولي الأمر غير كافٍ والوقت متأخر جداً لانتظار الدفع. يجب شحن المحفظة فوراً.',
-            );
+            // FIX: If session hasn't started yet, give a 15-minute (or until start) window instead of hard failure
+            const msUntilStart = booking.startTime.getTime() - now.getTime();
+            const MIN_PAYMENT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+            if (msUntilStart > 0) {
+              // Allow a short window: min(15 min, time until start)
+              const allowedWindow = Math.min(
+                MIN_PAYMENT_WINDOW_MS,
+                msUntilStart,
+              );
+              // Update paymentDeadline to be "now + window"
+              // We must re-assign the const variable, but it's const. We need to handle this.
+              // Logic fix: Re-calculate paymentDeadline or create a new variable.
+              // Since we are inside the block, we can just use the new date for the update.
+              const newDeadline = new Date(now.getTime() + allowedWindow);
+
+              // Proceed with this new deadline
+              const updatedBooking = await tx.bookings.update({
+                where: { id: bookingId },
+                data: {
+                  status: 'WAITING_FOR_PAYMENT',
+                  paymentDeadline: newDeadline,
+                },
+              });
+
+              return {
+                bookings: updatedBooking,
+                paymentRequired: true,
+                isPackage: false,
+              };
+            } else {
+              throw new BadRequestException(
+                'رصيد ولي الأمر غير كافٍ والوقت متأخر جداً لانتظار الدفع. يجب شحن المحفظة فوراً.',
+              );
+            }
           }
 
           // Transition to WAITING_FOR_PAYMENT
@@ -739,49 +843,40 @@ export class BookingService {
       throw new BadRequestException('Booking is not pending');
     }
 
-    const updatedBooking = await this.prisma.bookings.update({
-      where: { id: bookingId },
-      data: {
-        status: 'REJECTED_BY_TEACHER',
-        cancelReason: dto.cancelReason,
-      },
-    });
+    const updatedBooking = await this.prisma.$transaction(async (tx) => {
+      // 1. Advisory Lock
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${booking.teacherId}))`;
 
-    // PACKAGE FIX: If this is a package session, return it to the package
-    if (booking.package_redemptions) {
-      await this.prisma.$transaction([
-        // 1. Mark redemption as CANCELLED
-        this.prisma.package_redemptions.update({
-          where: { id: booking.package_redemptions.id },
-          data: { status: 'CANCELLED' },
-        }),
-        // 2. Decrement sessionsUsed on the package
-        this.prisma.student_packages.update({
-          where: { id: booking.package_redemptions.packageId },
-          data: { sessionsUsed: { decrement: 1 } },
-        }),
-      ]);
-      this.logger.log(
-        `Returned session to package ${booking.package_redemptions.packageId} due to teacher rejection of booking ${bookingId}`,
-      );
-    }
-
-    // DEMO FIX: If this is a demo booking, delete the DemoSession record
-    // This allows the user to book another demo with the same teacher
-    // Business rule: Teacher rejection should NOT count against user's demo quota
-    const isDemo = Number(booking.price) === 0;
-    if (isDemo) {
-      await this.prisma.demo_sessions.deleteMany({
-        where: {
-          demoOwnerId: booking.bookedByUserId,
-          teacherId: booking.teacherId,
-          status: 'SCHEDULED', // Only delete scheduled (not completed) demos
+      // 2. Update Booking
+      const res = await tx.bookings.update({
+        where: { id: bookingId },
+        data: {
+          status: 'REJECTED_BY_TEACHER',
+          cancelReason: dto.cancelReason,
         },
       });
-      this.logger.log(
-        `Deleted DemoSession for user ${booking.bookedByUserId} with teacher ${booking.teacherId} due to teacher rejection`,
+
+      // 3. Package Return
+      if (booking.package_redemptions) {
+        await tx.package_redemptions.update({
+          where: { id: booking.package_redemptions.id },
+          data: { status: 'CANCELLED' },
+        });
+        await tx.student_packages.update({
+          where: { id: booking.package_redemptions.packageId },
+          data: { sessionsUsed: { decrement: 1 } },
+        });
+      }
+
+      // 4. Slot Restoration
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        booking.teacherId,
+        booking.startTime,
       );
-    }
+
+      return res;
+    });
 
     // Notify parent about booking rejection
     await this.notificationService.notifyUser({
@@ -1175,18 +1270,20 @@ export class BookingService {
     if (!booking) return null;
 
     // Transform relations to match frontend expected structure (camelCase)
-    return {
+    const transformed = {
       ...booking,
       teacherProfile: booking.teacher_profiles
         ? {
             ...booking.teacher_profiles,
-            user: booking.teacher_profiles.users,
+            user: this.redactUserPII(booking.teacher_profiles.users),
           }
         : undefined,
-      bookedByUser: booking.users_bookings_bookedByUserIdTousers,
+      bookedByUser: this.redactUserPII(
+        booking.users_bookings_bookedByUserIdTousers,
+      ),
       studentUser: booking.users_bookings_studentUserIdTousers
         ? {
-            ...booking.users_bookings_studentUserIdTousers,
+            ...this.redactUserPII(booking.users_bookings_studentUserIdTousers),
             studentProfile: booking.users_bookings_studentUserIdTousers
               .student_profiles
               ? {
@@ -1206,7 +1303,15 @@ export class BookingService {
           }
         : undefined,
       subject: booking.subjects,
+      jitsiEnabled: !!booking.jitsiEnabled, // Force boolean
     };
+    // DEBUG LOGGING
+    if (booking.readableId === 'BK-2601-0002') {
+      console.log(
+        `[DEBUG] Transformed Booking BK-2601-0002: jitsiEnabled=${transformed.jitsiEnabled}, DB_Value=${booking.jitsiEnabled}`,
+      );
+    }
+    return transformed;
   }
 
   /**
@@ -1246,7 +1351,7 @@ export class BookingService {
         await this.notificationService.notifyUser({
           userId: booking.bookedByUserId,
           title: 'انتهاء مهلة الدفع',
-          message: `نأسف، تم إلغاء حجزك مع ${booking.teacher_profiles.users.phoneNumber || 'المعلم'} لعدم سداد المبلغ في الوقت المحدد.`,
+          message: `نأسف، تم إلغاء حجزك مع ${this.getSafeDisplayName(booking.teacher_profiles.users, 'المعلم')} لعدم سداد المبلغ في الوقت المحدد.`,
           type: 'SYSTEM_ALERT',
           link: '/parent/bookings',
           dedupeKey: `PAYMENT_EXPIRED:${booking.id}`,
@@ -1256,7 +1361,7 @@ export class BookingService {
         await this.notificationService.notifyUser({
           userId: booking.teacher_profiles.users.id,
           title: 'إلغاء حجز لعدم الدفع',
-          message: `تم إلغاء الحجز المعلق من ${booking.users_bookings_bookedByUserIdTousers.phoneNumber || 'ولي الأمر'} لعدم سداد المبلغ. الموعد متاح مرة أخرى.`,
+          message: `تم إلغاء الحجز المعلق من ${this.getSafeDisplayName(booking.users_bookings_bookedByUserIdTousers, 'ولي الأمر')} لعدم سداد المبلغ. الموعد متاح مرة أخرى.`,
           type: 'SYSTEM_ALERT',
           link: '/teacher/sessions',
           dedupeKey: `PAYMENT_EXPIRED:${booking.id}`,
@@ -1442,16 +1547,29 @@ export class BookingService {
       );
     }
 
-    // SECURITY: Prevent completion before session actually ends
+    // Session timing validation
     const now = new Date();
+    const sessionStartTime = new Date(booking.startTime);
     const sessionEndTime = new Date(booking.endTime);
 
-    if (now < sessionEndTime) {
-      const minutesRemaining = Math.ceil(
-        (sessionEndTime.getTime() - now.getTime()) / 60000,
+    // SECURITY: Prevent completion before session even starts
+    // But allow completion DURING the session (teacher can end early)
+    if (now < sessionStartTime) {
+      const minutesUntilStart = Math.ceil(
+        (sessionStartTime.getTime() - now.getTime()) / 60000,
       );
       throw new BadRequestException(
-        `Cannot complete session before it ends. ${minutesRemaining} minutes remaining.`,
+        `Cannot complete session before it starts. Session begins in ${minutesUntilStart} minutes.`,
+      );
+    }
+
+    // Log if ending early (for analytics, not blocking)
+    if (now < sessionEndTime) {
+      const minutesEarly = Math.ceil(
+        (sessionEndTime.getTime() - now.getTime()) / 60000,
+      );
+      this.logger.log(
+        `Session ${bookingId} completed ${minutesEarly} minutes before scheduled end time`,
       );
     }
 
@@ -1503,7 +1621,10 @@ export class BookingService {
     await this.notificationService.notifySessionComplete({
       bookingId: booking.id,
       parentUserId: booking.bookedByUserId,
-      teacherName: booking.teacher_profiles.users.phoneNumber, // Use phone as identifier
+      teacherName: this.getSafeDisplayName(
+        booking.teacher_profiles.users,
+        'المعلم',
+      ),
       disputeDeadline: disputeWindowClosesAt,
     });
 
@@ -1871,7 +1992,7 @@ export class BookingService {
   // (Existing payment methods are above)
 
   // --- Phase 3: Booking Validation ---
-  // validateSlotAvailability logic moved to TeacherService.isSlotAvailable
+  // Availability validation is now slot-based (via teacher_session_slots)
 
   private formatTime(date: Date): string {
     const hours = date.getHours().toString().padStart(2, '0');
@@ -2060,6 +2181,10 @@ export class BookingService {
         }
 
         // 6. Update booking with cancellation audit trail
+        // P0-2 SECURITY FIX: Increment jitsiTokenVersion to invalidate any existing JWT tokens
+        // This ensures cancelled bookings cannot be accessed via previously issued tokens
+        const currentTokenVersion = (booking as any).jitsiTokenVersion || 1;
+
         const updatedBooking = await tx.bookings.update({
           where: { id: bookingId },
           data: {
@@ -2074,8 +2199,17 @@ export class BookingService {
               booking.status === 'SCHEDULED'
                 ? booking.teacher_profiles.cancellationPolicy
                 : null,
+            // P0-2 SECURITY FIX: Invalidate Jitsi tokens by incrementing version
+            jitsiTokenVersion: currentTokenVersion + 1,
           },
         });
+
+        // Slot Restoration
+        await this.availabilitySlotService.restoreSlot(
+          tx,
+          booking.teacherId,
+          booking.startTime,
+        );
 
         // =====================================================
         // PACKAGE INTEGRATION: Cancel redemption if exists
@@ -2383,87 +2517,120 @@ export class BookingService {
       );
     }
 
-    // 7. Availability conflict check
-    // 7. Availability conflict check
-    // 7.1 Check teacher availability (working hours)
-    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-      booking.teacherId,
-      newStartTime,
-    );
-    if (!isTeacherAvailable) {
-      throw new ConflictException(
-        'Teacher is not available at the requested time (Out of hours)',
-      );
-    }
-
-    // 7.2 Check for booking conflicts (excluding this booking)
-    const conflict = await this.prisma.bookings.findFirst({
-      where: {
-        teacherId: booking.teacherId,
-        id: { not: bookingId }, // Exclude current booking
-        startTime: { lte: newStartTime },
-        endTime: { gt: newStartTime },
-        status: {
-          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
-        },
-      },
-    });
-
-    if (conflict) {
-      throw new ConflictException(
-        'Teacher is not available at the requested time (Slot booked)',
-      );
-    }
-
-    // Store old times for audit
+    // 7. Atomic Availability & Conflict Check
+    const teacherId = booking.teacherId;
     const oldStartTime = booking.startTime;
-    const oldEndTime = booking.endTime;
 
-    // 8. Atomic conditional update (race safety)
-    const updateResult = await this.prisma.bookings.updateMany({
-      where: {
-        id: bookingId,
-        status: 'SCHEDULED',
-        rescheduleCount: booking.rescheduleCount, // Conditional: prevent race
-      },
-      data: {
-        startTime: newStartTime,
-        endTime: newEndTime,
-        rescheduleCount: { increment: 1 },
-        lastRescheduledAt: new Date(),
-        rescheduledByRole: userRole,
-      },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Advisory Lock
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teacherId}))`;
 
-    if (updateResult.count === 0) {
-      throw new ConflictException(
-        'Reschedule failed due to concurrent update. Please retry.',
+      // 1b. Lock Booking Row
+      const bookings = await tx.$queryRawUnsafe<any[]>(
+        `SELECT id, "rescheduleCount", "startTime", "endTime" FROM "bookings" WHERE "id" = $1 FOR UPDATE`,
+        bookingId,
       );
-    }
+      if (bookings.length === 0)
+        throw new NotFoundException('Booking disappeared');
 
-    // 9. Audit log
-    await this.prisma.audit_logs.create({
-      data: {
-        id: crypto.randomUUID(),
-        actorId: userId,
-        action: 'RESCHEDULE' as any,
-        targetId: bookingId,
-        payload: {
-          oldStartTime,
-          oldEndTime,
-          newStartTime,
-          newEndTime,
-          actorRole: userRole,
-          reason: 'Direct student/parent reschedule',
+      // 2. Lock & Check Slot exists for NEW time
+      const slots = await tx.$queryRawUnsafe<any[]>(
+        `SELECT id FROM "teacher_session_slots" 
+         WHERE "teacherId" = $1 AND "startTimeUtc" = $2::timestamp 
+         FOR UPDATE NOWAIT`,
+        teacherId,
+        newStartTime,
+      );
+
+      if (slots.length === 0) {
+        throw new ConflictException('الموعد المطلوب غير متاح حالياً.');
+      }
+
+      // 3. Check Booking Conflict for NEW time
+      const conflict = await tx.bookings.findFirst({
+        where: {
+          teacherId,
+          id: { not: bookingId },
+          startTime: { lt: newEndTime },
+          endTime: { gt: newStartTime },
+          status: {
+            in: [
+              'SCHEDULED',
+              'PENDING_TEACHER_APPROVAL',
+              'WAITING_FOR_PAYMENT',
+              'PENDING_CONFIRMATION',
+              'PAYMENT_REVIEW',
+            ] as any,
+          },
         },
-      },
+      });
+
+      if (conflict) {
+        throw new ConflictException('يوجد تضارب مع حصة أخرى في نفس الموعد.');
+      }
+
+      // 4. Update Booking (Conditional)
+      const updateResult = await tx.bookings.updateMany({
+        where: {
+          id: bookingId,
+          status: 'SCHEDULED',
+          rescheduleCount: booking.rescheduleCount,
+        },
+        data: {
+          startTime: newStartTime,
+          endTime: newEndTime,
+          rescheduleCount: { increment: 1 },
+          lastRescheduledAt: new Date(),
+          rescheduledByRole: userRole,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        throw new ConflictException('فشل تغيير الموعد بسبب تحديث متزامن.');
+      }
+
+      // 5. Restore ORIGINAL Slot
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        teacherId,
+        oldStartTime,
+      );
+
+      // 6. Consume NEW Slot
+      await this.availabilitySlotService.deleteOverlappingSlots(
+        tx,
+        teacherId,
+        newStartTime,
+        newEndTime,
+      );
+
+      // 7. Audit log
+      await tx.audit_logs.create({
+        data: {
+          id: crypto.randomUUID(),
+          actorId: userId,
+          action: 'RESCHEDULE' as any,
+          targetId: bookingId,
+          payload: {
+            oldStartTime,
+            newStartTime,
+            newEndTime,
+            actorRole: userRole,
+            reason: 'Direct student/parent reschedule',
+          },
+        },
+      });
+
+      return {
+        success: true,
+        bookingId,
+        oldStartTime,
+        newStartTime,
+        rescheduleCount: booking.rescheduleCount + 1,
+      };
     });
 
-    this.logger.log(
-      `📅 RESCHEDULE | bookingId=${bookingId} | by=${userRole} | from=${oldStartTime} to=${newStartTime}`,
-    );
-
-    // 🔴 HIGH PRIORITY - Gap #2 Fix: Notify teacher that student directly rescheduled
+    // 9. Notify teacher (Outside transaction)
     const formattedNewTime = formatInTimezone(
       newStartTime,
       booking.timezone || 'UTC',
@@ -2490,13 +2657,7 @@ export class BookingService {
       },
     });
 
-    return {
-      success: true,
-      bookingId,
-      oldStartTime,
-      newStartTime,
-      rescheduleCount: booking.rescheduleCount + 1,
-    };
+    return result;
   }
 
   /**
@@ -2570,22 +2731,71 @@ export class BookingService {
       );
     }
 
-    // 7. Create reschedule request
+    // 7. Atomic Availability Check & Request Creation
     const expiresAt = new Date(
       Date.now() + BOOKING_POLICY.studentResponseTimeoutHours * 60 * 60 * 1000,
     );
 
-    const request = await this.prisma.reschedule_requests.create({
-      data: {
-        id: crypto.randomUUID(),
-        bookingId,
-        requestedById: teacherUserId,
-        proposedStartTime,
-        proposedEndTime,
-        reason,
-        status: 'PENDING',
-        expiresAt,
-      },
+    const request = await this.prisma.$transaction(async (tx) => {
+      if (proposedStartTime) {
+        const eTime =
+          proposedEndTime ||
+          new Date(proposedStartTime.getTime() + 60 * 60 * 1000);
+
+        // A. Advisory Lock
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${booking.teacherId}))`;
+
+        // B. Check Slot
+        const slot = await tx.teacher_session_slots.findUnique({
+          where: {
+            teacherId_startTimeUtc: {
+              teacherId: booking.teacherId,
+              startTimeUtc: proposedStartTime,
+            },
+          },
+        });
+        if (!slot) {
+          throw new ConflictException(
+            'الموعد المقترح غير متاح في جدول المعلم.',
+          );
+        }
+
+        // C. Check Booking Conflicts
+        const conflict = await tx.bookings.findFirst({
+          where: {
+            teacherId: booking.teacherId,
+            id: { not: bookingId },
+            startTime: { lt: eTime },
+            endTime: { gt: proposedStartTime },
+            status: {
+              in: [
+                'SCHEDULED',
+                'PENDING_TEACHER_APPROVAL',
+                'WAITING_FOR_PAYMENT',
+                'PENDING_CONFIRMATION',
+                'PAYMENT_REVIEW',
+              ] as any,
+            },
+          },
+        });
+        if (conflict) {
+          throw new ConflictException('الموعد المقترح متضارب مع حصة أخرى.');
+        }
+      }
+
+      // 8. Create reschedule request
+      return await tx.reschedule_requests.create({
+        data: {
+          id: crypto.randomUUID(),
+          bookingId,
+          requestedById: teacherUserId,
+          proposedStartTime,
+          proposedEndTime,
+          reason,
+          status: 'PENDING',
+          expiresAt,
+        },
+      });
     });
 
     // 8. Notify student/parent
@@ -2674,43 +2884,63 @@ export class BookingService {
       );
     }
 
-    // 7. Availability check
-    // 7. Availability check
-    // 7.1 Teacher schedule
-    const isTeacherAvailable = await this.teacherService.isSlotAvailable(
-      request.bookings.teacherId,
-      newStartTime,
-    );
-    if (!isTeacherAvailable) {
-      throw new ConflictException(
-        'Teacher is not available at the requested time',
-      );
-    }
-
-    // 7.2 Booking conflicts (exclude current)
-    const conflict = await this.prisma.bookings.findFirst({
-      where: {
-        teacherId: request.bookings.teacherId,
-        id: { not: request.bookingId },
-        startTime: { lte: newStartTime },
-        endTime: { gt: newStartTime },
-        status: {
-          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
-        },
-      },
-    });
-
-    if (conflict) {
-      throw new ConflictException(
-        'Teacher is not available at the requested time',
-      );
-    }
-
+    // 7. Atomic Reschedule Execution
     const oldStartTime = request.bookings.startTime;
-    const oldEndTime = request.bookings.endTime;
+    const teacherId = request.bookings.teacherId;
 
-    // 8. Atomic update: Booking + Request
     await this.prisma.$transaction(async (tx) => {
+      // 1. Advisory Lock (per teacher)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teacherId}))`;
+
+      // 1b. Lock Booking Row
+      const bookings = await tx.$queryRawUnsafe<any[]>(
+        `SELECT id, "rescheduleCount" FROM "bookings" WHERE "id" = $1 FOR UPDATE`,
+        request.bookingId,
+      );
+      if (bookings.length === 0)
+        throw new NotFoundException('Booking disappeared');
+
+      // 1c. Lock & Check Slot exists for NEW time
+      const slots = await tx.$queryRawUnsafe<any[]>(
+        `SELECT id FROM "teacher_session_slots" 
+         WHERE "teacherId" = $1 AND "startTimeUtc" = $2::timestamp 
+         FOR UPDATE NOWAIT`,
+        teacherId,
+        newStartTime,
+      );
+
+      if (slots.length === 0) {
+        throw new ConflictException(
+          'الموعد الجديد غير متاح حالياً. يرجى اختيار وقت آخر.',
+        );
+      }
+
+      // 2. Conflict Check (Source of Truth) for NEW time
+      const conflict = await tx.bookings.findFirst({
+        where: {
+          teacherId,
+          id: { not: request.bookingId },
+          startTime: { lt: newEndTime },
+          endTime: { gt: newStartTime },
+          status: {
+            in: [
+              'SCHEDULED',
+              'PENDING_TEACHER_APPROVAL',
+              'WAITING_FOR_PAYMENT',
+              'PENDING_CONFIRMATION',
+              'PAYMENT_REVIEW',
+            ] as any,
+          },
+        },
+      });
+
+      if (conflict) {
+        throw new ConflictException(
+          'الموعد الجديد غير متاح حالياً. يرجى اختيار وقت آخر.',
+        );
+      }
+
+      // 3. Update Booking (Merged into main transaction)
       // Update booking (conditional)
       const updateResult = await tx.bookings.updateMany({
         where: {
@@ -2743,7 +2973,7 @@ export class BookingService {
         },
       });
 
-      // Audit log
+      // 5. Audit log
       await tx.audit_logs.create({
         data: {
           id: crypto.randomUUID(),
@@ -2752,7 +2982,6 @@ export class BookingService {
           targetId: request.bookingId,
           payload: {
             oldStartTime,
-            oldEndTime,
             newStartTime,
             newEndTime,
             actorRole: userRole,
@@ -2761,6 +2990,21 @@ export class BookingService {
           },
         },
       });
+
+      // 6. Restore ORIGINAL Slot
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        teacherId,
+        oldStartTime,
+      );
+
+      // 7. Consume NEW Slot
+      await this.availabilitySlotService.deleteOverlappingSlots(
+        tx,
+        teacherId,
+        newStartTime,
+        newEndTime,
+      );
     });
 
     this.logger.log(
@@ -2914,10 +3158,12 @@ export class BookingService {
     for (const booking of sessionsNeedingReminder) {
       try {
         const teacherUserId = booking.teacher_profiles.userId;
-        const studentName =
-          booking.children?.name ||
-          booking.users_bookings_studentUserIdTousers?.email ||
-          'الطالب';
+        const studentName = booking.children?.name
+          ? booking.children.name
+          : this.getSafeDisplayName(
+              booking.users_bookings_studentUserIdTousers,
+              'الطالب',
+            );
         const subjectName = booking.subjects?.nameAr || 'الدرس';
         const minutesUntilStart = Math.round(
           (booking.startTime.getTime() - now.getTime()) / (60 * 1000),
@@ -2976,46 +3222,89 @@ export class BookingService {
     const durationMs = booking.endTime.getTime() - booking.startTime.getTime();
     const newEndTime = new Date(newStartTime.getTime() + durationMs);
 
-    // 1. Check Teacher Schedule (Working Hours)
-    const isWorking = await this.teacherService.isSlotAvailable(
-      booking.teacherId,
-      newStartTime,
-    );
-    if (!isWorking) {
-      throw new BadRequestException(
-        'Teacher is not available (outside working hours/exceptions).',
-      );
-    }
+    // 3. Execute in Transaction with Advisory Lock
+    const oldStartTime = booking.startTime;
+    const teacherId = booking.teacherId;
 
-    // 2. Check Conflicts (Other Bookings)
-    const conflict = await this.prisma.bookings.findFirst({
-      where: {
-        teacherId: booking.teacherId,
-        id: { not: bookingId }, // Exclude self
-        status: {
-          in: ['SCHEDULED', 'PENDING_TEACHER_APPROVAL', 'WAITING_FOR_PAYMENT'],
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // 1. Advisory Lock (per teacher)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teacherId}))`;
+
+      // 1b. Lock Booking Row
+      const bookings = await tx.$queryRawUnsafe<any[]>(
+        `SELECT id, "rescheduleCount" FROM "bookings" WHERE "id" = $1 FOR UPDATE`,
+        bookingId,
+      );
+      if (bookings.length === 0)
+        throw new NotFoundException('Booking disappeared');
+
+      // 1c. Lock & Check Slot exists for NEW time
+      const slots = await tx.$queryRawUnsafe<any[]>(
+        `SELECT id FROM "teacher_session_slots" 
+         WHERE "teacherId" = $1 AND "startTimeUtc" = $2::timestamp 
+         FOR UPDATE NOWAIT`,
+        teacherId,
+        newStartTime,
+      );
+
+      if (slots.length === 0) {
+        throw new BadRequestException('الموعد الجديد غير متاح في جدول المعلم.');
+      }
+
+      // 2. Conflict Check (Source of Truth)
+      const conflict = await tx.bookings.findFirst({
+        where: {
+          teacherId,
+          id: { not: bookingId },
+          startTime: { lt: newEndTime },
+          endTime: { gt: newStartTime },
+          status: {
+            in: [
+              'SCHEDULED',
+              'PENDING_TEACHER_APPROVAL',
+              'WAITING_FOR_PAYMENT',
+              'PENDING_CONFIRMATION',
+              'PAYMENT_REVIEW',
+            ] as any,
+          },
         },
-        startTime: { lt: newEndTime },
-        endTime: { gt: newStartTime },
-      },
-    });
+      });
 
-    if (conflict) {
-      throw new BadRequestException(
-        'Teacher has another booking overlapping this time.',
+      if (conflict) {
+        throw new BadRequestException(
+          'الموعد الجديد غير متاح بسبب تضارب مع حصة أخرى.',
+        );
+      }
+
+      // 3. Update Booking
+      const res = await tx.bookings.update({
+        where: { id: bookingId },
+        data: {
+          startTime: newStartTime,
+          endTime: newEndTime,
+          lastRescheduledAt: new Date(),
+          rescheduledByRole: 'ADMIN',
+          rescheduleCount: { increment: 1 },
+          status: 'SCHEDULED', // Force to SCHEDULED
+        },
+      });
+
+      // 4. Restore ORIGINAL Slot
+      await this.availabilitySlotService.restoreSlot(
+        tx,
+        teacherId,
+        oldStartTime,
       );
-    }
 
-    // 3. Update
-    const updated = await this.prisma.bookings.update({
-      where: { id: bookingId },
-      data: {
-        startTime: newStartTime,
-        endTime: newEndTime,
-        rescheduledByRole: 'ADMIN',
-        rescheduleCount: { increment: 1 },
-        status: 'SCHEDULED', // Force to SCHEDULED
-      },
+      // 5. Consume NEW Slot
+      await this.availabilitySlotService.deleteOverlappingSlots(
+        tx,
+        teacherId,
+        newStartTime,
+        newEndTime,
+      );
+
+      return res;
     });
 
     // 4. Notifications
@@ -3042,5 +3331,102 @@ export class BookingService {
     });
 
     return updated;
+  }
+
+  // =====================================================
+  // MEETING EVENTS (P1-1)
+  // =====================================================
+
+  /**
+   * Log a meeting event (join, leave, start, end)
+   */
+  async logMeetingEvent(
+    userId: string,
+    bookingId: string,
+    eventType:
+      | 'PARTICIPANT_JOINED'
+      | 'PARTICIPANT_LEFT'
+      | 'MEETING_STARTED'
+      | 'MEETING_ENDED',
+    metadata?: Record<string, any>,
+  ) {
+    // Verify user has access to this booking
+    const booking = await this.prisma.bookings.findUnique({
+      where: { id: bookingId },
+      include: {
+        teacher_profiles: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    // Check if user is authorized (teacher, booker, or student)
+    const isTeacher = booking.teacher_profiles?.userId === userId;
+    const isBooker = booking.bookedByUserId === userId;
+    const isStudent = booking.studentUserId === userId;
+
+    if (!isTeacher && !isBooker && !isStudent) {
+      throw new ForbiddenException('You do not have access to this booking');
+    }
+
+    // Determine user role
+    let userRole: string;
+    if (isTeacher) {
+      userRole = 'teacher';
+    } else if (isStudent) {
+      userRole = 'student';
+    } else {
+      userRole = 'parent';
+    }
+
+    // Create the meeting event
+    const event = await this.prisma.meeting_events.create({
+      data: {
+        bookingId,
+        userId,
+        eventType,
+        userRole,
+        metadata: metadata || {},
+      },
+    });
+
+    this.logger.log(
+      `Meeting event logged: ${eventType} by ${userRole} (${userId}) for booking ${bookingId}`,
+    );
+
+    return event;
+  }
+
+  /**
+   * Get meeting events for a booking (for admin viewing)
+   */
+  async getMeetingEvents(bookingId: string) {
+    const events = await this.prisma.meeting_events.findMany({
+      where: { bookingId },
+      include: {
+        users: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return events.map((event) => ({
+      id: event.id,
+      bookingId: event.bookingId,
+      userId: event.userId,
+      userName: this.getSafeDisplayName(event.users, 'مستخدم'),
+      userRole: event.userRole,
+      eventType: event.eventType,
+      metadata: event.metadata,
+      createdAt: event.createdAt,
+    }));
   }
 }

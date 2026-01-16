@@ -3,6 +3,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
+import { AvailabilitySlotService } from './availability-slot.service';
+
 @Injectable()
 export class VacationScheduler {
   private readonly logger = new Logger(VacationScheduler.name);
@@ -10,6 +12,7 @@ export class VacationScheduler {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private availabilitySlotService: AvailabilitySlotService,
   ) {}
 
   /**
@@ -80,6 +83,11 @@ export class VacationScheduler {
             link: '/teacher/settings',
             dedupeKey: `VACATION_ENDED:${teacher.id}:${now.toISOString().split('T')[0]}`,
           });
+
+          // NEW: Regenerate slots to restore availability
+          await this.availabilitySlotService.generateSlotsForTeacher(
+            teacher.id,
+          );
         } catch (error) {
           this.logger.error(
             `Failed to notify teacher ${teacher.id} about vacation end`,

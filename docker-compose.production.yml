@@ -96,6 +96,7 @@ services:
       - nginx_logs:/var/log/nginx
     networks:
       - sidra_network
+      - sidra_staging_network
     depends_on:
       - api
       - web
@@ -118,6 +119,8 @@ services:
 networks:
   sidra_network:
     driver: bridge
+  sidra_staging_network:
+    external: true
 
 volumes:
   postgres_data:

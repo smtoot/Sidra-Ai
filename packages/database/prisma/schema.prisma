@@ -9,7 +9,7 @@ datasource db {
 }
 
 model audit_logs {
-  id        String @id @default(uuid())
+  id        String      @id @default(uuid())
   payload   Json?
   actorId   String
   targetId  String?
@@ -22,7 +22,7 @@ model audit_logs {
 }
 
 model availability {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String
   dayOfWeek        DayOfWeek
   startTime        String
@@ -34,7 +34,7 @@ model availability {
 }
 
 model availability_exceptions {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String
   startDate        DateTime
   endDate          DateTime
@@ -50,7 +50,7 @@ model availability_exceptions {
 }
 
 model bank_info {
-  id                String @id @default(uuid())
+  id                String           @id @default(uuid())
   teacherId         String           @unique
   bankName          String
   accountNumber     String
@@ -62,7 +62,7 @@ model bank_info {
 }
 
 model bookings {
-  id                                   String @id @default(uuid())
+  id                                   String                @id @default(uuid())
   bookedByUserId                       String
   beneficiaryType                      BeneficiaryType
   childId                              String?
@@ -72,6 +72,10 @@ model bookings {
   startTime                            DateTime
   endTime                              DateTime
   meetingLink                          String?
+  jitsiRoomId                          String?
+  jitsiEnabled                         Boolean               @default(false)
+  jitsiTokenVersion                    Int                   @default(1)
+  useExternalMeetingLink               Boolean               @default(false)
   price                                Decimal               @db.Decimal(10, 2)
   commissionRate                       Decimal               @default(0.18) @db.Decimal(5, 2)
   status                               BookingStatus         @default(PENDING_TEACHER_APPROVAL)
@@ -122,6 +126,7 @@ model bookings {
   subjects                             subjects              @relation(fields: [subjectId], references: [id])
   teacher_profiles                     teacher_profiles      @relation(fields: [teacherId], references: [id])
   disputes                             disputes?
+  meeting_events                       meeting_events[]
   package_redemptions                  package_redemptions?
   ratings                              ratings?
   reschedule_requests                  reschedule_requests[]
@@ -137,7 +142,7 @@ model bookings {
 }
 
 model children {
-  id              String @id @default(uuid())
+  id              String          @id @default(uuid())
   parentId        String
   name            String
   gradeLevel      String?
@@ -151,7 +156,7 @@ model children {
 }
 
 model curricula {
-  id                  String @id @default(uuid())
+  id                  String                @id @default(uuid())
   nameAr              String
   nameEn              String
   isActive            Boolean               @default(true)
@@ -174,7 +179,7 @@ model curriculum_subjects {
 }
 
 model demo_sessions {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   demoOwnerId      String
   demoOwnerType    DemoOwnerType
   beneficiaryId    String?
@@ -192,7 +197,7 @@ model demo_sessions {
 }
 
 model disputes {
-  id                                      String @id @default(uuid())
+  id                                      String           @id @default(uuid())
   bookingId                               String           @unique
   raisedByUserId                          String
   type                                    DisputeType
@@ -216,7 +221,7 @@ model disputes {
 }
 
 model documents {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String
   type             DocumentType
   fileName         String
@@ -226,7 +231,7 @@ model documents {
 }
 
 model educational_stages {
-  id           String @id @default(uuid())
+  id           String         @id @default(uuid())
   curriculumId String
   nameAr       String
   nameEn       String
@@ -237,7 +242,7 @@ model educational_stages {
 }
 
 model email_outbox {
-  id           String @id @default(uuid())
+  id           String      @id @default(uuid())
   to           String
   subject      String
   templateId   String
@@ -254,7 +259,7 @@ model email_outbox {
 }
 
 model grade_levels {
-  id                     String @id @default(uuid())
+  id                     String                   @id @default(uuid())
   stageId                String
   nameAr                 String
   nameEn                 String
@@ -268,7 +273,7 @@ model grade_levels {
 }
 
 model interview_time_slots {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherProfileId String
   proposedDateTime DateTime
   meetingLink      String?
@@ -278,7 +283,7 @@ model interview_time_slots {
 }
 
 model ledger_audit_logs {
-  id               String @id @default(uuid())
+  id               String    @id @default(uuid())
   runAt            DateTime  @default(now())
   totalWallets     Int
   walletsChecked   Int
@@ -294,8 +299,24 @@ model ledger_audit_logs {
   @@index([status])
 }
 
+model meeting_events {
+  id        String           @id @default(uuid())
+  bookingId String
+  userId    String
+  eventType MeetingEventType
+  userRole  String // 'teacher', 'student', 'parent'
+  metadata  Json? // IP address, device info, etc.
+  createdAt DateTime         @default(now())
+  bookings  bookings         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  users     users            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([bookingId, createdAt])
+  @@index([userId])
+}
+
 model notifications {
-  id         String @id @default(uuid())
+  id         String             @id @default(uuid())
   userId     String
   title      String
   message    String
@@ -315,7 +336,7 @@ model notifications {
 }
 
 model package_redemptions {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   packageId        String
   bookingId        String           @unique
   status           RedemptionStatus @default(RESERVED)
@@ -328,7 +349,7 @@ model package_redemptions {
 }
 
 model package_tiers {
-  id                            String @id @default(uuid())
+  id                            String                          @id @default(uuid())
   sessionCount                  Int
   discountPercent               Decimal                         @db.Decimal(5, 2)
   isActive                      Boolean                         @default(true)
@@ -351,7 +372,7 @@ model package_tiers {
 }
 
 model package_transactions {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   idempotencyKey   String           @unique
   type             String
   packageId        String
@@ -363,7 +384,7 @@ model package_transactions {
 }
 
 model parent_profiles {
-  id             String @id @default(uuid())
+  id             String     @id @default(uuid())
   userId         String     @unique
   city           String?
   country        String?
@@ -373,7 +394,7 @@ model parent_profiles {
 }
 
 model ratings {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   bookingId        String?          @unique
   teacherId        String
   ratedByUserId    String
@@ -391,7 +412,7 @@ model ratings {
 }
 
 model readable_id_counters {
-  id        String @id @default(uuid())
+  id        String   @id @default(uuid())
   type      String
   yearMonth String?
   counter   Int      @default(0)
@@ -402,7 +423,7 @@ model readable_id_counters {
 }
 
 model refresh_tokens {
-  id              String @id @default(uuid())
+  id              String    @id @default(uuid())
   userId          String
   tokenHash       String
   expiresAt       DateTime
@@ -418,7 +439,7 @@ model refresh_tokens {
 }
 
 model reschedule_requests {
-  id                                             String @id @default(uuid())
+  id                                             String                  @id @default(uuid())
   bookingId                                      String
   requestedById                                  String
   proposedStartTime                              DateTime?
@@ -438,7 +459,7 @@ model reschedule_requests {
 }
 
 model saved_teachers {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   userId           String
   teacherId        String
   createdAt        DateTime         @default(now())
@@ -449,7 +470,7 @@ model saved_teachers {
 }
 
 model student_packages {
-  id                                      String @id @default(uuid())
+  id                                      String                 @id @default(uuid())
   readableId                              String?                @unique
   payerId                                 String
   studentId                               String
@@ -493,7 +514,7 @@ model student_packages {
 }
 
 model student_profiles {
-  id              String @id @default(uuid())
+  id              String            @id @default(uuid())
   userId          String            @unique
   gradeLevel      String?
   bio             String?
@@ -509,7 +530,7 @@ model student_profiles {
 }
 
 model subjects {
-  id                  String @id @default(uuid())
+  id                  String                @id @default(uuid())
   nameAr              String
   nameEn              String
   isActive            Boolean               @default(true)
@@ -520,7 +541,7 @@ model subjects {
 }
 
 model support_tickets {
-  id                                            String @id @default(uuid())
+  id                                            String                   @id @default(uuid())
   readableId                                    String                   @unique
   createdByUserId                               String
   assignedToId                                  String?
@@ -566,7 +587,7 @@ model support_tickets {
 }
 
 model system_settings {
-  id                             String @id @default("default")
+  id                             String   @id @default("default")
   confirmationWindowHours        Int      @default(48)
   autoReleaseEnabled             Boolean  @default(true)
   reminderHoursBeforeRelease     Int      @default(6)
@@ -581,6 +602,7 @@ model system_settings {
   allowedFileTypes               String[] @default(["image/jpeg", "image/png", "application/pdf"])
   currency                       String   @default("SDG")
   demosEnabled                   Boolean  @default(true)
+  vacationEnabled                Boolean  @default(true)
   maintenanceMode                Boolean  @default(false)
   maxFileSizeMB                  Int      @default(10)
   minHoursBeforeSession          Int      @default(2)
@@ -594,13 +616,14 @@ model system_settings {
   maxVacationDays                Int      @default(21)
   searchConfig                   Json?
   cancellationPolicies           Json?
+  jitsiConfig                    Json?
   depositBankName                String   @default("بنك الخرطوم")
   depositAccountHolderName       String   @default("عمر محمد عبدالرحيم عبيشي")
   depositAccountNumber           String   @default("1401733")
 }
 
 model teacher_demo_settings {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String           @unique
   demoEnabled      Boolean          @default(false)
   packagesEnabled  Boolean          @default(true)
@@ -610,7 +633,7 @@ model teacher_demo_settings {
 }
 
 model teacher_package_tier_settings {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String
   tierId           String
   isEnabled        Boolean          @default(true)
@@ -623,8 +646,22 @@ model teacher_package_tier_settings {
   @@index([teacherId])
 }
 
+model teacher_session_slots {
+  id               String           @id @default(uuid())
+  teacherId        String
+  startTimeUtc     DateTime
+  endTimeUtc       DateTime
+  localDate        String // YYYY-MM-DD in teacher availability timezone
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  teacher_profiles teacher_profiles @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, startTimeUtc])
+  @@index([teacherId, localDate])
+}
+
 model teacher_profiles {
-  id                             String @id @default(uuid())
+  id                             String                           @id @default(uuid())
   userId                         String                           @unique
   bio                            String?
   headline                       String?
@@ -669,6 +706,7 @@ model teacher_profiles {
   vacationEndDate                DateTime?
   vacationReason                 String?
   vacationStartDate              DateTime?
+  jitsiEnabled                   Boolean                          @default(false)
   availability                   availability[]
   availability_exceptions        availability_exceptions[]
   bank_info                      bank_info?
@@ -688,13 +726,14 @@ model teacher_profiles {
   teacher_subjects               teacher_subjects[]
   teacher_teaching_approach_tags teacher_teaching_approach_tags[]
   teacher_work_experiences       teacher_work_experiences[]
+  teacher_session_slots          teacher_session_slots[]
 
   @@index([applicationStatus])
   @@index([isOnVacation])
 }
 
 model teacher_qualifications {
-  id               String @id @default(uuid())
+  id               String              @id @default(uuid())
   teacherId        String
   degreeName       String
   institution      String
@@ -716,7 +755,7 @@ model teacher_qualifications {
 }
 
 model teacher_skills {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String
   name             String
   category         SkillCategory?
@@ -738,7 +777,7 @@ model teacher_subject_grades {
 }
 
 model teacher_subjects {
-  id                     String @id @default(uuid())
+  id                     String                   @id @default(uuid())
   teacherId              String
   subjectId              String
   curriculumId           String
@@ -762,7 +801,7 @@ model teacher_teaching_approach_tags {
 }
 
 model teacher_work_experiences {
-  id               String @id @default(uuid())
+  id               String           @id @default(uuid())
   teacherId        String
   title            String
   organization     String
@@ -781,7 +820,7 @@ model teacher_work_experiences {
 }
 
 model teaching_approach_tags {
-  id                             String @id @default(uuid())
+  id                             String                           @id @default(uuid())
   labelAr                        String
   isActive                       Boolean                          @default(true)
   sortOrder                      Int                              @default(0)
@@ -791,7 +830,7 @@ model teaching_approach_tags {
 }
 
 model ticket_access_controls {
-  id                                                  String @id @default(uuid())
+  id                                                  String          @id @default(uuid())
   ticketId                                            String
   userId                                              String
   canView                                             Boolean         @default(true)
@@ -811,7 +850,7 @@ model ticket_access_controls {
 }
 
 model ticket_messages {
-  id                String @id @default(uuid())
+  id                String          @id @default(uuid())
   ticketId          String
   authorId          String
   content           String
@@ -829,7 +868,7 @@ model ticket_messages {
 }
 
 model ticket_status_history {
-  id              String @id @default(uuid())
+  id              String          @id @default(uuid())
   ticketId        String
   fromStatus      TicketStatus?
   toStatus        TicketStatus
@@ -843,7 +882,7 @@ model ticket_status_history {
 }
 
 model transactions {
-  id              String @id @default(uuid())
+  id              String            @id @default(uuid())
   walletId        String
   amount          Decimal           @db.Decimal(10, 2)
   type            TransactionType
@@ -864,7 +903,7 @@ model transactions {
 }
 
 model users {
-  id                                                                   String @id @default(uuid())
+  id                                                                   String                   @id @default(uuid())
   email                                                                String                   @unique
   passwordHash                                                         String
   role                                                                 UserRole
@@ -887,6 +926,7 @@ model users {
   bookings_bookings_studentUserIdTousers                               bookings[]               @relation("bookings_studentUserIdTousers")
   demo_sessions                                                        demo_sessions[]
   disputes_disputes_raisedByUserIdTousers                              disputes[]               @relation("disputes_raisedByUserIdTousers")
+  meeting_events                                                       meeting_events[]
   disputes_disputes_resolvedByAdminIdTousers                           disputes[]               @relation("disputes_resolvedByAdminIdTousers")
   notifications                                                        notifications[]
   parent_profiles                                                      parent_profiles?
@@ -912,7 +952,7 @@ model users {
 }
 
 model wallets {
-  id             String @id @default(uuid())
+  id             String         @id @default(uuid())
   userId         String         @unique
   balance        Decimal        @default(0) @db.Decimal(10, 2)
   pendingBalance Decimal        @default(0) @db.Decimal(10, 2)
@@ -956,6 +996,8 @@ enum AuditAction {
   TICKET_ESCALATED
   TICKET_CONVERTED_TO_DISPUTE
   SUPPORT_TICKET_MESSAGE_ADDED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
 }
 
 enum BeneficiaryType {
@@ -1103,6 +1145,13 @@ enum NotificationType {
   BOOKING_RESCHEDULED
 }
 
+enum MeetingEventType {
+  PARTICIPANT_JOINED
+  PARTICIPANT_LEFT
+  MEETING_STARTED
+  MEETING_ENDED
+}
+
 enum PackageSessionType {
   AUTO_SCHEDULED
   FLOATING
@@ -1219,6 +1268,7 @@ enum UserRole {
   CONTENT_ADMIN
   FINANCE
 }
+
 model PasswordResetToken {
   id        String   @id @default(uuid())
   email     String
@@ -1228,4 +1278,38 @@ model PasswordResetToken {
 
   @@index([email])
   @@index([token])
+}
+
+model pending_registrations {
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  phoneNumber          String
+  firstName            String?
+  lastName             String?
+  passwordHash         String
+  role                 String
+  otpHash              String
+  otpExpiresAt         DateTime
+  otpAttempts          Int       @default(0)
+  createdAt            DateTime  @default(now())
+  lastOtpSentAt        DateTime  @default(now())
+  previousOtpHash      String?
+  previousOtpExpiresAt DateTime?
+
+  @@index([email])
+  @@index([otpExpiresAt])
+  @@index([createdAt])
+}
+
+model otp_rate_limits {
+  id             String   @id @default(uuid())
+  email          String
+  ipAddress      String
+  lastAttemptAt  DateTime @default(now())
+  attemptCount   Int      @default(1)
+  windowStartsAt DateTime @default(now())
+
+  @@unique([email, ipAddress])
+  @@index([email, windowStartsAt])
+  @@index([ipAddress, windowStartsAt])
 }

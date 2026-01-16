@@ -62,8 +62,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         return (
             <div className="flex min-h-screen">
                 <Navigation userRole={userRole} userName={userName} />
-                {/* pt-16 adds padding for the fixed mobile header, md:pt-0 removes it on desktop */}
-                <main className="flex-1 bg-gray-50/50 pt-16 md:pt-0">
+                {/* pt-28 adds padding for the fixed mobile header (~105px), md:pt-0 removes it on desktop */}
+                <main className="flex-1 bg-gray-50/50 pt-28 md:pt-0">
                     {children}
                 </main>
                 <Toaster richColors position="top-center" />

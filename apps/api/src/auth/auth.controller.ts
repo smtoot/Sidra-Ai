@@ -15,6 +15,9 @@ import {
   LoginDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  RegisterRequestDto,
+  VerifyRegistrationDto,
+  ResendOtpDto,
 } from '@sidra/shared';
 import { Public } from './public.decorator';
 
@@ -35,17 +38,36 @@ interface AuthRequest {
 }
 
 /**
+ * Get cookie domain for cross-subdomain support
+ * Returns '.sidra.sd' in production/staging to share cookies between
+ * api.sidra.sd/api-staging.sidra.sd and sidra.sd/staging.sidra.sd
+ */
+function getCookieDomain(): string | undefined {
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+  if (cookieDomain) {
+    return cookieDomain;
+  }
+  // In development, don't set domain (localhost doesn't support subdomains)
+  if (process.env.NODE_ENV !== 'production') {
+    return undefined;
+  }
+  return '.sidra.sd';
+}
+
+/**
  * SECURITY FIX: Cookie configuration for httpOnly tokens
  * - httpOnly: Prevents XSS attacks from accessing tokens via JavaScript
  * - secure: Only send over HTTPS in production
  * - sameSite: Prevents CSRF attacks by not sending cookies with cross-site requests
  * - path: Restrict cookie scope
+ * - domain: Allow cookies to work across subdomains (api.sidra.sd <-> sidra.sd)
  */
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env.NODE_ENV !== 'development', // Secure for both production and staging
   sameSite: 'lax' as const, // 'lax' allows top-level navigation, 'strict' for max security
   path: '/',
+  domain: getCookieDomain(),
 };
 
 const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15 minutes
@@ -75,9 +97,10 @@ export class AuthController {
     // CSRF token is NOT httpOnly - frontend needs to read it to include in headers
     res.cookie('csrf_token', csrfToken, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development', // Secure for both production and staging
       sameSite: 'lax' as const,
       path: '/',
+      domain: getCookieDomain(),
       maxAge: ACCESS_TOKEN_MAX_AGE,
     });
   }
@@ -86,9 +109,10 @@ export class AuthController {
    * SECURITY FIX: Helper to clear auth cookies
    */
   private clearAuthCookies(res: Response) {
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/' });
-    res.clearCookie('csrf_token', { path: '/' });
+    const cookieOptions = { path: '/', domain: getCookieDomain() };
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
+    res.clearCookie('csrf_token', cookieOptions);
   }
 
   @Public() // SECURITY: Public endpoint - no JWT required
@@ -107,6 +131,51 @@ export class AuthController {
     );
     // Still return tokens in body for backwards compatibility during transition
     return tokens;
+  }
+
+  /**
+   * NEW OTP FLOW: Step 1 - Request Registration with OTP
+   * Rate limit: 10 per minute at controller level (service has stricter 5/hour per email)
+   */
+  @Public()
+  @Post('register/request')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async requestRegistration(@Body() dto: RegisterRequestDto, @Req() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'unknown';
+    return this.authService.requestRegistration(dto, ipAddress);
+  }
+
+  /**
+   * NEW OTP FLOW: Step 2 - Verify OTP and Complete Registration
+   * Rate limit: 10 per minute (allows retries for typos)
+   */
+  @Public()
+  @Post('register/verify')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async verifyRegistration(
+    @Body() dto: VerifyRegistrationDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.verifyRegistrationOtp(dto);
+    this.setAuthCookies(
+      res,
+      tokens.access_token,
+      tokens.refresh_token,
+      tokens.csrf_token,
+    );
+    return tokens;
+  }
+
+  /**
+   * NEW OTP FLOW: Step 3 - Resend OTP
+   * Rate limit: 5 per minute at controller level (service has stricter 5/hour per email)
+   */
+  @Public()
+  @Post('register/resend')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resendOtp(@Body() dto: ResendOtpDto, @Req() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'unknown';
+    return this.authService.resendOtp(dto, ipAddress);
   }
 
   @Public() // SECURITY: Public endpoint - no JWT required

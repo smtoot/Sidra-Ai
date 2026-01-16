@@ -1,6 +1,8 @@
 import { Module, Logger } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { OtpService } from './otp.service';
+import { RegistrationCleanupWorker } from './registration-cleanup.worker';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -48,7 +50,14 @@ const logger = new Logger('AuthModule');
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PermissionService, PermissionsGuard],
+  providers: [
+    AuthService,
+    OtpService,
+    RegistrationCleanupWorker,
+    JwtStrategy,
+    PermissionService,
+    PermissionsGuard,
+  ],
   exports: [AuthService, PermissionService, PermissionsGuard],
 })
 export class AuthModule {}

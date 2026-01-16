@@ -134,8 +134,8 @@ Before pushing any database change, verify:
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │   1. You push code with migration file                                   │
-│   2. Railway detects the push                                            │
-│   3. Railway runs: npx prisma migrate deploy                             │
+│   2. CI/CD detects the push                                              │
+│   3. Server runs: npx prisma migrate deploy                              │
 │   4. Migration is applied to database                                    │
 │   5. App starts with correct schema                                      │
 │                                                                          │
@@ -328,10 +328,8 @@ git push origin develop
 
 After merging to `develop`:
 
-1. Wait for Railway deployment (check Railway dashboard)
-2. Test your changes at staging URLs:
-   - Web: `https://sidra-staging.up.railway.app`
-   - API: `https://sidra-staging-api.up.railway.app`
+1. Wait for deployment (check server status)
+2. Test your changes at staging URLs
 3. Verify:
    - [ ] Feature works as expected
    - [ ] No console errors
@@ -380,7 +378,7 @@ After merging to `develop`:
 git push origin develop
 ```
 
-Railway automatically:
+The server automatically:
 1. Detects the push
 2. Builds the application
 3. Runs database migrations
@@ -461,17 +459,17 @@ git push origin develop
 
 | Service | URL |
 |---------|-----|
-| Web App | `https://sidra-staging.up.railway.app` |
-| API | `https://sidra-staging-api.up.railway.app` |
-| API Health | `https://sidra-staging-api.up.railway.app/health` |
+| Web App | `https://staging.sidra.sd` |
+| API | `https://api-staging.sidra.sd` |
+| API Health | `https://api-staging.sidra.sd/health` |
 
 ### Production Environment
 
 | Service | URL |
 |---------|-----|
-| Web App | `https://sidra-frontend-production.up.railway.app` |
-| API | `https://sidra-backend-production.up.railway.app` |
-| API Health | `https://sidra-backend-production.up.railway.app/health` |
+| Web App | `https://sidra.sd` |
+| API | `https://api.sidra.sd` |
+| API Health | `https://api.sidra.sd/health` |
 
 ### Custom Domains (via Cloudflare)
 
@@ -479,8 +477,6 @@ git push origin develop
 |---------|---------|------------|
 | Web | `staging.sidra.sd` | `sidra.sd` / `www.sidra.sd` |
 | API | `api-staging.sidra.sd` | `api.sidra.sd` |
-
-> **Setup Guide:** See [CLOUDFLARE-RAILWAY-SETUP.md](./CLOUDFLARE-RAILWAY-SETUP.md) for complete domain configuration instructions.
 
 ---
 
@@ -517,7 +513,7 @@ NEXT_PUBLIC_API_URL=https://sidra-backend-production.up.railway.app
 NEXT_PUBLIC_API_URL=http://localhost:4000
 
 // Or use staging for testing
-NEXT_PUBLIC_API_URL=https://sidra-staging-api.up.railway.app
+NEXT_PUBLIC_API_URL=https://api-staging.sidra.sd
 ```
 
 ### 3. Committing Sensitive Data
@@ -596,7 +592,7 @@ git push origin feature/your-task
 ### Emergency Contacts
 
 For production issues:
-1. Check Railway dashboard for errors
+1. Check server status for errors
 2. Check application logs
 3. Contact team lead
 

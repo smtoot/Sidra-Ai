@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { BookingService } from './booking.service';
+import { JitsiService } from '../jitsi/jitsi.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -21,12 +22,16 @@ import {
   CreateBookingDto,
   UpdateBookingStatusDto,
   CreateRatingDto,
+  LogMeetingEventDto,
 } from '@sidra/shared';
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(
+    private readonly bookingService: BookingService,
+    private readonly jitsiService: JitsiService,
+  ) {}
 
   // Parent creates a booking request
   // SECURITY: Rate limit to prevent booking spam
@@ -150,6 +155,19 @@ export class BookingController {
     return this.bookingService.updateMeetingLink(req.user.userId, id, dto);
   }
 
+  // --- Jitsi Integration ---
+  // Note: Jitsi is admin-controlled only. Teachers cannot toggle Jitsi on/off.
+  // Admin enables Jitsi globally (system_settings.jitsiConfig.enabled) AND
+  // per-teacher (teacher_profiles.jitsiEnabled) via admin panel.
+
+  // Get Jitsi configuration with JWT token for a booking
+  // Accessible by teacher, parent/student who booked the session
+  @Get(':id/jitsi-config')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
+  async getJitsiConfig(@Request() req: any, @Param('id') id: string) {
+    return this.jitsiService.getJitsiConfigForBooking(id, req.user.userId);
+  }
+
   // --- Phase 2C: Payment Integration ---
 
   // Parent or Student pays for approved booking
@@ -253,5 +271,31 @@ export class BookingController {
       id,
       dto.reason,
     );
+  }
+
+  // --- Meeting Events (P1-1) ---
+
+  // Log a meeting event (join, leave, etc.)
+  @Post(':id/meeting-event')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 events per minute
+  logMeetingEvent(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: LogMeetingEventDto,
+  ) {
+    return this.bookingService.logMeetingEvent(
+      req.user.userId,
+      id,
+      dto.eventType as any,
+      dto.metadata,
+    );
+  }
+
+  // Get meeting events for a booking (for admin)
+  @Get(':id/meeting-events')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.SUPPORT)
+  getMeetingEvents(@Param('id') id: string) {
+    return this.bookingService.getMeetingEvents(id);
   }
 }

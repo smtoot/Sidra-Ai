@@ -93,7 +93,7 @@ export function PublicNavbar() {
                     <div className="flex items-center justify-between h-24">
                         {/* Logo */}
                         <Link href="/" className="flex items-center group" aria-label="Sidra - الصفحة الرئيسية">
-                            <div className="transition-transform group-hover:scale-105">
+                            <div>
                                 <Image
                                     src="/images/logo.png"
                                     alt="Sidra Logo"
