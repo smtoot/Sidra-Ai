@@ -1,0 +1,13 @@
+{
+  "name": "github-issues-scripts",
+  "version": "1.0.0",
+  "description": "Scripts to create GitHub issues, milestones, and labels",
+  "scripts": {
+    "create-milestones": "node create-milestones.js",
+    "create-labels": "node create-labels.js",
+    "create-issues": "node create-issues.js"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.0"
+  }
+}
