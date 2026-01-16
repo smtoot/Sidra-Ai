@@ -249,7 +249,12 @@ export class JitsiService {
       throw new UnauthorizedException('You do not have access to this booking');
     }
 
-    if (booking.useExternalMeetingLink) {
+    // Check if Jitsi is enabled for this teacher (admin-controlled)
+    const jitsiEnabledForTeacher =
+      await this.featureFlagService.isJitsiEnabledForTeacher(booking.teacherId);
+
+    // If Jitsi is NOT enabled for this teacher, use external meeting link
+    if (!jitsiEnabledForTeacher) {
       return {
         bookingId,
         meetingMethod: 'external',
@@ -257,7 +262,7 @@ export class JitsiService {
         canJoin: !!booking.meetingLink,
         message: booking.meetingLink
           ? 'External meeting link available'
-          : 'No meeting link available yet',
+          : 'No meeting link available yet. Teacher will provide one.',
       };
     }
 
@@ -476,51 +481,8 @@ export class JitsiService {
     };
   }
 
-  /**
-   * Update booking to use Jitsi or external link
-   */
-  async toggleJitsiForBooking(
-    bookingId: string,
-    useExternal: boolean,
-    teacherUserId: string,
-  ): Promise<void> {
-    const booking = await this.prisma.bookings.findUnique({
-      where: { id: bookingId },
-      include: {
-        teacher_profiles: true,
-      },
-    });
-
-    if (!booking) {
-      throw new BadRequestException('Booking not found');
-    }
-
-    // Check if the user is the teacher for this booking
-    if (booking.teacher_profiles?.userId !== teacherUserId) {
-      throw new UnauthorizedException(
-        'Only the teacher can change the meeting method',
-      );
-    }
-
-    // P0-2: Get current token version for room name generation
-    const tokenVersion = (booking as any).jitsiTokenVersion || 1;
-
-    await this.prisma.bookings.update({
-      where: { id: bookingId },
-      data: {
-        useExternalMeetingLink: useExternal,
-        // If switching to Jitsi and no room ID exists, generate one
-        // Note: We store the base room ID without version - version is appended at runtime
-        ...(!useExternal &&
-          !booking.jitsiRoomId && {
-            jitsiRoomId: this.generateRoomName(bookingId, tokenVersion),
-            jitsiEnabled: true,
-          }),
-      },
-    });
-
-    this.logger.log(
-      `Booking ${bookingId} meeting method changed to ${useExternal ? 'external' : 'jitsi'}`,
-    );
-  }
+  // Note: toggleJitsiForBooking removed - Jitsi is now admin-controlled only.
+  // Admin enables/disables Jitsi via:
+  // 1. Global toggle: system_settings.jitsiConfig.enabled
+  // 2. Per-teacher whitelist: teacher_profiles.jitsiEnabled
 }

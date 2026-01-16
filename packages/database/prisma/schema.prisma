@@ -706,6 +706,7 @@ model teacher_profiles {
   vacationEndDate                DateTime?
   vacationReason                 String?
   vacationStartDate              DateTime?
+  jitsiEnabled                   Boolean                          @default(false)
   availability                   availability[]
   availability_exceptions        availability_exceptions[]
   bank_info                      bank_info?

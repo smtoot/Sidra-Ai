@@ -52,24 +52,50 @@ export class FeatureFlagService {
 
   /**
    * Check if Jitsi is enabled for a specific teacher
-   * Currently just checks global flag (per-teacher disabled per user request)
+   * Requires BOTH global flag AND per-teacher whitelist
+   * Admin controls both: global toggle + per-teacher enablement
    */
   async isJitsiEnabledForTeacher(teacherId: string): Promise<boolean> {
-    // Check global flag only (no per-teacher control as per user request)
-    return this.isJitsiEnabled();
+    // First check global flag
+    const globalEnabled = await this.isJitsiEnabled();
+    if (!globalEnabled) {
+      this.logger.debug(`Jitsi disabled globally, skipping teacher check`);
+      return false;
+    }
+
+    // Then check if teacher is whitelisted
+    try {
+      const teacher = await this.prisma.teacher_profiles.findUnique({
+        where: { id: teacherId },
+        select: { jitsiEnabled: true },
+      });
+
+      const teacherEnabled = teacher?.jitsiEnabled ?? false;
+      this.logger.debug(
+        `Jitsi for teacher ${teacherId}: ${teacherEnabled ? 'enabled' : 'disabled'}`,
+      );
+      return teacherEnabled;
+    } catch (error) {
+      this.logger.warn(
+        `Error checking Jitsi flag for teacher ${teacherId}: ${error.message}`,
+      );
+      return false;
+    }
   }
 
   /**
    * Check if Jitsi is enabled for a specific booking
+   * Admin-controlled: checks global flag AND teacher whitelist
    */
   async isJitsiEnabledForBooking(booking: any): Promise<boolean> {
-    // Check if Jitsi is explicitly disabled for this booking
-    if (booking.useExternalMeetingLink) {
+    // Check if teacher is enabled for Jitsi (includes global check)
+    const teacherId = booking.teacherId;
+    if (!teacherId) {
+      this.logger.warn('Booking has no teacherId, cannot check Jitsi status');
       return false;
     }
 
-    // Check global flag
-    return this.isJitsiEnabled();
+    return this.isJitsiEnabledForTeacher(teacherId);
   }
 
   /**

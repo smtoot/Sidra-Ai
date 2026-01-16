@@ -156,6 +156,9 @@ export class BookingController {
   }
 
   // --- Jitsi Integration ---
+  // Note: Jitsi is admin-controlled only. Teachers cannot toggle Jitsi on/off.
+  // Admin enables Jitsi globally (system_settings.jitsiConfig.enabled) AND
+  // per-teacher (teacher_profiles.jitsiEnabled) via admin panel.
 
   // Get Jitsi configuration with JWT token for a booking
   // Accessible by teacher, parent/student who booked the session
@@ -163,27 +166,6 @@ export class BookingController {
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   async getJitsiConfig(@Request() req: any, @Param('id') id: string) {
     return this.jitsiService.getJitsiConfigForBooking(id, req.user.userId);
-  }
-
-  // Teacher toggles between Jitsi and external meeting link
-  @Patch(':id/toggle-jitsi')
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 toggles per minute
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.TEACHER)
-  async toggleJitsi(
-    @Request() req: any,
-    @Param('id') id: string,
-    @Body() dto: { useExternal: boolean },
-  ) {
-    await this.jitsiService.toggleJitsiForBooking(
-      id,
-      dto.useExternal,
-      req.user.userId,
-    );
-    return {
-      success: true,
-      message: `Meeting method updated to ${dto.useExternal ? 'external link' : 'Jitsi'}`,
-    };
   }
 
   // --- Phase 2C: Payment Integration ---
