@@ -115,8 +115,9 @@ export function MultiStepBookingModal({
         try {
             const profile = await authApi.getProfile();
             setUserRole(profile.role as 'PARENT' | 'STUDENT');
-            // Use email as fallback since UserProfile doesn't have name field
-            setUserName(profile.email?.split('@')[0] || '');
+            // UserProfile doesn't have firstName, use role-based fallback
+            const displayName = profile.role === 'PARENT' ? 'ولي الأمر' : profile.role === 'STUDENT' ? 'الطالب' : 'مستخدم';
+            setUserName(displayName);
             setUserId(profile.id);
 
             if (profile.role === 'PARENT' && profile.parentProfile?.children) {
