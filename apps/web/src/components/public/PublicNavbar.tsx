@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, LogOut, LayoutDashboard, Search, Bell } from 'lucide-react';
+import { X, LogOut, LayoutDashboard, Search } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/notification/NotificationBell';
 
 const NAV_LINKS = [
     { href: '/search', label: 'ابحث عن معلم' },
@@ -144,15 +145,7 @@ export function PublicNavbar() {
                             {isLoggedIn ? (
                                 <>
                                     {/* Notifications */}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-gray-500 hover:text-primary relative"
-                                        aria-label="الإشعارات"
-                                    >
-                                        <Bell className="w-5 h-5" />
-                                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                                    </Button>
+                                    <NotificationBell />
 
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>

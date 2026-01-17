@@ -250,11 +250,11 @@
      ======================================== */
 
   /* Arabic: Cairo (preferred) or Tajawal (current) */
+  --font-cairo: "Cairo";
+  --font-tajawal: "Tajawal";
+  --font-poppins: "Poppins";
   --font-display: var(--font-cairo), var(--font-tajawal), Lexend, sans-serif;
   --font-body: var(--font-cairo), var(--font-tajawal), sans-serif;
-  --font-tajawal: var(--font-tajawal);
-  --font-cairo: var(--font-cairo);
-  --font-poppins: var(--font-poppins);
 
   /* Override defaults */
   --font-sans: var(--font-poppins), var(--font-cairo), var(--font-tajawal), system-ui, sans-serif;
