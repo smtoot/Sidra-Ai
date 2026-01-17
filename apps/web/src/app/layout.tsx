@@ -1,6 +1,5 @@
 import "reflect-metadata";
 import type { Metadata } from "next";
-import { Tajawal, Poppins, Cairo } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { SystemConfigProvider } from "@/context/SystemConfigContext";
@@ -10,27 +9,6 @@ import { PostHogProvider } from "@/providers/PostHogProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProductTourProvider } from "@/providers/ProductTourProvider";
 import { RuntimeConfigProvider } from "@/components/providers/RuntimeConfigProvider";
-
-const tajawal = Tajawal({
-  subsets: ["arabic"],
-  weight: ["400", "500", "700"],
-  variable: "--font-tajawal",
-  display: "swap",
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-poppins",
-  display: "swap",
-});
-
-const cairo = Cairo({
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-cairo",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Sidra - سدرة",
@@ -49,7 +27,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${cairo.variable} ${tajawal.variable} ${poppins.variable} font-sans bg-background text-text antialiased`}
+        className="font-sans bg-background text-text antialiased"
       >
         <ErrorBoundary>
           <RuntimeConfigProvider>

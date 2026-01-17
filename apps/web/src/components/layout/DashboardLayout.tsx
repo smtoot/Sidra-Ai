@@ -6,6 +6,7 @@ import { Navigation } from '@/components/layout/Navigation';
 import { useAuth } from '@/context/AuthContext';
 import { PublicNavbar, Footer } from '@/components/public';
 import { Toaster } from 'sonner';
+import { NotificationListener } from '@/components/notification/NotificationListener';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -66,6 +67,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <main className="flex-1 bg-gray-50/50 pt-28 md:pt-0">
                     {children}
                 </main>
+                <NotificationListener />
                 <Toaster richColors position="top-center" />
             </div>
         );
@@ -84,6 +86,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 {children}
             </main>
             <Footer />
+            <NotificationListener />
             <Toaster richColors position="top-center" />
         </div>
     );

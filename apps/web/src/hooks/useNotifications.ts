@@ -3,7 +3,7 @@ import { notificationApi, Notification } from '@/lib/api/notification';
 import { useAuth } from '@/context/AuthContext';
 
 const STALE_TIME = 30 * 1000; // 30 seconds
-const REFETCH_INTERVAL = 60 * 1000; // 60 seconds
+const REFETCH_INTERVAL = 15 * 1000; // 15 seconds
 
 /**
  * Hook to fetch notifications with automatic refetching.

@@ -11,8 +11,13 @@ export type NotificationType =
     | 'ESCROW_REMINDER'
     | 'DEPOSIT_APPROVED'
     | 'DEPOSIT_REJECTED'
+    | 'DISPUTE_RAISED'
     | 'DISPUTE_UPDATE'
-    | 'SYSTEM_ALERT';
+    | 'SYSTEM_ALERT'
+    | 'URGENT'
+    | 'ADMIN_ALERT'
+    | 'SESSION_REMINDER'
+    | 'ACCOUNT_UPDATE';
 
 export type NotificationStatus = 'READ' | 'UNREAD' | 'ARCHIVED';
 
@@ -76,6 +81,18 @@ export const notificationApi = {
      */
     async markAllAsRead(): Promise<{ count: number }> {
         const response = await api.patch('/notifications/read-all');
+        return response.data;
+    },
+
+    async longPoll(since: string, timeoutMs = 25000): Promise<{
+        changed: boolean;
+        latestCreatedAt: string | null;
+        notificationId: string | null;
+    }> {
+        const response = await api.get('/notifications/long-poll', {
+            params: { since, timeoutMs },
+            timeout: timeoutMs + 5000, // allow server wait + network overhead
+        });
         return response.data;
     },
 };

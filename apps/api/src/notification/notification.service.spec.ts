@@ -125,6 +125,91 @@ describe('NotificationService', () => {
     });
   });
 
+  describe('PII redaction', () => {
+    it('should redact email and phone number in in-app notification', async () => {
+      (prisma.notifications.create as jest.Mock).mockResolvedValue({
+        id: 'test-id',
+      });
+
+      await service.createInAppNotification({
+        userId: 'user-1',
+        title: 'Hello test@example.com',
+        message: 'Call me at +1 (415) 555-2671 please',
+        type: NotificationType.BOOKING_REQUEST as any,
+        metadata: { email: 'leak@example.com', phoneNumber: '+201234567890' },
+      });
+
+      expect(prisma.notifications.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          title: 'Hello [redacted]',
+          message: 'Call me at [redacted] please',
+          // email / phone fields are removed from metadata
+          metadata: {},
+        }),
+      });
+    });
+
+    it('should redact PII inside email payload but not change recipient address', async () => {
+      (prisma.email_outbox.create as jest.Mock).mockResolvedValue({
+        id: 'email-1',
+      });
+
+      await service.enqueueEmail({
+        to: 'recipient@example.com',
+        subject: 'Subject test@example.com',
+        templateId: 'generic-notification',
+        payload: {
+          message: 'Contact: +966 50 123 4567',
+          nested: { email: 'nested@example.com' },
+        },
+      });
+
+      expect(prisma.email_outbox.create).toHaveBeenCalledWith({
+        data: {
+          to: 'recipient@example.com',
+          subject: 'Subject [redacted]',
+          templateId: 'generic-notification',
+          payload: {
+            message: 'Contact: [redacted]',
+            nested: {},
+          },
+        },
+      });
+    });
+  });
+
+  describe('metrics', () => {
+    it('should return in-app notification stats', async () => {
+      // groupBy + count + findFirst are used by getInAppNotificationStats
+      (prisma as any).notifications.groupBy = jest.fn().mockResolvedValue([
+        { type: 'BOOKING_REQUEST', _count: { _all: 3 } },
+        { type: 'PAYMENT_SUCCESS', _count: { _all: 1 } },
+      ]);
+      (prisma.notifications.count as jest.Mock).mockResolvedValueOnce(7); // unread
+      (prisma.notifications.count as jest.Mock).mockResolvedValueOnce(100); // total
+      (prisma as any).notifications.findFirst = jest.fn().mockResolvedValue({
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const stats = await (service as any).getInAppNotificationStats({
+        hours: 24,
+      });
+
+      expect(stats).toEqual(
+        expect.objectContaining({
+          windowHours: 24,
+          unreadCount: 7,
+          totalCount: 100,
+          latestCreatedAt: '2026-01-01T00:00:00.000Z',
+          createdByType: [
+            { type: 'BOOKING_REQUEST', count: 3 },
+            { type: 'PAYMENT_SUCCESS', count: 1 },
+          ],
+        }),
+      );
+    });
+  });
+
   describe('getUnreadCount', () => {
     it('should return correct unread count', async () => {
       (prisma.notifications.count as jest.Mock).mockResolvedValue(5);

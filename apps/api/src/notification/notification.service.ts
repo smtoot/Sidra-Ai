@@ -55,6 +55,61 @@ export class NotificationService {
 
   constructor(private prisma: PrismaService) {}
 
+  private logMetric(event: string, payload: Record<string, unknown>) {
+    // Never log user-facing content; only safe metadata.
+    this.logger.log(`[METRIC] ${event} ${JSON.stringify(payload)}`);
+  }
+
+  private sanitizeText(text: string): string {
+    if (!text) return text;
+
+    let result = text;
+
+    // Redact emails
+    const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+    result = result.replace(emailRegex, '[redacted]');
+
+    // Redact phone-like sequences (8-15 digits total after stripping separators)
+    const phoneCandidateRegex = /(\+?\d[\d\s().-]{6,}\d)/g;
+    result = result.replace(phoneCandidateRegex, (match) => {
+      const digits = match.replace(/\D/g, '');
+      if (digits.length >= 8 && digits.length <= 15) return '[redacted]';
+      return match;
+    });
+
+    return result;
+  }
+
+  private sanitizeJson(value: any, depth: number = 0): any {
+    if (value == null) return value;
+    if (depth >= 4) return value;
+
+    if (typeof value === 'string') return this.sanitizeText(value);
+    if (typeof value === 'number' || typeof value === 'boolean') return value;
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sanitizeJson(item, depth + 1));
+    }
+
+    if (typeof value === 'object') {
+      const output: Record<string, any> = {};
+      for (const [key, raw] of Object.entries(value)) {
+        const loweredKey = key.toLowerCase();
+        if (
+          loweredKey.includes('email') ||
+          loweredKey.includes('phone') ||
+          loweredKey.includes('whatsapp')
+        ) {
+          continue;
+        }
+        output[key] = this.sanitizeJson(raw, depth + 1);
+      }
+      return output;
+    }
+
+    return value;
+  }
+
   /**
    * Create an in-app notification with optional idempotency via dedupeKey.
    * If dedupeKey is provided and a duplicate exists, skip silently (log warning only).
@@ -62,28 +117,51 @@ export class NotificationService {
   async createInAppNotification(
     params: CreateNotificationParams,
   ): Promise<boolean> {
+    const sanitizedTitle = this.sanitizeText(params.title);
+    const sanitizedMessage = this.sanitizeText(params.message);
+    const sanitizedMetadata =
+      params.metadata !== undefined ? this.sanitizeJson(params.metadata) : undefined;
+
+    if (sanitizedTitle !== params.title || sanitizedMessage !== params.message) {
+      this.logger.warn(
+        `PII redaction applied for notification type=${params.type} userId=${params.userId}`,
+      );
+    }
+
     try {
       await this.prisma.notifications.create({
         data: {
           userId: params.userId,
-          title: params.title,
-          message: params.message,
+          title: sanitizedTitle,
+          message: sanitizedMessage,
           type: params.type,
           link: params.link,
-          metadata: params.metadata as Prisma.InputJsonValue,
+          metadata: sanitizedMetadata as Prisma.InputJsonValue,
           dedupeKey: params.dedupeKey,
           status: NotificationStatus.UNREAD,
         },
+      });
+
+      this.logMetric('notification.in_app.created', {
+        type: params.type,
+        hasDedupeKey: !!params.dedupeKey,
+        hasLink: !!params.link,
       });
       return true;
     } catch (error: any) {
       // Handle unique constraint violation for dedupeKey
       if (error.code === 'P2002' && params.dedupeKey) {
         this.logger.warn(`Duplicate notification skipped: ${params.dedupeKey}`);
+        this.logMetric('notification.in_app.duplicate_skipped', {
+          type: params.type,
+        });
         return false;
       }
       // For other errors, log and rethrow
       this.logger.error('Failed to create notification', error);
+      this.logMetric('notification.in_app.failed', {
+        type: params.type,
+      });
       throw error;
     }
   }
@@ -96,12 +174,15 @@ export class NotificationService {
     await this.prisma.email_outbox.create({
       data: {
         to: params.to,
-        subject: params.subject,
+        subject: this.sanitizeText(params.subject),
         templateId: params.templateId,
-        payload: params.payload as Prisma.InputJsonValue,
+        payload: this.sanitizeJson(params.payload) as Prisma.InputJsonValue,
       },
     });
     this.logger.log(`Email enqueued: ${params.templateId} to ${params.to}`);
+    this.logMetric('notification.email.enqueued', {
+      templateId: params.templateId,
+    });
   }
 
   /**
@@ -220,6 +301,193 @@ export class NotificationService {
         status: NotificationStatus.UNREAD,
       },
     });
+  }
+
+  private async getLatestNotificationMeta(userId: string): Promise<{
+    id: string;
+    createdAt: Date;
+  } | null> {
+    return this.prisma.notifications.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true },
+    });
+  }
+
+  /**
+   * Long-poll helper to detect newly created notifications without WebSockets/SSE.
+   * Returns immediately if a notification exists with createdAt > `since`.
+   */
+  async waitForNewNotification(
+    userId: string,
+    since?: string,
+    timeoutMs: number = 25_000,
+  ): Promise<{
+    changed: boolean;
+    latestCreatedAt: string | null;
+    notificationId: string | null;
+  }> {
+    const pollIntervalMs = 1000;
+
+    const sinceDate = since ? new Date(since) : null;
+    const effectiveSince =
+      sinceDate && !Number.isNaN(sinceDate.getTime()) ? sinceDate : new Date(0);
+
+    const deadline = Date.now() + Math.max(0, timeoutMs);
+
+    while (Date.now() < deadline) {
+      const latest = await this.getLatestNotificationMeta(userId);
+
+      if (latest && latest.createdAt.getTime() > effectiveSince.getTime()) {
+        return {
+          changed: true,
+          latestCreatedAt: latest.createdAt.toISOString(),
+          notificationId: latest.id,
+        };
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+
+    const latest = await this.getLatestNotificationMeta(userId);
+    return {
+      changed: false,
+      latestCreatedAt: latest ? latest.createdAt.toISOString() : null,
+      notificationId: null,
+    };
+  }
+
+  // ========================================
+  // Admin: Email Outbox Monitoring
+  // ========================================
+
+  async getEmailOutboxStats(): Promise<{
+    pending: number;
+    processing: number;
+    sent: number;
+    failed: number;
+    oldestPendingAt: string | null;
+    oldestFailedAt: string | null;
+  }> {
+    const [pending, processing, sent, failed, oldestPending, oldestFailed] =
+      await Promise.all([
+        this.prisma.email_outbox.count({ where: { status: 'PENDING' as any } }),
+        this.prisma.email_outbox.count({
+          where: { status: 'PROCESSING' as any },
+        }),
+        this.prisma.email_outbox.count({ where: { status: 'SENT' as any } }),
+        this.prisma.email_outbox.count({ where: { status: 'FAILED' as any } }),
+        this.prisma.email_outbox.findFirst({
+          where: { status: 'PENDING' as any },
+          orderBy: { createdAt: 'asc' },
+          select: { createdAt: true },
+        }),
+        this.prisma.email_outbox.findFirst({
+          where: { status: 'FAILED' as any },
+          orderBy: { createdAt: 'asc' },
+          select: { createdAt: true },
+        }),
+      ]);
+
+    return {
+      pending,
+      processing,
+      sent,
+      failed,
+      oldestPendingAt: oldestPending
+        ? oldestPending.createdAt.toISOString()
+        : null,
+      oldestFailedAt: oldestFailed
+        ? oldestFailed.createdAt.toISOString()
+        : null,
+    };
+  }
+
+  async getEmailOutbox(
+    params: {
+      status?: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED';
+      page?: number;
+      limit?: number;
+    } = {},
+  ) {
+    const page = Math.max(1, params.page || 1);
+    const take = Math.min(Math.max(1, params.limit || 20), 50);
+    const skip = (page - 1) * take;
+
+    const where = params.status ? { status: params.status as any } : {};
+
+    const [items, total] = await Promise.all([
+      this.prisma.email_outbox.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.email_outbox.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit: take,
+        pages: Math.ceil(total / take),
+      },
+    };
+  }
+
+  async retryEmailOutbox(id: string): Promise<{ success: boolean }> {
+    const result = await this.prisma.email_outbox.updateMany({
+      where: { id, status: 'FAILED' as any },
+      data: {
+        status: 'PENDING' as any,
+        nextRetryAt: null,
+        errorMessage: null,
+      },
+    });
+
+    return { success: result.count > 0 };
+  }
+
+  async getInAppNotificationStats(params?: {
+    hours?: number;
+  }): Promise<{
+    windowHours: number;
+    createdByType: { type: string; count: number }[];
+    unreadCount: number;
+    totalCount: number;
+    latestCreatedAt: string | null;
+  }> {
+    const hours = Math.min(Math.max(params?.hours ?? 24, 1), 168); // 1h..7d
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+    const [createdByType, unreadCount, totalCount, latest] =
+      await Promise.all([
+        this.prisma.notifications.groupBy({
+          by: ['type'],
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+        }),
+        this.prisma.notifications.count({
+          where: { status: NotificationStatus.UNREAD as any },
+        }),
+        this.prisma.notifications.count(),
+        this.prisma.notifications.findFirst({
+          orderBy: { createdAt: 'desc' },
+          select: { createdAt: true },
+        }),
+      ]);
+
+    return {
+      windowHours: hours,
+      createdByType: createdByType
+        .map((row) => ({ type: String(row.type), count: row._count._all }))
+        .sort((a, b) => b.count - a.count),
+      unreadCount,
+      totalCount,
+      latestCreatedAt: latest ? latest.createdAt.toISOString() : null,
+    };
   }
 
   // ========================================

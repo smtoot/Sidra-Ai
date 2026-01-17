@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -71,5 +72,24 @@ export class NotificationController {
   async markAllAsRead(@Request() req: any) {
     const count = await this.notificationService.markAllAsRead(req.user.userId);
     return { count };
+  }
+
+  /**
+   * GET /notifications/long-poll
+   * Long-poll endpoint to detect newly created notifications without WebSockets.
+   * Client provides `since` (ISO date string). Server waits up to `timeoutMs` (default 25000).
+   */
+  @Get('long-poll')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
+  async longPoll(
+    @Request() req: any,
+    @Query('since') since?: string,
+    @Query('timeoutMs') timeoutMs?: string,
+  ) {
+    return this.notificationService.waitForNewNotification(
+      req.user.userId,
+      since,
+      timeoutMs ? Number(timeoutMs) : undefined,
+    );
   }
 }

@@ -1520,8 +1520,20 @@ export class AdminService {
           } as any,
         });
 
-        // Notify NotificationService (Teacher)
-        // this.notificationService.notifyUser(..) // TODO: Add template
+        // Notify teacher of withdrawal payout completion
+        await this.notificationService.notifyUser({
+          userId: transaction.wallets.userId,
+          title: 'تم صرف طلب السحب',
+          message: `تم صرف مبلغ ${transaction.amount} SDG بنجاح. يمكنك مراجعة محفظتك للتفاصيل.`,
+          type: 'PAYMENT_RELEASED',
+          link: '/teacher/wallet',
+          dedupeKey: `WITHDRAWAL_PAID:${transactionId}`,
+          metadata: {
+            transactionId,
+            amount: transaction.amount,
+            proofDocumentId,
+          },
+        });
       } else if (newStatus === STATUS.REJECTED) {
         // LEDGER: Refund (Pending -> Balance)
         const walletUpdate = await tx.wallets.updateMany({
