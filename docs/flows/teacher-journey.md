@@ -5,6 +5,11 @@
 
 ---
 
+## Related Booking Docs
+
+- `docs/flows/booking-state-machine.md`
+- `docs/flows/booking-business-rules.md`
+
 ## Visual Flow Overview
 
 ```mermaid

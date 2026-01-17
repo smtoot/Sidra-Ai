@@ -270,7 +270,6 @@ export function MultiStepBookingModal({
                     childId: userRole === 'PARENT' ? state.selectedChildId : undefined,
                     startTime,
                     endTime,
-                    price: state.selectedBookingOption!.price,
                     tierId: state.selectedBookingOption!.tierId!,
                     bookingNotes: state.bookingNotes,
                     termsAccepted: true
@@ -288,7 +287,6 @@ export function MultiStepBookingModal({
                     childId: userRole === 'PARENT' ? state.selectedChildId : undefined,
                     startTime,
                     endTime,
-                    price: state.selectedBookingOption!.price,
                     packageId: state.selectedBookingOption?.packageId,
                     isDemo: state.selectedBookingType === 'DEMO',
                     bookingNotes: state.bookingNotes,

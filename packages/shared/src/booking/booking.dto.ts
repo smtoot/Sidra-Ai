@@ -26,8 +26,10 @@ export class CreateBookingDto {
     @IsDateString()
     endTime!: string; // ISO 8601
 
-    // Note: Price is calculated server-side based on teacher's rate and duration.
-    // This field is kept for backwards compatibility but ignored by the backend.
+    /**
+     * @deprecated Price is calculated server-side; client-provided price is ignored.
+     * Kept temporarily for backward compatibility with strict validation settings.
+     */
     @Type(() => Number)
     @IsNumber()
     @IsOptional()
@@ -36,6 +38,9 @@ export class CreateBookingDto {
 
     @IsString()
     @IsOptional()
+    @Matches(/^(UTC|[A-Za-z0-9_+\-]+\/[A-Za-z0-9_+\-]+(\/[A-Za-z0-9_+\-]+)*)$/, {
+        message: 'Timezone must be a valid IANA timezone (e.g., Asia/Riyadh, America/New_York)',
+    })
     timezone?: string; // User's IANA timezone (e.g., "Asia/Tokyo")
 
     @IsString()

@@ -6,7 +6,9 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { SystemType, DayOfWeek } from '@prisma/client'; // Added DayOfWeek
 
-describe('Educational Hierarchy & Search (E2E Contract)', () => {
+const describeDb = process.env.RUN_DB_E2E === 'true' ? describe : describe.skip;
+
+describeDb('Educational Hierarchy & Search (E2E Contract)', () => {
   let app: INestApplication;
   let teacherToken: string;
   let adminToken: string;

@@ -5,6 +5,7 @@ import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notification/notification.service';
 import { PackageService } from '../package/package.service';
 import { normalizeMoney } from '../utils/money';
+import { BookingConstants } from './booking.constants';
 
 @Injectable()
 export class EscrowSchedulerService {
@@ -16,6 +17,22 @@ export class EscrowSchedulerService {
     private notificationService: NotificationService,
     private packageService: PackageService,
   ) {}
+
+  private getSafeDisplayName(
+    user:
+      | {
+          firstName?: string | null;
+          lastName?: string | null;
+          displayName?: string | null;
+        }
+      | null
+      | undefined,
+    fallback: string,
+  ): string {
+    if (!user) return fallback;
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return fullName || user.displayName || fallback;
+  }
 
   /**
    * Auto-release job: Runs every 15 minutes
@@ -163,8 +180,9 @@ export class EscrowSchedulerService {
 
     try {
       // Get system settings for reminder intervals
-      const settings = await this.getSystemSettings();
-      const reminderIntervals = [6, 12, 24]; // Hardcoded: reminderIntervals was removed from settings
+      await this.getSystemSettings();
+      const reminderIntervals =
+        BookingConstants.CONFIRMATION_REMINDER_INTERVALS_HOURS; // Hardcoded: reminderIntervals was removed from settings
       const now = new Date();
 
       let reminderCount = 0;
@@ -184,7 +202,13 @@ export class EscrowSchedulerService {
             status: 'PENDING_CONFIRMATION',
             disputeWindowOpensAt: {
               lte: targetCompletionTime,
-              gte: new Date(targetCompletionTime.getTime() - 60 * 60 * 1000), // Within 1-hour window
+              gte: new Date(
+                targetCompletionTime.getTime() -
+                  BookingConstants.CONFIRMATION_REMINDER_SEARCH_WINDOW_HOURS *
+                    60 *
+                    60 *
+                    1000,
+              ), // Within 1-hour window
             },
             disputeReminderSentAt: null, // No reminder sent yet
             disputes: null,
@@ -218,8 +242,10 @@ export class EscrowSchedulerService {
                 bookingId: booking.id,
                 parentUserId: booking.bookedByUserId,
                 hoursRemaining,
-                teacherName:
-                  booking.teacher_profiles.users.phoneNumber || 'teacher',
+                teacherName: this.getSafeDisplayName(
+                  booking.teacher_profiles?.users,
+                  'teacher',
+                ),
               });
 
               reminderCount++;
@@ -254,10 +280,11 @@ export class EscrowSchedulerService {
       settings = await this.prisma.system_settings.create({
         data: {
           id: 'default',
-          confirmationWindowHours: 48,
+          confirmationWindowHours: BookingConstants.DISPUTE_WINDOW_HOURS,
           autoReleaseEnabled: true,
-          reminderHoursBeforeRelease: 6,
-          defaultCommissionRate: 0.18,
+          reminderHoursBeforeRelease:
+            BookingConstants.CONFIRMATION_REMINDER_INTERVALS_HOURS[0],
+          defaultCommissionRate: BookingConstants.DEFAULT_COMMISSION_RATE,
           updatedAt: new Date(),
         },
       });
@@ -276,8 +303,16 @@ export class EscrowSchedulerService {
 
     try {
       const now = new Date();
-      const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-      const twentyMinutesFromNow = new Date(now.getTime() + 20 * 60 * 1000);
+      const thirtyMinutesFromNow = new Date(
+        now.getTime() +
+          BookingConstants.MISSING_MEETING_LINK_WINDOW_MINUTES_END * 60 * 1000,
+      );
+      const twentyMinutesFromNow = new Date(
+        now.getTime() +
+          BookingConstants.MISSING_MEETING_LINK_WINDOW_MINUTES_START *
+            60 *
+            1000,
+      );
 
       // Find SCHEDULED sessions starting in 20-30 minutes without meeting link
       const sessionsNeedingLink = await this.prisma.bookings.findMany({
@@ -341,7 +376,10 @@ export class EscrowSchedulerService {
 
     try {
       const now = new Date();
-      const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+      const sixHoursAgo = new Date(
+        now.getTime() -
+          BookingConstants.STALE_SESSION_THRESHOLD_HOURS * 60 * 60 * 1000,
+      );
 
       // Find SCHEDULED sessions that ended 6+ hours ago (teacher forgot to complete)
       const staleSessions = await this.prisma.bookings.findMany({
@@ -508,8 +546,18 @@ export class EscrowSchedulerService {
 
     try {
       const now = new Date();
-      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-      const fiftyMinutesFromNow = new Date(now.getTime() + 50 * 60 * 1000);
+      const oneHourFromNow = new Date(
+        now.getTime() +
+          BookingConstants.SESSION_START_REMINDER_WINDOW_MINUTES_END *
+            60 *
+            1000,
+      );
+      const fiftyMinutesFromNow = new Date(
+        now.getTime() +
+          BookingConstants.SESSION_START_REMINDER_WINDOW_MINUTES_START *
+            60 *
+            1000,
+      );
 
       // Find SCHEDULED sessions starting in 50-60 minutes
       // Haven't sent reminder yet
@@ -547,10 +595,14 @@ export class EscrowSchedulerService {
         try {
           const studentName =
             booking.children?.name ||
-            booking.users_bookings_studentUserIdTousers?.email ||
-            'الطالب';
-          const teacherName =
-            booking.teacher_profiles.users.phoneNumber || 'المعلم';
+            this.getSafeDisplayName(
+              booking.users_bookings_studentUserIdTousers,
+              'الطالب',
+            );
+          const teacherName = this.getSafeDisplayName(
+            booking.teacher_profiles?.users,
+            'المعلم',
+          );
           const subjectName = booking.subjects?.nameAr || 'الدرس';
           const minutesUntilStart = Math.round(
             (booking.startTime.getTime() - now.getTime()) / (60 * 1000),

@@ -25,7 +25,6 @@ export interface CreateBookingRequest {
     childId?: string; // Optional: Only for Parent bookings
     startTime: string; // ISO 8601
     endTime: string; // ISO 8601
-    price: number;
     timezone?: string; // User's IANA timezone
     bookingNotes?: string; // Notes from parent/student about what they want to study
     // Package & Demo support
@@ -140,6 +139,11 @@ export const bookingApi = {
 
     getTeacherRequests: async (): Promise<Booking[]> => {
         const response = await api.get('/bookings/teacher/requests');
+        return response.data;
+    },
+
+    getTeacherRequestsCount: async (): Promise<{ count: number }> => {
+        const response = await api.get('/bookings/teacher/requests/count');
         return response.data;
     },
 

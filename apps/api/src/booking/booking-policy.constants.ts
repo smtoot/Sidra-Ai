@@ -37,6 +37,7 @@ export const BOOKING_STATUS_TRANSITIONS: Record<string, string[]> = {
   // Session is scheduled and paid
   SCHEDULED: [
     'PENDING_CONFIRMATION', // Session completed, awaiting confirmation
+    'COMPLETED', // Admin manual completion (legacy endpoint)
     'CANCELLED_BY_PARENT', // Parent cancelled (with refund policy)
     'CANCELLED_BY_TEACHER', // Teacher cancelled (full refund)
     'CANCELLED_BY_ADMIN', // Admin intervention

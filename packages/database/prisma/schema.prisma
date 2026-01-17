@@ -136,7 +136,9 @@ model bookings {
   @@index([autoReleaseAt])
   @@index([beneficiaryType])
   @@index([bookedByUserId])
+  @@index([bookedByUserId, status, createdAt], map: "bookings_bookedByUserId_status_createdAt_idx")
   @@index([paymentReleasedAt])
+  @@index([teacherId, status, startTime], map: "bookings_teacherId_status_startTime_idx")
   @@index([startTime])
   @@index([status])
 }

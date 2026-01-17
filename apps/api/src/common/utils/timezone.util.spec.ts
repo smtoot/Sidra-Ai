@@ -1,11 +1,26 @@
 import {
   parseTimeInTimezoneToUTC,
   formatInTimezone,
+  isValidTimezone,
   buildUtcWindowForUserDate,
   getTeacherDatesInUtcWindow,
 } from './timezone.util';
 
 describe('Timezone Utilities', () => {
+  describe('isValidTimezone', () => {
+    it('should accept valid IANA timezones', () => {
+      expect(isValidTimezone('Asia/Riyadh')).toBe(true);
+      expect(isValidTimezone('America/New_York')).toBe(true);
+      expect(isValidTimezone('UTC')).toBe(true);
+    });
+
+    it('should reject invalid timezones', () => {
+      expect(isValidTimezone('Invalid/Timezone')).toBe(false);
+      expect(isValidTimezone('UTC+3')).toBe(false);
+      expect(isValidTimezone('')).toBe(false);
+    });
+  });
+
   describe('parseTimeInTimezoneToUTC', () => {
     it('should convert Tokyo 9:00 AM to UTC 00:00', () => {
       const result = parseTimeInTimezoneToUTC(

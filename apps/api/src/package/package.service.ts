@@ -1264,11 +1264,30 @@ export class PackageService {
 
     // Parse new date and time
     const newDate = new Date(data.newDate);
+    if (Number.isNaN(newDate.getTime())) {
+      throw new BadRequestException('Invalid newDate');
+    }
     const [hours, minutes] = data.newTime.split(':').map(Number);
     newDate.setHours(hours, minutes, 0, 0);
 
-    const newEndTime = new Date(newDate);
-    newEndTime.setHours(newEndTime.getHours() + 1);
+    const now = new Date();
+    if (newDate <= now) {
+      throw new BadRequestException('New start time must be in the future');
+    }
+    const maxFutureDate = new Date();
+    maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 1);
+    if (newDate > maxFutureDate) {
+      throw new BadRequestException(
+        'Cannot reschedule more than 1 year in advance',
+      );
+    }
+
+    const originalDurationMs =
+      booking.endTime.getTime() - booking.startTime.getTime();
+    if (!Number.isFinite(originalDurationMs) || originalDurationMs <= 0) {
+      throw new BadRequestException('Invalid booking duration');
+    }
+    const newEndTime = new Date(newDate.getTime() + originalDurationMs);
 
     // Check 1: Teacher Availability at new time via MATERIALIZED SLOTS (preliminary check)
     const slot = await this.prisma.teacher_session_slots.findUnique({

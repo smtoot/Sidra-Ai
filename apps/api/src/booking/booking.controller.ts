@@ -75,6 +75,18 @@ export class BookingController {
     return this.bookingService.getTeacherRequests(req.user.userId);
   }
 
+  // Get teacher's pending request count (for badges)
+  @Get('teacher/requests/count')
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 per minute
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async getTeacherRequestsCount(@Request() req: any) {
+    const count = await this.bookingService.getTeacherRequestsCount(
+      req.user.userId,
+    );
+    return { count };
+  }
+
   // Get teacher's all sessions
   @Get('teacher/my-sessions')
   @UseGuards(RolesGuard)
@@ -121,6 +133,7 @@ export class BookingController {
 
   // Get single booking by ID (for session detail page)
   @Get(':id')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   getBookingById(@Request() req: any, @Param('id') id: string) {
     return this.bookingService.getBookingById(
       req.user.userId,
@@ -250,6 +263,7 @@ export class BookingController {
 
   // Get cancellation estimate (read-only preview)
   @Get(':id/cancel-estimate')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute
   getCancellationEstimate(@Request() req: any, @Param('id') id: string) {
     return this.bookingService.getCancellationEstimate(
       req.user.userId,
@@ -293,6 +307,7 @@ export class BookingController {
 
   // Get meeting events for a booking (for admin)
   @Get(':id/meeting-events')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.SUPPORT)
   getMeetingEvents(@Param('id') id: string) {
