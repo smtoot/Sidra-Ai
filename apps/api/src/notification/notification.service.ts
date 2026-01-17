@@ -120,9 +120,14 @@ export class NotificationService {
     const sanitizedTitle = this.sanitizeText(params.title);
     const sanitizedMessage = this.sanitizeText(params.message);
     const sanitizedMetadata =
-      params.metadata !== undefined ? this.sanitizeJson(params.metadata) : undefined;
+      params.metadata !== undefined
+        ? this.sanitizeJson(params.metadata)
+        : undefined;
 
-    if (sanitizedTitle !== params.title || sanitizedMessage !== params.message) {
+    if (
+      sanitizedTitle !== params.title ||
+      sanitizedMessage !== params.message
+    ) {
       this.logger.warn(
         `PII redaction applied for notification type=${params.type} userId=${params.userId}`,
       );
@@ -450,9 +455,7 @@ export class NotificationService {
     return { success: result.count > 0 };
   }
 
-  async getInAppNotificationStats(params?: {
-    hours?: number;
-  }): Promise<{
+  async getInAppNotificationStats(params?: { hours?: number }): Promise<{
     windowHours: number;
     createdByType: { type: string; count: number }[];
     unreadCount: number;
@@ -462,22 +465,21 @@ export class NotificationService {
     const hours = Math.min(Math.max(params?.hours ?? 24, 1), 168); // 1h..7d
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-    const [createdByType, unreadCount, totalCount, latest] =
-      await Promise.all([
-        this.prisma.notifications.groupBy({
-          by: ['type'],
-          where: { createdAt: { gte: since } },
-          _count: { _all: true },
-        }),
-        this.prisma.notifications.count({
-          where: { status: NotificationStatus.UNREAD as any },
-        }),
-        this.prisma.notifications.count(),
-        this.prisma.notifications.findFirst({
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true },
-        }),
-      ]);
+    const [createdByType, unreadCount, totalCount, latest] = await Promise.all([
+      this.prisma.notifications.groupBy({
+        by: ['type'],
+        where: { createdAt: { gte: since } },
+        _count: { _all: true },
+      }),
+      this.prisma.notifications.count({
+        where: { status: NotificationStatus.UNREAD as any },
+      }),
+      this.prisma.notifications.count(),
+      this.prisma.notifications.findFirst({
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
 
     return {
       windowHours: hours,

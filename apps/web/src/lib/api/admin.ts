@@ -57,6 +57,42 @@ export const adminApi = {
         return response.data;
     },
 
+    // Notifications / Email Outbox
+    getEmailOutboxStats: async (): Promise<{
+        pending: number;
+        processing: number;
+        sent: number;
+        failed: number;
+        oldestPendingAt: string | null;
+        oldestFailedAt: string | null;
+    }> => {
+        const response = await api.get('/admin/notifications/email-outbox/stats');
+        return response.data;
+    },
+
+    getEmailOutbox: async (params?: { status?: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED'; page?: number; limit?: number }) => {
+        const response = await api.get('/admin/notifications/email-outbox', { params });
+        return response.data;
+    },
+
+    retryEmailOutbox: async (id: string): Promise<{ success: boolean }> => {
+        const response = await api.post(`/admin/notifications/email-outbox/${id}/retry`);
+        return response.data;
+    },
+
+    getInAppNotificationStats: async (hours = 24): Promise<{
+        windowHours: number;
+        createdByType: { type: string; count: number }[];
+        unreadCount: number;
+        totalCount: number;
+        latestCreatedAt: string | null;
+    }> => {
+        const response = await api.get('/admin/notifications/in-app/stats', {
+            params: { hours }
+        });
+        return response.data;
+    },
+
     // CMS (Marketplace)
     getCurricula: async (all = false) => {
         const response = await api.get(`/marketplace/curricula${all ? '?all=true' : ''}`);

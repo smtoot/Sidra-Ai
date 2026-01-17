@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
+import { adminApi } from '@/lib/api/admin';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Bell, Mail, Calendar, CreditCard, AlertTriangle, CheckCircle,
     Clock, User, BookOpen, Eye, Code
@@ -100,8 +102,33 @@ const categoryLabels = {
 };
 
 export default function AdminNotificationsPage() {
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'templates' | 'types'>('templates');
     const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+    const [inAppHours, setInAppHours] = useState(24);
+
+    const { data: outboxStats } = useQuery({
+        queryKey: ['admin-email-outbox-stats'],
+        queryFn: () => adminApi.getEmailOutboxStats(),
+    });
+
+    const { data: failedOutbox } = useQuery({
+        queryKey: ['admin-email-outbox', 'FAILED'],
+        queryFn: () => adminApi.getEmailOutbox({ status: 'FAILED', page: 1, limit: 10 }),
+    });
+
+    const { data: inAppStats } = useQuery({
+        queryKey: ['admin-in-app-notification-stats', inAppHours],
+        queryFn: () => adminApi.getInAppNotificationStats(inAppHours),
+    });
+
+    const retryMutation = useMutation({
+        mutationFn: (id: string) => adminApi.retryEmailOutbox(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-email-outbox-stats'] });
+            queryClient.invalidateQueries({ queryKey: ['admin-email-outbox'] });
+        }
+    });
 
     return (
         <div className="min-h-screen bg-background font-sans rtl p-6">
@@ -114,6 +141,139 @@ export default function AdminNotificationsPage() {
                     </h1>
                     <p className="text-sm text-gray-600 mt-1">عرض قوالب البريد الإلكتروني وأنواع الإشعارات</p>
                 </header>
+
+                {/* Email Outbox Health */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Mail className="w-5 h-5" />
+                            صحة صندوق البريد (Email Outbox)
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">PENDING</div>
+                                <div className="text-2xl font-bold">{outboxStats?.pending ?? '—'}</div>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">PROCESSING</div>
+                                <div className="text-2xl font-bold">{outboxStats?.processing ?? '—'}</div>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">SENT</div>
+                                <div className="text-2xl font-bold">{outboxStats?.sent ?? '—'}</div>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">FAILED</div>
+                                <div className="text-2xl font-bold text-red-600">{outboxStats?.failed ?? '—'}</div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border bg-white overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-3 border-b">
+                                <div className="font-bold">آخر 10 رسائل فاشلة</div>
+                                <div className="text-xs text-gray-500">
+                                    {outboxStats?.oldestFailedAt ? `أقدم فشل: ${new Date(outboxStats.oldestFailedAt).toLocaleString('ar-EG')}` : ''}
+                                </div>
+                            </div>
+                            <div className="divide-y">
+                                {(failedOutbox?.items || []).length === 0 ? (
+                                    <div className="p-4 text-gray-500">لا توجد رسائل فاشلة</div>
+                                ) : (
+                                    (failedOutbox?.items || []).map((email: any) => (
+                                        <div key={email.id} className="p-4 flex items-start justify-between gap-4">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-sm text-gray-500 font-mono truncate">{email.id}</div>
+                                                <div className="text-sm"><span className="font-bold">To:</span> {email.to}</div>
+                                                <div className="text-sm"><span className="font-bold">Template:</span> <span className="font-mono">{email.templateId}</span></div>
+                                                <div className="text-xs text-red-600 mt-1 line-clamp-2">{email.errorMessage || '—'}</div>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                disabled={retryMutation.isPending}
+                                                onClick={() => retryMutation.mutate(email.id)}
+                                            >
+                                                إعادة المحاولة
+                                            </Button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* In-App Notifications Health */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Bell className="w-5 h-5" />
+                            صحة الإشعارات داخل التطبيق
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm text-gray-600">
+                                نافذة الإحصائيات: آخر {inAppHours} ساعة
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {[1, 6, 24, 72].map((h) => (
+                                    <Button
+                                        key={h}
+                                        variant={inAppHours === h ? 'default' : 'outline'}
+                                        onClick={() => setInAppHours(h)}
+                                    >
+                                        {h}h
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">UNREAD</div>
+                                <div className="text-2xl font-bold">{inAppStats?.unreadCount ?? '—'}</div>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">TOTAL</div>
+                                <div className="text-2xl font-bold">{inAppStats?.totalCount ?? '—'}</div>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">CREATED (WINDOW)</div>
+                                <div className="text-2xl font-bold">
+                                    {inAppStats?.createdByType?.reduce((acc, r) => acc + (r.count || 0), 0) ?? '—'}
+                                </div>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-white">
+                                <div className="text-sm text-gray-500">LATEST</div>
+                                <div className="text-sm font-mono">
+                                    {inAppStats?.latestCreatedAt ? new Date(inAppStats.latestCreatedAt).toLocaleString('ar-EG') : '—'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border bg-white overflow-hidden">
+                            <div className="px-4 py-3 border-b font-bold">
+                                عدد الإشعارات حسب النوع (آخر {inAppStats?.windowHours ?? inAppHours} ساعة)
+                            </div>
+                            <div className="divide-y">
+                                {(inAppStats?.createdByType || []).length === 0 ? (
+                                    <div className="p-4 text-gray-500">لا توجد بيانات</div>
+                                ) : (
+                                    (inAppStats?.createdByType || []).slice(0, 12).map((row) => (
+                                        <div key={row.type} className="p-4 flex items-center justify-between">
+                                            <span className="font-mono text-sm">{row.type}</span>
+                                            <StatusBadge variant={row.count > 0 ? 'info' : 'neutral'} showDot={false}>
+                                                {row.count}
+                                            </StatusBadge>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Tabs */}
                 <div className="border-b border-gray-200">

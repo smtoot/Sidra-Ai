@@ -10,6 +10,8 @@ import {
   UseGuards,
   Req,
   BadRequestException,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,6 +29,7 @@ import { AuditAction } from '@prisma/client';
 import { PackageService } from '../package/package.service';
 import { LedgerAuditService } from '../wallet/ledger-audit.service';
 import { EmailPreviewService } from '../notification/email-preview.service';
+import { NotificationService } from '../notification/notification.service';
 
 /**
  * Authenticated request interface for JWT-protected endpoints
@@ -50,6 +53,7 @@ export class AdminController {
     private readonly packageService: PackageService,
     private readonly ledgerAuditService: LedgerAuditService,
     private readonly emailPreviewService: EmailPreviewService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @Get('dashboard')
@@ -587,5 +591,33 @@ export class AdminController {
   @Get('emails/preview/:templateId')
   getEmailPreview(@Param('templateId') templateId: string) {
     return this.emailPreviewService.renderTemplate(templateId);
+  }
+
+  // =================== NOTIFICATIONS (ADMIN) ===================
+
+  @Get('notifications/email-outbox/stats')
+  getEmailOutboxStats() {
+    return this.notificationService.getEmailOutboxStats();
+  }
+
+  @Get('notifications/email-outbox')
+  getEmailOutbox(
+    @Query('status') status?: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED',
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+  ) {
+    return this.notificationService.getEmailOutbox({ status, page, limit });
+  }
+
+  @Post('notifications/email-outbox/:id/retry')
+  retryEmailOutbox(@Param('id') id: string) {
+    return this.notificationService.retryEmailOutbox(id);
+  }
+
+  @Get('notifications/in-app/stats')
+  getInAppNotificationStats(@Query('hours') hours?: string) {
+    return this.notificationService.getInAppNotificationStats({
+      hours: hours ? Number(hours) : undefined,
+    });
   }
 }

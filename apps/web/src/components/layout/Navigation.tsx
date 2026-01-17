@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { useSystemConfig } from '@/context/SystemConfigContext';
 import { teacherApi } from '@/lib/api/teacher';
+import { useTeacherRequestsCount } from '@/hooks/useBookingCounts';
 
 interface NavItem {
     label: string;
@@ -200,6 +201,8 @@ export function Navigation({ userRole, userName }: NavigationProps) {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [counts, setCounts] = useState<{ upcoming: number, support: number }>({ upcoming: 0, support: 0 });
+    const { data: teacherRequestsCountData } = useTeacherRequestsCount();
+    const teacherRequestsCount = teacherRequestsCountData?.count || 0;
 
     // Mock Fetch Counts (In production, fetch from API or Context)
     useEffect(() => {
@@ -227,6 +230,13 @@ export function Navigation({ userRole, userName }: NavigationProps) {
             }
             if (item.label === 'الدعم الفني') {
                 return { ...item, count: counts.support > 0 ? counts.support : undefined };
+            }
+        }
+
+        // Add badges for Teacher
+        if (userRole === 'TEACHER') {
+            if (item.href === '/teacher/requests') {
+                return { ...item, count: teacherRequestsCount > 0 ? teacherRequestsCount : undefined };
             }
         }
         return item;
